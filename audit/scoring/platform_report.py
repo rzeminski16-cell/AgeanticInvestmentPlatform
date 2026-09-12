@@ -48,13 +48,27 @@ def _load(directory: Path, name: str) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _events(directory: Path) -> list[dict[str, Any]]:
+def _events(directory: Path, *, job_id: str | None = None) -> list[dict[str, Any]]:
+    """The driver's events for one run.
+
+    The log is appended to, so a subject driven twice into the same directory holds both
+    runs — M&T was, once the classification defect its first run exposed had been fixed.
+    Everything from the newest `commissioned` event onwards is this run's; without the
+    trim, the gate waits of the abandoned run were counted beside this one's.
+    """
     path = directory / "driver.jsonl"
     if not path.exists():
         return []
-    return [
+    events = [
         json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
+    starts = [
+        index
+        for index, event in enumerate(events)
+        if event.get("event") == "commissioned"
+        and (job_id is None or str(event.get("job_id")) == job_id)
+    ]
+    return events[starts[-1] :] if starts else events
 
 
 def _estimates() -> dict[str, Decimal]:
@@ -285,7 +299,7 @@ def score_run(directory: Path) -> dict[str, Any]:
     steps = _load(directory, "steps.json") or []
     spend = _load(directory, "spend.json")
     acceptance = _load(directory, "acceptance.json")
-    events = _events(directory)
+    events = _events(directory, job_id=str(export.get("run", {}).get("job_id") or "") or None)
     report_path = directory / "report.md"
     report_md = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
     score = {

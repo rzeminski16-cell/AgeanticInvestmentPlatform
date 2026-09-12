@@ -98,3 +98,54 @@ def test_a_half_year_figure_is_not_judged_against_the_year() -> None:
     )
     result = summarise(classify_all(extract_numerals(text), _truth()))
     assert result["contradicted"] == 0
+
+
+def test_a_row_label_naming_a_change_is_not_a_level() -> None:
+    """M&T's report tabulates "Share repurchases change, FY2025 | 2.235 USD billions" and
+    "Dividends paid change, FY2025 | 4 USD millions". Both read as their first concept to a
+    phrase matcher, and both were judged against the level — a £2.235bn movement against a
+    £2.631bn balance."""
+    text = (
+        "| Metric | Value |\n|---|---|\n"
+        "| Share repurchases change, FY2024 | 2.235 USD billions |\n"
+        "| Dividends paid change, FY2024 | 4 USD millions |\n"
+    )
+    result = summarise(classify_all(extract_numerals(text), _truth()))
+    assert result["contradicted"] == 0
+
+
+def test_a_row_label_naming_a_ratio_is_not_either_of_its_parts() -> None:
+    """ "Distributions to operating cash flow" is a ratio of 1.18, not an operating cash
+    flow of $1.18 — and the label contains the words of the line it is measured against."""
+    text = (
+        "| Metric | Value |\n|---|---|\n| Distributions to operating cash flow, FY2024 | 1.18 |\n"
+    )
+    result = summarise(classify_all(extract_numerals(text), _truth()))
+    assert result["contradicted"] == 0
+
+
+def test_a_period_stated_after_a_figure_belongs_to_that_figure() -> None:
+    """ "9.8 percent for FY2025 against 8.9 percent for FY2024" states two years in one
+    sentence; the prior year's figure was judged against the latest year's."""
+    numerals = extract_numerals(
+        "Revenue was $245.1 billion for FY2024 against $211.9 billion for FY2023."
+    )
+    periods = {str(n.value): n.period for n in numerals}
+    assert periods["245.1"] == "FY2024"
+    assert periods["211.9"] == "FY2023"
+    result = summarise(classify_all(numerals, _truth()))
+    assert result["contradicted"] == 0
+    assert result["matched"] == 2
+
+
+def test_a_figure_quoted_in_order_to_refuse_it_is_not_a_claim() -> None:
+    """The withheld front page states the impossible relation it found, and the validation
+    section quotes each failed check. On M&T the absurd margin appears nowhere else in the
+    document, so reading the refusal as a claim judged the platform's own honesty."""
+    text = (
+        "The at-a-glance block was withheld — the figures offered to it cannot all be true "
+        "at once: net margin 1.720579360290 for FY2024 is above 1 — income exceeding the "
+        "revenue it is measured against."
+    )
+    result = summarise(classify_all(extract_numerals(text), _truth()))
+    assert result["contradicted"] == 0

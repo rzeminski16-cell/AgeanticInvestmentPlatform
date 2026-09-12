@@ -19,10 +19,10 @@ Four criteria, measured in §3:
 
 | Criterion | Threshold | Measured | Verdict |
 |---|---|---|---|
-| **Accurate** | 0 figures contradicting the filing | **0 of 169, 0 of 188, 0 of 165** checkable numerals; every blocking metric 0 or 100 %; 160 of 160 citations verified across three runs | **yes** |
-| **Budget friendly** | ≤ £10 per report | **£7.48, £6.80, £6.83** — average £7.04; no cap raised, no run breached | **yes** |
-| **Reliable** | a report without rescue; nothing lost; the same numbers twice | 0 sections lost and 0 figures re-paid — but **two of four subjects never reached a report**, and 837 calculation rows reproduced except where a model-proposed assumption moved (value per share $485.29 against $512.50) | **not yet** |
-| **Complete** | every section, every expected figure, parity with the console | **18 of 18 sections every time** — and **no peer multiple on any run**, no segment revenue, no guidance, and on one subject no valuation at all | **no** |
+| **Accurate** | 0 figures contradicting the filing | **0 contradicted** of 169, 188, 165 and 79 checkable numerals; **216 of 216 citations verified** across four runs; every blocking metric at its threshold — except on the bank, where the check that reads relations between figures caught eleven impossible ones and refused the report (F-24) | **yes, and the one failure is the guard working** |
+| **Budget friendly** | ≤ £10 per report | **£7.48, £6.80, £6.83, £7.61** — average £7.18; no cap raised, no run breached | **yes** |
+| **Reliable** | a report without rescue; nothing lost; the same numbers twice | 0 sections lost and 0 figures re-paid across five runs — but **three of five never reached a report**, and 837 calculation rows reproduced except where a model-proposed assumption moved (value per share $485.29 against $512.50) | **not yet** |
+| **Complete** | every section, every expected figure, parity with the console | **18 of 18 sections on every run** — and **no peer multiple on any of them**, no segment revenue, no guidance, and on one subject no valuation at all | **no** |
 
 Two halves that disagree, which is why the pass has both. **Technically** the core is
 sound: the arithmetic is deterministic and replayable, every figure traces to hashed bytes,
@@ -104,21 +104,24 @@ number (F-21).
 
 ## 3. Part A — the technical assessment
 
-Five live runs, three console baselines. MTB appears twice: once as the product stood
-(`mtb-unclassified`, stopped for the operator at the assumptions gate), once on the fixed
-classification (`mtb`). Every number below is read from `audit/out/`.
+Five live runs, three console baselines. M&T appears twice: once as the product stood
+(`audit/out/mtb-unclassified/`, stopped for the operator at the assumptions gate), once on
+the fixed classification (`audit/out/mtb/`). Every number below is read from `audit/out/`.
+Two runs reached gate 2 and were refused there, so their documents were assembled from
+their own records to be scored — the same bytes the renderer would emit, and in both cases
+the check that refused them re-measures to zero under the fix (§5).
 
 ### 3.1 Reliable
 
-| Measure | MSFT #1 | MSFT #2 | AZN | MTB (as found) |
-|---|---|---|---|---|
-| Reached an approved, rendered report | **yes** | **no** — gate 2 refused on `presentation_integrity` (F-22) | **yes** | **no** — stopped for the operator at the assumptions gate (F-23) |
-| Steps failed | 0 | 0 | 1 (`red_team`, retried and passed — F-14) | 0 |
-| Non-gate retries | 1 (`extract`, caused by the audit's own driver — §6) | 1 (`draft`, the kill drill) | 2 (`red_team`, `revise`) | 0 |
-| Sections lost | **0** | 0 | 0 | — |
-| Sections degraded | 0 | 1 (`earnings_quality`, shortened to its budget) | 2 (`valuation_dcf` withheld — F-12; `catalysts`) | — |
-| Resumes needed | 0 | 1 (F-08's fix, live) | 1 (F-08's fix, live) | 0 |
-| Acceptance / replay / artefacts / audit chain | all pass; 852 calculations, 69 citations, 14 artefacts re-derived | fails only on the refused check; 857 calculations, 57 citations re-derived | all pass; 152 calculations, 34 citations | — |
+| Measure | MSFT #1 | MSFT #2 | AZN | MTB as found | MTB classified |
+|---|---|---|---|---|---|
+| Reached an approved, rendered report | **yes** | **no** — gate 2 refused on `presentation_integrity` (F-22) | **yes** | **no** — stopped for the operator at the assumptions gate (F-23) | **no** — gate 2 refused on `figure_plausibility` (F-24) |
+| Steps failed | 0 | 0 | 1 (`red_team`, retried and passed — F-14) | 0 | 0 |
+| Non-gate retries | 1 (`extract`, caused by the audit's own driver — §6) | 1 (`draft`, the kill drill) | 2 (`red_team`, `revise`) | 0 | **0** |
+| Sections lost | **0** | 0 | 0 | — | **0** |
+| Sections degraded | 0 | 1 (`earnings_quality`, shortened to its budget) | 2 (`valuation_dcf` withheld — F-12; `catalysts`) | — | 1 (`executive_summary`, shortened) |
+| Resumes needed | 0 | 1 (F-08's fix, live) | 1 (F-08's fix, live) | 0 | **0** |
+| Acceptance / replay / artefacts / audit chain | all pass; 852 calculations, 69 citations, 14 artefacts re-derived | fails only on the refused check; 857 calculations, 57 citations re-derived | all pass; 152 calculations, 34 citations | — | fails on the two refused checks; 643 calculations, 56 citations |
 
 **Run-to-run, the measure that matters.** MSFT twice, one UTC day apart, same filings:
 **837 calculation rows compared, 178 keys identical, 18 keys differing (527 rows)** — and
@@ -143,24 +146,31 @@ it beyond the re-measurement in §5.
 
 ### 3.2 Accurate
 
-| Measure | Threshold | MSFT #1 | MSFT #2 | AZN |
-|---|---|---|---|---|
-| `cited_figure_agreement` | 0 | **0** | **0** | **0** |
-| `figure_plausibility` | 0 | **0** | **0** | **0** |
-| `numerical_consistency` | ≤ 0.5 % | **0** | **0** | **0** |
-| `citation_accuracy` | ≥ 98 % | **100 %** (69 of 69 verified) | **100 %** (57 of 57) | **100 %** (34 of 34) |
-| `hallucinated_citation_rate` | 0 | **0** | **0** | **0** |
-| `temporal_compliance` | 100 % | **100 %** | **100 %** | **100 %** |
-| The audit's own matcher, against the filing | 0 contradicted | **0 of 169** checkable numerals | **0 of 188** | **0 of 165** |
-| Claims / of which numeric | — | 280 / 182 | 279 / 197 | 243 / 175 |
+| Measure | Threshold | MSFT #1 | MSFT #2 | AZN | MTB |
+|---|---|---|---|---|---|
+| `cited_figure_agreement` | 0 | **0** | **0** | **0** | **0** |
+| `figure_plausibility` | 0 | **0** | **0** | **0** | **11 findings — failed** (F-24) |
+| `numerical_consistency` | ≤ 0.5 % | **0** | **0** | **0** | **0** |
+| `citation_accuracy` | ≥ 98 % | **100 %** (69 of 69 verified) | **100 %** (57 of 57) | **100 %** (34 of 34) | **100 %** (56 of 56) |
+| `hallucinated_citation_rate` | 0 | **0** | **0** | **0** | **0** |
+| `temporal_compliance` | 100 % | **100 %** | **100 %** | **100 %** | **100 %** |
+| The audit's own matcher, against the filing | 0 contradicted | **0 of 169** checkable numerals | **0 of 188** | **0 of 165** | **0 of 79** |
+| Claims / of which numeric | — | 280 / 182 | 279 / 197 | 243 / 175 | — |
+
+The bank is the one run that failed an accuracy check, and it failed the right one: every
+figure it stated was traceable and none contradicted the filing, and the check that reads
+*relations between* figures caught eleven impossible ones — a net margin above 1, income
+above revenue — because the revenue it was measured against is not a bank's revenue
+(F-24). The guard did its job; the number behind it is still wrong, and no report can be
+approved while it is.
 
 **`look_ahead_recall` is "not exercised" on every run**, because nothing published after the
 as-of date was offered to a claim — the honest reading is that the check had no population,
 not that it passed.
 
-Held against the console: **0 contradicted of 154** checkable numerals (MSFT), **1 of 178**
-(AZN — capital expenditure stated including intangibles, where the filing's figure is
-property alone) and **0 of 106** (M&T). On stated figures the two are a draw, and both are
+Held against the console: **0 contradicted of 151** checkable numerals (MSFT), **1 of 179**
+(AZN — capital expenditure stated as $3,270m inside its own cash-flow bridge, where the
+filing's property additions are a different figure) and **0 of 106** (M&T). On stated figures the two are a draw, and both are
 good. The difference is not accuracy: it is what each will state at all, which is §3.4
 and §4.
 
@@ -176,22 +186,23 @@ the platform's measures or by an independent recomputation that does not trust t
 
 ### 3.3 Budget friendly
 
-| Measure | MSFT #1 | MSFT #2 | AZN | MTB (as found) |
+| Measure | MSFT #1 | MSFT #2 | AZN | MTB |
 |---|---|---|---|---|
-| Run spend | **£7.48** | **£6.80** | **£6.83** | £2.03 (stopped early) |
-| Against the £10 target | **inside** | **inside** | **inside** | inside |
+| Run spend | **£7.48** | **£6.80** | **£6.83** | **£7.61** |
+| Against the £10 target | **inside** | **inside** | **inside** | **inside** |
 | The guard's own estimate for the plan | £9.31 | £9.31 | £9.31 | £9.30 |
-| Dearest steps | `draft` £3.71, `revise` £1.09 | `draft` £2.31, `revise` £1.34 | `draft` £2.83, `revise` £0.97 | — |
-| Worst per-step estimate against actual | `research_industry` **1.78×** | `research_macro` **1.45×** | `research_industry` **1.91×** | — |
-| Cache hit rate | 10.7 % | 10.3 % | 7.6 % | — |
-| Paid replies the platform could not read | **1** (1,431 output tokens) | **3** (7,366) | **5** (18,706, including the red team's 9,919) | 0 |
-| Web searches billed | £0.04 | £0.04 | £0.06 | — |
-| Effort as requested | Opus high ×24, Sonnet medium ×31, **Haiku low ×2 — dropped at the API** (F-05) | ×23 / ×32 / ×2 | ×20 / ×31 / ×3 | — |
+| Dearest steps | `draft` £3.71, `revise` £1.09 | `draft` £2.31, `revise` £1.34 | `draft` £2.83, `revise` £0.97 | `draft` £4.04, `revise` £1.16 |
+| Worst per-step estimate against actual | `research_industry` **1.78×** | `research_macro` **1.45×** | `research_industry` **1.91×** | `research_macro` **1.28×** |
+| Cache hit rate | 10.7 % | 10.3 % | 7.6 % | 14.3 % |
+| Paid replies the platform could not read | **1** (1,431 output tokens) | **3** (7,366) | **5** (18,706, including the red team's 9,919) | **4** (6,888) |
+| Web searches billed | £0.04 | £0.04 | £0.06 | £0.04 |
+| Effort as requested | Opus high ×24, Sonnet medium ×31, **Haiku low ×2 — dropped at the API** (F-05) | ×23 / ×32 / ×2 | ×20 / ×31 / ×3 | ×24 / ×35 / ×2 |
 
-Three finished runs at **£7.48, £6.80 and £6.83** against a £10 target and a £12 hard cap:
-no cap was raised, no run breached, and the monthly cap never bound. The console cost
-**£7.63, £11.03 and £6.71** for the same three briefs, so on money the two are level and
-the platform is the more predictable of them.
+Four runs at **£7.48, £6.80, £6.83 and £7.61** against a £10 target and a £12 hard cap: no
+cap was raised, no run breached, and the monthly cap never bound. The abandoned first M&T
+run added £2.03 for a run that produced nothing, which is the cost of F-23. The console
+cost **£7.63, £11.03 and £6.71** for the same three briefs, so on money the two are level
+and the platform is the more predictable of them.
 
 Two real leaks, both small and both metered: **every Haiku call was priced at Opus rates**
 until F-13 was fixed (£0.28 charged on MSFT #1 for what Haiku's list price makes about
@@ -199,21 +210,21 @@ until F-13 was fixed (£0.28 charged on MSFT #1 for what Haiku's list price make
 output tokens paid for and discarded, which the run's own ledger carries but no surface
 sums up.
 
-**Verdict on budget: yes.** £7.04 a report on average, inside the operator's £10, with the
-cap mechanism never needed and the arithmetic of the ledger checkable row by row.
+**Verdict on budget: yes.** **£7.18 a report on average**, inside the operator's £10, with
+the cap mechanism never needed and the arithmetic of the ledger checkable row by row.
 
 ### 3.4 Complete
 
-| Measure | MSFT #1 | MSFT #2 | AZN |
-|---|---|---|---|
-| Sections generated | **18 / 18** | **18 / 18** | **18 / 18** |
-| Report length | 13,993 words, 142 footnotes | 15,297 words | 12,548 words, 114 footnotes |
-| Facts chosen / rejected | 18,610 / 14,061 | 18,610 / 14,061 | 4,181 / 5,217 |
-| Unmapped tags at the gate | 496 (2 refused) | 496 | 322 |
-| Market capitalisation | present | present | **withheld** |
-| DCF value per share | present | present | **withheld** — no share count in the IFRS tags (F-12) |
-| **EV/EBITDA, P/E** | **withheld** | **withheld** | **withheld** |
-| Peers priced in the comps table | **0 of 8** | 0 of 8 | **0 of 8** |
+| Measure | MSFT #1 | MSFT #2 | AZN | MTB |
+|---|---|---|---|---|
+| Sections generated | **18 / 18** | **18 / 18** | **18 / 18** | **18 / 18** |
+| Report length | 13,993 words, 142 footnotes | 15,297 words | 12,548 words, 114 footnotes | 13,251 words |
+| Facts chosen / rejected | 18,610 / 14,061 | 18,610 / 14,061 | 4,181 / 5,217 | 23,174 / 17,210 |
+| Unmapped tags at the gate | 496 (2 refused) | 496 | 322 | 852 |
+| Market capitalisation | present | present | **withheld** | **withheld** |
+| Valuation per share | present | present | **withheld** — no share count in the IFRS tags (F-12) | present, from residual income |
+| **EV/EBITDA, P/E** | **withheld** | **withheld** | **withheld** | **withheld** |
+| Peers priced in the comps table | **0 of 8** | 0 of 8 | **0 of 8** | **0 of 7** |
 
 **No run produced a single peer multiple.** The model proposes eight comparables, the
 operator confirms them, the comps table is built — and every peer is excluded with the same
@@ -291,7 +302,7 @@ persona 2's complaint, and use case 9's row below.
 | 2 | Refreshing a company already researched | **no** | The refresh section printed the prior report's UUID 21 times and the presentation check refused the run (F-22). Fixed here; the £6.80 run cannot be re-measured. |
 | 3 | A domestic UK filer (LSE) | **no** | Acquisition resolves every subject against EDGAR; the Companies House client nobody calls (F-04). Proved offline. |
 | 4 | A UK plc through its 20-F | **partly** | AZN ran to an approved report at £6.83 — with the DCF withheld for want of a share count in the IFRS tags (F-12, fixed) and every peer multiple absent. |
-| 5 | A bank | **no, as found** | No run ever resolved a SIC code, so the bank met no sector gate, took the standard model, and was asked for an EBIT margin (F-23). Fixed here; the re-run is in §7. |
+| 5 | A bank | **no** | Twice. As found, no run resolved an industry code, so M&T met no sector gate, took the standard model and was asked for the EBIT margin of a bank (F-23, fixed). Re-run on the fix it classified as a bank, blocked the discounted cash flow, valued it on residual income over book — 643 calculations, 18 of 18 sections, £7.61 — and then failed gate 2 because its revenue is ASC 606 fee income and eleven relations among its figures are impossible (F-24, open). The path works; the bank's revenue does not. |
 | 6 | A company with a material recent event | **partly** | Recent developments came from filings alone: MSFT's 8-K of 2 September 2026 is cited, its substance "not before us". Every built-in section's tier ceiling is T4, so news never reaches one (F-21). The console's web search is the whole of the difference. |
 | 7 | Research under time pressure | **no** | 31–42 minutes of step time plus six human decisions; the console answered the same brief in 14–19 minutes with one prompt. Nothing useful exists at ten minutes. |
 | 8 | A question-driven brief | **no** | Of eighteen judge-readings of the three focus questions, the platform answered **none** "yes"; the console answered four "yes" and the rest "partly". |

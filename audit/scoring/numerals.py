@@ -174,6 +174,17 @@ _QUALIFIED: Final = re.compile(
     r"intangibles|\bwithin\b|non-?recurring|one-?off)",
     re.I,
 )
+# The platform quoting a figure in order to refuse it: the withheld front page states the
+# impossible relation it found ("net margin 1.72 for FY2025 is above 1"), and the validation
+# section quotes each failed check's finding. Reading those as claims judged the platform's
+# own honesty against the filing — and on M&T the refusal is the one place the absurd
+# margin appears at all.
+_A_REFUSAL: Final = re.compile(
+    r"(was withheld|cannot all be true|is above|income exceeding|exceeds revenue|"
+    r"impossible on a consolidated statement|not thereby possible|could not be)",
+    re.I,
+)
+
 # A change rather than a level: "less the $36.6bn increase", "rose by $12bn".
 _DELTA_BEFORE: Final = re.compile(
     r"\b(by|increase|decrease|change|delta|gain|loss|add-?back|less|plus|minus|added|"
@@ -305,7 +316,22 @@ def _full_date(text: str) -> str | None:
     return None
 
 
+# "against 8.9 percent in FY2024": a period naming itself right after the numeral belongs
+# to that numeral, whatever the sentence opened with. M&T's report stated both years in one
+# sentence three times, and each prior year was judged against the latest year's figure.
+_PERIOD_IMMEDIATELY_AFTER: Final = re.compile(
+    r"^\s*(percent|per cent|%|x|×|USD|\$|£|€|billion|million|bn|m)?\s*"
+    r"(in|for|of|during|at)?\s*(fiscal\s+)?(FY\s?\d{2,4}|\d{4})\b",
+    re.I,
+)
+
+
 def _period_from(context_before: str, context_after: str) -> str | None:
+    immediate = _PERIOD_IMMEDIATELY_AFTER.match(context_after)
+    if immediate is not None:
+        own = _period_in(immediate.group(0))
+        if own is not None:
+            return own
     dated = _full_date(context_before[-60:]) or _full_date(context_after[:60])
     if dated is not None:
         return dated
@@ -328,6 +354,26 @@ def _period_from(context_before: str, context_after: str) -> str | None:
             return f"{m.group('q').upper()} FY{('20' + year) if len(year) == 2 else year}"
         if m.group("cy"):
             return f"FY{m.group('cy')}"
+    return None
+
+
+def _period_in(text: str) -> str | None:
+    """The fiscal period named in a short span, or ``None`` — the plain reader, no context."""
+    match = _PERIOD.search(text)
+    if match is None:
+        return None
+    if match.group("fy"):
+        year = match.group("fy")
+        return f"FY{('20' + year) if len(year) == 2 else year}"
+    if match.group("fiscal"):
+        return f"FY{match.group('fiscal')}"
+    if match.group("ye"):
+        return f"FY{match.group('ye')}"
+    if match.group("q"):
+        year = match.group("qy")
+        return f"{match.group('q').upper()} FY{('20' + year) if len(year) == 2 else year}"
+    if match.group("cy"):
+        return f"FY{match.group('cy')}"
     return None
 
 
@@ -404,6 +450,19 @@ def _compatible(
     return concept
 
 
+# A row label that names a movement rather than a level ("Share repurchases change"), and
+# one that names a ratio between two lines ("Distributions to operating cash flow"). Both
+# read as their first concept to a phrase matcher, and M&T's report offered all three: a
+# £2.235bn *change* in buybacks judged against the £2.631bn level, a 1.18 *ratio* judged
+# against operating cash flow of $3,003m.
+_LABEL_IS_A_CHANGE: Final = re.compile(
+    r"\b(change|growth|movement|delta|increase|decrease)\b", re.I
+)
+_LABEL_IS_A_RATIO: Final = re.compile(
+    r"\bto\b.*\b(cash flow|equity|assets|revenue|income|book)\b", re.I
+)
+
+
 def _table_hints(text: str, start: int) -> tuple[str | None, str | None] | None:
     """Concept and period for a numeral in a Markdown table cell, or None when not in one.
 
@@ -445,6 +504,10 @@ def _table_hints(text: str, start: int) -> tuple[str | None, str | None] | None:
             concept = name
     if concept is not None and any(b in label for b in _BLOCKING):
         concept = None
+    if concept is not None and (
+        _LABEL_IS_A_CHANGE.search(label) or _LABEL_IS_A_RATIO.search(label)
+    ):
+        return _QUALIFIED_CELL, None
     period = None
     if header is not None and column < len(header):
         period = _period_from(header[column], "")
@@ -524,6 +587,8 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
             excluded = "range"
         elif excluded is None and _HYPOTHETICAL.search(sentence_before[-80:]):
             excluded = "hypothetical"
+        elif excluded is None and _A_REFUSAL.search(sentence_before + " " + sentence_after):
+            excluded = "refusal"
         elif excluded is None and not money and not percent and _PRODUCT.search(before):
             excluded = "product"
         context = (before[-70:] + raw + after[:70]).replace("\n", " ")
@@ -534,6 +599,8 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
         if table is not None:
             concept, period = table
             near = (table[0] or "") + " " + sentence_after[:40]
+            # A cell's own period wins over the sentence's, which the table reader already
+            # applied; nothing further to read here.
         else:
             period = _period_from(sentence_before, sentence_after)
             concept = _concept_from(before, after)

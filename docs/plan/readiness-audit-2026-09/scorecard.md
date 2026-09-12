@@ -5,14 +5,15 @@
 | msft1 | SUCCEEDED | £7.48 | 42 min of steps | 18/18 (degraded: none) | retries: extract#1; resumes: 0 | citations 1.00000000 of 70; metrics failing: none | 0 contradicted of 169 checkable numerals; headline missing: ev_ebitda, pe |
 | msft2 | AWAITING_APPROVAL | £6.80 | 36 min of steps | 18/18 (degraded: earnings_quality) | retries: draft#1; resumes: 1 | citations 1.00000000 of 63; metrics failing: presentation_integrity | 0 contradicted of 188 checkable numerals; headline missing: ev_ebitda, pe |
 | azn | SUCCEEDED | £6.83 | 31 min of steps | 18/18 (degraded: valuation_dcf, catalysts) | retries: red_team#1, revise#1; resumes: 1 | citations 1.00000000 of 35; metrics failing: none | 0 contradicted of 165 checkable numerals; headline missing: market_capitalisation, ev_ebitda, pe |
+| mtb | AWAITING_APPROVAL | £7.61 | 41 min of steps | 18/18 (degraded: executive_summary) | retries: none; resumes: 0 | citations 1.00000000 of 58; metrics failing: figure_plausibility, presentation_integrity | 0 contradicted of 79 checkable numerals; headline missing: market_capitalisation, enterprise_value, ev_ebitda, pe |
 
 ### Baselines (Opus 5, high effort, server-side web search)
 
 | Baseline | Price | Elapsed | Size | Structure | Accuracy (the audit's matcher) | Verifiability |
 |---|---|---|---|---|---|---|
-| msft1 | £7.63 | 16 min | 12967 words; 25 searches | 18/18 section headings | 0 contradicted of 154 checkable numerals | 46 URLs, 33 resolved, primary share 37%, citation blocks: 0 |
-| azn | £11.03 | 19 min | 12907 words; 25 searches | 18/18 section headings | 1 contradicted of 178 checkable numerals | 58 URLs, 37 resolved, primary share 41%, citation blocks: 0 |
-| mtb | £6.71 | 14 min | 11225 words; 25 searches | 18/18 section headings | 0 contradicted of 106 checkable numerals | 55 URLs, 35 resolved, primary share 24%, citation blocks: 0 |
+| msft1 | £7.63 | 16 min | 12967 words; 25 searches | 18/18 section headings | 0 contradicted of 151 checkable numerals | 46 URLs, 33 resolved, primary share 37%, citation blocks: 0 |
+| azn | £11.03 | 19 min | 12907 words; 25 searches | 18/18 section headings | 1 contradicted of 179 checkable numerals | 58 URLs, 36 resolved, primary share 41%, citation blocks: 0 |
+| mtb | £6.71 | 14 min | 11225 words; 25 searches | 18/18 section headings | 0 contradicted of 106 checkable numerals | 55 URLs, 34 resolved, primary share 24%, citation blocks: 0 |
 
 ### Gate stops (as the driver met them)
 
@@ -37,6 +38,13 @@
 | azn | UNMAPPED_CONCEPTS | 69 s | approved | 51 |
 | azn | ASSUMPTIONS | 64 s | approved | 5 |
 | azn | FINAL | 10 s | approved | 6 |
+| mtb | PLAN | 5 s | approved | 0 |
+| mtb | SECTOR_SPECIALIST | 3 s | approved | 2 |
+| mtb | PEER_SET | 3 s | approved | 0 |
+| mtb | THEME_SET | 3 s | approved | 0 |
+| mtb | UNMAPPED_CONCEPTS | 22 s | approved | 304 |
+| mtb | ASSUMPTIONS | 3 s | approved | 3 |
+| mtb | FINAL | 5 s | refused | 1 |
 
 ### Estimate against actual, per paid step
 
@@ -90,3 +98,19 @@
 | azn | revise | 1.50 | 0.9748 | 0.65 |
 | azn | verdict | 0.10 | 0.0123 | 0.12 |
 | azn | brief_challenges | 0.20 | 0.1158 | 0.58 |
+| mtb | plan | 0.20 | 0.1700 | 0.85 |
+| mtb | critique_plan | 0.30 | 0.3097 | 1.03 |
+| mtb | propose_peers | 0.02 | 0.0134 | 0.67 |
+| mtb | propose_themes | 0.02 | 0.0112 | 0.56 |
+| mtb | research_company | 0.30 | 0.2486 | 0.83 |
+| mtb | research_industry | 0.30 | 0.3793 | 1.26 |
+| mtb | research_macro | 0.30 | 0.3849 | 1.28 |
+| mtb | research_recent_developments | 0.30 | 0.2429 | 0.81 |
+| mtb | research_technical_context | 0.30 | 0.2993 | 1.00 |
+| mtb | propose_assumptions | 0.10 | 0.0558 | 0.56 |
+| mtb | draft | 5.00 | 4.0432 | 0.81 |
+| mtb | validate | 0.02 | 0 | 0.00 |
+| mtb | red_team | 0.35 | 0.2773 | 0.79 |
+| mtb | revise | 1.50 | 1.1637 | 0.78 |
+| mtb | verdict | 0.10 | 0.0023 | 0.02 |
+| mtb | brief_challenges | 0.20 | 0.0108 | 0.05 |
