@@ -422,6 +422,25 @@ class TestTheGateApi:
         assert second.status_code == 422
         assert second.json()["code"] == "validation_error"
 
+    async def test_a_hash_of_something_else_is_refused_before_it_is_recorded(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        """Readiness audit 2026-09: the JSON API recorded any 64-character string, and an
+        approval against the wrong content is one the run never releases and the gate then
+        refuses to take again. The web route already checked; now both do."""
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        response = await api.post(
+            f"/api/runs/{job_id}/gates/{GateKind.PLAN.value}/decide",
+            json={"decision": Decision.APPROVED.value, "payload_hash": "9" * 64},
+        )
+
+        assert response.status_code == 422
+        assert "decide on what it shows now" in response.json()["detail"]
+        assert await db_session.scalar(select(Approval).where(Approval.job_id == job_id)) is None
+
     async def test_the_final_gate_cannot_be_approved_first(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:

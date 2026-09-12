@@ -109,7 +109,7 @@ from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
 from aer.services import requests as request_service
 from aer.services.acquisition import acquisition_root, record_acquisition
-from aer.services.analysis import analyse_company
+from aer.services.analysis import analyse_company, annual_facts
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
 from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
@@ -2947,20 +2947,27 @@ async def _revenue_growth(
     that. Returns ``None`` when there is only one year, which is a fact about the company
     rather than a failure of the run.
     """
-    facts = list(
-        await context.session.scalars(
-            select(FinancialFact)
-            .where(
-                FinancialFact.company_id == company_id,
-                FinancialFact.concept == SLICE_CONCEPT,
-                FinancialFact.unit == "USD",
-                # The consolidated line only: a segment's revenue as either endpoint
-                # would put one slice's growth forward as the company's.
-                FinancialFact.dimension_axis.is_(None),
-            )
-            .order_by(FinancialFact.period_end)
-        )
+    # Fiscal years only, chosen exactly as the analysis chooses them. The store also
+    # holds every quarter a 10-Q filed, and a September run on a June-quarter filer
+    # would otherwise compound an annual figure into a three-month one (readiness
+    # audit 2026-09): the newest `period_end` was a quarter's.
+    request = await _request_for(context)
+    by_period = await annual_facts(
+        context.session,
+        company_id=company_id,
+        as_of=request.work_order.as_of_date,
+        point_in_time=request.work_order.point_in_time,
     )
+    facts = [
+        fact
+        for period in sorted(by_period)
+        for fact in by_period[period]
+        if fact.concept == SLICE_CONCEPT
+        and fact.unit == "USD"
+        # The consolidated line only: a segment's revenue as either endpoint would put
+        # one slice's growth forward as the company's.
+        and fact.dimension_axis is None
+    ]
 
     minimum_for_a_growth_rate = 2
     if len(facts) < minimum_for_a_growth_rate:

@@ -75,6 +75,7 @@ __all__ = [
     "MAX_FORECAST_YEARS",
     "MIN_AXIS_POINTS",
     "MIN_TERMINAL_SPREAD",
+    "SENSITIVITY_CASE",
     "BridgeItem",
     "DcfInputs",
     "DcfResult",
@@ -1071,6 +1072,11 @@ def project(
     return tuple(years)
 
 
+# What a sensitivity cell is recorded as, so it is never mistaken for a scenario. The bank
+# model uses the same word for the same reason.
+SENSITIVITY_CASE: Final = "sensitivity"
+
+
 def discounted_cash_flow(
     context: CalculationContext, inputs: DcfInputs, *, mandate: ValuationMandate, case: str = "base"
 ) -> DcfResult:
@@ -1348,7 +1354,10 @@ def sensitivity_grid(
                 columns.field: column_value,
             }
             varied = replace(inputs, **overrides)
-            result = discounted_cash_flow(context, varied, mandate=mandate)
+            # Not "base": the front page and the football field read the base band off
+            # the latest row tagged base, and nine grid corners recorded under that tag
+            # were what they found (readiness audit 2026-09).
+            result = discounted_cash_flow(context, varied, mandate=mandate, case=SENSITIVITY_CASE)
             outcome = result.outcome(method)
             cells.append(
                 GridCell(

@@ -199,6 +199,19 @@ async def execute(
         message = f"Job {job.id} has no research request."
         raise ValidationError(message, context={"job_id": str(job.id)})
 
+    if job.status is JobStatus.RUNNING:
+        # Another execution holds this run — the same job queued twice, or a worker
+        # still on it. Running it again would race that execution over the rows that
+        # make resumption safe (readiness audit 2026-09). A run whose worker died is
+        # continued through `aer.services.resume`, which sets it QUEUED first.
+        _log.warning("run.already_running", job_id=str(job.id))
+        return RunOutcome(
+            job=job,
+            outputs={},
+            status=JobStatus.RUNNING,
+            spend_gbp=await spend_so_far(session, job_id=job.id),
+        )
+
     job.status = JobStatus.RUNNING
     # Committed, not just flushed. The console polls from another process, and until this
     # lands it reads QUEUED — for the whole first step, which is a model call lasting a

@@ -44,6 +44,7 @@ from aer.calc.units import CALC_CONTEXT, Quantity
 from aer.core.assumption_scales import scale_complaint
 from aer.core.sectors import ValuationModel
 from aer.db.models import Assumption
+from aer.errors import ValidationError
 from aer.services.analysis import AnalysisOutcome, PeriodAnalysis
 from aer.services.assumptions import propose
 
@@ -222,9 +223,10 @@ async def propose_derived(
     outcome = derive_assumptions(analysis, model=model)
 
     rows: list[Assumption] = []
+    skipped = list(outcome.skipped)
     for item in outcome.derived:
-        rows.append(
-            await propose(
+        try:
+            row = await propose(
                 session,
                 request_id=request_id,
                 name=item.name,
@@ -234,7 +236,16 @@ async def propose_derived(
                 proposed_by=PROPOSED_BY,
                 job_id=job_id,
             )
-        )
+        except ValidationError as implausible:
+            # A history that produces a tax rate above one or a growth rate above three
+            # is a fact about the filings, not a reason to fail the step: the driver goes
+            # to the gate outstanding, with the reason, for the operator to supply
+            # (readiness audit 2026-09).
+            skipped.append(f"{item.name}: {implausible.message}")
+            _log.info("assumptions.derived_implausible", name=item.name, value=str(item.value))
+            continue
+        rows.append(row)
+    outcome = ProposalOutcome(derived=outcome.derived, skipped=tuple(skipped))
 
     _log.info(
         "assumptions.derived",

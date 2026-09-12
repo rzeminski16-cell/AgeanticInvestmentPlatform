@@ -434,10 +434,17 @@ class Agent[InputT, OutputT: BaseModel]:
         # What changes is that the cap no longer lives on a row about a company, so an
         # unattended monitor can be paid for without inventing a mandate for it.
         job = await context.session.get(Job, context.job_step.job_id)
-        work_order = (
-            None if job is None else await context.session.get(WorkOrder, job.work_order_id)
+        # The column, not the instance the session already holds: a cap raised from the
+        # web process mid-run must reach the next call, and an identity-map row loaded at
+        # the start of a long node never re-reads (readiness audit 2026-09).
+        cap_gbp = (
+            None
+            if job is None
+            else await context.session.scalar(
+                select(WorkOrder.max_cost_gbp).where(WorkOrder.id == job.work_order_id)
+            )
         )
-        if job is None or work_order is None:
+        if job is None or cap_gbp is None:
             # Referential breakage, not a budget question — and a guard that shrugged
             # here would be a guard any orphaned step walks straight past.
             message = (
@@ -453,7 +460,7 @@ class Agent[InputT, OutputT: BaseModel]:
             model=model,
             spent=spent,
             projected_gbp=projected_gbp,
-            cap=Decimal(str(work_order.max_cost_gbp)),
+            cap=Decimal(str(cap_gbp)),
             remedy="Raise the cap on this request to continue.",
         )
 

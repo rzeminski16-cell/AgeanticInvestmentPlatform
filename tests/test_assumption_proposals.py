@@ -303,6 +303,34 @@ class TestEveryProposalCanBeInterrogated:
 # -- Persistence ---------------------------------------------------------------------------
 
 
+class TestAnImplausibleDerivationIsSkippedNotFatal:
+    async def test_a_tax_rate_above_one_goes_to_the_gate_outstanding(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Readiness audit 2026-09: a near-zero pre-tax year made the mean effective rate
+        five, `propose` refused it as implausible, and the whole assumptions step failed.
+        The driver now goes to the gate outstanding, with the reason, for the operator."""
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(pre_tax_income="10", income_tax_expense="50"),
+                date(2023, 12, 31): a_year(pre_tax_income="10", income_tax_expense="50"),
+            },
+        )
+
+        outcome, rows = await propose_derived(
+            scene["session"],
+            request_id=scene["request"].id,
+            analysis=await analysed(scene),
+            job_id=scene["job"].id,
+        )
+
+        assert "tax_rate" not in {row.name for row in rows}
+        assert any(item.startswith("tax_rate:") for item in outcome.skipped)
+        # The rest of the history is still proposed.
+        assert rows
+
+
 class TestProposingWritesUnconfirmedRows:
     @pytest.fixture
     async def persisted(self, scene: dict[str, Any]) -> Any:
