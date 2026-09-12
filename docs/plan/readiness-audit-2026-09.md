@@ -708,7 +708,10 @@ it is put in §8 rather than changed here.
 - **Scenarios keep the base WACC while reporting an override of beta or the risk-free rate as
   "argued about"**; the DCF's **working capital includes cash and short-term debt**; the
   bank model's **opening book value includes preferred stock and non-controlling
-  interests**. Modelling definitions, each defensible, each unstated to the reader.
+  interests**. Modelling definitions, each defensible, each unstated to the reader. The
+  third is untested live: neither preferred stock nor non-controlling interests is mapped
+  for M&T at all, so its book value is simply total equity, and a filer whose preferred
+  stock *is* mapped would be the first to meet the definition.
 - **A fact-backed numeric claim is never checked against its fact's value**: the claim's
   statement lends cover to the content's numerals and `cited_figure_agreement` joins on
   calculations only. The live runs show no such error (0 contradicted of 169 and 165
