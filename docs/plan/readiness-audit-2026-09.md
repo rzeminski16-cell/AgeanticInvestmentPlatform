@@ -1015,9 +1015,6 @@ definition or what a run does. They are listed in the order I would take them.
   recorded order dependence and the second, after the fix, leaving a residual pair
   (`test_section_spine`'s red-team refill and `test_planner_salvage`'s plan salvage) that
   pass alone and failed in that order once. Not root-caused.
-- **The judges' reads as a measure.** Three model judges per document answered a fixed
-  rubric blind; their agreement is reported and their disagreement listed. They are
-  advisory. The operator's own reads are the column §4 leaves open.
 - **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
   figure in a sentence it could not read is not counted. Its precision was calibrated, its
   recall was not measured.
@@ -1028,6 +1025,10 @@ definition or what a run does. They are listed in the order I would take them.
 - **That the fixed refresh run finishes.** F-22's fix is proved by re-measuring the failed
   check on the run that failed it, which is the tightest proof available without paying for
   a sixth run; the run itself stays unapproved because nothing re-evaluates a finished job.
-- **The judges are model readings, and the operator's own read is the column §4 leaves
-  open.** Six of six blind comparisons agreeing is a strong signal about the documents, not
-  a substitute for the operator reading one.
+- **The judges are model readings.** Three per document, blind, answering a fixed rubric;
+  agreement is reported and disagreement listed rather than averaged. Six of six blind
+  comparisons agreeing is a strong signal about the documents, not a substitute for the
+  operator reading one — which is what §4.4 asks for.
+- **That a bank can be researched at all.** The path works and the revenue does not (F-24).
+  Until that decision is taken, no bank produces an approvable report, and nothing here
+  says what one would look like when it does.
