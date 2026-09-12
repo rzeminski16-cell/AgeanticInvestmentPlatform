@@ -42,13 +42,15 @@ here can match a footnote that resolves to bytes and a calculation that re-execu
 not use it yet** to reach a view, to research a bank or a domestic UK filer, to answer a
 question under time pressure, or to hand somebody a document that stands on its own.
 
-The pass found **26 findings** and **fixed 19** with regression tests (one of them a bundle
-of fifteen smaller ones), among them three that were blocking and live: the refresh run's
-own gate refused it over a leaked identifier (F-22); no run ever discovered what kind of
-business it was researching, so a bank took the model ADR 0029 exists to forbid (F-23); and
-a bank's revenue resolves to its fee income, which the plausibility guard catches and
-nothing corrects (F-24, the one blocking finding left open). The eight that remain are
-§8's decisions, two small integrity items (F-06, F-07) and F-24.
+The pass found **28 findings** and **fixed 21** with regression tests (one of them a bundle
+of fifteen smaller ones), among them four that were blocking and live: the refresh run's own
+gate refused it over a leaked identifier (F-22); no run ever discovered what kind of
+business it was researching, so a bank took the model ADR 0029 exists to forbid (F-23); a
+bank's revenue resolves to its fee income, which the plausibility guard catches and nothing
+corrects (F-24, the one blocking finding left open); and the adversary was shown the oldest
+year's figures without their periods, so it accused the draft of contradicting the record on
+every headline figure and the report shipped the accusations (F-27). The seven that remain
+are §8's decisions, two small integrity items (F-06, F-07) and F-24.
 
 ## 2. Method
 
@@ -299,9 +301,24 @@ was compared blind. Twelve reads, six comparisons, eighteen agents; the raw rubr
 [`readiness-audit-2026-09/judges/reads.json`](readiness-audit-2026-09/judges/reads.json),
 where each one names the section it read a judgement from.
 
-They read the two subjects that had a report and a console note each — MSFT #1 and AZN.
-The bank's report was not judged: it reached gate 2 refused, and a document the platform
-declines to publish is not one to hold against the console.
+They read the two subjects that had a report and a console note each — MSFT #1 and AZN #1 —
+and then, once the fixes landed, **AZN #2 against the same console note**, to see whether
+the repaired document changes a practitioner's answer. The bank's report was not judged: it
+reached gate 2 refused, and a document the platform declines to publish is not one to hold
+against the console.
+
+**What the fixes changed, and what they did not.** AZN #2 carries the valuation its first
+run withheld, and the judges saw the difference: **an investment view is now stated and
+argued, 3 of 3, where the first report managed 1 of 3**, and the time to check three
+figures fell to 10–20 minutes. **It changed no verdict.** All three judges still would not
+act on it, and all three blind comparisons still chose the console — on the brief, the focus
+questions, recent developments, argument and the checklist, with verifiability console-or-
+equal. Their reasons are no longer about the arithmetic: the patent-expiry exposure the
+brief asks about first is not in the filings the run is allowed to read, there is no
+product-level revenue, no guidance, no named competitor, no share price, and the report
+carries eight unresolved red-team accusations against its own figures (F-27). **Fixing the
+numbers did not make the document useful; the evidence policy and the prose are what
+remain.**
 
 | Question | Platform (2 documents, 6 judges) | Console (2 documents, 6 judges) |
 |---|---|---|
@@ -381,26 +398,26 @@ operator's own eye, each with where to look and what the audit expects them to f
 
 ## 5. Findings
 
-Twenty-six findings, numbered in the order found. Each carries what it costs the operator,
+Twenty-eight findings, numbered in the order found. Each carries what it costs the operator,
 how it was established, and its state. *Severity* is the acceptance pass's rule:
 **blocking** puts a wrong number in front of somebody, loses money uncapped or leaves a run
 unrecoverable; **major** loses a section or a figure, or misleads a spending decision;
 **minor** otherwise.
 
-**Fixed here, each with a regression test that failed first** (19): F-01 the red CI, F-02
+**Fixed here, each with a regression test that failed first** (21): F-01 the red CI, F-02
 the documented counts, F-03 the order-dependent suite, F-04's misleading refusal and its
 documents, F-08 the stranded run, F-10 the financials page, F-11 the front page's forecast,
 F-12 the IFRS aliases, F-13 Haiku's pricing, F-14 the adversary's unreadable reply, F-15
 the peer and theme gates, F-17 the hidden wave failure, F-18 the unrepeatable render, F-19
 the compounded quarter, F-20 (a bundle of fifteen from the code reading), F-22 the leaked
 report identifier, F-23 the unclassified filer, F-25 the platform's own presentation
-failure, and F-26 by narrowing.
+failure, F-26 by narrowing, and F-27 the adversary's stale evidence index.
 
-**Left for the operator** (7 and a half): F-04's UK acquisition path itself, F-05 effort on
+**Left for the operator** (8 and a half): F-04's UK acquisition path itself, F-05 effort on
 Haiku, F-06 the unmetered acquisition, F-07 the writable audit chain, F-16 the stale
 approval, F-21 (eleven confirmed decisions), **F-24 a bank's revenue — the one blocking
-finding still open** — and F-26's second half. §8 lists them as decisions rather than as
-defects.
+finding still open** — F-26's second half, and F-28 the per-share basis. §8 lists them as
+decisions rather than as defects.
 
 ### F-01 — CI has been red on every run since 2026-09-09, and the acceptance pass called the static gates clean
 
@@ -924,6 +941,68 @@ candidate with its reason and runs the standard model. What remains for the oper
 whether the gate should offer "not this sector", and whether the four non-blocking profiles
 should stop a run once it does.*
 
+### F-27 — The adversary was shown the oldest year's figures, with no period, and accused the draft of contradicting the record
+
+*Reliability and presentation. Blocking for the adversarial review. Found by the judges on
+a live report, confirmed against the run's own rows, fixed with tests.*
+
+AstraZeneca's second run escalated **eight challenges, six at severity 3 to 5**, saying
+every headline figure in the draft contradicted the run's own record: *"the draft asserts
+gross margin 81.9%, operating margin 23.4% … the only recorded calculations carrying those
+names return gross margin 0.668 and 0.721, operating margin 0.028 and 0.085 … No recorded
+calculation reproduces any draft figure."* Every one of those accusations is false. The run
+holds `gross_margin` **FY2025 0.818978** and `operating_margin` **FY2025 0.233967** — the
+draft's figures exactly — alongside FY2021's 0.667610 and FY2022's 0.720615.
+
+The adversary's evidence index took **the first forty calculation rows by `sequence`**. A
+run records six to eight hundred of them and the ratio suite computes the oldest fiscal
+year first, so the pack was FY2021 and FY2022 — and each entry carried `name`, `value` and
+`unit` **with no period at all**, so nothing in it could have told the years apart. The
+adversary did the reasonable thing with an unreasonable pack, and all eight challenges
+reached the published report *unresolved*, where a reader meets them as the platform's own
+verdict on its own figures. One judge called it the thing that "destroys the reader's
+ability to rely on any number in it".
+
+No scorer caught this. `citation_accuracy`, `cited_figure_agreement` and the audit's own
+matcher all passed the report, because the figures *were* right; what was wrong was the
+argument printed beside them.
+
+*Fix: each figure now appears once, at its newest period, with the period beside it;
+sensitivity-grid cells are left out, because a grid point is not an answer; and calculations
+are bounded separately from facts, since sixty-odd distinct figures cost a few hundred
+tokens where a cap of forty hid most of them. The prompt gains a rule: the index is a
+digest, a figure it does not carry is not thereby absent from the run, and a difference is a
+contradiction only when the periods match.
+`tests/test_red_team.py::TestTheAdversarySeesTheFigureTheDraftWasWrittenFrom` holds the
+three parts. Unproven on a live run: the next run of any subject is the test.*
+
+*The same report also told its reader, of the beta its own valuation had just used, that
+"the concept map cannot place an assumption named 'beta', so no filed line answers it" —
+blaming the concept map for a market parameter no filing has ever carried, and reading next
+to the run's own 0.4 as a contradiction. The risk-free rate, beta and the equity risk
+premium now say what the exit multiple's row beside them already said: filings carry no
+market prices (`tests/test_assumption_outcomes.py`).*
+
+### F-28 — A per-share valuation is computed on the reported share count, whatever the listed security is
+
+*Accuracy of presentation. Major. Found by the judges on a live report; not fixed, because
+the close is a disclosure rule and a piece of data the platform does not hold.*
+
+AZN #2's valuation divides equity value by **1,562,000,000 shares** — the diluted *ordinary*
+count from the 20-F — and prints "$333.48" and "$169.80" as *value per share*. The request
+names **AZN on the NYSE**, which is a depositary receipt representing half an ordinary
+share, so the figure is on a different unit from any price a reader would compare it with,
+and nothing in the report says so. The report also carries no market capitalisation for this
+filer, so no cross-check existed to catch it. A judge reading the document put it first
+among the things to check: *"one NYSE ADR is half an ordinary share, so $169.80 is either
+roughly fair value or 100 % upside"*.
+
+*State: the operator's, in §8. Two ways to close it: state the basis on the row (the figure
+is per reported share, which for a depositary listing is not the listed unit), or hold the
+receipt ratio per listing and convert. The first is a sentence; the second is reference data
+the platform has no source for today. Either is better than a number that reads as
+comparable to a price and is not.*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
@@ -951,6 +1030,11 @@ is how F-08 was observed at all. Six more, found on the later runs:
 - The first M&T baseline was cut off by the container stopping mid-stream and re-run the
   next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
   numbers and is noted there.
+- **The judges found what no scorer could.** F-27 and F-28 — eight false severity-3-to-5
+  accusations in a published report, and a per-share figure on an unstated basis — were both
+  found by a model reading the document as a document, and both survive against the run's
+  own rows. Every mechanical check passed that report. Whatever else §4.1's reads are worth,
+  they earned their place as an instrument.
 - The accuracy matcher over-attributed on three documents and was tightened three times,
   each time by a rule that applies to both sides. A half-year or trailing-twelve-month
   figure is a qualified measure (two apparent contradictions in the M&T console note). A
@@ -1038,7 +1122,11 @@ definition or what a run does. They are listed in the order I would take them.
      is safe and useless: a bank cannot be researched.
    I did not choose, because each answer is a different statement about what a bank's
    revenue *is*, and that is yours.
-3. **The sector gate needs a third answer** (F-26). "Approve" grants a mandate and "Reject"
+3. **What a per-share valuation is per** (F-28). AZN's figure is per ordinary share while
+   the request names the depositary listing, and nothing says which. State the basis on the
+   row, or hold each listing's receipt ratio and convert — the first is a sentence, the
+   second is reference data with no source here today.
+4. **The sector gate needs a third answer** (F-26). "Approve" grants a mandate and "Reject"
    kills the run; an operator who thinks the classification is wrong has nowhere to say so.
    The narrow fix is a "not this sector" decision that records the correction and runs the
    standard model. Once it exists, the second half follows: should the four profiles that
@@ -1046,39 +1134,39 @@ definition or what a run does. They are listed in the order I would take them.
    companies) stop a run to confirm a label, given they change nothing but the warnings a
    report carries? This pass narrowed the proposal to the profiles that block a model, so
    nothing stops today that did not stop before the industry code was resolved.
-4. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
+5. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
    has moved and refuses a second decision on the same gate, so the run has no exit. A
    superseding decision is an approvals-model change and needs an ADR.
-5. **Cost rows inside a step, or at its end** (F-21). Sibling calls in the research wave and
+6. **Cost rows inside a step, or at its end** (F-21). Sibling calls in the research wave and
    the draft fan-out cannot see each other's spend, and a step that dies mid-flight loses
    the rows it flushed. Both fixes publish cost before the step commits, which amends ADR
    0016's publication rule.
-6. **A filer with long-term debt and no short-term line** is valued as debt-free (F-21).
+7. **A filer with long-term debt and no short-term line** is valued as debt-free (F-21).
    Refusing the valuation, or asking for the missing half at the assumptions gate, are both
    changes to what a run does.
-7. **Three modelling definitions** (F-21): scenarios keep the base WACC while reporting a
+8. **Three modelling definitions** (F-21): scenarios keep the base WACC while reporting a
    rate override as argued about; the DCF's working capital includes cash and short-term
    debt; a bank's opening book value includes preferred stock and non-controlling
    interests. Each is defensible and none is stated to the reader.
-8. **Two guards that do not exist** (F-21): a fact-backed numeric claim is never checked
+9. **Two guards that do not exist** (F-21): a fact-backed numeric claim is never checked
    against its fact's value, and the reading ladder discards the scale word, so "$331.8
    million" reads as the right number. ADR 0060's territory.
-9. **`cited_figure_agreement` is measured before `revise` rewrites the claims** (F-21), and
+10. **`cited_figure_agreement` is measured before `revise` rewrites the claims** (F-21), and
    nothing re-measures a failed check on a finished run (F-22). Both are the same question:
    what re-runs after a late change?
-10. **The citation override the gate message promises exists on no surface** (F-21). Decide
+11. **The citation override the gate message promises exists on no surface** (F-21). Decide
    whether it should exist at all; today an unverified citation at gate 2 has no recovery.
-11. **News never reaches a built-in section** (F-21, use case 6). Every built-in section's
+12. **News never reaches a built-in section** (F-21, use case 6). Every built-in section's
     tier ceiling is T4, so the T5 documents a run admits are cited nowhere. Raising the
     ceiling for named sections is a change to the evidence policy.
-12. **Effort on Haiku** (F-05): retire the setting on those four routes, or move them to a
+13. **Effort on Haiku** (F-05): retire the setting on those four routes, or move them to a
     model that honours it.
-13. **A UK acquisition path** (F-04): wiring Companies House into `acquire` is a source
+14. **A UK acquisition path** (F-04): wiring Companies House into `acquire` is a source
     adapter and an ADR, not a bug fix, and the product's documents claim "UK or US" today.
-14. **Whether any of the audit's scorers should become a permanent metric.** The numeral
+15. **Whether any of the audit's scorers should become a permanent metric.** The numeral
     matcher against the filing (§2) and the peer-multiple completeness check are the two
     that earned their place here.
-15. **The call on "ready".** The numbers in §3 and §4 are mine; the judgement is yours.
+16. **The call on "ready".** The numbers in §3 and §4 are mine; the judgement is yours.
 
 
 
