@@ -13,7 +13,10 @@ browser — it is self-contained and needs no server.*
 
 ## In one paragraph
 
-It writes an institutional-style equity research note on a UK or US listed company. You
+It writes an institutional-style equity research note on a company that files with the
+SEC — every US listing, and a UK plc with a 20-F, as AstraZeneca has. A domestic-only
+London listing cannot be researched yet: acquisition resolves a subject against EDGAR's
+own ticker file, and the Companies House adapter is written but wired to nothing. You
 approve a costed plan before anything is spent, it fetches and archives the primary
 sources itself, it does all the arithmetic in ordinary tested Python, a language model
 writes the prose, and you approve the draft before it is frozen into a document. Every
