@@ -256,6 +256,29 @@ SUBJECTS: Final[tuple[Subject, ...]] = (
         ),
     ),
     Subject(
+        key="azn2",
+        company_name="AstraZeneca PLC",
+        ticker="AZN",
+        exchange="NYSE",
+        base_currency="USD",
+        reporting_currency="USD",
+        horizon_months=12,
+        focus_questions=_AZN_QUESTIONS,
+        use_case=(
+            "The same UK plc again, on the corrected IFRS aliases and after an approved "
+            "report exists: the valuation the first run withheld, and the refresh section "
+            "that refused MSFT's second run."
+        ),
+        assumptions=(
+            _RISK_FREE,
+            _ERP,
+            _TERMINAL_GROWTH,
+            _beta("0.4", "A large pharmaceutical's published beta sits well below one."),
+            _COST_OF_DEBT,
+            *_AZN_DERIVED,
+        ),
+    ),
+    Subject(
         key="tsco",
         company_name="Tesco PLC",
         ticker="TSCO",
