@@ -358,18 +358,20 @@ how it was established, and its state. *Severity* is the acceptance pass's rule:
 unrecoverable; **major** loses a section or a figure, or misleads a spending decision;
 **minor** otherwise.
 
-**Fixed here, each with a regression test that failed first** (18): F-01 the red CI, F-02
-the documented counts, F-03 the order-dependent suite, F-08 the stranded run, F-10 the
-financials page, F-11 the front page's forecast, F-12 the IFRS aliases, F-13 Haiku's
-pricing, F-14 the adversary's unreadable reply, F-15 the peer and theme gates, F-17 the
-hidden wave failure, F-18 the unrepeatable render, F-19 the compounded quarter, F-20 (a
-bundle of fifteen from the code reading), F-22 the leaked report identifier, F-23 the
-unclassified filer, F-25 the platform's own presentation failure, and F-26 by narrowing.
+**Fixed here, each with a regression test that failed first** (19): F-01 the red CI, F-02
+the documented counts, F-03 the order-dependent suite, F-04's misleading refusal and its
+documents, F-08 the stranded run, F-10 the financials page, F-11 the front page's forecast,
+F-12 the IFRS aliases, F-13 Haiku's pricing, F-14 the adversary's unreadable reply, F-15
+the peer and theme gates, F-17 the hidden wave failure, F-18 the unrepeatable render, F-19
+the compounded quarter, F-20 (a bundle of fifteen from the code reading), F-22 the leaked
+report identifier, F-23 the unclassified filer, F-25 the platform's own presentation
+failure, and F-26 by narrowing.
 
-**Left for the operator** (8): F-04 the UK path, F-05 effort on Haiku, F-06 the unmetered
-acquisition, F-07 the writable audit chain, F-16 the stale approval, F-21 (eleven confirmed
-decisions), **F-24 a bank's revenue — the one blocking finding still open** — and F-26's
-second half. §8 lists them as decisions rather than as defects.
+**Left for the operator** (7 and a half): F-04's UK acquisition path itself, F-05 effort on
+Haiku, F-06 the unmetered acquisition, F-07 the writable audit chain, F-16 the stale
+approval, F-21 (eleven confirmed decisions), **F-24 a bank's revenue — the one blocking
+finding still open** — and F-26's second half. §8 lists them as decisions rather than as
+defects.
 
 ### F-01 — CI has been red on every run since 2026-09-09, and the acceptance pass called the static gates clean
 
