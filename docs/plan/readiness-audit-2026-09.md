@@ -8,7 +8,10 @@ the operator's: **reliable, accurate, budget friendly, complete**, held against 
 research done in the Claude console with an optimised set-up. This document is the record:
 what was measured, what was found, what was fixed, and what only the operator can decide.*
 
-*Every number here is read from `audit/out/` or from the repository, never remembered.*
+*Every number here is read from the run records or from the repository, never remembered.
+The records are in [`readiness-audit-2026-09/`](readiness-audit-2026-09/) — the committed
+copy of the audit's own `audit/out/`, which is git-ignored because it holds the untrimmed
+captures and the archived payloads.*
 
 ---
 
@@ -257,8 +260,13 @@ absences are structural rather than incidental.
 Each report and each console note was read by three independent judges under a fixed
 rubric — an investor deciding with their own money, a reader handed only the file, and a
 sceptic checking the work — blind to which tool produced which document, and then the pair
-was compared blind. Twelve reads, six comparisons; the raw rubrics are in
-`audit/out/judges/reads.json`.
+was compared blind. Twelve reads, six comparisons, eighteen agents; the raw rubrics are in
+[`readiness-audit-2026-09/judges/reads.json`](readiness-audit-2026-09/judges/reads.json),
+where each one names the section it read a judgement from.
+
+They read the two subjects that had a report and a console note each — MSFT #1 and AZN.
+The bank's report was not judged: it reached gate 2 refused, and a document the platform
+declines to publish is not one to hold against the console.
 
 | Question | Platform (2 documents, 6 judges) | Console (2 documents, 6 judges) |
 |---|---|---|
@@ -280,9 +288,9 @@ altogether.
 
 **The verifiability result deserves care.** The platform's footnotes resolve to hashed bytes
 and the console's are URLs that may or may not still say what was quoted — a third of them
-already did not (§3.2). Yet judges reading
-the *exported Markdown alone* found the console no slower to check, because a URL can be
-opened and a footnote to `source_document:<uuid>` cannot. **The platform's verifiability
+already did not (§3.2). Yet judges reading the *exported Markdown alone* found the console
+no slower to check, because a URL can be opened and a footnote to `source_document:<uuid>`
+cannot. **The platform's verifiability
 advantage lives in the interface, not in the document it exports** — which is exactly
 persona 2's complaint, and use case 9's row below.
 
