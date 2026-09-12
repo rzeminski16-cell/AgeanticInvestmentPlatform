@@ -322,6 +322,20 @@ view, for anything needing segment detail, guidance, peer multiples or news, and
 bank, a domestic UK filer or a fast answer, the console is the better tool today, and six
 of six blind judgements said so.
 
+### 4.4 What the operator should check by hand
+
+Everything above was measured or model-judged. These are the six checks that need the
+operator's own eye, each with where to look and what the audit expects them to find.
+
+| # | The check | Where | What I expect you to find |
+|---|---|---|---|
+| 1 | Read MSFT #1's report as a document | `readiness-audit-2026-09/msft1/report.md`, 14k words, ~40 minutes | Accurate and traceable throughout, and it never tells you what it thinks. Six judges said they would not act on it |
+| 2 | Read the MSFT console note beside it | `readiness-audit-2026-09/baseline/msft1/note.md` | A note that answers the brief and argues a view, whose figures you cannot check without opening 46 links, 13 of which no longer resolve |
+| 3 | Walk three figures to their sources in the interface | any run's claims page, then its footnotes | Minutes, not an afternoon — the platform's strongest result, and the one thing the console cannot do |
+| 4 | Open the bank's withheld front page | `readiness-audit-2026-09/mtb/report.md`, the coverage notice | The block withheld and the impossible relations named. Decide whether that refusal reads as care or as a broken report |
+| 5 | Look at the assumptions gate you would actually face | `readiness-audit-2026-09/*/screens/assumptions.png` | Two values on MSFT, five on AZN, three on a bank, each demanding a justification. Decide whether the page tells you enough to answer well |
+| 6 | Judge the peer-multiple decision | §8, item 1 | Whether a research note without EV/EBITDA or P/E is one you would use, or whether acquiring eight peers' filings is worth the time it adds |
+
 ## 5. Findings
 
 Twenty-six findings, numbered in the order found. Each carries what it costs the operator,
