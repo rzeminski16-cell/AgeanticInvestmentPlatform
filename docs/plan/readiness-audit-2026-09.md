@@ -1182,13 +1182,13 @@ definition or what a run does. They are listed in the order I would take them.
   subtracts the repeatability. Its minutes-to-answer here (16, 19, 14) are the API's.
 - **The four subsystems nobody read** (render, observability, the GUI, the documents) beyond
   what the live runs showed of them.
-- **Whether the fixes hold under a full suite in every order.** On the final tree, with
-  nothing else running, all three passes are green: the default suite **6,960 passed** in
-  34m39s, the browser suite **183 passed** in 7m43s, and seed 20260909 — the ordering that
-  had left a residual pair — **6,925 passed** in 34m08s, so the pair is gone. What is not
-  established is a *third* ordering, and the shuffled runner was widened in this pass to
-  walk every directory (it globbed one, so the audit's own thirty-five tests were never
-  shuffled); that widening has not itself been run under a seed.
+- **Whether the fixes hold under a full suite in every order.** Green on every pass run,
+  each with nothing else running: the default suite **6,960 passed** (34m39s) and again
+  **6,964 passed** (35m06s) after the later fixes, the browser suite **183 passed** (7m43s),
+  and seed 20260909 — the ordering that had left a residual pair — **6,925 passed** (34m08s),
+  so the pair is gone. What is not established is a *third* ordering; and the shuffled runner
+  was widened in this pass to walk every directory (it globbed one, so the audit's own tests
+  were never shuffled), which has not itself been run under a seed.
 - **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
   figure in a sentence it could not read is not counted. Its precision was calibrated, its
   recall was not measured.
