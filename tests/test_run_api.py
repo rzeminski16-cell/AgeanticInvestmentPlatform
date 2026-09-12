@@ -30,6 +30,7 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+import aer.render.pdf as pdf_module
 from aer.api import sse as sse_module
 from aer.api.sse import event_stream
 from aer.config import Settings
@@ -63,6 +64,7 @@ from aer.errors import ValidationError
 from aer.services import runs as run_service
 from aer.services.disagreements import settle_by_hand
 from aer.services.red_team import _shortened
+from aer.services.resume import resume_run
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.web.pages import SETTLED_WITHOUT_COMMENT
 from aer.web.vocabulary import TRIGGER_KINDS
@@ -2462,3 +2464,51 @@ class TestDeletingARequestWhoseRunWasCancelled:
         assert event is not None
         assert Decimal(event.payload["spend_gbp"]) > 0
         assert event.payload["ticker"] == "MSFT"
+
+
+class TestTheRenderStepIsReEntrant:
+    async def test_a_renderer_that_raises_once_does_not_strand_the_run(
+        self,
+        api: Any,
+        committed: dict,
+        driver: Driver,
+        db_engine: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Readiness audit 2026-09, blocking: the report row was flushed before the PDF was
+        rendered, a renderer that raised left that row committed with the FAILED step, and
+        `reports.job_id` is unique — so every resume failed on a second insert and a fresh
+        run was refused because a report existed. The step now reuses the run's row."""
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
+
+        genuine = pdf_module.render_pdf
+        attempts = {"count": 0}
+
+        def flaky(*args: Any, **kwargs: Any) -> bytes:
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                message = "the GTK stack sneezed"
+                raise RuntimeError(message)
+            return genuine(*args, **kwargs)
+
+        monkeypatch.setattr(pdf_module, "render_pdf", flaky)
+
+        with pytest.raises(RuntimeError, match="sneezed"):
+            await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            assert job.status is JobStatus.FAILED
+            await resume_run(session, job=job, actor=committed["user"], reason="try the PDF again")
+            await session.commit()
+
+        assert await driver.advance(job_id) is JobStatus.SUCCEEDED
+
+        async with factory() as session:
+            reports = list(await session.scalars(select(Report).where(Report.job_id == job_id)))
+        assert len(reports) == 1
+        assert reports[0].pdf_artefact_id is not None
+        assert reports[0].immutable is True

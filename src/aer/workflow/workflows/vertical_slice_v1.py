@@ -3750,24 +3750,29 @@ async def _render(context: StepContext) -> StepResult:
         select(Approval).where(Approval.job_id == context.job.id, Approval.gate == GateKind.FINAL)
     )
 
-    report = Report(
-        job_id=context.job.id,
-        request_id=request.id,
-        company_id=company.id if company is not None else None,
-        as_of_date=request.work_order.as_of_date,
-        rating=None,
-        confidence=None,
-        content={"markdown": markdown, "sections": document.section_keys},
-        content_hash=sha256_hex(markdown),
-        markdown_artefact_id=markdown_artefact.artefact.id,
-        html_artefact_id=html_artefact.artefact.id,
-        approved_by=approval.actor_user_id if approval is not None else None,
-        approved_at=approval.decided_at if approval is not None else None,
-        # Frozen only because a human approved it. The check constraint enforces the same
-        # rule, so an immutable report always has an approval behind it.
-        immutable=approval is not None,
-    )
-    context.session.add(report)
+    # Re-entrant. A step that fails after this row is flushed publishes it with FAILED
+    # (the engine commits what a failed step wrote), and `reports.job_id` is unique — so
+    # before the readiness audit of 2026-09 a PDF renderer that raised once left a run
+    # that could neither be resumed (a second insert) nor started afresh (a report
+    # exists). The row is the run's, and a re-run of the step is the same report again.
+    report = await context.session.scalar(select(Report).where(Report.job_id == context.job.id))
+    if report is None:
+        report = Report(job_id=context.job.id, request_id=request.id)
+        context.session.add(report)
+    report.company_id = company.id if company is not None else None
+    report.as_of_date = request.work_order.as_of_date
+    report.rating = None
+    report.confidence = None
+    report.content = {"markdown": markdown, "sections": document.section_keys}
+    report.content_hash = sha256_hex(markdown)
+    report.markdown_artefact_id = markdown_artefact.artefact.id
+    report.html_artefact_id = html_artefact.artefact.id
+    report.pdf_artefact_id = None
+    report.approved_by = approval.actor_user_id if approval is not None else None
+    report.approved_at = approval.decided_at if approval is not None else None
+    # Frozen only because a human approved it. The check constraint enforces the same
+    # rule, so an immutable report always has an approval behind it.
+    report.immutable = approval is not None
     await context.session.flush()
 
     # The confirmed themes land in rows only now, pointed at this report, so the edge

@@ -23,15 +23,17 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import AnalysisMode, JobStatus
 from aer.db.models import Job, Report
+from aer.queue import worker_health
 from aer.services import approvals as approval_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services.acceptance import acceptance_readout
 from aer.services.mandate import mandate_of
-from aer.services.resume import resume_run
+from aer.services.resume import resume_run, stranding_of
 from aer.services.run_export import export_run
 from aer.services.run_replay import replay_run
 from aer.services.spend import spend_by_role, spend_summary
@@ -150,11 +152,10 @@ async def drive(
                     recorder.event("recovery.already_queued", status=job.status.value)
                     enqueue = False
                 elif job.status is JobStatus.RUNNING:
-                    # RUNNING with no worker alive but the one this driver just started:
-                    # the previous worker died under it. Re-enqueueing is the only way on,
-                    # and that it is the only way is itself a finding (use case 11).
-                    recorder.event("recovery.reenqueue_running_job", status=job.status.value)
-                    enqueue = True
+                    # RUNNING with no worker on it: the previous worker died under it. The
+                    # product's way on since F-08 is a stranded resume, which sets the job
+                    # QUEUED; a bare re-enqueue is declined by `execute` now.
+                    enqueue = await _resume_stranded(runtime, session, job, recorder)
                 elif job.status is not JobStatus.QUEUED:
                     enqueue = False
         for _ in range(_MAX_ITERATIONS):
@@ -186,18 +187,9 @@ async def drive(
                     async with runtime.session() as session:
                         job = await _job(session, job_id)
                         recorder.event("recovery.status_after_restart", status=job.status.value)
-                        try:
-                            await resume_run(
-                                session,
-                                job=job,
-                                actor=await runtime.operator(session),
-                                reason="audit drill: worker killed mid-draft",
-                            )
-                            await session.commit()
-                            recorder.event("recovery.resumed_via_service")
-                        except Exception as refused:
-                            recorder.event("recovery.resume_refused", error=str(refused)[:300])
-                            enqueue = True
+                        enqueue = await _resume_stranded(
+                            runtime, session, job, recorder, reason="audit drill: worker killed"
+                        )
                     resumes += 1
                 else:
                     enqueue = False
@@ -408,6 +400,40 @@ async def _job(session: Any, job_id: uuid.UUID) -> Job:
         message = f"No run {job_id}."
         raise RuntimeError(message)
     return cast("Job", job)
+
+
+async def _resume_stranded(
+    runtime: AuditRuntime,
+    session: AsyncSession,
+    job: Job,
+    recorder: Recorder,
+    *,
+    reason: str = "audit: worker died under the run",
+) -> bool:
+    """Continue a RUNNING run the product's way: attest that nothing is executing it.
+
+    What the console's Continue and `aer resume` do since F-08. Returns whether the job
+    is now queued and needs the worker told; a refusal (a worker still reports something
+    in flight) is recorded with the evidence the product would show.
+    """
+    stranding = await stranding_of(session, job=job, health=await worker_health(runtime.redis))
+    recorder.event("recovery.stranding", stranded=stranding.stranded, reason=stranding.reason)
+    if job.status is JobStatus.RUNNING and not stranding.stranded:
+        return False
+    try:
+        await resume_run(
+            session,
+            job=job,
+            actor=await runtime.operator(session),
+            reason=reason,
+            stranded=stranding.stranded,
+        )
+        await session.commit()
+    except Exception as refused:
+        recorder.event("recovery.resume_refused", error=str(refused)[:300])
+        return False
+    recorder.event("recovery.resumed_via_service", stranded=stranding.stranded)
+    return True
 
 
 async def _wait_for_movement(runtime: AuditRuntime, job_id: uuid.UUID, *, seconds: float) -> bool:
