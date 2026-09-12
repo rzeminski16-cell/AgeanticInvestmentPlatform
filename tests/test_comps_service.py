@@ -44,7 +44,7 @@ from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
 from aer.services import comps as comps_service
 from aer.services import comps as service
-from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for
+from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for, gate_payload
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
@@ -926,6 +926,40 @@ class TestTheOperatorMayAddAComparable:
         # The registry's name, not anything typed.
         assert added["name"] == "Peer plc"
         assert added["period_end"] == PERIOD_END.isoformat()
+
+    async def test_the_gate_hashes_the_set_the_page_shows_and_the_approval_releases_it(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        """Readiness audit 2026-09, blocking: the page hashed the whole set, the engine
+        hashed the step's proposal alone, so an approval taken from the page after an
+        addition never matched and the run could not leave the gate."""
+        await record_proposal(db_session, scene)
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+        await comps_service.add_operator_peer(
+            db_session,
+            job=scene["job"],
+            company_id=peer.id,
+            rationale="Same industry, and the platform already holds its filings.",
+            actor=scene["analyst"],
+        )
+        shown = await comps_service.payload_for_job(db_session, scene["job"].id)
+
+        # One funnel: what the run hashes for the gate is what the page renders.
+        assert (
+            await gate_payload(db_session, job=scene["job"], gate=GateKind.PEER_SET.value) == shown
+        )
+
+        await approve_plan(db_session, scene)
+        await approval_service.record_decision(
+            db_session,
+            job=scene["job"],
+            gate=GateKind.PEER_SET,
+            decision=Decision.APPROVED,
+            actor=scene["analyst"],
+            payload_hash=sha256_hex(canonical_json(shown)),
+        )
+        confirmed = await comps_service.confirmed_peer_set(db_session, scene["job"])
+        assert str(peer.id) in {row.identifier for row in confirmed}
 
     async def test_a_company_with_no_stored_facts_yields_nothing(
         self, db_session: Any, scene: dict[str, Any]

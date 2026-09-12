@@ -125,6 +125,7 @@ from aer.services.comps import (
     peer_set_required,
     propose_peers_from_sic,
 )
+from aer.services.comps import payload_for_job as peer_payload_for_job
 from aer.services.comps_run import build_comps_table
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
@@ -160,6 +161,7 @@ from aer.services.themes import (
     theme_set_payload,
     theme_set_required,
 )
+from aer.services.themes import payload_for_job as theme_payload_for_job
 from aer.services.valuation_run import value_the_business
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
@@ -2546,7 +2548,16 @@ async def _gate_peer_set(context: StepContext) -> StepResult:
     if not peer_set_required(produced):
         return StepResult(output={"gate": GateKind.PEER_SET.value, "required": False, "peers": 0})
 
-    return await _require_approval(context, gate=GateKind.PEER_SET, of_step=PEER_SET_STEP)
+    # The whole set — the step's proposal and the operator's additions — exactly as the
+    # review page hashes it. Before the readiness audit of 2026-09 the gate verified the
+    # step's frozen proposal alone, so an operator who added a peer could never pass it.
+    live = await peer_payload_for_job(context.session, context.job.id)
+    return await _require_approval(
+        context,
+        gate=GateKind.PEER_SET,
+        of_step=PEER_SET_STEP,
+        expected_hash=sha256_hex(canonical_json(live)),
+    )
 
 
 def theme_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
@@ -2659,7 +2670,14 @@ async def _gate_theme_set(context: StepContext) -> StepResult:
     if not theme_set_required(produced):
         return StepResult(output={"gate": GateKind.THEME_SET.value, "required": False, "themes": 0})
 
-    return await _require_approval(context, gate=GateKind.THEME_SET, of_step=THEME_STEP)
+    # The whole slate, as the review page hashes it (see `_gate_peer_set`).
+    live = await theme_payload_for_job(context.session, context.job.id)
+    return await _require_approval(
+        context,
+        gate=GateKind.THEME_SET,
+        of_step=THEME_STEP,
+        expected_hash=sha256_hex(canonical_json(live)),
+    )
 
 
 # ==========================================================================================
@@ -3470,17 +3488,33 @@ async def gate_payload(session: AsyncSession, *, job: Job, gate: str) -> dict[st
     if gate == GateKind.FINAL.value:
         return await final_gate_payload(session, job_id=job.id)
 
+    if gate in _OPERATOR_EXTENDED_GATES:
+        return await _whole_set_payload(session, job=job, gate=gate, produced=produced)
+
     builder = _STEP_OUTPUT_GATES.get(gate)
-    if builder is None:
+    return {} if builder is None else builder(produced)
+
+
+# The peer set and the theme slate are the step's proposal plus whatever the operator added
+# on the review page, and the services own that funnel: the page renders it, the approval
+# hashes it, the gate verifies against it. Building either from the step's frozen output
+# was how an operator's addition made the gate impassable (readiness audit 2026-09).
+_OPERATOR_EXTENDED_GATES: Final = frozenset({GateKind.PEER_SET.value, GateKind.THEME_SET.value})
+
+
+async def _whole_set_payload(
+    session: AsyncSession, *, job: Job, gate: str, produced: Mapping[str, Any]
+) -> dict[str, Any]:
+    if not produced:
         return {}
-    return builder(produced)
+    if gate == GateKind.PEER_SET.value:
+        return await peer_payload_for_job(session, job.id)
+    return await theme_payload_for_job(session, job.id)
 
 
-# The five that are a pure function of one step's output.
+# The two that are a pure function of one step's output.
 _STEP_OUTPUT_GATES: Final[Mapping[str, Callable[[Mapping[str, Any]], dict[str, Any]]]] = {
     GateKind.SECTOR_SPECIALIST.value: sector_gate_payload,
-    GateKind.PEER_SET.value: peer_gate_payload,
-    GateKind.THEME_SET.value: theme_gate_payload,
     GateKind.UNMAPPED_CONCEPTS.value: unmapped_gate_payload,
 }
 
