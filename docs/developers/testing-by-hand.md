@@ -345,12 +345,12 @@ just typecheck
 ```
 All checks passed!
 <N> files already formatted
-Success: no issues found in 453 source files
+Success: no issues found in 458 source files
 ```
 
-**`mypy`'s count is the one to read.** It should be **453 source files** and it grows slowly
+**`mypy`'s count is the one to read.** It should be **458 source files** and it grows slowly
 as modules are added. A number that has *dropped sharply* means a path is being excluded
-that should not be, and a `mypy` run that checks 200 files instead of 453 is a green build
+that should not be, and a `mypy` run that checks 200 files instead of 458 is a green build
 that checked half the codebase. Note `just typecheck` runs a bare `mypy` deliberately: the
 packages come from `pyproject.toml`, so this command, pre-commit and CI check exactly the
 same set. A bare `mypy src` checks fewer and is not the gate.
