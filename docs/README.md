@@ -142,6 +142,13 @@ page specifications, a production handoff and a twelve-screen prototype.
   with its number, a suitability matrix by use case, 23 findings with their reproductions,
   the spend ledger, and the decisions only the operator can take. Results in
   [`readiness-audit-2026-09/`](plan/readiness-audit-2026-09/).
+- [`remediation-2026-09.md`](plan/remediation-2026-09.md) — **the plan that answers the
+  audit.** The two gaps it found — not user-ready, and not better than a console note —
+  treated as one problem: the platform computes far more than it prints. Seven phases with
+  their sessions, their pounds and their operator hours, the targets stated before the work,
+  and the result that would mean stopping and narrowing the claim instead. Its diagnosis —
+  165 verified findings, four competing plans, three judges, two critics — is in
+  [`remediation-2026-09/`](plan/remediation-2026-09/).
 
 ---
 
