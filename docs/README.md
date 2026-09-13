@@ -37,6 +37,10 @@ For anyone who needs to understand or explain the platform without reading code.
   is honestly incomplete.
 - [`anatomy-of-a-research-run.html`](product/anatomy-of-a-research-run.html) — a
   self-contained diagram of the whole pipeline. Open it in a browser; it needs no server.
+- [`investor-deck/`](product/investor-deck/) — twelve slides arguing the case to somebody
+  outside the project, built only from figures the readiness audit measured;
+  [`sources.md`](product/investor-deck/sources.md) maps every one of them back to its
+  section, including the six blind comparisons the platform lost.
 
 ### `users/` — how to run it
 
