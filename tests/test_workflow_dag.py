@@ -515,6 +515,43 @@ class TestAFailedNodeFailsOnlyItsDependants:
 
 
 @pytest.mark.integration
+class TestAWaveFailureIsNotHiddenByALaterPause:
+    async def test_the_run_fails_rather_than_waiting_at_the_gate(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Readiness audit 2026-09: a branch failed in the wave, its independent sibling
+        went on to a gate, and the run returned AWAITING_APPROVAL with a FAILED row nobody
+        was shown. The failure is the run's state; the gate waits behind it."""
+        tracker = Tracker()
+
+        async def explode(context: StepContext) -> StepResult:
+            message = "deliberate"
+            raise RuntimeError(message)
+
+        async def gate(context: StepContext) -> StepResult:
+            message = "A person has to look at this."
+            raise StepPaused(message, gate="the-gate")
+
+        engine = WorkflowEngine(
+            [
+                _step("a", tracker),
+                _step("b", tracker, needs=frozenset({"a"}), body=explode),
+                _step("c", tracker, needs=frozenset({"a"})),
+                WorkflowStep(key="gate_d", run=gate, needs=frozenset({"c"})),
+            ]
+        )
+
+        with pytest.raises(RuntimeError, match="deliberate"):
+            await _run(scene, engine)
+
+        rows = await _rows(scene)
+        assert rows["b"].status is JobStatus.FAILED
+        assert rows["c"].status is JobStatus.SUCCEEDED
+        assert rows["gate_d"].status is JobStatus.AWAITING_APPROVAL
+        assert await _job_status(scene) is JobStatus.FAILED
+
+
+@pytest.mark.integration
 class TestAPauseDrainsTheWave:
     async def test_the_sibling_in_flight_finishes_before_the_pause_lands(
         self, scene: dict[str, Any]

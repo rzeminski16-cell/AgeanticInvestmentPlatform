@@ -1,0 +1,1013 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Run · MSFT</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <script src="http://127.0.0.1:8000/static/js/console.js" defer=""></script>
+  
+  
+    <noscript>
+      <meta http-equiv="refresh" content="5" id="poll-fallback" />
+    </noscript>
+  
+
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">1</span><span class="sr-only">1 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="gUA02nQpvOW1Wm4iMCd84A.1789201062.ca054ba83822393f5ac5ac1b5d8c1f890232d2ed90492e48cdff345795975d91" style="">
+          <input type="hidden" name="next" value="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="gUA02nQpvOW1Wm4iMCd84A.1789201062.ca054ba83822393f5ac5ac1b5d8c1f890232d2ed90492e48cdff345795975d91" style="">
+          <input type="hidden" name="next" value="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  <div id="run-console" class="flex flex-col gap-6" data-job-id="60cf1343-c809-48b0-ac3f-efa96207cb61" data-events-url="/api/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/events" data-terminal="false" data-status="AWAITING_APPROVAL" data-status-labels="{&quot;QUEUED&quot;: &quot;Queued&quot;, &quot;RUNNING&quot;: &quot;Running&quot;, &quot;PAUSED&quot;: &quot;Paused&quot;, &quot;AWAITING_APPROVAL&quot;: &quot;Waiting for you&quot;, &quot;SUCCEEDED&quot;: &quot;Finished&quot;, &quot;FAILED&quot;: &quot;Failed&quot;, &quot;CANCELLED&quot;: &quot;Cancelled&quot;, &quot;BUDGET_EXCEEDED&quot;: &quot;Stopped before overspending&quot;}">
+    
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/requests" class="underline underline-offset-[3px] hover:text-verification">Requests</a>
+      </li>
+      
+      <li class="flex items-center gap-2">
+        <span aria-hidden="true">/</span>
+        <a href="/requests/feb0b364-eec9-457d-ba09-38c4b17c4f5f" class="underline underline-offset-[3px] hover:text-verification">Microsoft Corporation</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">RESEARCH RUN</p><h1 class="type-title-1 text-ink">Microsoft Corporation</h1><p class="type-body text-ink-muted">MSFT · as at 2026-09-12</p>
+  <div class="flex flex-wrap items-center gap-3">
+      <span id="run-status">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Waiting for you</span></span>
+</span>
+    </div>
+  </header>
+
+
+    
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">CURRENT STATE</p>
+  <p class="mt-2 type-body-lg text-ink">The run stopped so you could review the finished report. Nothing further happens, and nothing further is spent, until you decide.</p></section>
+
+
+    
+      <section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5" role="alert" id="awaiting-approval">
+        <h2 class="type-title-2 text-ink">Waiting for you</h2>
+        <p class="mt-2 type-body text-ink">
+          Nothing further happens, and nothing further is spent, until you approve or
+          reject it.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          
+          
+          
+          
+          
+          
+          <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/plan" id="review-plan" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface text-ink hover:bg-surface-selected px-3 type-label">Review the plan</a>
+          <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/review" id="review-draft" class="inline-flex min-h-11 items-center rounded-sm bg-decision text-on-decision hover:bg-decision-strong px-3 type-label">Review the draft</a>
+        </div>
+      </section>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    
+
+<section id="run-journey" class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">The decisions</h2>
+  <div class="mt-4">
+      <ol class="flex flex-wrap gap-x-5 gap-y-2">
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="PLAN" data-journey-state="decided">
+            <span class="type-label text-ink">The plan</span>
+            <span class="type-body-sm text-ink-subtle">approved</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="SECTOR_SPECIALIST" data-journey-state="not_needed">
+            <span class="type-label text-ink-muted">The sector</span>
+            <span class="type-body-sm text-ink-subtle">not needed</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="PEER_SET" data-journey-state="decided">
+            <span class="type-label text-ink">The peers</span>
+            <span class="type-body-sm text-ink-subtle">approved</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="THEME_SET" data-journey-state="decided">
+            <span class="type-label text-ink">The themes</span>
+            <span class="type-body-sm text-ink-subtle">approved</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="UNMAPPED_CONCEPTS" data-journey-state="decided">
+            <span class="type-label text-ink">The financials</span>
+            <span class="type-body-sm text-ink-subtle">approved</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="ASSUMPTIONS" data-journey-state="decided">
+            <span class="type-label text-ink">The assumptions</span>
+            <span class="type-body-sm text-ink-subtle">approved</span>
+          </li>
+        
+          <li class="flex items-baseline gap-2" data-journey-gate="FINAL" data-journey-state="current">
+            <span class="type-label text-warning-ink">The report</span>
+            <span class="type-body-sm text-warning-ink">now</span>
+          </li>
+        
+      </ol>
+      <p class="mt-3 type-body-sm text-ink-muted" id="decisions-remaining">One more decision.</p>
+    </div>
+</section>
+
+
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Spend against ceiling</h2>
+  <div class="mt-4">
+      <p class="type-data-xl text-ink">
+        <span id="run-spend">£6.802436</span>
+        <span class="text-ink-muted">of £10.00</span>
+      </p>
+      <p class="mt-1 type-body-sm text-ink-muted">
+        The run stops before any step that would cross the ceiling, rather than after
+        paying for it.
+      </p>
+      
+    </div>
+</section>
+
+
+    
+    <nav class="flex flex-wrap gap-x-6 gap-y-2" id="evidence-links" aria-label="Evidence">
+      <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/sources" id="sources-link" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Sources · 16
+      </a>
+      <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/claims" id="claims-link" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Claims · 279
+      </a>
+      <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/valuation" id="valuation-link" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Valuation · ready
+      </a>
+    </nav>
+
+    <section aria-labelledby="steps-heading">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="steps-heading" class="type-title-2 text-ink">The steps</h2>
+        <p class="type-body-sm text-ink-muted">
+          <span data-field="steps-done">29</span> of
+          <span data-field="steps-total">31</span> done
+        </p>
+      </div>
+
+      
+      <ol class="mt-3 divide-y divide-line" id="run-steps">
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="plan" data-status="SUCCEEDED" data-label="Planning the research" data-started-at="2026-09-12T07:31:50.622329+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Planning the research</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">plan</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.1766</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="critique_plan" data-status="SUCCEEDED" data-label="Critiquing the plan" data-started-at="2026-09-12T07:33:39.183998+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Critiquing the plan</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">critique_plan</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.3206</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_plan" data-status="SUCCEEDED" data-label="Your decision — the plan" data-started-at="2026-09-12T07:37:14.868464+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the plan</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_plan</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="acquire" data-status="SUCCEEDED" data-label="Fetching the filings" data-started-at="2026-09-12T07:37:14.879527+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Fetching the filings</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">acquire</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="classify" data-status="SUCCEEDED" data-label="Deciding what kind of business this is" data-started-at="2026-09-12T07:37:21.390345+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Deciding what kind of business this is</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">classify</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_sector_specialist" data-status="SUCCEEDED" data-label="Your decision — the sector" data-started-at="2026-09-12T07:37:21.399509+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the sector</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_sector_specialist</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="propose_peers" data-status="SUCCEEDED" data-label="Proposing comparable companies" data-started-at="2026-09-12T07:37:21.405431+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Proposing comparable companies</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">propose_peers</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0132</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_peer_set" data-status="SUCCEEDED" data-label="Your decision — the peer set" data-started-at="2026-09-12T07:37:32.664377+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the peer set</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_peer_set</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="propose_themes" data-status="SUCCEEDED" data-label="Proposing themes" data-started-at="2026-09-12T07:37:32.675166+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Proposing themes</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">propose_themes</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0121</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_theme_set" data-status="SUCCEEDED" data-label="Your decision — the themes" data-started-at="2026-09-12T07:37:45.683176+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the themes</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_theme_set</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="extract" data-status="SUCCEEDED" data-label="Reading the financial statements" data-started-at="2026-09-12T07:37:45.690175+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Reading the financial statements</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">extract</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_unmapped_concepts" data-status="SUCCEEDED" data-label="Your decision — the financials" data-started-at="2026-09-12T07:40:06.976079+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the financials</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_unmapped_concepts</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="acquire_prices" data-status="SUCCEEDED" data-label="Fetching the price history" data-started-at="2026-09-12T07:40:07.249968+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Fetching the price history</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">acquire_prices</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="calculate" data-status="SUCCEEDED" data-label="Computing the ratios and history" data-started-at="2026-09-12T07:40:07.238014+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Computing the ratios and history</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">calculate</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="research_company" data-status="SUCCEEDED" data-label="Researching the company" data-started-at="2026-09-12T07:40:07.283363+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Researching the company</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">research_company</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.4052</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="research_industry" data-status="SUCCEEDED" data-label="Researching the industry" data-started-at="2026-09-12T07:40:07.297466+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Researching the industry</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">research_industry</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.3257</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="research_macro" data-status="SUCCEEDED" data-label="Researching the macro backdrop" data-started-at="2026-09-12T07:40:07.309275+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Researching the macro backdrop</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">research_macro</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.4364</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="research_recent_developments" data-status="SUCCEEDED" data-label="Researching recent developments" data-started-at="2026-09-12T07:40:07.332911+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Researching recent developments</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">research_recent_developments</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.2242</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="research_technical_context" data-status="SUCCEEDED" data-label="Researching the trading context" data-started-at="2026-09-12T07:40:07.363012+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Researching the trading context</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">research_technical_context</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0837</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="comps" data-status="SUCCEEDED" data-label="Building the comparables table" data-started-at="2026-09-12T07:41:45.255138+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Building the comparables table</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">comps</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="propose_assumptions" data-status="SUCCEEDED" data-label="Proposing valuation assumptions" data-started-at="2026-09-12T07:41:45.266885+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Proposing valuation assumptions</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">propose_assumptions</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0602</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_assumptions" data-status="SUCCEEDED" data-label="Your decision — the assumptions" data-started-at="2026-09-12T07:42:20.495880+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the assumptions</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_assumptions</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="value" data-status="SUCCEEDED" data-label="Valuing the company" data-started-at="2026-09-12T07:42:20.529093+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Valuing the company</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">value</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="draft" data-status="SUCCEEDED" data-label="Drafting the report" data-started-at="2026-09-12T07:56:32.967762+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Drafting the report</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">draft</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£2.3111</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="validate" data-status="SUCCEEDED" data-label="Checking the draft against the record" data-started-at="2026-09-12T08:03:11.204800+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Checking the draft against the record</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">validate</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="red_team" data-status="SUCCEEDED" data-label="Challenging the thesis" data-started-at="2026-09-12T08:03:14.323200+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Challenging the thesis</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">red_team</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.3048</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="revise" data-status="SUCCEEDED" data-label="Redrafting the challenged sections" data-started-at="2026-09-12T08:05:30.595084+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Redrafting the challenged sections</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">revise</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£1.3423</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="verdict" data-status="SUCCEEDED" data-label="Summing up the draft for review" data-started-at="2026-09-12T08:16:47.734933+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Summing up the draft for review</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">verdict</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0022</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="brief_challenges" data-status="SUCCEEDED" data-label="Briefing the unsettled challenges" data-started-at="2026-09-12T08:16:49.684501+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Briefing the unsettled challenges</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">brief_challenges</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Finished</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0100</span>
+            </span>
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="gate_final" data-status="AWAITING_APPROVAL" data-label="Your decision — the report" data-started-at="2026-09-12T08:17:27.316130+00:00">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink">Your decision — the report</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">gate_final</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Waiting for you</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+              
+              <p class="w-full type-body-sm text-failure-ink" data-field="error">This run is waiting for the final gate, and 1 escalation trigger raised the banner: cost_above_threshold. Nothing further happens, and nothing further is spent, until somebody approves or rejects it with the banner in view.</p>
+              
+                <p class="w-full type-data-sm text-failure-ink" data-field="error-code">step_paused</p>
+              
+            
+          </li>
+        
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5" data-step="render" data-status="QUEUED" data-label="Rendering the report document" data-started-at="">
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body text-ink-muted">Rendering the report document</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">render</span>
+              </span>
+            </span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">Queued</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£0.0000</span>
+            </span>
+            
+          </li>
+        
+      </ol>
+    </section>
+
+    
+      
+      <section class="rounded-md border border-line bg-surface-sunken p-5" id="run-progress" role="status" aria-live="polite">
+        <p class="type-body text-ink" data-field="summary">Stopped for you. Nothing is being spent.</p>
+        <p class="mt-2 type-body-sm text-ink-muted">
+          A step that calls a model routinely takes two to five minutes: the model reasons
+          before it writes, and nothing is recorded until it has finished. Past about ten
+          minutes on one step, look at the terminal running
+          <span class="type-data-sm">just worker</span> — that is where this run is
+          actually happening, and where a failure appears first.
+        </p>
+        <p class="mt-2 type-body-sm text-ink-muted" data-field="last-seen">
+          
+        </p>
+      </section>
+    
+
+    
+      
+      <form method="post" action="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/cancel" id="cancel-form">
+        <input type="hidden" name="csrf_token" value="gUA02nQpvOW1Wm4iMCd84A.1789201062.ca054ba83822393f5ac5ac1b5d8c1f890232d2ed90492e48cdff345795975d91" style="">
+        <label for="cancel-reason" class="block type-label text-ink-muted">
+          Why? (optional, recorded in the audit trail)
+        </label>
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          <input type="text" id="cancel-reason" name="reason" maxlength="4000" placeholder="Wrong as-of date" class="min-h-11 w-72 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" style="">
+          <button type="submit" id="cancel-run" class="inline-flex min-h-11 items-center rounded-sm border border-danger-action px-3 type-label text-danger-action hover:bg-failure-wash">Cancel this run</button>
+        </div>
+      </form>
+    
+
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6"><div>
+      
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Technical record
+  </summary>
+  <div class="pb-4">
+        
+
+
+<dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+  
+  <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Run</dt>
+  <dd class="border-line py-3 type-body text-ink sm:border-t
+             type-data [overflow-wrap:anywhere]">60cf1343-c809-48b0-ac3f-efa96207cb61</dd>
+  
+  <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Workflow</dt>
+  <dd class="border-line py-3 type-body text-ink sm:border-t
+             type-data [overflow-wrap:anywhere]">vertical_slice_v1</dd>
+  
+</dl>
+
+
+        
+        <form method="post" action="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/replay" class="mt-4" id="replay-form">
+          <input type="hidden" name="csrf_token" value="gUA02nQpvOW1Wm4iMCd84A.1789201062.ca054ba83822393f5ac5ac1b5d8c1f890232d2ed90492e48cdff345795975d91" style="">
+          <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reproduce this run</button>
+          <span class="ml-2 type-body-sm text-ink-muted">
+            Re-checks the calculations, citations, artefacts and archived exchanges.
+          </span>
+        </form>
+      </div>
+</details>
+
+    </div>
+</section>
+
+
+    <p class="type-body-sm text-ink-subtle" id="stream-note">Live. This page updates as the run progresses.</p>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

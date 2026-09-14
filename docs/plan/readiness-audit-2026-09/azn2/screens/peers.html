@@ -1,0 +1,603 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Confirm which companies this one is compared with? · Tracework Invest</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">4</span><span class="sr-only">4 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="pFkSBnhyZUCzrdZcsYG9dQ.1789236993.b1f1126cb7eb22ace31c6b81d2228016b80170218a375eff287cb6075f4db2f6" style="">
+          <input type="hidden" name="next" value="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/peers" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="pFkSBnhyZUCzrdZcsYG9dQ.1789236993.b1f1126cb7eb22ace31c6b81d2228016b80170218a375eff287cb6075f4db2f6" style="">
+          <input type="hidden" name="next" value="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/peers" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  <div class="flex flex-col gap-6">
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf" class="underline underline-offset-[3px] hover:text-verification">The run</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">RESEARCH RUN — A DECISION</p><h1 class="type-title-1 text-ink">Confirm which companies this one is compared with?</h1><p class="type-body text-ink-muted">AstraZeneca PLC · AZN · as at 2026-09-12</p>
+  <div class="flex flex-wrap items-center gap-3"></div>
+  </header>
+
+
+  
+  
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">WHAT THIS ASKS</p>
+  <p class="mt-2 type-body-lg text-ink">Any multiple this platform computes is computed against these 8 companies.</p>
+  <p class="mt-2 type-body text-ink-muted">Confirming records the set; it fetches nothing. Computing a peer's multiple needs its filings and its prices, and this run acquires neither — the confirmed set is held for when a price subscription makes the comparison computable.</p>
+  </section>
+
+
+
+  
+  <nav aria-label="Where this decision sits in the run">
+    <ol class="flex flex-wrap gap-x-5 gap-y-2">
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PLAN" data-journey-state="decided">
+          <span class="type-label text-ink">The plan</span>
+          <span class="type-body-sm text-ink-subtle">approved</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="SECTOR_SPECIALIST" data-journey-state="not_needed">
+          <span class="type-label text-ink-muted">The sector</span>
+          <span class="type-body-sm text-ink-subtle">not needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PEER_SET" data-journey-state="current">
+          <span class="type-label text-warning-ink">The peers</span>
+          <span class="type-body-sm text-warning-ink">now</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="THEME_SET" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The themes</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="UNMAPPED_CONCEPTS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The financials</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="ASSUMPTIONS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The assumptions</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="FINAL" data-journey-state="upcoming">
+          <span class="type-label text-ink-muted">The report</span>
+          <span class="type-body-sm text-ink-subtle">to come</span>
+        </li>
+      
+    </ol>
+    <p class="mt-2 type-body-sm text-ink-muted">Between two and five more decisions.</p>
+  </nav>
+
+  
+    
+    <p class="min-[80rem]:hidden">
+      <a href="#decision" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Jump to the decision</a>
+    </p>
+  
+
+  <div class="min-[80rem]:grid min-[80rem]:grid-cols-[minmax(0,1fr)_19rem] min-[80rem]:items-start min-[80rem]:gap-8">
+    <div class="flex min-w-0 flex-col gap-6">
+      
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6"><div>
+    <div id="internal-only" role="note">
+      
+
+<div class="aer-callout rounded-sm border-l-[3px] p-4 border-muted-ink bg-muted-wash">
+  <div class="flex items-start gap-3">
+    <span class="mt-0.5 text-muted-ink">
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8"></path></svg>
+</span>
+    <div class="min-w-0">
+      <p class="type-subheading text-muted-ink">These figures do not leave this machine</p>
+      <p class="mt-1 type-body text-ink">Every multiple is computed from licensed market data whose terms grant no derived-data exemption. The comparables analysis is internal working material; a shareable report carries a note that it was performed and withholds the figures.</p></div>
+  </div>
+</div>
+
+    </div>
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">What you are approving</h2>
+  
+  <p class="mt-1 type-body text-ink-muted">The peer set below is exactly what your decision binds.</p>
+  <div class="mt-4">
+    
+      <ul class="flex flex-col divide-y divide-line" id="proposed-peers">
+        
+          <li class="py-4">
+            <article aria-label="PFIZER INC">
+              <h3 class="type-subheading text-ink">PFIZER INC</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">Global diversified biopharma with broad oncology, vaccines, and specialty care portfolio overlapping AstraZeneca's therapeutic areas; comparable scale and R&amp;D-driven model.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="Merck &amp; Co., Inc.">
+              <h3 class="type-subheading text-ink">Merck &amp; Co., Inc.</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">Large-cap innovator pharma with strong oncology (Keytruda) and vaccines franchise, similar patent-cliff dynamics and global commercial footprint to AstraZeneca.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="NOVARTIS AG">
+              <h3 class="type-subheading text-ink">NOVARTIS AG</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">European-headquartered global pharma with overlapping oncology, cardiovascular, and immunology pipelines; similar international regulatory and reimbursement exposure.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="GSK plc">
+              <h3 class="type-subheading text-ink">GSK plc</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">UK-based peer with overlapping respiratory, vaccines, and specialty medicine focus; comparable geographic mix and R&amp;D pipeline structure to AstraZeneca.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="Sanofi">
+              <h3 class="type-subheading text-ink">Sanofi</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">French global pharma with immunology, oncology, and vaccines overlap; similar scale and diversified therapeutic focus, though vaccines weighting differs somewhat.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="BRISTOL MYERS SQUIBB CO">
+              <h3 class="type-subheading text-ink">BRISTOL MYERS SQUIBB CO</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">US large-cap oncology and immunology-focused biopharma with overlapping cardiovascular and cancer drug portfolios comparable to AstraZeneca's core areas.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="ELI LILLY &amp; Co">
+              <h3 class="type-subheading text-ink">ELI LILLY &amp; Co</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">Global innovator pharma with strong oncology, diabetes, and immunology overlap, though its faster growth from GLP-1 drugs makes multiples partially less directly comparable.</p>
+              
+            </article>
+          </li>
+        
+          <li class="py-4">
+            <article aria-label="JOHNSON &amp; JOHNSON">
+              <h3 class="type-subheading text-ink">JOHNSON &amp; JOHNSON</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                
+                  Recorded by name — nothing of this company has been fetched
+                
+              </p>
+              
+                <p class="mt-2 max-w-prose type-body text-ink">Diversified healthcare giant whose pharmaceutical segment overlaps in oncology and immunology, but its consumer/medtech divisions dilute direct comparability to AstraZeneca.</p>
+              
+            </article>
+          </li>
+        
+      </ul>
+
+      <h3 class="mt-6 type-subheading text-ink">On what basis</h3>
+      <p class="mt-2 max-w-prose type-body text-ink" id="basis">
+        Every multiple is computed on a <span class="type-data-sm">ttm</span>
+        basis against a subject reporting to
+        <span class="type-data-sm">2026-09-12</span>. A peer whose own
+        period sits more than six weeks from that is excluded from the table with the reason
+        recorded, rather than compared across different twelve months.
+      </p>
+      <p class="mt-2 type-body-sm text-ink-muted">
+        Proposed by <span class="type-data-sm">aer.agents.peers</span>.
+        
+      </p>
+    
+
+    
+    
+      <form method="post" action="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/peers/add" class="mt-4 flex flex-col gap-2 border-t border-line pt-4" id="add-peer">
+        <input type="hidden" name="csrf_token" value="pFkSBnhyZUCzrdZcsYG9dQ.1789236993.b1f1126cb7eb22ace31c6b81d2228016b80170218a375eff287cb6075f4db2f6" style="">
+        <p class="type-label text-ink">Add a comparable of your own</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <label for="peer-company" class="sr-only">Company</label>
+          <select id="peer-company" name="company_id" required="" class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink sm:max-w-xs">
+            
+              <option value="d8831bbf-ae2c-400c-8e56-c5ffbc0d8fa3">M&amp;T BANK CORP</option>
+            
+              <option value="d88e5c60-588d-44a1-b4aa-8e5421eddc90">MICROSOFT CORP</option>
+            
+          </select>
+          <label for="peer-rationale" class="sr-only">Why it is comparable</label>
+          <input id="peer-rationale" name="rationale" required="" maxlength="600" placeholder="Why it is comparable to the subject" class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" style="">
+          <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Add</button>
+        </div>
+        <p class="max-w-prose type-body-sm text-ink-muted">
+          Only companies this platform has already researched appear here, because those
+          are the only ones it holds figures for. The reason is required and is read at
+          the same length as the proposed ones.
+        </p>
+      </form>
+    
+  </div>
+</section>
+
+
+  
+
+    </div>
+
+    <aside id="decision" class="mt-6 min-[80rem]:sticky min-[80rem]:top-6 min-[80rem]:mt-0">
+      
+        
+
+<section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-surface">
+  <div class="rounded-t-md bg-decision-wash px-5 py-3">
+    <p class="type-eyebrow text-warning-ink">DECISION REQUIRED</p>
+    <h2 class="mt-1 type-title-2 text-ink">The peers</h2>
+  </div>
+  <div class="flex flex-col gap-4 p-5">
+    <p class="type-body text-ink">Confirming records the comparison set. It fetches no peer filings and no peer prices.</p>
+    
+          <form method="post" action="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/gates/PEER_SET" id="gate-form" class="flex flex-col gap-4">
+            <input type="hidden" name="csrf_token" value="pFkSBnhyZUCzrdZcsYG9dQ.1789236993.b1f1126cb7eb22ace31c6b81d2228016b80170218a375eff287cb6075f4db2f6" style="">
+            
+            <input type="hidden" name="payload_hash" id="payload-hash" value="9ee2123e8b20bb3c569fbe566b6ced4bfef0fd1e83a8e2bb0b65342aff1dc0bf" style="">
+
+            <p class="type-body-sm text-ink-muted">
+              <span class="type-data text-ink">£0.56 of £10.00</span> spent so far.
+            </p>
+
+            <div>
+              <label for="notes" class="block type-label text-ink">Notes (optional)</label>
+              <textarea id="notes" name="notes" rows="3" maxlength="4000" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Why you approved or rejected this. Recorded in the audit trail." style=""></textarea>
+            </div>
+
+            
+            <div class="flex flex-col gap-3">
+              <button type="submit" name="decision" value="APPROVED" id="approve" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Approve and continue</button>
+              <button type="submit" name="decision" value="REJECTED" id="reject" class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reject and stop this run</button>
+            </div>
+
+            
+            
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    What this decision proves
+  </summary>
+  <div class="pb-4">
+              <p class="type-body-sm text-ink-muted">
+                Your approval records the exact content of this page, by its fingerprint,
+                so it can never be transferred to a different proposal. If the proposal
+                changes before the server records your choice, the approval is refused and
+                you decide again over the current version.
+              </p>
+              <p class="mt-2 break-all type-data-sm text-ink-muted">9ee2123e8b20bb3c569fbe566b6ced4bfef0fd1e83a8e2bb0b65342aff1dc0bf</p>
+            </div>
+</details>
+
+
+            <p>
+              <a href="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+            </p>
+          </form>
+        
+    <p class="type-body-sm text-ink-muted">You are deciding on exactly the evidence shown here.</p>
+    </div>
+</section>
+
+      
+    </aside>
+  </div>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

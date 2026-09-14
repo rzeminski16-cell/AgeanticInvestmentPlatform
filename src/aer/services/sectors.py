@@ -107,22 +107,46 @@ def propose_from_sic(sic_code: str, *, proposed_by: str = "sic_lookup") -> Class
 
     SIC codes are self-reported, decades old in places, and a holding company files under
     whatever its largest subsidiary does. So this proposes; it does not decide.
+
+    **Only a profile that blocks a model is proposed from a code alone**, which is the rule
+    :func:`sector_gate_required` already states: an ordinary company does not need a person
+    to confirm that it is ordinary, and a classification earns its gate by deciding which
+    valuations may run. The audit of 2026-09-12 is why the rule is written here as well as
+    there. Resolving the code fixed a real hole — M&T Bank met no gate and took the standard
+    model, which ADR 0029 exists to forbid — and, unrestricted, it also put *Sector:
+    Early-stage and loss-making technology* on the front of a Microsoft note, because 7372
+    is that profile's own prefix and a gate that can only be approved or refused has no
+    answer for a label that is merely wrong. Every match is still recorded in
+    ``sic_candidates``, so a reviewer sees what the code suggested and what was set aside.
     """
     candidates = suggested_profiles(sic_code)
-    chosen = candidates[0] if candidates else None
+    chosen = next((profile for profile in candidates if profile.blocked_models), None)
 
     return ClassificationProposal(
         sector_key=chosen.key if chosen is not None else "",
-        rationale=(
-            f"SIC {sic_code} matches {chosen.label}."
-            if chosen is not None
-            else f"SIC {sic_code or 'not reported'} matches no specialist sector profile."
-        ),
+        rationale=_rationale(sic_code, chosen, candidates),
         proposed_by=proposed_by,
         confidence=0.5 if chosen is not None else 0.0,
         sic_code=sic_code,
         sic_candidates=tuple(profile.key for profile in candidates),
     )
+
+
+def _rationale(
+    sic_code: str,
+    chosen: SectorProfile | None,
+    candidates: tuple[SectorProfile, ...],
+) -> str:
+    """Why this code proposed what it did — including when it matched and was set aside."""
+    if chosen is not None:
+        return f"SIC {sic_code} matches {chosen.label}."
+    if candidates:
+        names = ", ".join(profile.label for profile in candidates)
+        return (
+            f"SIC {sic_code} matches {names}, which blocks no valuation model: the standard "
+            "model runs and no confirmation is needed."
+        )
+    return f"SIC {sic_code or 'not reported'} matches no specialist sector profile."
 
 
 def classification_payload(produced: Mapping[str, Any]) -> dict[str, Any]:

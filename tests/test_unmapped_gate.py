@@ -12,6 +12,7 @@ hand-wrote the step's output would prove only that the gate reads a dictionary.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import date
@@ -167,6 +168,30 @@ def mapped_runner(db_engine: Any, api_settings: Settings) -> Runner:
     return Runner(db_engine, api_settings, payload=fixture_bytes("companyfacts_msft.json"))
 
 
+def _with_an_earlier_period(payload: bytes) -> bytes:
+    """The unmapped fixture, with revenue reported for the year before as well.
+
+    Every concept in ``companyfacts_unmapped.json`` is observed once, so the gate page's
+    "earlier periods" disclosure never rendered in the suite — and a real filing, which
+    reports each line for three years, was the first thing to open it.
+    """
+    document = json.loads(payload)
+    rows = document["facts"]["us-gaap"]["Revenues"]["units"]["USD"]
+    earlier = dict(rows[0])
+    earlier.update(
+        {"start": "2022-01-01", "end": "2022-12-31", "fy": 2022, "filed": "2023-02-15", "val": 900}
+    )
+    rows.append(earlier)
+    return json.dumps(document).encode()
+
+
+@pytest.fixture
+def two_period_runner(db_engine: Any, api_settings: Settings) -> Runner:
+    return Runner(
+        db_engine, api_settings, payload=_with_an_earlier_period(fixture_bytes(UNMAPPED_FIXTURE))
+    )
+
+
 @pytest.fixture
 async def api(
     api_settings: Settings,
@@ -270,14 +295,23 @@ class TestTheGateFiresOnARealExtraction:
     async def test_confirming_a_different_set_of_tags_is_not_confirming_these(
         self, api: Any, committed: dict, unmapped_runner: Runner
     ) -> None:
-        """The same rule as every other gate: the hash is what was approved."""
+        """The same rule as every other gate: the hash is what was approved.
+
+        The refusal moved earlier. The JSON API used to record any 64-character hash and
+        leave the engine to refuse it at the next step, which is how the run could hold an
+        approval naming a set nobody had seen; it now compares the submitted hash against
+        the gate's live payload before writing anything, as the web route always did, and
+        answers 422 with both hashes. The run is left waiting either way — that is the
+        property this test is about — and now it is waiting with no decision recorded.
+        """
         job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
 
         response = await api.post(
             f"/api/runs/{job_id}/gates/UNMAPPED_CONCEPTS/decide",
             json={"decision": "APPROVED", "payload_hash": "0" * 64},
         )
-        assert response.status_code == 202, response.text
+        assert response.status_code == 422, response.text
+        assert "decide on what it shows now" in response.json()["detail"]
 
         status = await unmapped_runner.advance(job_id)
         assert status == JobStatus.AWAITING_APPROVAL
@@ -358,6 +392,24 @@ class TestThePageShowsWhatItHashes:
         assert "Of the biggest mapped line" in page.text
         # And the comparison: what the run did capture, beside what it could not place.
         assert 'id="mapped-concepts"' in page.text
+
+    async def test_a_concept_with_earlier_periods_still_renders(
+        self, api: Any, committed: dict, two_period_runner: Runner
+    ) -> None:
+        """Readiness audit 2026-09, F-10: the page raised on the first real filing.
+
+        A concept observed more than once puts its older periods behind a disclosure whose
+        label is built in the template, and ``~`` binds tighter than ``-`` in Jinja, so the
+        label was ``observations - ("1" ~ "earlier period")`` — a 500 on exactly the runs
+        the gate exists for, and never in the suite, whose fixture reports each concept once.
+        """
+        job_id = await run_to_the_financials_gate(api, two_period_runner, committed["request"].id)
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert page.status_code == 200, page.text[:500]
+        assert "1 earlier period" in page.text
+        assert "31 December 2022" in page.text
 
     async def test_the_tables_are_filterable_without_being_broken_by_it(
         self, api: Any, committed: dict, unmapped_runner: Runner

@@ -1,0 +1,57 @@
+{
+  "payload": {
+    "subject": "d8831bbf-ae2c-400c-8e56-c5ffbc0d8fa3",
+    "subject_period_end": "2026-09-12",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000091576",
+        "name": "KEYCORP /NEW/",
+        "rationale": "Super-regional bank with similar commercial/consumer mix and Northeast/Midwest footprint overlap; comparable scale and deposit-funded balance sheet to M&T.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000759944",
+        "name": "CITIZENS FINANCIAL GROUP INC/RI",
+        "rationale": "Northeast-focused super-regional bank of similar asset size, overlapping commercial banking and consumer footprint with M&T.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000049196",
+        "name": "HUNTINGTON BANCSHARES INC /MD/",
+        "rationale": "Midwest super-regional bank with comparable commercial lending focus and asset size, useful for multiple comparison despite different regional concentration.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000035527",
+        "name": "FIFTH THIRD BANCORP",
+        "rationale": "Super-regional bank of similar scale with diversified commercial and consumer banking, though more Midwest/Southeast weighted than M&T's Northeast base.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001281761",
+        "name": "REGIONS FINANCIAL CORP",
+        "rationale": "Similar-sized regional bank with strong commercial banking franchise; Southeast footprint differs but overall business model and funding profile comparable.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000109380",
+        "name": "ZIONS BANCORPORATION, NATIONAL ASSOCIATION /UT/",
+        "rationale": "Regional bank with commercial real estate and middle-market lending emphasis similar to M&T, though smaller and Western-focused.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000713676",
+        "name": "PNC FINANCIAL SERVICES GROUP, INC.",
+        "rationale": "Larger super-regional bank but with significant overlap in Northeast/Mid-Atlantic commercial banking markets, useful as a scale-adjusted comparable.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "5e292cc204bccd8597643650cce216c64f282b940907419c755d9154afdd65cd",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb"
+  }
+}

@@ -298,7 +298,7 @@ def net_income_from_roe(
 ) -> Quantity:
     """What the equity earns in one year, at the forecast return."""
     _require_money(opening_book_value, name="opening_book_value")
-    _require_dimensionless(return_on_equity, name="return_on_equity")
+    _require_rate(return_on_equity, name="return_on_equity")
     return opening_book_value * return_on_equity
 
 
@@ -433,8 +433,8 @@ def perpetual_residual_value(
             an unbounded amount from book value on the strength of one forecast year.
     """
     _require_money(final_residual_income, name="final_residual_income")
-    _require_dimensionless(cost_of_equity, name="cost_of_equity")
-    _require_dimensionless(terminal_growth, name="terminal_growth")
+    _require_rate(cost_of_equity, name="cost_of_equity")
+    _require_rate(terminal_growth, name="terminal_growth")
 
     spread = cost_of_equity.value - terminal_growth.value
     if spread <= 0:

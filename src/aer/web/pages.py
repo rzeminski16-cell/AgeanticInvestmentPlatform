@@ -235,6 +235,7 @@ async def run_console(
     pending = await approval_service.pending_gate(session, job)
     approvals = await approval_service.approvals_for_job(session, job_id)
     cancellation = await cancellation_service.cancellation_for(session, job_id=job_id)
+    stranding = await _stranding(session, job=job, redis=redis)
     state_dict = state.as_dict()
 
     token = new_csrf_token(settings)
@@ -278,11 +279,34 @@ async def run_console(
                 queued_words=(
                     await _queued_words(redis) if job.status is JobStatus.QUEUED else None
                 ),
+                stranding=stranding,
             ),
         },
     )
     set_csrf_cookie(response, token)
     return response
+
+
+async def _stranding(
+    session: AsyncSession, *, job: Job, redis: Redis
+) -> resume_service.Stranding | None:
+    """Whether a RUNNING run still has a worker under it — or nothing, for any other state.
+
+    The readiness audit of 2026-09 watched a worker die mid-step and leave the run saying
+    "running" for as long as anyone cared to look, with *Continue* refused because the row
+    said so. The worker's health record (`aer.queue`) is what tells a run in progress from
+    one abandoned; Redis being unreachable tells neither, and is reported as that rather
+    than read as a dead worker.
+    """
+    if job.status is not JobStatus.RUNNING:
+        return None
+    try:
+        health = await worker_health(redis)
+    except (RedisError, OSError):
+        return resume_service.Stranding(
+            False, "The worker's health record could not be read, so nothing can be said."
+        )
+    return await resume_service.stranding_of(session, job=job, health=health)
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,6 +401,7 @@ async def _console_view(
     pending: GateKind | None,
     approvals: list[Any],
     queued_words: str | None = None,
+    stranding: resume_service.Stranding | None = None,
 ) -> dict[str, Any]:
     """What the console says, decided here rather than in Jinja.
 
@@ -451,10 +476,14 @@ async def _console_view(
         "failed_step": failed,
         # FAILED, PAUSED and BUDGET_EXCEEDED continue as themselves (ADR 0090); the
         # service refuses the states that do not admit it, so this only decides whether
-        # the form renders.
-        "can_resume": job.status not in resume_service.UNRESUMABLE_STATUSES
-        and job.status is not JobStatus.QUEUED
-        and job.status is not JobStatus.AWAITING_APPROVAL,
+        # the form renders. A RUNNING run is offered it only once nothing is running it.
+        "can_resume": (
+            job.status not in resume_service.UNRESUMABLE_STATUSES
+            and job.status is not JobStatus.QUEUED
+            and job.status is not JobStatus.AWAITING_APPROVAL
+        )
+        or (stranding is not None and stranding.stranded),
+        "stranding": stranding,
         "journey": journey(
             state_dict["steps"],
             decisions={row.gate: row.decision for row in approvals},
@@ -509,12 +538,18 @@ async def resume_run_page(
             status=HTTP_403_FORBIDDEN,
         )
 
+    stranding = await _stranding(session, job=job, redis=redis)
     try:
         await resume_service.resume_run(
-            session, job=job, actor=user, reason=(submitted.get("reason") or None)
+            session,
+            job=job,
+            actor=user,
+            reason=(submitted.get("reason") or None),
+            stranded=stranding is not None and stranding.stranded,
         )
     except ConflictError as exc:
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        why = f" {stranding.reason}" if stranding is not None else ""
+        return _problem(request, exc.message + why, status=HTTP_409_CONFLICT)
 
     await session.commit()
     await enqueue_run(redis, job.id)

@@ -1,0 +1,401 @@
+{
+  "payload": {
+    "plan_id": "5aad3a2c-fb77-4446-b919-4b7f8f7596a6",
+    "workflow_version": "vertical_slice_v1",
+    "summary": "Point-in-time standard research run on AstraZeneca PLC (AZN ADR, NYSE), USD base, 12-month horizon, using only material published on or before 2026-09-11. AstraZeneca is a foreign private issuer filing 20-F and 6-K rather than 10-K/10-Q; the plan rests on that filing set plus dated regulatory databases. Revisions after review: (1) growth_outlook now inventories the full registrational and phase III oncology pipeline regardless of readout date, and valuation_dcf must state which assets sit in the explicit revenue build versus which the market-cap-minus-DCF residual is claimed to cover; (2) every live-database record (Orange Book, Purple Book, ClinicalTrials.gov, CMS) must come from a dated archive or be flagged not point-in-time verified; (3) the expectations test gains a third leg, own price/multiple history and peer point-in-time multiples, so it survives loss of consensus data; (4) CMS Part B/D spending and disclosed manufacturing footprint size the pricing- and tariff-exposed base; (5) segment_analysis opens by verifying product-by-region disclosure granularity and flags worldwide-only lines as unquantifiable for US exposure rather than apportioning. No figures are asserted here; all numbers come from deterministic calculation over retrieved evidence.",
+    "sections": [
+      {
+        "key": "segment_analysis",
+        "focus": "Core section for operator question 1. Step one: verify what product-level revenue granularity the FY2025 20-F and H1 2026 release actually disclose, specifically whether each product line is split US / ex-US or only worldwide. Step two: map each disclosed line to dated US patent and regulatory-exclusivity records and, where obtainable, ex-US SPC/data-exclusivity dates. Where only worldwide product revenue exists, flag that line as unquantifiable for US-specific exclusivity exposure; do not apportion by a group-level regional ratio. Mark products where exclusivity data cannot be sourced rather than inferring it."
+      },
+      {
+        "key": "growth_outlook",
+        "focus": "Core section for operator question 2. Inventory the full registrational and phase III oncology pipeline disclosed as of the as-of date, regardless of whether readout, filing or launch falls inside the 12-month horizon, plus non-oncology late-stage assets. For each asset record: indication, phase, sponsor status, registry record and the first plausible revenue period per disclosed timelines. Tag each asset as in-horizon catalyst or post-horizon revenue. Record management's published revenue ambitions as attributed statements, not forecasts. Assign no probabilities of success here; pass them to scenarios as declared assumptions."
+      },
+      {
+        "key": "valuation_dcf",
+        "focus": "Specify deterministic DCF inputs: revenue build separating in-market products facing exclusivity loss from launched growth products, margin path from the pricing findings, tax from disclosed effective and cash rates, capex and working capital from cash flow statements, net debt and share count from the latest balance sheet. State explicitly which pipeline assets are inside the explicit revenue build and which the market-cap-minus-DCF residual is claimed to represent. Add two cross-checks independent of consensus: AZN's own multiple history through the as-of date and peer multiples computed point-in-time from filings and as-of prices."
+      },
+      {
+        "key": "industry_landscape",
+        "focus": "Core section for operator question 3. Assemble the US pricing framework in force at the as-of date: Medicare negotiation-program selected-drug lists and applicability dates, Part D redesign, 340B and Medicaid rebate mechanics, and any most-favoured-nation or Section 232 pharmaceutical action published on or before 2026-09-11. Identify which AstraZeneca products the published lists actually name. Size the exposed base using CMS Part B/D spending publications and the disclosed manufacturing and supply footprint, noting the vintage lag of spending data. Do not extrapolate policy to unnamed products."
+      },
+      {
+        "key": "historical_financial_analysis",
+        "focus": "Establish the reporting basis first: IFRS basis, functional and presentation currency, and the disclosed definitions of total revenue versus product sales, collaboration and alliance revenue. Then build the multi-year baseline from the FY2023-FY2025 20-F filings and the H1 2026 interim: revenue by therapy area and geography, gross margin, reported and Core R&D and SG&A, operating margin and EPS. All values retrieved as stored facts; trends described only where line items are comparably defined across years, with restatements and policy changes noted."
+      },
+      {
+        "key": "earnings_quality",
+        "focus": "Examine the gap between reported IFRS results and the company's Core non-IFRS measures: intangible amortisation and impairment from Alexion and other acquisitions, restructuring charges, collaboration and milestone revenue timing, capitalised development costs, and inventory and rebate accrual movements. Assess specifically whether disclosed gross-to-net rebate and chargeback detail is granular enough to support the pricing-margin analysis, and say so plainly if it is not."
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "focus": "Define three to five scenarios varying only the operator's drivers: pace and depth of post-exclusivity erosion for the named products, oncology launch and readout outcomes split between in-horizon and post-horizon assets, and severity of negotiated-price, MFN and tariff outcomes against the disclosed exposed base. Each scenario states which assumptions are analyst-set rather than filed. All sensitivity tables produced by recorded calculation."
+      },
+      {
+        "key": "key_risks",
+        "focus": "Company and thesis risks, kept distinct from plan risks: exclusivity-loss concentration in the largest disclosed products, clinical or regulatory failure of pivotal oncology assets, ANDA/BPCIA litigation and biosimilar entry timing, China exposure and disclosed regulatory investigations, supply-chain and tariff exposure, and pricing-policy escalation. Each risk cited to the filing, docket or regulator publication that discloses it."
+      },
+      {
+        "key": "catalysts",
+        "focus": "Dated catalyst calendar for the 12 months from 2026-09-11: published dates for Q3 2026 and FY2026 reporting, FDA/EMA decision and adcomm dates, major oncology congress presentations, and CMS negotiation-program milestone dates. Separate dates published by the issuer or a regulator from conventional expectations, and mark the latter unverified. Cross-reference each catalyst to the pipeline asset tagged in growth_outlook."
+      },
+      {
+        "key": "investment_thesis",
+        "focus": "State bull and bear cases as testable propositions tied to named evidence: whether growth products and near-term launches replace revenue lost to exclusivity inside the horizon, whether post-horizon oncology revenue is what the price is discounting, and whether US pricing mechanics compress the margin path. Each proposition names the filing, database record or recorded calculation that would confirm or falsify it."
+      },
+      {
+        "key": "validation_disagreements",
+        "focus": "Record where the evidence conflicts or cannot be point-in-time verified: every Orange Book, Purple Book, ClinicalTrials.gov or CMS record retrieved from live state rather than a dated archive, with its retrieval date; disagreements between the issuer pipeline table and trial registry records; product lines disclosed worldwide-only and therefore unquantifiable for US exposure; and divergence among the three expectations legs (DCF residual, consensus, multiples). Do not reconcile by choosing a preferred number."
+      },
+      {
+        "key": "executive_summary",
+        "focus": "One-page synthesis written last, restating only conclusions the other sections evidenced. Must address the three operator questions explicitly and carry forward the confidence flags, point-in-time verification gaps and unquantifiable-exposure flags rather than smoothing them."
+      }
+    ],
+    "section_listing": [
+      {
+        "key": "executive_summary",
+        "title": "Executive Summary",
+        "position": "100.00",
+        "required": true,
+        "token_budget": 2000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0672"
+      },
+      {
+        "key": "investment_thesis",
+        "title": "Investment Thesis",
+        "position": "110.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "business_overview",
+        "title": "Business Overview",
+        "position": "120.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "segment_analysis",
+        "title": "Segment Analysis",
+        "position": "130.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "industry_landscape",
+        "title": "Industry & Competitive Positioning",
+        "position": "140.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "management_governance",
+        "title": "Management & Governance",
+        "position": "150.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "historical_financial_analysis",
+        "title": "Historical Financial Analysis",
+        "position": "200.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "earnings_quality",
+        "title": "Earnings Quality",
+        "position": "210.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "title": "Balance Sheet & Liquidity",
+        "position": "220.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "cash_flow_analysis",
+        "title": "Cash Flow Analysis",
+        "position": "230.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "capital_allocation",
+        "title": "Capital Allocation",
+        "position": "240.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "growth_outlook",
+        "title": "Growth Outlook",
+        "position": "250.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "valuation_dcf",
+        "title": "Valuation \u2014 Discounted Cash Flow",
+        "position": "300.00",
+        "required": true,
+        "token_budget": 5000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0790"
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "title": "Scenarios & Sensitivities",
+        "position": "310.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "key_risks",
+        "title": "Key Risks",
+        "position": "400.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "catalysts",
+        "title": "Catalysts",
+        "position": "410.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "prior_research_comparison",
+        "title": "Prior Research Comparison",
+        "position": "900.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      },
+      {
+        "key": "validation_disagreements",
+        "title": "Validation & Disagreements",
+        "position": "910.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      }
+    ],
+    "planned_sources": [
+      {
+        "why": "Primary audited source for the revenue base, margin structure, regional disclosure granularity and the company's own statement of which products face exclusivity loss.",
+        "tier": "regulatory_primary",
+        "what": "AstraZeneca PLC Form 20-F for FY2025: product-level revenue tables, segment and geographic disclosure, patent and exclusivity discussion, properties and supply-chain description, risk factors, legal proceedings.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Provides comparative prior-year line items and lets restatements or definitional changes in revenue and Core adjustments be detected rather than assumed.",
+        "tier": "regulatory_primary",
+        "what": "AstraZeneca PLC Forms 20-F for FY2024 and FY2023.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Most recent financial data publishable under the 2026-09-11 as-of constraint; Q3 2026 results do not yet exist.",
+        "tier": "regulatory_primary",
+        "what": "Forms 6-K furnished in 2026 carrying Q1 2026 and H1 2026 results, including unaudited product revenue tables, regional splits where given, and Core margin bridges.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Establishes dated US exclusivity expiries, the factual spine of question 1, without importing post-as-of delistings, additions or exclusivity grants.",
+        "tier": "regulatory_database",
+        "what": "Archived Orange Book edition (annual or monthly) dated on or before 2026-09-11 plus Purple Book biologic exclusivity records; patent, use-code and exclusivity entries for AstraZeneca's US-marketed products identified in the revenue tables.",
+        "provider": "FDA Orange Book / Purple Book"
+      },
+      {
+        "why": "Identifies which AstraZeneca products are actually named and when negotiated prices take effect, for the margin-outlook question.",
+        "tier": "regulatory_primary",
+        "what": "Medicare Drug Price Negotiation Program publications as of the as-of date: selected drug lists, maximum fair price announcements and applicability dates.",
+        "provider": "CMS"
+      },
+      {
+        "why": "Sizes how much of a named product's US revenue sits in the affected channel, so pricing scenarios rest on an exposure base rather than policy description.",
+        "tier": "regulatory_database",
+        "what": "Medicare Part B and Part D drug spending dashboards, most recent vintage published on or before 2026-09-11, for AstraZeneca products named on negotiation lists or facing exclusivity loss.",
+        "provider": "CMS"
+      },
+      {
+        "why": "Issuer's own inventory of the full registrational and phase III pipeline, including post-horizon oncology assets, attributable as management claims.",
+        "tier": "issuer_disclosure",
+        "what": "FY2025 Annual Report and 20-F pipeline table, latest published clinical trials appendix, and any capital markets day or R&D day materials issued before 2026-09-11.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "Independent dated confirmation of pipeline scope and timing; version history prevents later record edits from contaminating point-in-time evidence.",
+        "tier": "regulatory_database",
+        "what": "Registration records, using record-version history as of 2026-09-11, for AstraZeneca-sponsored phase III and registrational oncology trials, regardless of whether readout falls inside the horizon.",
+        "provider": "ClinicalTrials.gov"
+      },
+      {
+        "why": "Supplies verifiable catalyst dates and confirms which label expansions were already approved versus pending at the as-of date.",
+        "tier": "regulatory_primary",
+        "what": "Drugs@FDA approval records, advisory committee calendars and published PDUFA action dates for AstraZeneca applications pending as of the as-of date.",
+        "provider": "FDA"
+      },
+      {
+        "why": "Distinguishes enacted policy from proposals, so margin scenarios rest on what was legally in force at the as-of date.",
+        "tier": "regulatory_primary",
+        "what": "Rules, proposed rules and executive actions on most-favoured-nation drug pricing, Section 232 pharmaceutical tariffs and Part D redesign published on or before 2026-09-11.",
+        "provider": "Federal Register"
+      },
+      {
+        "why": "Supplies the point-in-time price plus an own-history multiple series, giving the expectations test a leg that does not depend on a consensus vendor.",
+        "tier": "market_data",
+        "what": "AZN ADR and ordinary share daily price history through 2026-09-11, ADR ratio, shares outstanding history, market capitalisation, historical forward and trailing multiple series, and GBP/USD and SEK/USD rates at the as-of date.",
+        "provider": "Market data provider"
+      },
+      {
+        "why": "Provides the disclosed import and production base against which a Section 232 tariff scenario can be assessed rather than asserted.",
+        "tier": "issuer_disclosure",
+        "what": "Segments of the FY2025 20-F properties and MD&A describing manufacturing and supply footprint by country, plus any capital markets materials on US manufacturing investment published before the as-of date.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "Needed to test whether oncology growth is already embedded in expectations; consensus is an opinion aggregate, not a filed fact.",
+        "tier": "third_party_aggregated",
+        "what": "Sell-side consensus revenue, Core EPS and, where available, product-level forecasts for FY2026-FY2028 as constituted on or before 2026-09-11.",
+        "provider": "Consensus estimates provider"
+      },
+      {
+        "why": "Management's stated view on erosion pace, US pricing headwinds and launch trajectories, usable only as attributed statements.",
+        "tier": "issuer_disclosure",
+        "what": "Transcripts and slide decks for the FY2025 and H1 2026 results calls.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "Supplies the filed denominators for point-in-time peer multiples as well as margin and R&D benchmarks, from primary filings rather than league tables.",
+        "tier": "regulatory_primary",
+        "what": "Most recent annual filings available at the as-of date for Merck & Co., Pfizer, Bristol Myers Squibb and Novartis: revenue, Core/adjusted EPS, share count, net debt and R&D intensity.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Completes the point-in-time relative multiple comparison, the third leg of the expectations test if consensus vintage is unavailable.",
+        "tier": "market_data",
+        "what": "Closing prices, shares outstanding and net-debt-adjusted market values at 2026-09-11 for the named pharmaceutical peer set.",
+        "provider": "Market data provider"
+      },
+      {
+        "why": "Captures price-sensitive disclosures made to the UK primary market that may not appear promptly in a 6-K.",
+        "tier": "regulatory_primary",
+        "what": "AstraZeneca regulatory announcements between the FY2025 20-F filing and 2026-09-11: trading statements, deal and litigation updates, listing-structure changes.",
+        "provider": "London Stock Exchange RNS"
+      },
+      {
+        "why": "Ex-US regulatory milestones and approvals affecting the non-US portion of the growth build and catalyst calendar.",
+        "tier": "regulatory_primary",
+        "what": "CHMP meeting highlights and European public assessment reports for AstraZeneca products through the as-of date.",
+        "provider": "EMA"
+      },
+      {
+        "why": "Shows whether generic or biosimilar entry dates are contested, which changes the timing distribution behind the erosion scenarios.",
+        "tier": "regulatory_primary",
+        "what": "Docket entries in ANDA/BPCIA patent litigation involving AstraZeneca products identified as exclusivity-exposed, filtered to filings dated on or before the as-of date.",
+        "provider": "US federal court records"
+      }
+    ],
+    "known_risks": [
+      "Point-in-time contamination of live databases: Orange Book, Purple Book, ClinicalTrials.gov and CMS pages reflect current state, including post-2026-09-11 delistings, exclusivity grants and record edits. Archived editions and registry version history must be used; where only current state is retrievable, the retrieval date must be recorded and the record flagged not point-in-time verified, and the affected exclusivity or pipeline conclusion downgraded accordingly.",
+      "The 'already in the price' question cannot be answered from filed evidence alone. The market-cap-minus-DCF residual is an analyst construct that absorbs every value driver outside the explicit revenue build, not oncology alone; valuation_dcf must name the covered assets and the residual must never be reported as the pipeline's value.",
+      "Product revenue may be disclosed only on a worldwide basis for some lines, while US patent expiry bites only US revenue. Where no product-by-region split exists, US exposure is unquantifiable and will be flagged as such; no apportionment by group-level regional ratios will be performed.",
+      "Point-in-time consensus of 2026-09-11 vintage may be unlicensed or unavailable. The fallback is DCF-versus-price plus own-history and peer multiples. Disagreement noted for the approver: multiples are a weak third leg for a company mid-patent-cliff with a pipeline-weighted valuation, so loss of consensus genuinely degrades this test rather than leaving it intact.",
+      "Foreign private issuer filing set: 20-F annually and 6-K interims, not 10-K/10-Q. Interim data is unaudited and less granular, so some earnings-quality and product-level detail may exist only annually. With an as-of date of 2026-09-11, Q3 2026 and FY2026 results do not exist and the freshest financials are the H1 2026 interim.",
+      "US pricing policy may be unsettled or under litigation at the as-of date; MFN and Section 232 measures may lack final rules or effective dates. CMS Part B/D spending publications also lag by one to two years, so channel mix is a dated proxy. Margin impact is therefore a scenario, not a computable adjustment.",
+      "Ex-US exclusivity dates (EU SPCs, Japanese and Chinese data protection) are not consolidated in any single archived database. Non-US patent-cliff exposure may be only partially quantifiable and the gap must be disclosed rather than filled by inference.",
+      "Pipeline valuation requires probability-of-success and peak-sales assumptions that are not filed facts. These are declared analyst assumptions in scenarios; a single-scenario DCF fits a cliff-and-pipeline pharmaceutical poorly and is used here mainly as a cross-check anchor.",
+      "Collaboration and alliance arrangements mean some economics are booked as collaboration revenue rather than product sales, so mapping disclosed revenue lines to exclusivity-exposed molecules may be ambiguous for partnered assets and must be flagged where ambiguous.",
+      "Presentation currency and corporate or listing structure must be confirmed from the 20-F at retrieval rather than assumed; any non-USD figure requires a documented FX source and conversion date, and no conversion may be performed from memory."
+    ],
+    "prior_research": "",
+    "critique": {
+      "revised": true,
+      "consulted": true,
+      "challenges": [
+        {
+          "aspect": "focus",
+          "severity": 4,
+          "statement": "Question 2 is tested by a residual: market cap minus a DCF of filed financials, with the difference read as pipeline value. But growth_outlook only catalogues assets with readouts, filings or PDUFA dates inside the 12 months. A residual computed against the whole enterprise is being interpreted against an inventory of near-term catalysts only, so oncology assets whose revenue arrives after the horizon are silently excluded from the thing the residual is said to measure.",
+          "suggestion": "Widen growth_outlook to inventory the full registrational/phase III oncology pipeline regardless of readout date, and state in valuation_dcf exactly which assets the residual is claimed to cover versus which are already in the explicit revenue build."
+        },
+        {
+          "aspect": "point_in_time",
+          "severity": 4,
+          "statement": "Orange Book, Purple Book and ClinicalTrials.gov are live databases whose current state reflects post-2026-09-11 patent delistings, additions, exclusivity grants and trial-record edits. The plan treats them as dated evidence without saying how an as-of-date state is obtained. Under point-in-time this can contaminate the factual spine of question 1 in the direction of hindsight.",
+          "suggestion": "Require dated archived editions (Orange Book monthly/annual archives, ClinicalTrials.gov record-version history) or, where only current state is retrievable, record the retrieval date and flag each such record as not verified point-in-time. Add this as a named plan risk."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "The 'already in the price' test rests on two legs, consensus and a DCF, and the plan's own risk note concedes it degrades to DCF-versus-price if point-in-time consensus is unavailable. No third leg is planned: market data is requested only as a single 2026-09-11 close, so there is no own-history multiple series and peers are sourced for margin and R&D benchmarks but not for valuation multiples.",
+          "suggestion": "Extend the market-data request to a price and multiple history through the as-of date, and extend the peer filing set to support a point-in-time relative multiple comparison, so the expectations test survives loss of the consensus vendor."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "Question 3 asks what US pricing does to margins. The plan establishes the policy framework and which products are named on CMS lists, but plans no source that sizes the exposed revenue: no Medicare Part B/D drug spending data to indicate how much of a named product's US revenue sits in the affected channel, and no source on manufacturing or import footprint against which a Section 232 tariff action could be assessed.",
+          "suggestion": "Add CMS Medicare Part B/D drug spending publications as of the as-of date, and a source for disclosed manufacturing/supply footprint (20-F properties and MD&A, capital markets materials), so pricing and tariff scenarios have a disclosed exposure base rather than a policy description alone."
+        },
+        {
+          "aspect": "feasibility",
+          "severity": 3,
+          "statement": "segment_analysis assumes disclosed product revenue lines can be mapped to US exclusivity records, but US patent expiry bites only US revenue. The plan does not ask whether the 20-F and H1 2026 release disclose product revenue split by region at the granularity required, nor what happens to the mapping if only worldwide product totals exist for some lines.",
+          "suggestion": "Add an explicit first step: verify the disclosed product-by-region granularity, and predefine the treatment where only worldwide product revenue exists (flag as unquantifiable for US-specific exposure rather than apportioning by a group-level regional ratio)."
+        },
+        {
+          "aspect": "risks",
+          "severity": 2,
+          "statement": "The risk list is thorough on data limitations but names no risk to the plan's own execution: sixteen source families including four peer annual filings, federal court dockets, CHMP highlights and the Federal Register, in a standard-mode run, against three narrow operator questions. Breadth competes with depth on the sections explicitly marked core.",
+          "suggestion": "Name execution breadth as a plan risk and rank sources by priority, marking peer filings, court dockets and CHMP material as conditional so a constrained run degrades in those areas rather than in segment_analysis, industry_landscape or growth_outlook."
+        }
+      ],
+      "coverage_note": "Attacked the plan only: section-to-question mapping, planned-source omissions, point-in-time handling of live databases, and the named-risk list. The plan is unusually disciplined on filer status, FX and analyst-construct labelling; challenges concentrate on the pipeline-residual scope mismatch, undated database retrieval, and the absence of any exposure-sizing source for the pricing question. No view on the company is expressed or implied."
+    },
+    "estimated_cost_gbp": "9.2597",
+    "estimated_runtime_seconds": 2520,
+    "skills": []
+  },
+  "hash": "1103940881cd6eaafcc8317dc5f42cd9bd1ed625ecf9632dd1c988356b58e9b5",
+  "pause_context": {
+    "gate": "PLAN",
+    "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f"
+  }
+}

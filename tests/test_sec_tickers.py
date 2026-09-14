@@ -146,6 +146,19 @@ class TestResolution:
 
         assert "NASDAQ" in str(excinfo.value)
 
+    def test_it_names_the_company_the_symbol_belongs_to(self, exchange_records):
+        """ "Check the exchange on the request" is bad advice when the symbol is another
+        company's. The readiness audit drove Tesco PLC, TSCO, LSE through this: TSCO on
+        NASDAQ is Tractor Supply Company, and an operator who took the advice would have
+        commissioned a report on a farm-supply retailer. The message names the filer now,
+        so the mistake is visible in the refusal itself."""
+        with pytest.raises(ValidationError) as excinfo:
+            resolve_ticker(exchange_records, "MSFT", exchange="LSE")
+
+        message = str(excinfo.value)
+        assert "MICROSOFT CORP" in message
+        assert "a different company" in message
+
     def test_an_exchange_filter_still_matches_records_that_carry_none(self, plain_records):
         # company_tickers.json has no exchange column. Filtering it out entirely would
         # make the older file useless for anything but a bare ticker lookup.

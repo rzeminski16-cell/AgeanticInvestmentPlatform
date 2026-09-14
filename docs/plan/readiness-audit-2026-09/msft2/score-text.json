@@ -1,0 +1,24 @@
+{
+  "text": "audit/out/msft2/report.md",
+  "truth": "audit/out/msft2/truth.json",
+  "words": 15297,
+  "numerals": 1211,
+  "accuracy": {
+    "numerals": 1211,
+    "by_kind": {
+      "excluded": 839,
+      "outside-truth": 40,
+      "matched": 131,
+      "matched-unhinted": 57,
+      "unknown": 137,
+      "checkable-absent": 7
+    },
+    "checkable": 188,
+    "matched": 188,
+    "approx": 0,
+    "contradicted": 0,
+    "contradicted_share_of_checkable": 0.0,
+    "contradictions": [],
+    "approximations": []
+  }
+}

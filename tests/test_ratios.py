@@ -97,6 +97,7 @@ COMPLETE = {
     "accounts_payable": "200",
     "total_debt": "500",
     "operating_cash_flow": "180",
+    "capital_expenditure": "80",
 }
 
 
@@ -158,6 +159,7 @@ class TestKnownAnswers:
             ("net_debt_to_ebitda", "1.6"),
             ("interest_cover", "8"),
             ("asset_turnover", "0.5"),
+            ("free_cash_flow", "100"),
         ],
     )
     def test_it_computes_the_figure_worked_out_by_hand(self, context, key, expected):

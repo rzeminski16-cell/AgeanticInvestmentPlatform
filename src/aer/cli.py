@@ -1773,7 +1773,7 @@ async def _resume(
     """Record the resume, then enqueue. Returns whether the queue accepted it."""
     from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
     from aer.queue import enqueue_run  # noqa: PLC0415
-    from aer.services.resume import resume_run, set_step_mode  # noqa: PLC0415
+    from aer.services.resume import resume_run, set_step_mode, stranding_of  # noqa: PLC0415
 
     engine = create_engine(settings)
     factory = create_session_factory(engine)
@@ -1791,7 +1791,20 @@ async def _resume(
                 )
                 raise AerError(message)
 
-            await resume_run(session, job=job, actor=actor, reason=reason)
+            # A run recorded as RUNNING under a worker that died is continued as itself
+            # too, once the worker's health record says nothing is executing it.
+            stranding = None
+            if job.status is JobStatus.RUNNING:
+                stranding = await stranding_of(session, job=job, health=await worker_health(redis))
+                if not stranding.stranded:
+                    raise AerError(f"This run is RUNNING. {stranding.reason}")
+            await resume_run(
+                session,
+                job=job,
+                actor=actor,
+                reason=reason,
+                stranded=stranding is not None and stranding.stranded,
+            )
             if not keep_step_mode:
                 await set_step_mode(session, job=job, actor=actor, enabled=False)
             await session.commit()

@@ -1,0 +1,11 @@
+{
+  "page": "claims",
+  "url": "http://127.0.0.1:8000/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/claims",
+  "status": 200,
+  "title": "Claims \u00b7 MTB",
+  "payload_hash": null,
+  "words": 159,
+  "raw_tokens": [],
+  "uuids": 0,
+  "approve_control": 0
+}

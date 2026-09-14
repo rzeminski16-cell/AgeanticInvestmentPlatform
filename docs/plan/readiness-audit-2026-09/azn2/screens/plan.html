@@ -1,0 +1,1594 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Approve this research plan? · Tracework Invest</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">4</span><span class="sr-only">4 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="G2ZwtQnxCmDipH3Y4Ue5Og.1789236969.a620f040baad5906bad7888f427ed968f5adba92fd0b2e2dc5448e51458139be" style="">
+          <input type="hidden" name="next" value="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/plan" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="G2ZwtQnxCmDipH3Y4Ue5Og.1789236969.a620f040baad5906bad7888f427ed968f5adba92fd0b2e2dc5448e51458139be" style="">
+          <input type="hidden" name="next" value="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/plan" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  <div class="flex flex-col gap-6">
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf" class="underline underline-offset-[3px] hover:text-verification">The run</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">RESEARCH RUN — A DECISION</p><h1 class="type-title-1 text-ink">Approve this research plan?</h1><p class="type-body text-ink-muted">AstraZeneca PLC · AZN · as at 2026-09-12</p>
+  <div class="flex flex-wrap items-center gap-3"></div>
+  </header>
+
+
+  
+  
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">WHAT THIS ASKS</p>
+  <p class="mt-2 type-body-lg text-ink">Nothing has been fetched and nothing has been spent beyond planning. The run does only what is described here, and continues only when you decide.</p>
+  <p class="mt-2 type-body text-ink-muted">Read the sources first: a filing missing from that list is cheapest to catch now.</p>
+  </section>
+
+
+
+  
+  <nav aria-label="Where this decision sits in the run">
+    <ol class="flex flex-wrap gap-x-5 gap-y-2">
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PLAN" data-journey-state="current">
+          <span class="type-label text-warning-ink">The plan</span>
+          <span class="type-body-sm text-warning-ink">now</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="SECTOR_SPECIALIST" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The sector</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PEER_SET" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The peers</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="THEME_SET" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The themes</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="UNMAPPED_CONCEPTS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The financials</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="ASSUMPTIONS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The assumptions</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="FINAL" data-journey-state="upcoming">
+          <span class="type-label text-ink-muted">The report</span>
+          <span class="type-body-sm text-ink-subtle">to come</span>
+        </li>
+      
+    </ol>
+    <p class="mt-2 type-body-sm text-ink-muted">Between two and seven more decisions.</p>
+  </nav>
+
+  
+    
+    <p class="min-[80rem]:hidden">
+      <a href="#decision" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Jump to the decision</a>
+    </p>
+  
+
+  <div class="min-[80rem]:grid min-[80rem]:grid-cols-[minmax(0,1fr)_19rem] min-[80rem]:items-start min-[80rem]:gap-8">
+    <div class="flex min-w-0 flex-col gap-6">
+      
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Sources it intends to use</h2>
+  <div class="mt-4">
+    <div id="planned-sources">
+      
+        
+
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="The sources this plan would fetch">
+  <table class="w-full border-collapse">
+    <caption class="sr-only">The sources this plan would fetch</caption>
+    <thead>
+      <tr>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Provider</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Tier</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">What</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Why</th>
+        
+      </tr>
+    </thead>
+    <tbody>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">AstraZeneca FY2025 annual report on Form 20-F: revenue by therapy area and product, margin lines, intangibles and goodwill notes, debt and liquidity notes, patent and exclusivity disclosure, risk factors.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Primary base for revenue concentration, the margin bridge, balance-sheet risk and the company's own statement of products facing exclusivity loss.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2025 Form 20-F notes on revenue recognition, collaboration, alliance, profit-share and royalty arrangements, and the list of principal subsidiaries and acquired entities.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Tests whether reported product revenue is fully retained economics, and supplies the applicant entity names needed for complete register searches.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2025 Form 20-F property and manufacturing network disclosure plus geographic splits of revenue and, where given, cost of sales and capital expenditure by country.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies the evidenced input for any tariff or MFN transmission to margin; without it a tariff scenario has no basis and must be declared unsized.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">AstraZeneca FY2024 annual report on Form 20-F, used for prior-period comparatives on revenue mix, margins, invested capital and geographic disclosure.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies comparatives so trend statements are computed from filings rather than recalled.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Company IR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_company</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">AstraZeneca H1 2026 results announcement and interim financial statements published before the as-of date: product revenue tables, margin lines, guidance and any restatement.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Most recent interim position inside the point-in-time window; anchors the run-rate used in scenarios.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">All AstraZeneca Form 6-K furnishings between the FY2025 20-F filing date and 2026-09-12, screened for exclusivity, litigation, regulatory decisions, pipeline news and announced US manufacturing or supply-chain investment.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Detects events after the annual filing that change exposure, catalyst timing or the footprint underlying the tariff case.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">FDA Orange Book</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Patent and regulatory exclusivity listings for NDAs held by every identified AstraZeneca applicant entity, with expiry dates through 2030, pediatric extensions and paragraph IV certification flags.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Establishes which small-molecule exclusivities lapse inside the horizon and which lapse just beyond it, across all entity names rather than one.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">FDA Purple Book</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Reference product exclusivity and biosimilar licensure records for biologics held by AstraZeneca and its subsidiaries and partners, including biosimilars already licensed or filed.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Biologic exposure is invisible in the Orange Book and covers much of the oncology and rare-disease revenue base.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">CMS.gov</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Medicare Drug Price Negotiation Program publications: selected drug lists for each cycle, maximum fair price announcements and effective dates, and manufacturer agreement documents.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Determines whether any AstraZeneca product carries a negotiated price taking effect inside the horizon.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Federal Register</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Notices, rules and proclamations on most-favoured-nation drug pricing and Section 232 pharmaceutical trade measures in force, proposed or enjoined as of the as-of date.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Fixes the legal status of pricing and tariff measures so the margin discussion rests on documents rather than commentary.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Drugs@FDA</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Approval records, approval letters and published action dates for AstraZeneca oncology applications through the as-of date.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Confirms which pipeline assets have converted to approved products and can carry revenue in the model.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">ClinicalTrials.gov</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Registry records for AstraZeneca pivotal oncology trials: phase, enrolment status, primary completion dates and posted results as recorded on or before the as-of date.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Dates the pipeline readouts inside the horizon and separates filed assets from those still reading out.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">PACER / court dockets</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Docket entries in ANDA and BPCIA litigation naming AstraZeneca entities or products, including scheduled trial dates, judgments and disclosed settlement terms before the as-of date.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Litigation outcomes move generic or biosimilar entry into or out of the horizon, and drive anticipation of post-horizon cliffs.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">European Patent Register</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">government_primary</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Patent and supplementary protection certificate status for key AstraZeneca compounds in major European markets, with expiry dates through 2030.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Ex-US exclusivity dates differ from US dates and affect the non-US share of the exposed revenue base.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Market data provider</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">market_data</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Closing price for AZN on NYSE, ADR ratio, ordinary shares outstanding and USD/GBP rate as at 2026-09-12, with the as-of timestamp recorded.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies the market capitalisation the reverse DCF solves against when testing whether pipeline value is in the price.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Market data provider</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">market_data</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Historical AZN price and valuation multiple series (P/E, EV/EBITDA) over the 36 months to 2026-09-12, point-in-time and unrestated.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Shows how market expectations have moved, so the implied pipeline value is read against a trend rather than a single day.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Company IR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_company</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">AstraZeneca Q1 2026 results statement and any capital markets day or pipeline day materials published on or before 2026-09-12, including company-stated revenue ambitions by asset or therapy area.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Provides the company's own published expectation set, the benchmark against which the reverse DCF's implied pipeline contribution is compared.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">primary_regulatory</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Most recent annual filings of large-cap pharmaceutical peers (for example Merck, Pfizer, Novartis) disclosing exclusivity exposure, US pricing commentary and manufacturing footprint.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Gives an evidenced comparison set for the industry landscape instead of generalised sector claims.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Market data provider</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">market_data</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Peer valuation multiples and market capitalisations as at 2026-09-12 for the same peer set, point-in-time.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Pairs with peer filings so the 'in the price' answer can be read relative to how comparable cliff and pipeline exposures are priced.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Consensus estimates feed</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">third_party_estimates</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Consensus revenue and EPS estimates for AZN for the next two fiscal years as published on or before 2026-09-12, with vendor and snapshot date recorded.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Direct evidence of what the market expects; used only to characterise expectations, never as a fact about the company or as a source for reported figures.</td>
+
+
+            </tr>
+          
+        </tbody>
+  </table>
+</div>
+
+      
+    </div>
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">What it intends to do</h2>
+  <div class="mt-4">
+    <p class="whitespace-pre-line type-body text-ink" id="plan-summary">A twelve-month, point-in-time view of AstraZeneca PLC (AZN) as of 2026-09-12, using only documents published on or before that date. It is organised around three operator questions: revenue standing behind exclusivity that lapses inside — and shortly beyond — the horizon; whether the oncology pipeline's contribution is already discounted in the price; and what US pricing and trade policy imply for margin. Revised after review: exclusivity is tabulated through 2030 with an in-horizon flag, because a cliff in month 14 can move the shares in month 3; revenue exposure is tested against collaboration, alliance and royalty economics and against every applicant entity rather than one company name; the tariff/MFN transmission is grounded in disclosed manufacturing footprint and cost-of-sales geography; and the 'in the price' test is run as a reverse DCF solving for implied pipeline value, with historical multiples, company-stated ambitions and peer market data as expectation evidence. No figure appears in this plan; every number is computed by deterministic code from fetched filings. Prior research sets questions only and is never cited.</p>
+    
+      
+      <p class="mt-4 rounded-sm border border-line bg-surface-sunken p-3 type-body-sm text-ink" id="prior-research-note">The planner was shown 1 prior approved report on this company (newest as-of 2026-09-11) as hypothesis material, labelled not-evidence. It may have shaped which questions this plan asks; it cannot support a claim, and the citation verifier rejects any attempt in code.</p>
+    
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Sections it will write</h2>
+  <div class="mt-4">
+    
+      <ul class="divide-y divide-line" id="plan-sections">
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Executive Summary</span>
+            <span class="type-data-sm text-ink-muted">executive_summary</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Answer the three operator questions in order, each marked evidenced, partially evidenced or unresolved: revenue behind exclusivity lapsing inside the horizon, stated separately from exclusivity lapsing in the two years immediately after and flagged as a within-horizon price risk; whether the reverse DCF shows pipeline contribution already discounted; and the direction, and where evidence permits the sizing, of US pricing and tariff pressure on margin. Carry forward every gap named in key_risks and validation_disagreements rather than smoothing over it.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Segment Analysis</span>
+            <span class="type-data-sm text-ink-muted">segment_analysis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Decompose reported revenue by therapy area and named product from the FY2025 Form 20-F and the H1 2026 interim statement, with prior-period comparatives, so concentration is measured rather than asserted. Against that decomposition, tabulate US and EU exclusivity expiry for each material product through 2030, with a column flagging whether expiry falls inside the twelve-month horizon, immediately beyond it, or later. Where a product of interest is disclosed only inside a therapy-area total, say so and do not allocate.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Business Overview</span>
+            <span class="type-data-sm text-ink-muted">business_overview</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Establish two things the exposure and margin work depend on. First, the economics behind reported revenue for each product of interest: revenue-recognition basis, collaboration, alliance, profit-share and royalty arrangements, and which legal entities (subsidiaries, acquired units such as Alexion, named partners) hold the relevant NDAs and BLAs, so register searches cover all applicant names rather than one. Second, the manufacturing and supply footprint: disclosed sites by country and any announced US investment or supply commitments, each tied to its source filing.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Industry &amp; Competitive Positioning</span>
+            <span class="type-data-sm text-ink-muted">industry_landscape</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Establish the US pricing and trade environment from primary policy documents only: CMS Medicare Drug Price Negotiation selected-drug lists, maximum fair price announcements and effective dates; Federal Register notices on most-favoured-nation pricing and Section 232 pharmaceutical trade action; IRA Part D redesign provisions. Identify whether any AstraZeneca product appears on a published selected-drug list, matching on applicant entity as well as brand. State the legal status of each measure as of the as-of date, including any proposed, litigated or enjoined.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Historical Financial Analysis</span>
+            <span class="type-data-sm text-ink-muted">historical_financial_analysis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Reconstruct the multi-year revenue, gross margin, operating margin and net margin path from the FY2025 and FY2024 Form 20-F filings and the 2026 interim statements, so the scenario work has an evidenced baseline. Identify the cost lines driving the gap between gross and operating margin and whether the filings disclose how much of that base is committed near term. Extract whatever geographic split of revenue and of cost of sales the filings provide, and state plainly where cost geography is not disclosed, since that bounds any tariff input.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Growth Outlook</span>
+            <span class="type-data-sm text-ink-muted">growth_outlook</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Map the oncology pipeline as disclosed: pivotal-stage assets, indications, filed applications and any regulatory action dates published by the company or FDA on or before the as-of date. Separate approved-product growth from unapproved-asset optionality. Record which assets the company itself ties to published revenue ambitions and which carry no company-stated contribution, since the company's own ambition statements are the benchmark the reverse DCF is read against. Treat probability of success and peak sales as declared model inputs, never as facts.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Valuation — Discounted Cash Flow</span>
+            <span class="type-data-sm text-ink-muted">valuation_dcf</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Run the valuation primarily as a reverse DCF: hold filed financials and as-of-date market inputs fixed and solve for the pipeline and post-exclusivity cash-flow contribution that the market capitalisation implies. Compare that implied contribution with company-stated revenue ambitions and with the run's separately declared base case. Report three components distinctly: marketed-product cash flows, cash flows lost to modelled exclusivity expiry, and residual implied pipeline value. All arithmetic goes to the calculation engine; each assumption is labelled with its source or as an analyst input.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Scenarios &amp; Sensitivities</span>
+            <span class="type-data-sm text-ink-muted">scenarios_sensitivities</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Run exclusivity and pricing as scenarios rather than point estimates: erosion pace after generic or biosimilar entry, entry-date slip, and a case in which an expiry falling just beyond the horizon is anticipated by the market inside it. On pricing, vary negotiated-price effective dates inside versus outside the horizon and run a tariff or MFN case whose input must name the manufacturing-footprint or cost-geography disclosure that carries it, or be declared unsized. Each scenario states which input moved and by how much so a reviewer can re-run it.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Key Risks</span>
+            <span class="type-data-sm text-ink-muted">key_risks</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Name risks established by fetched evidence and size them where the evidence permits: exclusivity expiries inside and immediately beyond the horizon, pending ANDA and BPCIA litigation, carrying value of goodwill and acquired intangibles against total assets, near-term liquidity and debt maturity structure, and legal or governmental investigation exposure as the company's own risk factors frame it. Separate risks that can be quantified from those that can only be described, and say which is which.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Catalysts</span>
+            <span class="type-data-sm text-ink-muted">catalysts</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">List dated, document-backed events inside the twelve-month horizon: scheduled results dates, FDA action dates disclosed by company or FDA, trial completion or readout dates from the registry, CMS maximum fair price effective dates, and court or trial dates in exclusivity litigation. Include events inside the horizon that bear on post-horizon cliffs, such as biosimilar filings or litigation judgments. Exclude any event dated only by press speculation, and mark company-indicated ranges as ranges rather than fixed dates.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Investment Thesis</span>
+            <span class="type-data-sm text-ink-muted">investment_thesis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">State the thesis as a chain of conditions the evidence supports or does not: the size of the revenue base at exclusivity risk inside the horizon and in the two years after, treating an imminent post-horizon cliff as a within-horizon price risk; whether the pipeline value implied by the reverse DCF sits above or below what filed evidence and company-stated ambitions support; and whether pricing or trade policy bites on margin inside the horizon or later. Each link names the section and evidence carrying it; unverifiable links are stated conditionally.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Validation &amp; Disagreements</span>
+            <span class="type-data-sm text-ink-muted">validation_disagreements</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Record every point where sources conflict or a required datum could not be obtained: product revenue not disclosed at the needed granularity, exclusivity dates differing between US and EU registers, applicant entities that could not be enumerated or matched to disclosed products, collaboration terms redacted, cost-of-sales geography absent, and policy measures whose margin effect cannot be sized. Note any figure left uncomputed, and any instruction-like text found in fetched documents, described as a property of that document.</span>
+            
+          </li>
+        
+      </ul>
+    
+
+    
+      
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    The report's built-in sections
+  </summary>
+  <div class="pb-4">
+        <p class="type-body-sm text-ink-muted">
+          The platform's section spine, in the order the report will carry it. Sections
+          marked <em>platform-filled</em> are written by code from the run's own records
+          and spend nothing.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-left" id="section-listing">
+            <thead>
+              <tr>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Token budget</th>
+                <th scope="col" class="py-2 type-eyebrow text-ink-muted">Estimate</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Executive Summary</span>
+                    <span class="block type-data-sm text-ink-muted">executive_summary</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      2000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0672
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Investment Thesis</span>
+                    <span class="block type-data-sm text-ink-muted">investment_thesis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Business Overview</span>
+                    <span class="block type-data-sm text-ink-muted">business_overview</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Segment Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">segment_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Industry &amp; Competitive Positioning</span>
+                    <span class="block type-data-sm text-ink-muted">industry_landscape</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Management &amp; Governance</span>
+                    <span class="block type-data-sm text-ink-muted">management_governance</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Historical Financial Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">historical_financial_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Earnings Quality</span>
+                    <span class="block type-data-sm text-ink-muted">earnings_quality</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Balance Sheet &amp; Liquidity</span>
+                    <span class="block type-data-sm text-ink-muted">balance_sheet_liquidity</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Cash Flow Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">cash_flow_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Capital Allocation</span>
+                    <span class="block type-data-sm text-ink-muted">capital_allocation</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Growth Outlook</span>
+                    <span class="block type-data-sm text-ink-muted">growth_outlook</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Valuation — Discounted Cash Flow</span>
+                    <span class="block type-data-sm text-ink-muted">valuation_dcf</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      5000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0790
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Scenarios &amp; Sensitivities</span>
+                    <span class="block type-data-sm text-ink-muted">scenarios_sensitivities</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Key Risks</span>
+                    <span class="block type-data-sm text-ink-muted">key_risks</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Catalysts</span>
+                    <span class="block type-data-sm text-ink-muted">catalysts</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Prior Research Comparison</span>
+                    <span class="block type-data-sm text-ink-muted">prior_research_comparison</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-muted-ink bg-muted-wash text-muted-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8"></path></svg>
+
+  <span>Platform-filled</span></span>
+
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      £0
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Validation &amp; Disagreements</span>
+                    <span class="block type-data-sm text-ink-muted">validation_disagreements</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-muted-ink bg-muted-wash text-muted-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8"></path></svg>
+
+  <span>Platform-filled</span></span>
+
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      £0
+                    
+                  </td>
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+</details>
+
+    
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">What it says it may get wrong</h2>
+  <div class="mt-4">
+    
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body text-ink" id="known-risks">
+        <li>Point-in-time cut-off: no Q3 2026 disclosure exists by 2026-09-12, so the latest interim evidence is H1 2026. Questions needing second-half data will be marked unresolved rather than estimated.</li><li>Cost geography and product-level margin are usually disclosed only coarsely. Revenue exposed to expiry can be measured from filings; profit exposed to it, and the margin effect of a tariff, may be modellable only under declared assumptions or not sizeable at all, in which case the tariff scenario is reported as unsized rather than guessed.</li><li>Exclusivity dates are register-specific. Orange Book, Purple Book and European SPC records may disagree, and settlement agreements permitting earlier entry are often confidential, so the true entry date may be unknowable from public evidence.</li><li>Reverse DCF narrows but does not remove the analyst dependence in 'already in the price': the solved-for pipeline value still depends on discount rate, terminal growth and the modelled erosion path. Consensus and multiple series are third-party and non-primary, so they characterise expectations without evidencing them.</li><li>Collaboration and alliance terms are frequently redacted, and applicant-entity enumeration may be incomplete where a partner or subsidiary name does not map cleanly to a disclosed product. Exposure may then be over- or understated, and the gap will be recorded rather than closed by inference.</li><li>Widening the exclusivity table through 2030 is accepted from review, but which post-horizon expiries the market is already pricing inside a twelve-month window is an analyst judgement, not a documented fact; those entries will be labelled as judgement with the evidence that prompted them.</li><li>US pricing and trade measures may be proposed, litigated or enjoined at the as-of date, so their revenue and margin effect can be legally unsettled and therefore unquantifiable; this will be stated as unsized rather than assumed away.</li><li>Section budget disagreement, disclosed for approval: prior_research_comparison was dropped to make room for business_overview, which carries the alliance-economics and manufacturing-footprint work the reviewer required. 'What changed' questions are absorbed into key_risks and catalysts. Prior research remains non-citable; no instruction-like text was observed in the supplied block, which was read as data.</li><li>Registry and company-indicated readout dates are frequently revised, so catalyst timing inside the horizon is provisional even when sourced.</li><li>AstraZeneca's US listing and filing status may have changed; if Form 20-F is no longer filed on the expected schedule, the filing set must be re-derived from EDGAR rather than presumed.</li>
+      </ul>
+    
+  </div>
+</section>
+
+
+  
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Cost and time</h2>
+  <div class="mt-4">
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div id="estimated-cost">
+        
+
+<div class="flex flex-col gap-1">
+  <p class="type-label text-ink-muted">Estimated cost of this plan</p>
+  <p class="type-data-xl text-ink">£9.2669</p></div>
+
+        <p class="mt-1 type-body-sm text-ink-muted" id="estimated-cost-note">
+          
+          Planning already spent, plus the estimate for every section listed above.
+          Approving agrees to this total; the run console shows what has actually gone.
+        </p>
+      </div>
+      <div id="estimated-runtime">
+        
+
+<div class="flex flex-col gap-1">
+  <p class="type-label text-ink-muted">Estimated runtime</p>
+  <p class="type-data-xl text-ink">2197 s</p></div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+    </div>
+
+    <aside id="decision" class="mt-6 min-[80rem]:sticky min-[80rem]:top-6 min-[80rem]:mt-0">
+      
+        
+
+<section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-surface">
+  <div class="rounded-t-md bg-decision-wash px-5 py-3">
+    <p class="type-eyebrow text-warning-ink">DECISION REQUIRED</p>
+    <h2 class="mt-1 type-title-2 text-ink">The plan</h2>
+  </div>
+  <div class="flex flex-col gap-4 p-5">
+    <p class="type-body text-ink">Approving commits the estimated spend shown in the plan. Everything expensive in the run is downstream of this page.</p>
+    
+          <form method="post" action="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf/gates/PLAN" id="gate-form" class="flex flex-col gap-4">
+            <input type="hidden" name="csrf_token" value="G2ZwtQnxCmDipH3Y4Ue5Og.1789236969.a620f040baad5906bad7888f427ed968f5adba92fd0b2e2dc5448e51458139be" style="">
+            
+            <input type="hidden" name="payload_hash" id="payload-hash" value="6b71a481fd197367ddde39058c5610a0e8eed0564cbfbe1ad8f2544ee290f159" style="">
+
+            <p class="type-body-sm text-ink-muted">
+              <span class="type-data text-ink">£0.55 of £10.00</span> spent so far.
+            </p>
+
+            <div>
+              <label for="notes" class="block type-label text-ink">Notes (optional)</label>
+              <textarea id="notes" name="notes" rows="3" maxlength="4000" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Why you approved or rejected this. Recorded in the audit trail." style=""></textarea>
+            </div>
+
+            
+            <div class="flex flex-col gap-3">
+              <button type="submit" name="decision" value="APPROVED" id="approve" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Approve and continue</button>
+              <button type="submit" name="decision" value="REJECTED" id="reject" class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reject and stop this run</button>
+            </div>
+
+            
+            
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    What this decision proves
+  </summary>
+  <div class="pb-4">
+              <p class="type-body-sm text-ink-muted">
+                Your approval records the exact content of this page, by its fingerprint,
+                so it can never be transferred to a different proposal. If the proposal
+                changes before the server records your choice, the approval is refused and
+                you decide again over the current version.
+              </p>
+              <p class="mt-2 break-all type-data-sm text-ink-muted">6b71a481fd197367ddde39058c5610a0e8eed0564cbfbe1ad8f2544ee290f159</p>
+            </div>
+</details>
+
+
+            <p>
+              <a href="/runs/571b1434-66d2-4f6d-9534-7ca671fe6caf" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+            </p>
+          </form>
+        
+    <p class="type-body-sm text-ink-muted">You are deciding on exactly the evidence shown here.</p>
+    </div>
+</section>
+
+      
+    </aside>
+  </div>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

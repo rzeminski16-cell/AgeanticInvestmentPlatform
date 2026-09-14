@@ -1,0 +1,23 @@
+{
+  "page": "assumptions",
+  "url": "http://127.0.0.1:8000/runs/8d1127b2-9ec9-450b-9ad6-1366c7bfb791/assumptions",
+  "status": 200,
+  "title": "Confirm the numbers the valuation will use? \u00b7 Tracework Invest",
+  "payload_hash": "dc74ed299e6edf8157072e1eeb170e0e61f3528762675e0a352123acc8c42156",
+  "words": 1127,
+  "raw_tokens": [
+    "assumption_proposals",
+    "capex_intensity",
+    "depreciation_intensity",
+    "ebit_margin",
+    "equity_risk_premium",
+    "exit_multiple",
+    "revenue_growth",
+    "risk_free_rate",
+    "tax_rate",
+    "terminal_growth",
+    "working_capital_intensity"
+  ],
+  "uuids": 0,
+  "approve_control": 1
+}

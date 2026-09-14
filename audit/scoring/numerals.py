@@ -1,0 +1,669 @@
+"""Every number a note states, with what the sentence around it says the number is.
+
+The extraction reuses the platform's own numeral scanner (`aer.core.figures.numeral_matches`)
+so the audit and the product agree on what a numeral is. What this adds is the reading of
+the neighbourhood: the currency, the scale word, whether it is a percentage or a multiple,
+the period it belongs to, and the concept the sentence names — the hints a checker needs
+before it can ask a filing whether the number is right.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+from typing import Final
+
+from aer.core.figures import numeral_matches
+
+__all__ = ["CONCEPTS", "Numeral", "extract_numerals"]
+
+# Context words -> a concept name the ground-truth basket knows. Longest phrase wins.
+CONCEPTS: Final[tuple[tuple[str, str], ...]] = (
+    ("free cash flow", "free_cash_flow"),
+    ("fcf", "free_cash_flow"),
+    ("operating cash flow", "operating_cash_flow"),
+    ("cash from operations", "operating_cash_flow"),
+    ("cash flow from operations", "operating_cash_flow"),
+    ("cash provided by operating", "operating_cash_flow"),
+    ("capital expenditure", "capex"),
+    ("depreciation", "depreciation"),
+    ("amortisation", "depreciation"),
+    ("amortization", "depreciation"),
+    ("property and equipment additions", "capex"),
+    ("capex", "capex"),
+    ("purchases of property", "capex"),
+    ("additions to property", "capex"),
+    ("research and development", "research_and_development"),
+    ("r&d", "research_and_development"),
+    ("gross margin", "gross_margin"),
+    ("gross profit", "gross_profit"),
+    ("operating margin", "operating_margin"),
+    ("operating income", "operating_income"),
+    ("operating profit", "operating_income"),
+    ("ebit margin", "operating_margin"),
+    ("ebitda margin", "ebitda_margin"),
+    ("ebitda", "ebitda"),
+    ("ebit", "operating_income"),
+    ("net margin", "net_margin"),
+    ("net income", "net_income"),
+    ("net profit", "net_income"),
+    ("net earnings", "net_income"),
+    ("profit attributable", "net_income"),
+    ("earnings per share", "eps_diluted"),
+    ("diluted eps", "eps_diluted"),
+    ("eps", "eps_diluted"),
+    ("total revenue", "revenue"),
+    ("net sales", "revenue"),
+    ("revenues", "revenue"),
+    ("revenue", "revenue"),
+    ("sales", "revenue"),
+    ("cash and cash equivalents", "cash"),
+    ("cash and equivalents", "cash"),
+    ("cash balance", "cash"),
+    ("total debt", "total_debt"),
+    ("long-term debt", "long_term_debt"),
+    ("gross debt", "total_debt"),
+    ("net debt", "net_debt"),
+    ("net cash", "net_debt"),
+    ("shares outstanding", "shares_outstanding"),
+    ("share count", "shares_outstanding"),
+    ("diluted shares", "diluted_shares"),
+    ("total assets", "total_assets"),
+    ("shareholders' equity", "equity"),
+    ("stockholders' equity", "equity"),
+    ("shareholders’ equity", "equity"),
+    ("stockholders’ equity", "equity"),
+    ("total equity", "equity"),
+    ("book value", "equity"),
+    ("return on equity", "roe"),
+    ("roe", "roe"),
+    ("return on assets", "roa"),
+    ("market capitalisation", "market_cap"),
+    ("market capitalization", "market_cap"),
+    ("market cap", "market_cap"),
+    ("enterprise value", "enterprise_value"),
+    ("share price", "share_price"),
+    ("stock price", "share_price"),
+    ("closed at", "share_price"),
+    ("trading at", "share_price"),
+    ("dividend", "dividends"),
+    ("repurchase", "buybacks"),
+    ("buyback", "buybacks"),
+    ("net interest income", "net_interest_income"),
+    ("net interest margin", "net_interest_margin"),
+    ("deposits", "deposits"),
+    ("loans", "loans"),
+    ("terminal growth", "terminal_growth"),
+    ("risk-free", "risk_free_rate"),
+    ("equity risk premium", "equity_risk_premium"),
+    ("wacc", "wacc"),
+    ("discount rate", "wacc"),
+    ("cost of equity", "cost_of_equity"),
+    ("beta", "beta"),
+    ("p/e", "pe"),
+    ("price-to-earnings", "pe"),
+    ("price to earnings", "pe"),
+    ("ev/ebitda", "ev_ebitda"),
+)
+_RATIO_CONCEPTS: Final = frozenset(
+    {
+        "gross_margin",
+        "operating_margin",
+        "ebitda_margin",
+        "net_margin",
+        "roe",
+        "roa",
+        "net_interest_margin",
+        "terminal_growth",
+        "risk_free_rate",
+        "equity_risk_premium",
+        "wacc",
+        "cost_of_equity",
+        "growth",
+    }
+)
+_SCALES: Final[tuple[tuple[re.Pattern[str], Decimal], ...]] = (
+    (re.compile(r"^\s*(billion|bn)\b", re.I), Decimal(1_000_000_000)),
+    (re.compile(r"^\s*(million|mn|mm)\b", re.I), Decimal(1_000_000)),
+    (re.compile(r"^\s*(thousand|k)\b", re.I), Decimal(1_000)),
+    (re.compile(r"^\s*trillion\b", re.I), Decimal(1_000_000_000_000)),
+)
+_SUFFIX_SCALES: Final = {
+    "bn": Decimal(1_000_000_000),
+    "m": Decimal(1_000_000),
+    "mn": Decimal(1_000_000),
+    "k": Decimal(1_000),
+}
+_PERIOD: Final = re.compile(
+    r"(?:FY\s?'?(?P<fy>\d{2,4}))|(?:fiscal(?: year)?\s+(?P<fiscal>20\d\d))|(?:year(?:s)? end(?:ed|ing)\s+(?:[A-Za-z]+\s+\d{1,2},?\s+|\d{1,2}\s+[A-Za-z]+\s+)(?P<ye>20\d\d))|(?:(?P<q>Q[1-4])\s*(?:FY)?\s*'?(?P<qy>\d{2,4}))|(?:\b(?P<cy>20[12]\d)\b)",
+    re.I,
+)
+_YEAR_LIKE: Final = re.compile(r"^(19|20)\d\d$")
+_EXCLUDE_BEFORE: Final = re.compile(
+    r"(item|exhibit|form|note|cik|page|p\.|section|§|rule|schedule|fy|q[1-4]|\[\^?)\s*$", re.I
+)
+_EXCLUDE_AFTER: Final = re.compile(r"^\s*(\]|-k\b|-q\b|-f\b|k\b)", re.I)
+_GROWTH_WORDS: Final = re.compile(
+    r"\b(grew|growth|increase[ds]?|rose|up|decline[ds]?|fell|down|cagr|year[- ]on[- ]year|yoy)\b",
+    re.I,
+)
+_CONTEXT_CHARS: Final = 90
+# A measure the filing basket does not hold under that name: a constant-currency or
+# non-GAAP figure, a segment line, a quarter, a basis-point move. Set aside rather than
+# judged, because "16 % in constant currency" against a filed 17.8 % is not a contradiction.
+_QUALIFIED: Final = re.compile(
+    r"(constant[- ]currency|\bcc\b|non-?gaap|adjusted|underlying|organic|\bex-|excluding|"
+    r"segment|basis points|\bbps?\b|run-?rate|annuali[sz]ed|sequential|quarter|\bq[1-4]\b|"
+    # A half-year, written either way round ("H1", "1H26"), and a trailing twelve months:
+    # the M&T console note bridged "FY25 EPS $17.00 less 1H25 $7.55 plus 1H26 $9.44", and
+    # judging those halves against the filed annual figure manufactured two contradictions.
+    r"\bh[12]\b|\b[12]h\s?\d{2}\b|\bttm\b|trailing[- ](twelve|12)|"
+    r"first half|second half|(nine|six|three|twelve)[- ]months?|per share|"
+    r"per diluted share|calendar|commercial|consumer|bookings|backlog|\brpo\b|"
+    r"remaining performance|"
+    # The subjects' own segment and product lines: a figure for one of them is not the
+    # group's, and the filing basket holds only the group's.
+    r"intelligent cloud|productivity and business|more personal computing|microsoft cloud|"
+    r"azure|linkedin|xbox|windows|server products|dynamics|search and news|gaming|devices|"
+    r"office|copilot|oncology|biopharmaceuticals|rare disease|alexion|cardiovascular|"
+    r"respiratory|vaccines|commercial bank|retail bank|institutional|wealth|\bmpc\b|\bpbp\b|"
+    # A filer's own sub-lines and non-GAAP labels: "Core" (the pharma convention), alliance
+    # and collaboration revenue, product sales, milestones, a capex that folds intangibles in.
+    r"\bcore\b|alliance|collaboration|product sales|milestone|impairment|other operating|"
+    r"intangibles|\bwithin\b|non-?recurring|one-?off)",
+    re.I,
+)
+# The platform quoting a figure in order to refuse it: the withheld front page states the
+# impossible relation it found ("net margin 1.72 for FY2025 is above 1"), and the validation
+# section quotes each failed check's finding. Reading those as claims judged the platform's
+# own honesty against the filing — and on M&T the refusal is the one place the absurd
+# margin appears at all.
+_A_REFUSAL: Final = re.compile(
+    r"(was withheld|cannot all be true|is above|income exceeding|exceeds revenue|"
+    r"impossible on a consolidated statement|not thereby possible|could not be)",
+    re.I,
+)
+
+# A change rather than a level: "less the $36.6bn increase", "rose by $12bn".
+_DELTA_BEFORE: Final = re.compile(
+    r"\b(by|increase|decrease|change|delta|gain|loss|add-?back|less|plus|minus|added|"
+    r"absorbed|contributed|drawdown|reduction|build|burn|inflow|outflow|returned|return)"
+    r"\s+(of\s+|in\s+|the\s+|a\s+|an\s+)?[(]?\s*[~≈+\-−]?\s*[$£€]?\s*$",
+    re.I,
+)
+_DELTA_AFTER: Final = re.compile(
+    r"^\s*(bn|mn?|million|billion|thousand)?\s*(\S+\s+){0,2}(increase|decrease|change|gain|"
+    r"loss|rise|fall|decline|growth|add-?back|drawdown|of (revenue|sales|growth))\b",
+    re.I,
+)
+# An operand or a result: "$182.94bn less $115.95bn = $66.99bn". The note's arithmetic is
+# the note's; its inputs are checked where the note states them as figures.
+_ARITHMETIC_BEFORE: Final = re.compile(
+    r"(less|minus|plus|times|divided by|[÷×−/*=])\s*[$£€]?\s*$", re.I
+)
+_ARITHMETIC_AFTER: Final = re.compile(
+    r"^\s*(bn|mn?|million|billion)?\**\s*(less|minus|plus|times|divided by|[÷×−/*])\s", re.I
+)
+_RANGE: Final = re.compile(r"^\s*[–-]\s*\d")
+_RANGE_BEFORE: Final = re.compile(r"\d\s*[–-]\s*[$£€]?$")
+# A figure the note reasons towards, not one it reports.
+_HYPOTHETICAL: Final = re.compile(
+    r"\b(must|would|could|should|implie[sd]|implying|steady-state|scenario|if|were|"
+    r"assum\w*|target|required|requires|needs? to|to justify|justified|break-?even)\b",
+    re.I,
+)
+_PRODUCT: Final = re.compile(
+    r"\b(Microsoft|Office|Windows|Dynamics|Xbox|Copilot|Series|Model|iPhone|Surface)\s+$"
+)
+# Phrases that contain a concept's name without being it.
+_BLOCKING: Final = (
+    "cost of revenue",
+    "cost of sales",
+    "deferred revenue",
+    "unearned revenue",
+    "of revenue",
+    "of sales",
+    "of net income",
+    "of operating income",
+    "of free cash flow",
+    "revenue growth",
+    "revenue per",
+    "current portion",
+    "interest expense",
+    "interest income",
+    "as a percentage",
+    "percentage of",
+    "share of",
+    "relative to",
+    "times",
+    "multiple",
+    "authorisation",
+    "authorization",
+    "remaining",
+    "capacity",
+    "programme",
+    "program",
+)
+_FOOTNOTE_LINE: Final = re.compile(r"^\s*\[\^[^\]]+\]:")
+_TABLE_SEPARATOR: Final = re.compile(r"^\s*\|?\s*:?-{2,}")
+_QUALIFIED_CELL: Final = "__qualified__"
+# How far a concept phrase may sit from the number it is said to describe. Beyond this
+# the sentence is about something else and the number is left unattributed, which is
+# the honest state: an unread number is not a wrong one.
+_BEFORE_REACH: Final = 45
+_AFTER_REACH: Final = 12
+
+
+@dataclass(frozen=True, slots=True)
+class Numeral:
+    token: str
+    value: Decimal
+    start: int
+    end: int
+    context: str
+    currency: str | None
+    scale: Decimal | None
+    percent: bool
+    multiple: bool
+    period: str | None
+    concept: str | None
+    excluded: str | None
+
+    @property
+    def scaled(self) -> Decimal:
+        if self.percent:
+            return self.value / Decimal(100)
+        return self.value * (self.scale or Decimal(1))
+
+
+_MONTH_NAMES: Final = (
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+)
+_MONTHS: Final = {
+    **{m: i + 1 for i, m in enumerate(_MONTH_NAMES)},
+    **{m[:3]: i + 1 for i, m in enumerate(_MONTH_NAMES)},
+    "sept": 9,
+}
+_MONTH_WORD: Final = "|".join([*_MONTH_NAMES, *(m[:3] for m in _MONTH_NAMES), "sept"])
+_FULL_DATE: Final = re.compile(
+    r"(?:(?P<d1>\d{1,2})\s+(?P<m1>[A-Za-z]+)\s+(?P<y1>20\d\d))|"
+    r"(?:(?P<m2>[A-Za-z]+)\s+(?P<d2>\d{1,2}),?\s+(?P<y2>20\d\d))"
+)
+
+
+def _full_date(text: str) -> str | None:
+    """A day-month-year in the text as ``D<iso>``, or nothing; the matcher resolves it."""
+    for m in _FULL_DATE.finditer(text):
+        month = _MONTHS.get((m.group("m1") or m.group("m2") or "").lower())
+        if month is None:
+            continue
+        day = int(m.group("d1") or m.group("d2"))
+        year = int(m.group("y1") or m.group("y2"))
+        if 1 <= day <= 31:
+            return f"D{year:04d}-{month:02d}-{day:02d}"
+    return None
+
+
+# "against 8.9 percent in FY2024": a period naming itself right after the numeral belongs
+# to that numeral, whatever the sentence opened with. M&T's report stated both years in one
+# sentence three times, and each prior year was judged against the latest year's figure.
+_PERIOD_IMMEDIATELY_AFTER: Final = re.compile(
+    r"^\s*(percent|per cent|%|x|×|USD|\$|£|€|billion|million|bn|m)?\s*"
+    r"[(\[]?\s*(in|for|of|during|at)?\s*(fiscal\s+)?(FY\s?\d{2,4}|\d{4})\b",
+    re.I,
+)
+
+
+def _period_from(context_before: str, context_after: str) -> str | None:
+    immediate = _PERIOD_IMMEDIATELY_AFTER.match(context_after)
+    if immediate is not None:
+        own = _period_in(immediate.group(0))
+        if own is not None:
+            return own
+    dated = _full_date(context_before[-60:]) or _full_date(context_after[:60])
+    if dated is not None:
+        return dated
+    if re.fullmatch(r"\s*\**Q[1-4]\**\s*", context_before + context_after, re.I):
+        return "Q"
+    for text in (context_before[-60:], context_after[:60]):
+        matches = list(_PERIOD.finditer(text))
+        if not matches:
+            continue
+        m = matches[-1] if text is context_before[-60:] else matches[0]
+        if m.group("fy"):
+            year = m.group("fy")
+            return f"FY{('20' + year) if len(year) == 2 else year}"
+        if m.group("fiscal"):
+            return f"FY{m.group('fiscal')}"
+        if m.group("ye"):
+            return f"FY{m.group('ye')}"
+        if m.group("q"):
+            year = m.group("qy")
+            return f"{m.group('q').upper()} FY{('20' + year) if len(year) == 2 else year}"
+        if m.group("cy"):
+            return f"FY{m.group('cy')}"
+    return None
+
+
+def _period_in(text: str) -> str | None:
+    """The fiscal period named in a short span, or ``None`` — the plain reader, no context."""
+    match = _PERIOD.search(text)
+    if match is None:
+        return None
+    if match.group("fy"):
+        year = match.group("fy")
+        return f"FY{('20' + year) if len(year) == 2 else year}"
+    if match.group("fiscal"):
+        return f"FY{match.group('fiscal')}"
+    if match.group("ye"):
+        return f"FY{match.group('ye')}"
+    if match.group("q"):
+        year = match.group("qy")
+        return f"{match.group('q').upper()} FY{('20' + year) if len(year) == 2 else year}"
+    if match.group("cy"):
+        return f"FY{match.group('cy')}"
+    return None
+
+
+_SENTENCE_BREAK: Final = re.compile(r"[.;\n]\s")
+
+
+def _sentence_window(before: str, after: str) -> tuple[str, str]:
+    """The part of the neighbourhood inside the numeral's own sentence."""
+    breaks = list(_SENTENCE_BREAK.finditer(before))
+    before_sentence = before[breaks[-1].end() :] if breaks else before
+    cut = _SENTENCE_BREAK.search(after)
+    after_sentence = after[: cut.start()] if cut else after
+    return before_sentence, after_sentence
+
+
+# Any figure at all, used to see whether another number stands between a concept phrase and
+# the numeral being attributed. "$14,575m against net income of $10,225m" names two figures
+# and one concept each side of the word "against": reading the phrase across the intervening
+# figure gave the operating cash flow the net income's value to be judged against.
+_ANY_FIGURE: Final = re.compile(r"\d")
+# How close a following phrase has to be to read as the numeral's own label: enough for a
+# per-cent sign, a scale word and a space ("$136.2bn operating cash flow").
+_ADJACENT_REACH: Final = 4
+# What separates a figure from the *next* item's label rather than its own. "gross margin of
+# 67.9%, operating margin of 46.8%" labels each figure before it and lists them with commas;
+# without this, the comma read as adjacency and every figure took the next one's name.
+_NEW_ITEM: Final = re.compile(r"[,;:]|\band\b")
+
+
+def _concept_from(before: str, after: str) -> str | None:
+    """The concept phrase nearest the numeral inside its sentence; before beats after.
+
+    **A phrase separated from the numeral by another numeral does not attribute.** The
+    readiness audit's second AstraZeneca report produced four of these in one run — R&D
+    against revenue, operating cash flow against net income, R&D against SG&A — each a
+    correct sentence naming two figures, each read as one figure claiming the other's
+    concept. Where a figure stands between, the attribution is refused rather than guessed,
+    which costs recall and buys the only precision that matters here.
+    """
+    before_s, after_s = _sentence_window(before, after)
+    lowered_before, lowered_after = before_s.lower(), after_s.lower()
+    best: tuple[int, int, str] | None = None
+    for phrase, concept in CONCEPTS:
+        idx = lowered_before.rfind(phrase)
+        if idx >= 0:
+            gap = lowered_before[idx + len(phrase) :]
+            distance = len(gap)
+            if distance <= _BEFORE_REACH and not _ANY_FIGURE.search(gap):
+                candidate = (distance, -len(phrase), concept)
+                if best is None or candidate < best:
+                    best = candidate
+        idx = lowered_after.find(phrase)
+        if 0 <= idx <= _AFTER_REACH and not _ANY_FIGURE.search(lowered_after[:idx]):
+            # **A phrase right behind the numeral is its label**, whatever follows it: "a
+            # 46.8% operating margin" and "$136.2bn operating cash flow" name themselves,
+            # and the strongest reading is the adjacent one — stronger than any phrase
+            # before, which is how "a 67.9% gross margin, a 46.8% operating margin" used to
+            # give the second figure the first's concept.
+            #
+            # Further away, a phrase with its own figure behind it belongs to that figure:
+            # "was $14,575m against net income of $10,225m" names the cash flow first and
+            # the income second, so this numeral takes nothing from it.
+            gap_after = lowered_after[:idx]
+            adjacent = idx <= _ADJACENT_REACH and not _NEW_ITEM.search(gap_after)
+            claimed = _ANY_FIGURE.search(lowered_after[idx + len(phrase) : idx + len(phrase) + 25])
+            if adjacent or claimed is None:
+                distance = -1 if adjacent else idx + 3
+                candidate = (distance, -len(phrase), concept)
+                if best is None or candidate < best:
+                    best = candidate
+    chosen: str | None = best[2] if best else None
+    if chosen is not None and any(
+        b in lowered_before[-45:] or b in lowered_after[:40] for b in _BLOCKING
+    ):
+        chosen = None
+    return chosen
+
+
+def _compatible(
+    concept: str | None,
+    *,
+    value: Decimal,
+    percent: bool,
+    money: bool,
+    scale: Decimal | None,
+    multiple: bool,
+    near: str,
+) -> str | None:
+    """A percentage is not a revenue and a sum of money is not a margin.
+
+    A percentage beside revenue or net income with a growth word is that line's growth;
+    beside anything else it is unattributed rather than wrong. A multiple is never a level.
+    A bare number in the hundreds of thousands is not a margin, whatever the row is called.
+    A figure in billions is not an EPS.
+    """
+    if concept is None:
+        return None
+    if multiple:
+        return concept if concept in {"pe", "ev_ebitda"} else None
+    if percent and not money:
+        if concept in _RATIO_CONCEPTS:
+            return concept
+        if _GROWTH_WORDS.search(near):
+            return {"revenue": "revenue_growth", "net_income": "net_income_growth"}.get(concept)
+        return None
+    if concept in _RATIO_CONCEPTS:
+        return None if (money or abs(value) > 100) else concept
+    if concept == "eps_diluted" and (scale is not None or abs(value) >= 1000):
+        return None
+    return concept
+
+
+# A row label that names a movement rather than a level ("Share repurchases change"), and
+# one that names a ratio between two lines ("Distributions to operating cash flow"). Both
+# read as their first concept to a phrase matcher, and M&T's report offered all three: a
+# £2.235bn *change* in buybacks judged against the £2.631bn level, a 1.18 *ratio* judged
+# against operating cash flow of $3,003m.
+_LABEL_IS_A_CHANGE: Final = re.compile(
+    r"\b(change|growth|movement|delta|increase|decrease)\b", re.I
+)
+_LABEL_IS_A_RATIO: Final = re.compile(
+    r"\bto\b.*\b(cash flow|equity|assets|revenue|income|book)\b", re.I
+)
+
+
+def _table_hints(text: str, start: int) -> tuple[str | None, str | None] | None:
+    """Concept and period for a numeral in a Markdown table cell, or None when not in one.
+
+    A table row is not a sentence: the number's concept is the row label and its period is
+    the column header (or the row's own period cell, as the front page's headline table has
+    it). Reading the neighbouring cells as prose was how one revenue column contradicted the
+    next, in the platform report and the baseline alike.
+    """
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", start)
+    line_end = len(text) if line_end < 0 else line_end
+    line = text[line_start:line_end]
+    if not line.lstrip().startswith("|"):
+        return None
+    cells = line.split("|")
+    column = line[: start - line_start].count("|")
+    header: list[str] | None = None
+    cursor = line_start
+    while cursor > 0:
+        previous_end = cursor - 1
+        previous_start = text.rfind("\n", 0, previous_end) + 1
+        previous = text[previous_start:previous_end]
+        if not previous.lstrip().startswith("|"):
+            break
+        if _TABLE_SEPARATOR.match(previous.replace("|", "", 1)) and previous_start > 0:
+            head_end = previous_start - 1
+            head_start = text.rfind("\n", 0, head_end) + 1
+            header = text[head_start:head_end].split("|")
+            break
+        cursor = previous_start
+    label = cells[1].lower() if len(cells) > 1 else ""
+    # A column headed "Core", "Alliance" or the like is a qualified measure whatever the
+    # row is called: the header is the sentence the cell sits in.
+    if header is not None and column < len(header) and _QUALIFIED.search(header[column]):
+        return _QUALIFIED_CELL, None
+    concept: str | None = None
+    for phrase, name in CONCEPTS:
+        if phrase in label and (concept is None or len(phrase) > len(_phrase_of(concept))):
+            concept = name
+    if concept is not None and any(b in label for b in _BLOCKING):
+        concept = None
+    if concept is not None and (
+        _LABEL_IS_A_CHANGE.search(label) or _LABEL_IS_A_RATIO.search(label)
+    ):
+        return _QUALIFIED_CELL, None
+    period = None
+    if header is not None and column < len(header):
+        period = _period_from(header[column], "")
+    if period is None:
+        period = _period_from(line[: start - line_start], "") or _period_from("", line)
+    return concept, period
+
+
+def _phrase_of(concept: str) -> str:
+    return max((phrase for phrase, name in CONCEPTS if name == concept), key=len, default="")
+
+
+def extract_numerals(text: str) -> tuple[Numeral, ...]:
+    """Every numeral in ``text`` with its hints, and the reason any was set aside."""
+    found: list[Numeral] = []
+    for match, token in numeral_matches(text):
+        start, end = match.start(), match.end()
+        before = text[max(0, start - _CONTEXT_CHARS) : start]
+        after = text[end : end + _CONTEXT_CHARS]
+        raw = match.group(0)
+        try:
+            value = Decimal(token)
+        except InvalidOperation:
+            continue
+        excluded: str | None = None
+        line_start = text.rfind("\n", 0, start) + 1
+        if _FOOTNOTE_LINE.match(text[line_start : line_start + 12]):
+            excluded = "footnote"
+        elif (
+            _YEAR_LIKE.match(match.group("digits").replace(",", ""))
+            and not before.rstrip().endswith(("$", "£", "€"))
+            and not re.match(r"^\s*(million|billion|%|bn|m\b)", after, re.I)
+        ):
+            excluded = "year"
+        elif _EXCLUDE_BEFORE.search(before) or _EXCLUDE_AFTER.match(after):
+            excluded = "reference"
+        elif "http" in before[-200:] and " " not in before[before.rfind("http") :]:
+            excluded = "url"
+        elif re.search(rf"\b({_MONTH_WORD})\.?\s*$", before, re.I) or re.match(
+            rf"^\s+({_MONTH_WORD})\b", after, re.I
+        ):
+            excluded = "date"
+        currency = None
+        stripped = before.rstrip()
+        if stripped.endswith("$") or stripped.endswith("US$") or re.search(r"\bUSD\s*$", stripped):
+            currency = "USD"
+        elif stripped.endswith("£") or re.search(r"\bGBP\s*$", stripped):
+            currency = "GBP"
+        elif stripped.endswith("€") or re.search(r"\bEUR\s*$", stripped):
+            currency = "EUR"
+        elif re.match(r"^\s*(USD|US dollars|dollars)\b", after):
+            currency = "USD"
+        scale = None
+        suffix = raw[
+            len(match.group("digits"))
+            + (len(match.group("word") or "") + len(match.group("mark") or "")) :
+        ].lower()
+        if suffix in _SUFFIX_SCALES:
+            scale = _SUFFIX_SCALES[suffix]
+        for pattern, factor in _SCALES:
+            if pattern.match(after):
+                scale = factor
+                break
+        percent = suffix == "%" or bool(re.match(r"^\s*(percent|per cent|%)", after, re.I))
+        multiple = suffix in {"x", "×"} or bool(re.match(r"^\s*(x|×|times)\b", after, re.I))
+        money = currency is not None or scale is not None
+        sentence_before, sentence_after = _sentence_window(before, after)
+        if excluded is None and _QUALIFIED.search(sentence_before + " " + sentence_after):
+            excluded = "qualified"
+        elif excluded is None and (_DELTA_BEFORE.search(before) or _DELTA_AFTER.match(after)):
+            excluded = "delta"
+        elif excluded is None and (
+            _ARITHMETIC_BEFORE.search(before[-12:]) or _ARITHMETIC_AFTER.match(after)
+        ):
+            excluded = "arithmetic"
+        elif excluded is None and (_RANGE.match(after) or _RANGE_BEFORE.search(before[-8:])):
+            excluded = "range"
+        elif excluded is None and _HYPOTHETICAL.search(sentence_before[-80:]):
+            excluded = "hypothetical"
+        elif excluded is None and _A_REFUSAL.search(sentence_before + " " + sentence_after):
+            excluded = "refusal"
+        elif excluded is None and not money and not percent and _PRODUCT.search(before):
+            excluded = "product"
+        context = (before[-70:] + raw + after[:70]).replace("\n", " ")
+        table = _table_hints(text, start)
+        if table is not None and table[0] == _QUALIFIED_CELL:
+            excluded = excluded or "qualified"
+            table = (None, table[1])
+        if table is not None:
+            concept, period = table
+            near = (table[0] or "") + " " + sentence_after[:40]
+            # A cell's own period wins over the sentence's, which the table reader already
+            # applied; nothing further to read here.
+        else:
+            period = _period_from(sentence_before, sentence_after)
+            concept = _concept_from(before, after)
+            near = sentence_before[-40:] + " " + sentence_after[:40]
+        concept = _compatible(
+            concept,
+            value=value,
+            percent=percent,
+            money=money,
+            scale=scale,
+            multiple=multiple,
+            near=near,
+        )
+        found.append(
+            Numeral(
+                token=token,
+                value=value,
+                start=start,
+                end=end,
+                context=context,
+                currency=currency,
+                scale=scale,
+                percent=percent,
+                multiple=multiple,
+                period=period,
+                concept=concept,
+                excluded=excluded,
+            )
+        )
+    return tuple(found)

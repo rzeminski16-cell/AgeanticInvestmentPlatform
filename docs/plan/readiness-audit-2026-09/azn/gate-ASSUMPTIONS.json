@@ -1,0 +1,90 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.278618602016",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-11, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.114739000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.142147000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "11.000000000000",
+        "unit": "pure",
+        "justification": "Large-cap pharma in a mature, capital-intensive, regulated industry with recurring patent cliffs \u2014 that argues for a multiple near the middle of the 2x-40x band rather than the software end. EV/EBITDA rather than EV/EBIT matters here because the derived D&A intensity is high relative to the derived EBIT margin (acquired-intangible amortisation, Alexion), so EBITDA flatters operating economics; I have discounted for that. Note plainly: I have no stored peer-multiple fact to point at, so this leans on convention and should be checked against current peer EV/EBITDA before use. Consistency: 11x and 2.5% describe the same mature, modestly-growing business. Of the two, I regard the perpetual growth rate as the better terminal-value estimate, because a multiple imported from today's market embeds current sentiment about pipelines that will have turned over entirely by the terminal year.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.119346000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken to be below a cost of capital of at least 7% for a large, investment-grade, USD-funded pharma; it clears any ordinary WACC with room. Rests on: a globally diversified five-therapy-area portfolio in categories (oncology, rare disease, metabolic) growing faster than GDP, offset in perpetuity by the patent-cliff pattern the research documents directly (Brilinta -33%, Soliris -30% CER) and by US pricing policy now acting structurally on price (the October 2025 pricing agreement, Section 232). Net: modest real growth plus inflation, not the 11.9% trailing CAGR. Lower it toward 0.02 if pipeline replacement is judged weaker or US price cuts permanent; raise toward 0.03 only on a view that pharma pricing power outpaces nominal GDP for ever.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "-0.035125000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "capex_intensity",
+        "reason": "Capex intensity could not be derived: capital expenditure over revenue is available for 0 period(s), and an average needs at least 2."
+      },
+      {
+        "name": "tax_rate",
+        "reason": "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+      },
+      {
+        "name": "risk_free_rate",
+        "reason": "No macroeconomic series has been acquired for this run, so there is no published government yield to propose. Enter the rate you are using and say which instrument and date it is from."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from."
+      }
+    ],
+    "refused": [],
+    "skipped": [
+      "Capex intensity could not be derived: capital expenditure over revenue is available for 0 period(s), and an average needs at least 2.",
+      "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+    ]
+  },
+  "hash": "8965c49f534214858bc609f7f3adf3c4d827715e352414fd5f78cccfea051bf3",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f"
+  }
+}

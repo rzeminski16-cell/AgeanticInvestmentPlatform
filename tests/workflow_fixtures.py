@@ -823,7 +823,14 @@ def uuid_of(value: Any) -> uuid.UUID:
 # driver that "knew" the order walked into a pause it had no case for.
 #
 # A test whose subject *is* one of these gates drives the run itself and asserts the pause.
+#
+# The sector gate joined them when `acquire` started recording the filer's own SIC code
+# from the submissions index: the fixture is Microsoft's, whose code is 7372, which matches
+# the early-stage-technology profile — so an ordinary run now meets this gate too, which is
+# the point. Before that, no run through this workflow classified anything, and a bank got
+# the standard model (ADR 0029's whole subject).
 CONDITIONAL_GATES: dict[str, tuple[GateKind, str]] = {
+    "gate_sector_specialist": (GateKind.SECTOR_SPECIALIST, "classify"),
     "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
     "gate_theme_set": (GateKind.THEME_SET, "propose_themes"),
     "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),

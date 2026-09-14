@@ -251,6 +251,13 @@ async def acquire_filings(
     The submissions index is fetched and not recorded as a source. It is a listing of what
     exists rather than evidence of anything, nothing will ever cite it, and putting it in
     the sources table would bury the documents that matter under the catalogue.
+
+    **The index is also where the filer says what kind of business it is** — the one place
+    this run sees a SIC code — so the company's classification is filled from it here.
+    ADR 0029 blocks a bank's discounted cash flow at the type level, and `classify`
+    proposes from `Company.sic`; with nothing filling that column, M&T Bank's audit run
+    classified nothing, met no sector gate and took the standard model. Recording it costs
+    no extra request.
     """
     try:
         index: SubmissionsIndex = (await client.fetch_submissions(entity.identifier)).data
@@ -258,6 +265,8 @@ async def acquire_filings(
         return AcquiredFilings(
             skipped=(f"The filing index could not be read: {unreachable.message}",)
         )
+
+    _record_classification(company, index)
 
     wanted, missing = _wanted(index, request=request, max_current=max_current)
     acquired: list[AcquiredFiling] = []
@@ -292,6 +301,24 @@ async def acquire_filings(
         skipped=len(skipped),
     )
     return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
+
+
+def _record_classification(company: Company, index: SubmissionsIndex) -> None:
+    """Keep the filer's own SIC code on the company row.
+
+    An index that carries no code leaves what is there alone: absent is not a correction,
+    and the permissive state must be reached by the data saying nothing, never by a later
+    fetch overwriting what an earlier one knew.
+    """
+    if index.sic and company.sic != index.sic:
+        company.sic = index.sic
+        company.sic_description = index.sic_description or ""
+        _log.info(
+            "filings.classification_recorded",
+            cik=index.cik,
+            sic=index.sic,
+            sic_description=company.sic_description,
+        )
 
 
 def _wanted(

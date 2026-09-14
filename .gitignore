@@ -77,3 +77,6 @@ dump.rdb
 # directory by design — the operator reads it before deciding to send it anywhere — and
 # it is one run's own data, never the project's.
 run-diagnosis.json
+
+# The readiness audit writes its run records, baselines and scores here (audit/README.md).
+audit/out/

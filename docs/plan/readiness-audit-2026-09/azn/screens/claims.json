@@ -1,0 +1,27 @@
+{
+  "page": "claims",
+  "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/claims",
+  "status": 200,
+  "title": "Claims \u00b7 AZN",
+  "payload_hash": null,
+  "words": 5391,
+  "raw_tokens": [
+    "balance_sheet_liquidity",
+    "business_overview",
+    "capital_allocation",
+    "cash_flow_analysis",
+    "earnings_quality",
+    "executive_summary",
+    "forward_looking",
+    "growth_outlook",
+    "historical_financial_analysis",
+    "industry_landscape",
+    "investment_thesis",
+    "key_risks",
+    "management_governance",
+    "scenarios_sensitivities",
+    "segment_analysis"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

@@ -1,0 +1,1534 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Approve this research plan? · Tracework Invest</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">1</span><span class="sr-only">1 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="MRyxz_Inx1kwuW2nSbcoyQ.1789198633.63e9b092f2d94d97201274c35a196a05c8826aa95a75e982b88a8583abbc084d" style="">
+          <input type="hidden" name="next" value="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/plan" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="MRyxz_Inx1kwuW2nSbcoyQ.1789198633.63e9b092f2d94d97201274c35a196a05c8826aa95a75e982b88a8583abbc084d" style="">
+          <input type="hidden" name="next" value="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/plan" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  <div class="flex flex-col gap-6">
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61" class="underline underline-offset-[3px] hover:text-verification">The run</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">RESEARCH RUN — A DECISION</p><h1 class="type-title-1 text-ink">Approve this research plan?</h1><p class="type-body text-ink-muted">Microsoft Corporation · MSFT · as at 2026-09-12</p>
+  <div class="flex flex-wrap items-center gap-3"></div>
+  </header>
+
+
+  
+  
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">WHAT THIS ASKS</p>
+  <p class="mt-2 type-body-lg text-ink">Nothing has been fetched and nothing has been spent beyond planning. The run does only what is described here, and continues only when you decide.</p>
+  <p class="mt-2 type-body text-ink-muted">Read the sources first: a filing missing from that list is cheapest to catch now.</p>
+  </section>
+
+
+
+  
+  <nav aria-label="Where this decision sits in the run">
+    <ol class="flex flex-wrap gap-x-5 gap-y-2">
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PLAN" data-journey-state="current">
+          <span class="type-label text-warning-ink">The plan</span>
+          <span class="type-body-sm text-warning-ink">now</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="SECTOR_SPECIALIST" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The sector</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PEER_SET" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The peers</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="THEME_SET" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The themes</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="UNMAPPED_CONCEPTS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The financials</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="ASSUMPTIONS" data-journey-state="possible">
+          <span class="type-label text-ink-muted">The assumptions</span>
+          <span class="type-body-sm text-ink-subtle">if needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="FINAL" data-journey-state="upcoming">
+          <span class="type-label text-ink-muted">The report</span>
+          <span class="type-body-sm text-ink-subtle">to come</span>
+        </li>
+      
+    </ol>
+    <p class="mt-2 type-body-sm text-ink-muted">Between two and seven more decisions.</p>
+  </nav>
+
+  
+    
+    <p class="min-[80rem]:hidden">
+      <a href="#decision" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Jump to the decision</a>
+    </p>
+  
+
+  <div class="min-[80rem]:grid min-[80rem]:grid-cols-[minmax(0,1fr)_19rem] min-[80rem]:items-start min-[80rem]:gap-8">
+    <div class="flex min-w-0 flex-col gap-6">
+      
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Sources it intends to use</h2>
+  <div class="mt-4">
+    <div id="planned-sources">
+      
+        
+
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="The sources this plan would fetch">
+  <table class="w-full border-collapse">
+    <caption class="sr-only">The sources this plan would fetch</caption>
+    <thead>
+      <tr>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Provider</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Tier</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">What</th>
+        
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               text-left">Why</th>
+        
+      </tr>
+    </thead>
+    <tbody>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft FY2026 Form 10-K: income statement, segment note, property and equipment note, leases note, revenue and remaining performance obligation note, risk factors.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Primary basis for current segment economics, capitalised infrastructure, useful lives and the disclosed backlog any AI growth claim must rest on.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2026 10-K property, equipment and lease detail: assets under construction, assets not yet placed in service, finance lease right-of-use assets, and leases signed but not yet commenced.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Directly tests whether margin is flattered by infrastructure not yet carrying a depreciation or interest charge.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2026 10-K commitments and contingencies, purchase and capacity obligations, supplier finance programme disclosure, prepayments and any off-balance-sheet data-centre capacity arrangement.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Infrastructure additions outside investing-activities capex and finance leases would otherwise break the cash-flow bridge that answers operator question one.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Search of Microsoft's EDGAR filing index, June to 2026-09-12, for any 8-K describing an updated reporting structure: verify existence, filed versus furnished status, and which periods its exhibit recasts.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Three sections depend on the recast basis; its existence and period coverage must be verified, not presupposed, with fallback to the pre-change basis.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft FY2026 Forms 10-Q for the September, December and March quarters: quarterly capex, depreciation, segment revenue and commercial remaining performance obligation.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Annual totals hide cadence; the quarterly series shows whether capex and depreciation are accelerating into the as-of date.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft FY2025 and FY2024 Forms 10-K: segment results, capex, depreciation, useful-life policy and any disclosed change in accounting estimate.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies the comparative trend and reveals whether useful lives or capitalisation policy changed during the margin expansion.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft FY2023 Form 10-K: segment revenue and operating income, capital expenditure and property and equipment balances.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Establishes the pre-AI baseline three years before the as-of date required by the operator's third question.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft quarterly earnings Forms 8-K with Exhibit 99 press releases and prepared remarks, FY2025 Q1 through FY2026 Q4.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">The only place management quantifies AI-related run rates, cloud growth contribution and capacity constraints; treated as unaudited issuer statement.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR XBRL</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Company Facts time series for revenue, operating income, gross and net property and equipment, depreciation and amortisation, capex, goodwill and intangibles, FY2020-FY2026.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Machine-readable series for the platform's trend and capital-intensity calculations, avoiding manual transcription from filing text.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2026 10-K balance sheet and debt note: cash, short-term investments, total debt by maturity and coupon, deferred revenue and current liabilities.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies net debt for the enterprise value bridge, the cost-of-debt input, and the liquidity position prior work left unverified.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Market data vendor</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">market_data</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">MSFT closing price, fully diluted share count basis and market capitalisation as of 2026-09-12, share count cross-checked to the cover page of the latest 10-Q or 10-K.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Required inputs to the reverse DCF that answers what the current multiple implies; must be the as-of date price, not a later one.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">US Treasury / FRED</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">market_data</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">US Treasury constant-maturity yields (10-year and 20-year) as published for 2026-09-12, retrieved as the point-in-time series.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Supplies the risk-free rate the reverse DCF requires; no filing establishes it, and without it operator question two rests on an unsourced number.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Published ERP source / market data vendor</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">third_party</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">A dated, published equity risk premium estimate current as of 2026-09-12, and a documented beta basis (regression window, index, frequency) computed from price history ending on the as-of date.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Completes the recorded discount-rate assumption with a citable source and defines the band over which the reverse DCF must be re-solved.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2026 10-K notes on equity-method and other strategic investments, related-party arrangements, and any customer, partner or supplier concentration disclosure.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Tests both the unsized concentration exposure and whether disclosed AI revenue or backlog originates from entities the company itself funds.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Company investor relations</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">issuer_disclosure</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Investor relations quarterly supplemental workbook, any recast segment datasheet, and the announced date for the first FY2027 earnings release, all published on or before 2026-09-12.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Provides segment detail in reusable form and the only point-in-time basis for dating the catalysts calendar.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Amazon and Alphabet most recent Forms 10-K filed on or before 2026-09-12: server and network equipment useful lives and capex. Reducible to a single targeted useful-life extraction each.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Peer benchmark for whether depreciation assumptions are conservative or generous relative to comparable infrastructure; lowest depth priority.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">SEC EDGAR</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">regulatory_filing</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Microsoft DEF 14A most recently filed before the as-of date: incentive plan metrics and any cloud or AI-linked performance target. Reducible to a single targeted extraction.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Shows whether compensation rewards the metrics whose durability is in question; relevant to earnings quality but secondary to the three operator questions.</td>
+
+
+            </tr>
+          
+            <tr>
+              
+
+
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">Earnings call transcript vendor</th>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">third_party</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">FY2026 Q3 and Q4 earnings call transcripts, used only where a statement is also traceable to the corresponding 8-K exhibit.</td>
+
+
+              
+
+
+<td class="border-b border-line py-2 pr-4 text-ink
+           type-body-sm">Management's characterisation of AI demand, capacity and depreciation; never the sole support for a figure.</td>
+
+
+            </tr>
+          
+        </tbody>
+  </table>
+</div>
+
+      
+    </div>
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">What it intends to do</h2>
+  <div class="mt-4">
+    <p class="whitespace-pre-line type-body text-ink" id="plan-summary">A point-in-time standard report on Microsoft as of 2026-09-12, using only documents published on or before that date, built around the operator's three questions: whether cloud margin survives the depreciation, lease and financing cost of infrastructure now being capitalised; what growth, margin, capital intensity and fade the prevailing price implies under a reverse DCF; and how much growth comes from AI offerings absent in FY2023. Depth priority is earnings_quality, cash_flow_analysis, valuation_dcf and growth_outlook; the proxy and peer useful-life work may be cut to one targeted extraction each if gathering runs long. The September 2026 recast 8-K is a search-and-verify step, not an assumed document, with a stated fallback to the pre-change basis. Discount-rate inputs are sourced explicitly and recorded as platform assumptions carrying a sensitivity band. A dated disclosure calendar ties each thesis condition to the filing inside the 12-month horizon that would test it. Every figure is computed by the platform from filings fetched in this run; this plan asserts none. Prior research shapes which questions are asked and is never cited.</p>
+    
+      
+      <p class="mt-4 rounded-sm border border-line bg-surface-sunken p-3 type-body-sm text-ink" id="prior-research-note">The planner was shown 1 prior approved report on this company (newest as-of 2026-09-11) as hypothesis material, labelled not-evidence. It may have shaped which questions this plan asks; it cannot support a claim, and the citation verifier rejects any attempt in code.</p>
+    
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Sections it will write</h2>
+  <div class="mt-4">
+    
+      <ul class="divide-y divide-line" id="plan-sections">
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Executive Summary</span>
+            <span class="type-data-sm text-ink-muted">executive_summary</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Answer the three operator questions in order, each labelled by evidence type: audited filing line item, unaudited management commentary in an earnings exhibit, or platform-computed derivation. State plainly where disclosure does not permit an answer, particularly AI-revenue attribution the company may not report as a line item, and where the reverse-DCF answer depends on a recorded discount-rate assumption rather than a fact about the company. No figure may appear here that is not computed and cited in a later section.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Earnings Quality</span>
+            <span class="type-data-sm text-ink-muted">earnings_quality</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Central to operator question one. Gather the property and equipment note, capitalised software policy, useful-life assumptions and any change in estimate disclosed FY2024-FY2026, plus finance and operating lease commitments including leases signed but not yet commenced, and supplier finance or purchase-obligation disclosure. Test whether margin expansion coincides with lengthened useful lives, rising capitalisation, or assets not yet placed in service. Benchmark useful lives against two peer hyperscalers; this comparison may be reduced to one targeted extraction each if budget is short.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Cash Flow Analysis</span>
+            <span class="type-data-sm text-ink-muted">cash_flow_analysis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Build the multi-year bridge from operating cash flow to free cash flow with capital expenditure, finance lease principal, supplier or vendor financing and prepayments for contracted capacity shown separately, since additions sitting outside investing-activities capex are where capitalisation can flatter reported margin. Extend scope to commitments and contingencies and any off-balance-sheet capacity arrangement. Take capex cadence from the FY2026 10-Qs. Include debt issuance, buyback and dividend outflow so the funding of the build is visible. Where total infrastructure additions cannot be assembled, report the gap as an unquantifiable disclosure limit.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Valuation — Discounted Cash Flow</span>
+            <span class="type-data-sm text-ink-muted">valuation_dcf</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Answer operator question two as a reverse DCF: solve for the revenue growth, operating margin, capital intensity and fade duration implied by the 2026-09-12 price, given share count and net debt from the latest filed balance sheet. The discount rate is a recorded platform assumption, not a finding: cite the as-of-date government yield, the dated published equity risk premium and the beta estimation basis, and present implied assumptions across a band of discount rates rather than a single point. Compare implied assumptions to the historical range computed elsewhere in this run, not to a target price.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Growth Outlook</span>
+            <span class="type-data-sm text-ink-muted">growth_outlook</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Answer operator question three. Establish the FY2023 baseline from that year's 10-K, then trace disclosed AI-related offerings: any named revenue line, quantified run-rate or growth-contribution statement in earnings exhibits, commercial bookings, and remaining performance obligation with its disclosed recognition window. Additionally ask, from the related-party and equity-method note, whether any disclosed AI revenue, commitment or backlog originates from investees or counterparties the company itself funds. If the filings do not disaggregate, report both the AI attribution and the circularity question as open, with proxies labelled management-stated and unaudited.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Scenarios &amp; Sensitivities</span>
+            <span class="type-data-sm text-ink-muted">scenarios_sensitivities</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Vary only reverse-DCF inputs the evidence shows are genuinely uncertain: cloud operating margin once assets under construction carry full depreciation, useful-life shortening, RPO conversion pace, and the discount rate band. Show sensitivity to each input independently and identify the single input the outcome is most sensitive to. Mark explicitly which inputs cannot resolve inside the 12-month horizon and are therefore judged only by direction of travel in interim filings, not by outcome.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Segment Analysis</span>
+            <span class="type-data-sm text-ink-muted">segment_analysis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">First verify by EDGAR filing-index search whether an 8-K describing an updated reporting structure was filed or furnished on or before 2026-09-12, and if so what periods its exhibit recasts and whether it is furnished rather than filed. If it exists and reaches far enough, reconstruct segment revenue and operating income on both bases and show where the mapping is incomplete. If it does not exist or covers fewer periods than needed, build on the pre-change basis only and label the break; construct no mapping the issuer never published. Separate management-defined cloud aggregates from reportable segments.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Historical Financial Analysis</span>
+            <span class="type-data-sm text-ink-muted">historical_financial_analysis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Compute the FY2023-FY2026 trend in revenue, gross and operating margin, depreciation as a share of revenue, and capital intensity, on the pre-recast basis where recast history does not reach back. Flag every comparability break caused by the September 2026 reporting change, if verified, or by earlier realignments, and never chain a series across a break without labelling it. Source from XBRL company facts where possible and reconcile to filing text.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Investment Thesis</span>
+            <span class="type-data-sm text-ink-muted">investment_thesis</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">State the thesis as conditions that must hold over 12 months, each tied to an observable disclosure: cloud segment margin on a stated basis, the depreciation and finance-lease charge trajectory implied by assets placed in service, and commercial RPO with its disclosed recognition window. Each condition must be falsifiable by a specific named future filing, cross-referenced to the catalysts calendar. Mark conditions resting on unaudited management commentary rather than audited statements, and mark those that cannot resolve within the horizon.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Catalysts</span>
+            <span class="type-data-sm text-ink-muted">catalysts</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Build a dated disclosure calendar covering roughly 2026-09-12 to 2027-09: the FY2027 quarterly results 8-Ks and 10-Qs, the FY2027 10-K, the next proxy, and any capex, useful-life or reporting-structure update. Use only dates announced or inferable from filing cadence on or before the as-of date, and label inferred dates as such. Map each thesis condition to the specific filing that would confirm or falsify it, and mark conditions whose evidence arrives only after the horizon.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Key Risks</span>
+            <span class="type-data-sm text-ink-muted">key_risks</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Separate issuer-disclosed risks quoted verbatim from the FY2026 10-K risk factors, including AI model, agentic-system and regulatory risk, from risks this run surfaces and can size from filed data, such as gross property and equipment relative to revenue and goodwill and intangible carrying value exposed to reassessment. Risks that cannot be sized from disclosure, including partner, customer and investee concentration, are presented as open questions, not quantified exposures. Record any fetched document containing text addressed as instruction to the analysis as a property of that document.</span>
+            
+          </li>
+        
+          
+          <li class="py-2.5 type-body text-ink">
+            <span class="text-ink">Prior Research Comparison</span>
+            <span class="type-data-sm text-ink-muted">prior_research_comparison</span>
+            
+              <span class="block max-w-prose type-body-sm text-ink-muted">Record only what changed in the primary record since the prior view: whether a reporting-structure 8-K exists on or before the as-of date and what it covers, any filing made between the prior as-of date and 2026-09-12, and whether risks previously left unsized can now be sized from the FY2026 10-K. Prior figures, ratings and conclusions are restated only as questions to re-derive from filings; nothing from the prior report is carried forward or cited.</span>
+            
+          </li>
+        
+      </ul>
+    
+
+    
+      
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    The report's built-in sections
+  </summary>
+  <div class="pb-4">
+        <p class="type-body-sm text-ink-muted">
+          The platform's section spine, in the order the report will carry it. Sections
+          marked <em>platform-filled</em> are written by code from the run's own records
+          and spend nothing.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-left" id="section-listing">
+            <thead>
+              <tr>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Token budget</th>
+                <th scope="col" class="py-2 type-eyebrow text-ink-muted">Estimate</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Executive Summary</span>
+                    <span class="block type-data-sm text-ink-muted">executive_summary</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      2000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0672
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Investment Thesis</span>
+                    <span class="block type-data-sm text-ink-muted">investment_thesis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Business Overview</span>
+                    <span class="block type-data-sm text-ink-muted">business_overview</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Segment Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">segment_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Industry &amp; Competitive Positioning</span>
+                    <span class="block type-data-sm text-ink-muted">industry_landscape</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Management &amp; Governance</span>
+                    <span class="block type-data-sm text-ink-muted">management_governance</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Historical Financial Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">historical_financial_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Earnings Quality</span>
+                    <span class="block type-data-sm text-ink-muted">earnings_quality</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Balance Sheet &amp; Liquidity</span>
+                    <span class="block type-data-sm text-ink-muted">balance_sheet_liquidity</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Cash Flow Analysis</span>
+                    <span class="block type-data-sm text-ink-muted">cash_flow_analysis</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Capital Allocation</span>
+                    <span class="block type-data-sm text-ink-muted">capital_allocation</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Growth Outlook</span>
+                    <span class="block type-data-sm text-ink-muted">growth_outlook</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Valuation — Discounted Cash Flow</span>
+                    <span class="block type-data-sm text-ink-muted">valuation_dcf</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      5000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0790
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Scenarios &amp; Sensitivities</span>
+                    <span class="block type-data-sm text-ink-muted">scenarios_sensitivities</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      4000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0750
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Key Risks</span>
+                    <span class="block type-data-sm text-ink-muted">key_risks</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Catalysts</span>
+                    <span class="block type-data-sm text-ink-muted">catalysts</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      3000
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      ≤ £0.0711
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Prior Research Comparison</span>
+                    <span class="block type-data-sm text-ink-muted">prior_research_comparison</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-muted-ink bg-muted-wash text-muted-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8"></path></svg>
+
+  <span>Platform-filled</span></span>
+
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      £0
+                    
+                  </td>
+                </tr>
+              
+                <tr>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">Validation &amp; Disagreements</span>
+                    <span class="block type-data-sm text-ink-muted">validation_disagreements</span>
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    
+                      
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-muted-ink bg-muted-wash text-muted-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8"></path></svg>
+
+  <span>Platform-filled</span></span>
+
+                    
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    
+                      £0
+                    
+                  </td>
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+</details>
+
+    
+  </div>
+</section>
+
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">What it says it may get wrong</h2>
+  <div class="mt-4">
+    
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body text-ink" id="known-risks">
+        <li>The reverse DCF's implied growth and margin are highly sensitive to the discount rate, which no filing establishes. It will be recorded as a cited platform assumption with a sensitivity band; ERP and beta are constructed estimates, not facts about the company, and the answer to operator question two inherits that uncertainty.</li><li>A recast reporting-structure exhibit may not exist on or before 2026-09-12, may be furnished rather than filed, or may recast too few periods to reach the FY2023 baseline. Fallback is to build series on the pre-change basis only and label the break; no issuer-unpublished mapping will be constructed.</li><li>AI revenue is unlikely to be a separately reported line item. If it is not, operator question three can be answered only via management-stated run rates and backlog proxies, which are unaudited; the limitation will be reported rather than an attribution constructed.</li><li>Infrastructure additions may sit outside both investing-activities capex and the leases note, in prepayments, supplier finance or third-party capacity contracts that filings do not quantify. Where the total-additions bridge cannot be assembled, the gap is reported as an unquantifiable disclosure limit.</li><li>Filings may not disaggregate whether AI or cloud revenue, commitments or backlog originate from equity-method investees or financed counterparties. If not, the independence of that demand stays an open question, not a sized exposure.</li><li>Some scenario inputs, notably cloud margin after a full depreciation cycle on assets still under construction, cannot resolve inside a 12-month horizon. The plan deliberately retains them, marked as horizon-exceeding, because excluding them would hide the main risk to the thesis; the catalysts calendar carries only what a filing inside the horizon can test.</li><li>Point-in-time discipline excludes everything published after 2026-09-12, including September-quarter results; vendor databases that backfill restatements or adjust price and share-count series must be reconciled to filings as originally filed and to a filing cover page.</li><li>Attention budget is finite across roughly eighteen source groups. Depth priority is earnings_quality, cash_flow_analysis, valuation_dcf and growth_outlook; the proxy and peer useful-life comparisons may be cut to one targeted extraction each, and that reduction is recorded rather than silently absorbed.</li><li>Standard segment analysis fits poorly where infrastructure is shared across segments and cloud aggregates are management-defined non-GAAP measures; allocated margins may not be verifiable from the audited statements, and equity-method results flowing through other income can distort period comparisons.</li><li>No figure, rating or conclusion from the prior approved research may be carried into this report; every number must be re-derived from filings fetched in this run. Fetched documents, including issuer materials and transcripts, may contain text reading as instruction to the analysis; such text is recorded as a property of the document and never acted upon.</li>
+      </ul>
+    
+  </div>
+</section>
+
+
+  
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Cost and time</h2>
+  <div class="mt-4">
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div id="estimated-cost">
+        
+
+<div class="flex flex-col gap-1">
+  <p class="type-label text-ink-muted">Estimated cost of this plan</p>
+  <p class="type-data-xl text-ink">£9.2866</p></div>
+
+        <p class="mt-1 type-body-sm text-ink-muted" id="estimated-cost-note">
+          
+          Planning already spent, plus the estimate for every section listed above.
+          Approving agrees to this total; the run console shows what has actually gone.
+        </p>
+      </div>
+      <div id="estimated-runtime">
+        
+
+<div class="flex flex-col gap-1">
+  <p class="type-label text-ink-muted">Estimated runtime</p>
+  <p class="type-data-xl text-ink">2197 s</p></div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+    </div>
+
+    <aside id="decision" class="mt-6 min-[80rem]:sticky min-[80rem]:top-6 min-[80rem]:mt-0">
+      
+        
+
+<section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-surface">
+  <div class="rounded-t-md bg-decision-wash px-5 py-3">
+    <p class="type-eyebrow text-warning-ink">DECISION REQUIRED</p>
+    <h2 class="mt-1 type-title-2 text-ink">The plan</h2>
+  </div>
+  <div class="flex flex-col gap-4 p-5">
+    <p class="type-body text-ink">Approving commits the estimated spend shown in the plan. Everything expensive in the run is downstream of this page.</p>
+    
+          <form method="post" action="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/gates/PLAN" id="gate-form" class="flex flex-col gap-4">
+            <input type="hidden" name="csrf_token" value="MRyxz_Inx1kwuW2nSbcoyQ.1789198633.63e9b092f2d94d97201274c35a196a05c8826aa95a75e982b88a8583abbc084d" style="">
+            
+            <input type="hidden" name="payload_hash" id="payload-hash" value="559cd5eaa8373b0208507b71c03afb3543079ec015829256be425d0aaf1ad81c" style="">
+
+            <p class="type-body-sm text-ink-muted">
+              <span class="type-data text-ink">£0.50 of £10.00</span> spent so far.
+            </p>
+
+            <div>
+              <label for="notes" class="block type-label text-ink">Notes (optional)</label>
+              <textarea id="notes" name="notes" rows="3" maxlength="4000" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Why you approved or rejected this. Recorded in the audit trail." style=""></textarea>
+            </div>
+
+            
+            <div class="flex flex-col gap-3">
+              <button type="submit" name="decision" value="APPROVED" id="approve" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Approve and continue</button>
+              <button type="submit" name="decision" value="REJECTED" id="reject" class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reject and stop this run</button>
+            </div>
+
+            
+            
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    What this decision proves
+  </summary>
+  <div class="pb-4">
+              <p class="type-body-sm text-ink-muted">
+                Your approval records the exact content of this page, by its fingerprint,
+                so it can never be transferred to a different proposal. If the proposal
+                changes before the server records your choice, the approval is refused and
+                you decide again over the current version.
+              </p>
+              <p class="mt-2 break-all type-data-sm text-ink-muted">559cd5eaa8373b0208507b71c03afb3543079ec015829256be425d0aaf1ad81c</p>
+            </div>
+</details>
+
+
+            <p>
+              <a href="/runs/60cf1343-c809-48b0-ac3f-efa96207cb61" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+            </p>
+          </form>
+        
+    <p class="type-body-sm text-ink-muted">You are deciding on exactly the evidence shown here.</p>
+    </div>
+</section>
+
+      
+    </aside>
+  </div>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

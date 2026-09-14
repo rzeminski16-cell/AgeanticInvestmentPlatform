@@ -610,7 +610,9 @@ async def prior_comparison_content(
     A first run states so in one sentence. Later runs compare the most recent prior
     approved report's view, confidence and valuation range against this run's recorded
     state, then walk every prior report's catalysts (dated against this run's as-of) and
-    key risks — each row carrying the ``prior_report_id`` a reader can follow.
+    key risks — each row carrying the ``prior_report_id`` it was read from, which the
+    export and the interface resolve and the rendered document hides (a report id names
+    a row in this platform's own table, not something a reader of the PDF can follow).
     """
     company = await session.scalar(
         select(Company).where(
@@ -709,7 +711,7 @@ async def prior_comparison_content(
         "commentary": (
             f"{len(priors)} prior approved report(s) exist for {subject} "
             f"({request.ticker}); the most recent is as of {latest.as_of_date.isoformat()}. "
-            "Every row below names the prior report it was read from."
+            "Every row below was read from one of them, and the run's export names which."
         ),
         "comparisons": comparisons,
     }

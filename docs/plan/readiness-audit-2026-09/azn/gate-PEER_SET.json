@@ -1,0 +1,63 @@
+{
+  "payload": {
+    "subject": "7a1961cf-f0f5-47f9-8b5f-a56673b54e88",
+    "subject_period_end": "2026-09-11",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000078003",
+        "name": "PFIZER INC",
+        "rationale": "Large-cap global pharma with broad primary care and oncology portfolio, comparable R&D-driven model and patent-cliff dynamics to AstraZeneca.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000310158",
+        "name": "Merck & Co., Inc.",
+        "rationale": "Major diversified pharma with strong oncology (Keytruda) and vaccines franchise, similar innovation-driven growth profile and payer exposure as AZN.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000014272",
+        "name": "BRISTOL MYERS SQUIBB CO",
+        "rationale": "Oncology and immunology-focused pharma of similar scale, facing comparable biosimilar/patent expiry pressures and pipeline replacement dynamics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000059478",
+        "name": "ELI LILLY & Co",
+        "rationale": "Global innovator pharma with overlapping therapeutic areas (diabetes, oncology, immunology) and similar reliance on branded drug pricing power.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001114448",
+        "name": "NOVARTIS AG",
+        "rationale": "European-headquartered global pharma with comparable oncology, respiratory and biologics exposure and similar international regulatory footprint to AZN.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001121404",
+        "name": "Sanofi",
+        "rationale": "European big pharma peer with overlapping vaccines, immunology and rare disease franchises, similar geographic revenue mix to AstraZeneca.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001131399",
+        "name": "GSK plc",
+        "rationale": "UK-based global pharma competitor with overlapping respiratory, vaccines and oncology businesses, close comparator on geography and payer dynamics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000200406",
+        "name": "JOHNSON & JOHNSON",
+        "rationale": "Pharma segment is comparable in scale and innovation focus, though JNJ's medtech and consumer divisions make this only a partial fit for full-company multiples.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "59ea9189abb0f80165ef3ba8d9f526d5531323b29b8e5dae70db51f50e1d8c96",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f"
+  }
+}

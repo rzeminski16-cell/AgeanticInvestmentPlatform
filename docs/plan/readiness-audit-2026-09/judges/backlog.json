@@ -1,0 +1,33 @@
+{
+  "platform": {
+    "internal_contradiction": 9.4167,
+    "segment_and_breakdown": 3.9833,
+    "price_and_multiples": 1.65,
+    "valuation_shown": 1.4167,
+    "bear_case_with_a_number": 1.3833,
+    "provenance": 1.0833,
+    "adversary_quality": 1.0333,
+    "guidance_and_recent": 0.5833
+  },
+  "baseline": {
+    "provenance": 4.4333,
+    "internal_contradiction": 4.0333,
+    "valuation_shown": 4.0,
+    "excerpt_and_evidence": 2.9333,
+    "segment_and_breakdown": 2.0833,
+    "price_and_multiples": 2.0333,
+    "bear_case_with_a_number": 0.5833,
+    "named_competitors": 0.25,
+    "adversary_quality": 0.2
+  },
+  "verdict_if_all_made": {
+    "platform": {
+      "partly": 8,
+      "yes": 1
+    },
+    "baseline": {
+      "yes": 5,
+      "partly": 4
+    }
+  }
+}

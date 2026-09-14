@@ -43,6 +43,7 @@ from aer.services.calculations import new_context
 from aer.services.history import (
     MEASURED,
     NOT_MEASURABLE,
+    UNMEASURABLE_JUDGEMENTS,
     NOT_YET_OBSERVABLE,
     SKIPPED,
     assumption_outcomes_for,
@@ -315,6 +316,20 @@ class TestAssumptionOutcomes:
         assert terminal.status == NOT_MEASURABLE
         assert "perpetuity" in terminal.basis
         assert terminal.delta is None
+
+    def test_a_market_parameter_is_unmeasurable_rather_than_unplaceable(self) -> None:
+        """A cost-of-capital input is not a line the concept map failed to place.
+
+        AstraZeneca's second live report told its reader, of the beta its own valuation had
+        just used, that "the concept map cannot place an assumption named 'beta', so no
+        filed line answers it" — which blames the map for a market parameter no filing has
+        ever carried, and reads beside the run's own 0.4 as a contradiction. The exit
+        multiple's row next to it already said the true thing: filings carry no market
+        prices.
+        """
+        for name in ("risk_free_rate", "beta", "equity_risk_premium"):
+            assert name in UNMEASURABLE_JUDGEMENTS, name
+            assert "concept map" not in UNMEASURABLE_JUDGEMENTS[name]
 
     async def test_an_unplaceable_name_is_skipped_with_its_reason(
         self, scene: dict[str, Any]

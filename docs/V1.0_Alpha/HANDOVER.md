@@ -1,0 +1,133 @@
+# Starting the work — what a fresh session needs
+
+*Written 14 September 2026, at the end of the design phase. Everything in this folder is
+decided; nothing is built. This page is what a session that has never seen the conversation
+needs in order to pick up cleanly.*
+
+---
+
+## 1. Read these three, in this order
+
+1. [`README.md`](README.md) — the phase, the read order, the ten ADRs.
+2. [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md) — **read before the delivery plan.**
+   It is the only measured document in the folder, it reorders the weight of the plan, and it
+   is what stops Phase 6 being over-built.
+3. [`05-delivery-plan.md`](05-delivery-plan.md) — nine phases, 74–94 sessions, ~£80 live, and
+   the kill gate at Phase 5.
+
+Then `CLAUDE.md` at the repository root, which outranks everything above on conventions, and
+[`../plan/README.md`](../plan/README.md) for the order of authority.
+
+## 2. What is settled, so you do not re-litigate it
+
+| | |
+|---|---|
+| **Point-in-time** | Removed. ADR 0113. Invariant 4 goes when that ADR is accepted, not before — `CLAUDE.md` still says eight and should |
+| **A bank's revenue** | Derived at the fact layer, only for a confirmed bank. ADR 0114 |
+| **The price subscription** | Assume publication is permitted. If it is not, the figure is withheld through ADR 0034's type — never quietly printed, never silently dropped |
+| **UK or US** | **Both.** Build the Companies House path. ADR 0121, F19, Phase 4a |
+| **The gilt yield** | An operator-confirmed assumption. `risk_free_series_for` keeps refusing rather than substituting |
+| **UK acquisition depth** | Four accounts filings by default |
+| **The UK test subject** | **Tesco** — already the subject of the audit's refusal proof, so the inverted test reads as a direct before-and-after |
+| **Accounts and sharing** | Deferred out of V1.0. ADR 0120 is drafted anyway, and its three constraints on work happening now are accepted |
+| **The abandonment criterion** | Signed off. Phase 5 can fail, and that is the point |
+
+## 3. What is left of Phase 0
+
+**0.1 is done** — £3.96, 14 September, results in
+[`12-the-ranked-backlog.md`](12-the-ranked-backlog.md), raw JSON committed to
+[`../plan/readiness-audit-2026-09/judges/`](../plan/readiness-audit-2026-09/judges/).
+
+**0.5, the QUICK-mode run, is not.** It is approved, costed at about £4, and has never been run
+in the platform's life. It drops nine of the eighteen sections and scales budgets to 0.6, and it
+answers the largest unasked question in the plan: whether eighteen sections is the right spine
+for one private investor.
+
+It needs the services up (§4) and then one command:
+
+```bash
+uv run python -m audit.driver.run msft1 --mode quick --cap 6.00 --screenshots
+```
+
+The driver clears every gate under `audit/driver/policy.py`, supplies the operator-owned
+assumptions from `audit/subjects.py` with their sources, and writes every readout to
+`audit/out/msft1/`. **Copy anything worth keeping into
+`docs/plan/readiness-audit-2026-09/`** — `audit/out/` is git-ignored, and this container is
+ephemeral.
+
+Also outstanding from Phase 0: **0.2** (map both console notes source by source, one sitting,
+£0) and **0.4** (the operator reads two documents blind, themselves — three hours, no session
+can do it for them).
+
+## 4. Bringing the environment up
+
+The container restarts lose PostgreSQL and Redis. `.env` is git-ignored and carries the three
+keys; never echo it, and `just config` must show every secret masked.
+
+```bash
+pg_ctlcluster 16 main start
+redis-server /etc/redis/redis.conf --daemonize yes
+uv sync --all-groups
+uv run alembic upgrade head
+uv run aer preflight            # the `worker` row fails until the worker is up — expected
+uv run just test-live           # a fraction of a penny, before anything else spends
+```
+
+Then the worker, in its own process: `uv run arq aer.worker.WorkerSettings`.
+
+**Two rules that will bite you otherwise:**
+
+- **One pytest process per database.** The suite empties tables between tests, so two
+  concurrent runs sharing `aer_test` delete each other's rows and fail nowhere near the cause.
+  Give each run its own `AER_TEST_DATABASE_URL`, exported in the shell rather than in `.env` —
+  it is read at import, before `hermetic_environment` strips every `AER_*` variable.
+- **The full suite is two processes**: `pytest --ignore=tests/e2e`, then `pytest tests/e2e`.
+  Playwright's sync API leaves a running loop that wedges every pytest-asyncio test after it.
+
+## 5. Phase 1's first three things, in order
+
+Everything here is provable offline and costs nothing but sessions.
+
+1. **Fix the order dependence.** `just test-shuffled 20260811` gave 28 failed and 7 errors
+   against 6,830 passed. Until this is fixed, no other test result means anything.
+2. **Fix the red CI job and keep it green.** It was red on `ruff format --check` from
+   2026-09-09 while the acceptance document said the static gates were clean. A build nobody
+   reads is a build that is not run.
+3. **Build the journey harness red**, from the inventory, *before* the first dead end is fixed —
+   so every fix afterwards has a number it moves.
+   [`11-testing-strategy.md`](11-testing-strategy.md) §3.1 specifies it.
+
+Then the rest of Phase 1 in [`05-delivery-plan.md`](05-delivery-plan.md) §5.
+
+## 6. Standing constraints on any session doing this work
+
+- **Branch.** Develop, commit and push on the branch the session is told to use. Never push
+  elsewhere without being asked.
+- **An ADR before the code**, wherever a feature says it needs one. All ten are drafted and
+  marked **Proposed** — which is the one state in which an ADR can still be argued with. An ADR
+  becomes Accepted when the change it argues lands.
+- **Never move a calculation into a prompt.** It is the rule everything else follows from.
+- **Replay-first.** A document change ships with an offline proof: re-render the five stored
+  runs and assert the change. A prompt change that cannot be proved by replay buys one
+  `aer rehearse-section` at about 30p — not a full run.
+- **Do not fold a later item's work into an earlier one.** The dependency graph in
+  [`04-feature-specifications.md`](04-feature-specifications.md) is real, and F1 goes first and
+  alone because it touches the drafting prompts.
+- **If a prerequisite is missing or an architectural choice is unclear, stop and ask.** A wrong
+  foundational choice is expensive to undo here.
+
+## 7. The three things this plan has already got wrong
+
+Recorded because the pattern matters more than the instances: **every one was a plan document
+confidently describing code nobody had read.**
+
+1. *"3,637 segment facts, mapped and stored."* The sweep **saw** 3,637 and **wrote** 224; the
+   store holds 626 across three subjects.
+2. *"A company-number column that fails a check constraint today."* It does not. The constraint
+   is `cik IS NOT NULL OR company_number IS NOT NULL`, written for exactly a CIK-less UK
+   company.
+3. *"The segment gap is an extraction failure needing a new iXBRL parser."* The parser ran. The
+   failure is one `WHERE dimension_axis IS NULL` at `services/facts.py:88`.
+
+**Read the code before costing the work.** Twice now that has made a feature dramatically
+cheaper than the plan said, and once it made a win fifteen times smaller.

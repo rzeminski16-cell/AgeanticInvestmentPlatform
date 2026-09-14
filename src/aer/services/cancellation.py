@@ -17,6 +17,7 @@ the audit trail would misdescribe what happened.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import select
@@ -33,6 +34,12 @@ _log = structlog.get_logger("aer.services.cancellation")
 # A run in one of these has stopped for good. Nothing further executes, so there is nothing
 # to cancel.
 TERMINAL_STATUSES = frozenset({JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED})
+
+
+# Waiting for a person or a decision, with no worker on it.
+STOPPED_STATUSES = frozenset(
+    {JobStatus.AWAITING_APPROVAL, JobStatus.PAUSED, JobStatus.BUDGET_EXCEEDED}
+)
 
 
 async def request_cancellation(
@@ -67,6 +74,15 @@ async def request_cancellation(
     cancellation = JobCancellation(job_id=job.id, requested_by=actor.id, reason=reason)
     session.add(cancellation)
     await session.flush()
+
+    if job.status in STOPPED_STATUSES:
+        # Nothing is executing a run that is waiting at a gate, paused between steps or
+        # stopped on its cap, so no scheduling boundary will ever read the request. The
+        # run ends here, as the engine would have ended it (readiness audit 2026-09). A
+        # QUEUED or RUNNING run is left to the engine, which sees the row at its next
+        # boundary.
+        job.status = JobStatus.CANCELLED
+        job.finished_at = datetime.now(UTC)
 
     previous = await session.scalar(select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1))
     session.add(

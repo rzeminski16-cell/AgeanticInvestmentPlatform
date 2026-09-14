@@ -454,7 +454,10 @@ class TestTheFrontPageRefusesToMixIssuers:
         assert glance.content is None, "a block that mixes issuers must not render at all"
         assert glance.refused is not None
         assert "withheld" in glance.refused
-        assert "ADR 0061" in glance.refused
+        assert "must not mix one company's figures" in glance.refused
+        # The decision this comes from is named in the code, never in the document: an
+        # architecture decision record in reader-facing prose fails the presentation check.
+        assert "ADR" not in glance.refused
 
     async def test_a_set_that_agrees_on_the_wrong_company_is_refused_too(
         self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
@@ -514,7 +517,10 @@ class TestTheFrontPageRefusesTheImpossible:
         assert glance.content is None, "an impossible set must not render at all"
         assert glance.refused is not None
         assert "cannot all be true" in glance.refused
-        assert "ADR 0066" in glance.refused
+        assert "traceable is not thereby possible" in glance.refused
+        # Named in the code, never in the document: `presentation_integrity` refuses an
+        # architecture decision record in prose that is supposed to be about the company.
+        assert "ADR" not in glance.refused
         assert "2000" in glance.refused, "the refusal argues with the values, not a category"
 
     async def test_income_within_revenue_renders_as_before(self, scene: dict[str, Any]) -> None:

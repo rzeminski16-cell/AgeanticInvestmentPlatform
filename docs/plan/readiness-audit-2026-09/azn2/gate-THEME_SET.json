@@ -1,0 +1,37 @@
+{
+  "payload": {
+    "subject": "7a1961cf-f0f5-47f9-8b5f-a56673b54e88",
+    "themes": [
+      {
+        "key": "oncology-pipeline-innovation",
+        "label": "Oncology drug pipeline innovation",
+        "rationale": "AZN's growth is heavily driven by its oncology franchise (Tagrisso, Enhertu, Imfinzi, Lynparza); continued pipeline output and label expansions are a major determinant of revenue growth and multiple support.",
+        "existing": true
+      },
+      {
+        "key": "biopharma-patent-cliff",
+        "label": "Biopharma patent cliff and generic erosion",
+        "rationale": "Several AZN blockbusters face patent expiry through the late 2020s/early 2030s; exposure to loss of exclusivity and biosimilar/generic erosion is a recurring risk factor investors track across large pharma.",
+        "existing": true
+      },
+      {
+        "key": "drug-pricing-policy-risk",
+        "label": "Drug pricing and government reimbursement policy",
+        "rationale": "AZN's US and EU revenue is directly exposed to reimbursement policy shifts (e.g., US IRA price negotiation, EU pricing reforms), affecting realized pricing on key products.",
+        "existing": true
+      },
+      {
+        "key": "glp1-obesity-demand",
+        "label": "GLP-1 and obesity drug demand",
+        "rationale": "AZN has an emerging oral GLP-1 candidate and obesity-adjacent pipeline; its economics could be shaped by the broader GLP-1/obesity demand wave that is repricing the metabolic disease category across pharma.",
+        "existing": true
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "b118611cb18aefde7621ae4eb75b8abce21c4ea28f0529acd9607889bee8b76e",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "571b1434-66d2-4f6d-9534-7ca671fe6caf"
+  }
+}

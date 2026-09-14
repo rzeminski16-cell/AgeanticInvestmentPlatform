@@ -1,0 +1,14 @@
+{
+  "page": "financials",
+  "url": "http://127.0.0.1:8000/runs/8d1127b2-9ec9-450b-9ad6-1366c7bfb791/financials",
+  "status": 500,
+  "title": "",
+  "payload_hash": null,
+  "words": 17,
+  "raw_tokens": [
+    "internal_error",
+    "request_id"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

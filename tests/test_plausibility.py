@@ -7,7 +7,10 @@ and this module is the sanity half, kept deliberately small (ADR 0066).
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
+from types import SimpleNamespace
+from typing import Final
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -17,6 +20,11 @@ from aer.calc.plausibility import (
     TURNOVER_FLOOR,
     FigureScene,
     impossible_relations,
+)
+from aer.eval.runtime import presentation_integrity
+from aer.render.glance import (
+    _impossibility_refusal,
+    _mixing_refusal,
 )
 
 # Money-shaped decimals, positive, two places — the shapes a statement actually carries.
@@ -114,3 +122,53 @@ class TestTheImpossibleIsNamedWithItsValues:
         that assumes a positive base stays out of it rather than firing confusingly."""
         scene = FigureScene(period="FY2025", revenue=Decimal("-100"), net_income=Decimal("50"))
         assert impossible_relations((scene,)) == ()
+
+
+# The rows M&T's live run offered the front page: fee income read as revenue, against the
+# bank's real net income (F-24 of the readiness audit).
+_MTB_FRONT_PAGE: Final = {
+    "latest": [
+        {"label": "Revenue", "period": "FY2025", "value": "1657000000", "unit": "USD"},
+        {"label": "Net income", "period": "FY2025", "value": "2851000000", "unit": "USD"},
+    ],
+    "ratios": [],
+}
+
+
+class TestTheWithheldNoteSpeaksToAReader:
+    """M&T's live run failed two checks at once, and the second was the platform's own
+    doing: the front page's withheld note ends "(ADR 0066)", `presentation_integrity`
+    refuses an architecture decision record in a document that should be about the company,
+    and the note only renders on the runs that withhold a figure — so the check fired on
+    text the platform wrote about itself. The reason belongs to the reader; the decision
+    record belongs in the code.
+    """
+
+    def test_the_impossibility_note_names_no_decision_record(self) -> None:
+        note = _impossibility_refusal(_MTB_FRONT_PAGE)
+
+        assert note is not None
+        assert "withheld" in note
+        assert "ADR" not in note
+
+    def test_the_mixing_note_names_no_decision_record(self) -> None:
+        subject, other = uuid.uuid4(), uuid.uuid4()
+        facts = [
+            SimpleNamespace(company_id=subject),
+            SimpleNamespace(company_id=other),
+        ]
+
+        note = _mixing_refusal(facts, subject)  # type: ignore[arg-type]
+
+        assert note is not None
+        assert "withheld" in note
+        assert "ADR" not in note
+
+    def test_the_presentation_check_passes_on_the_note(self) -> None:
+        note = _impossibility_refusal(_MTB_FRONT_PAGE)
+        document = f"# Note\n\n## At a glance\n\n{note}\n"
+
+        # The figures in the note are formatted by the renderer, not here, so the
+        # assertion is about the class of defect this note caused: process language.
+        failures = presentation_integrity(document, "<main></main>", sections=1).failures
+        assert not [item for item in failures if "process language" in item]

@@ -1,0 +1,252 @@
+{"at": "2026-09-11T21:14:01.861324+00:00", "event": "web.started", "pid": 1349, "url": "http://127.0.0.1:8000"}
+{"at": "2026-09-11T21:14:01.986080+00:00", "event": "ledger.before", "platform_gbp": "7.475043", "baseline_gbp": "7.6279", "other_gbp": "0", "total_gbp": "15.102943", "ceiling_gbp": "100.00", "remaining_gbp": "84.897057"}
+{"at": "2026-09-11T21:14:02.063083+00:00", "event": "commissioned", "subject": "azn", "label": "azn", "request_id": "f2db06d3-cbe6-4490-917c-2e30e2ea4f4a", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "as_of_date": "2026-09-11", "cap_gbp": "10"}
+{"at": "2026-09-11T21:14:04.070542+00:00", "event": "worker.started", "pid": 1369, "after_seconds": 2.0}
+{"at": "2026-09-11T21:14:04.089658+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "e39a0f44f8924e80992d4ab2974280ce"}
+{"at": "2026-09-11T21:14:09.114394+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:15:44.331729+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:15:44.331981+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:18:44.735690+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:18:44.735922+00:00", "event": "step", "step": "gate_plan", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:18:44.736457+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 280.6, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:19:53.632242+00:00", "event": "screen.failed", "page": "console", "stderr": "AgeanticInvestmentPlatform/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 563, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f\", waiting until \"networkidle\"\n\n"}
+{"at": "2026-09-11T21:19:57.717373+00:00", "event": "screen.captured", "page": "plan", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/plan", "status": 200, "title": "Approve this research plan? \u00b7 Tracework Invest", "payload_hash": "1103940881cd6eaafcc8317dc5f42cd9bd1ed625ecf9632dd1c988356b58e9b5", "words": 2668, "uuids": 0, "approve_control": 1, "raw_token_count": 16}
+{"at": "2026-09-11T21:19:57.754554+00:00", "event": "gate.decided", "gate": "PLAN", "approved": true, "rationale": "Audit policy: spine 18/18 listed, filings named among 19 planned sources, estimate \u00a39.2597 against cap \u00a312.", "findings": [], "stop_reason": null, "payload_hash": "1103940881cd6eaafcc8317dc5f42cd9bd1ed625ecf9632dd1c988356b58e9b5"}
+{"at": "2026-09-11T21:19:57.774674+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "45275637a5244adfb1572966cc9fc7a6"}
+{"at": "2026-09-11T21:19:57.778553+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:19:57.778673+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:19:57.778725+00:00", "event": "step", "step": "gate_plan", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:02.794514+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:02.794716+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:12.826677+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:12.826818+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:12.826885+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:12.826991+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:17.836834+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:20:17.837025+00:00", "event": "step", "step": "gate_peer_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:20:17.837691+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 20.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:21:19.038934+00:00", "event": "screen.failed", "page": "console", "stderr": "AgeanticInvestmentPlatform/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 563, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f\", waiting until \"networkidle\"\n\n"}
+{"at": "2026-09-11T21:21:21.406526+00:00", "event": "screen.captured", "page": "peers", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/peers", "status": 200, "title": "Confirm which companies this one is compared with? \u00b7 Tracework Invest", "payload_hash": "59ea9189abb0f80165ef3ba8d9f526d5531323b29b8e5dae70db51f50e1d8c96", "words": 641, "uuids": 0, "approve_control": 1, "raw_token_count": 0}
+{"at": "2026-09-11T21:21:21.418627+00:00", "event": "gate.decided", "gate": "PEER_SET", "approved": true, "rationale": "Audit policy: 8 peer(s) proposed by 'aer.agents.peers': 0000078003, 0000310158, 0000014272, 0000059478, 0001114448, 0001121404, 0001131399, 0000200406.", "findings": [], "stop_reason": null, "payload_hash": "59ea9189abb0f80165ef3ba8d9f526d5531323b29b8e5dae70db51f50e1d8c96"}
+{"at": "2026-09-11T21:21:21.434020+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "8d30c134a1904adeb2809f58822eb95a"}
+{"at": "2026-09-11T21:21:21.438346+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:21:21.438468+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:21:21.438521+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:21.438578+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:21.438621+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:21.438661+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:21.438701+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:21:21.438741+00:00", "event": "step", "step": "gate_peer_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:26.451539+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:26.451712+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:31.468233+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-11T21:21:31.468429+00:00", "event": "step", "step": "gate_theme_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:21:31.469116+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 10.0, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:22:32.638786+00:00", "event": "screen.failed", "page": "console", "stderr": "AgeanticInvestmentPlatform/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 563, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f\", waiting until \"networkidle\"\n\n"}
+{"at": "2026-09-11T21:22:34.823746+00:00", "event": "screen.captured", "page": "themes", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/themes", "status": 200, "title": "Confirm which stories this company is filed under? \u00b7 Tracework Invest", "payload_hash": "547b8116b87bf2f22719762168a2cfa19e5a8cbabe465b820e845a59605d520c", "words": 453, "uuids": 0, "approve_control": 1, "raw_token_count": 0}
+{"at": "2026-09-11T21:22:34.834338+00:00", "event": "gate.decided", "gate": "THEME_SET", "approved": true, "rationale": "Audit policy: 4 theme(s) proposed for AZN: GLP-1 and obesity drug demand, Biopharma patent cliff and generic erosion, Oncology drug pipeline innovation, Drug pricing and government reimbursement policy.", "findings": [], "stop_reason": null, "payload_hash": "547b8116b87bf2f22719762168a2cfa19e5a8cbabe465b820e845a59605d520c"}
+{"at": "2026-09-11T21:22:34.849021+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "71f738dee37e4370a4894e0c69c2c1ed"}
+{"at": "2026-09-11T21:22:34.853512+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:22:34.853635+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:22:34.853687+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:34.853730+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:34.853771+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:34.853812+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:34.853851+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:22:34.853890+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:34.853930+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-11T21:22:34.853969+00:00", "event": "step", "step": "gate_theme_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:39.870489+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:22:39.870624+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:23:14.956797+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:23:14.956980+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:23:14.957866+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 40.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:24:16.550805+00:00", "event": "screen.failed", "page": "console", "stderr": "AgeanticInvestmentPlatform/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 563, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f\", waiting until \"networkidle\"\n\n"}
+{"at": "2026-09-11T21:24:23.760109+00:00", "event": "screen.captured", "page": "financials", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/financials", "status": 200, "title": "Proceed without the figures nothing could map? \u00b7 Tracework Invest", "payload_hash": "4e7a8541a6e55f89c4293083f9bc35dfc50139affe4a44a7fcf3bac26a1dc7c1", "words": 2573, "uuids": 0, "approve_control": 1, "raw_token_count": 0}
+{"at": "2026-09-11T21:24:23.798051+00:00", "event": "gate.decided", "gate": "UNMAPPED_CONCEPTS", "approved": true, "rationale": "Audit policy for AZN: 322 unmapped tag(s), 0 refused, 1025 mapped concept(s), 4181 fact(s) chosen; gaps recorded as completeness findings.", "findings": ["unmapped ifrs-full:NoncurrentAssetsOtherThanFinancialInstrumentsDeferredTaxAssetsPostemploymentBenefitAssetsAndRightsArisingUnderInsuranceContracts at 127% of its reference line", "unmapped ifrs-full:RevenueFromSaleOfGoods at 95% of its reference line", "unmapped ifrs-full:NetAssetsLiabilities at 83% of its reference line", "unmapped ifrs-full:SharePremium at 60% of its reference line", "unmapped ifrs-full:FinancialLiabilitiesAtFairValue at 57% of its reference line", "unmapped ifrs-full:FinancialLiabilities at 52% of its reference line", "unmapped ifrs-full:LiabilitiesArisingFromFinancingActivities at 52% of its reference line", "unmapped ifrs-full:LongtermBorrowings at 48% of its reference line", "unmapped ifrs-full:IssueOfEquity at 46% of its reference line", "unmapped ifrs-full:NetDebt at 45% of its reference line", "unmapped ifrs-full:ChangesInEquity at 40% of its reference line", "unmapped ifrs-full:CashFlowsFromUsedInOperations at 32% of its reference line", "unmapped ifrs-full:CashAndCashEquivalentsIfDifferentFromStatementOfFinancialPosition at 26% of its reference line", "unmapped ifrs-full:EmployeeBenefitsExpense at 25% of its reference line", "unmapped ifrs-full:DefinedBenefitObligationAtPresentValue at 24% of its reference line", "unmapped ifrs-full:ComprehensiveIncome at 22% of its reference line", "unmapped ifrs-full:ComprehensiveIncomeAttributableToOwnersOfParent at 22% of its reference line", "unmapped ifrs-full:AccountingProfit at 21% of its reference line", "unmapped ifrs-full:WagesAndSalaries at 19% of its reference line", "unmapped ifrs-full:PlanAssetsAtFairValue at 18% of its reference line", "unmapped ifrs-full:ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity at 17% of its reference line", "unmapped ifrs-full:CostOfInventoriesRecognisedAsExpenseDuringPeriod at 16% of its reference line", "unmapped ifrs-full:UndrawnBorrowingFacilities at 16% of its reference line", "unmapped ifrs-full:NoncurrentPayables at 16% of its reference line", "unmapped ifrs-full:NetDeferredTaxLiabilities at 16% of its reference line", "unmapped ifrs-full:TemporaryDifferencesAssociatedWithInvestmentsInSubsidiariesBranchesAndAssociatesAndInterestsInJointVentures at 14% of its reference line", "unmapped ifrs-full:NetDeferredTaxAssets at 14% of its reference line", "unmapped ifrs-full:FinancialAssets at 13% of its reference line", "unmapped ifrs-full:BalancesWithBanks at 13% of its reference line", "unmapped ifrs-full:IncreaseDecreaseInCashAndCashEquivalentsBeforeEffectOfExchangeRateChanges at 13% of its reference line", "unmapped ifrs-full:IncreaseDecreaseThroughFinancingCashFlowsLiabilitiesArisingFromFinancingActivities at 13% of its reference line", "unmapped ifrs-full:AccrualsClassifiedAsCurrent at 12% of its reference line", "unmapped ifrs-full:ContingentLiabilitiesRecognisedInBusinessCombination at 12% of its reference line", "unmapped ifrs-full:AdjustmentsForDepreciationAndAmortisationExpenseAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss at 11% of its reference line", "unmapped ifrs-full:ShorttermDepositsClassifiedAsCashEquivalents at 11% of its reference line", "unmapped ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings at 11% of its reference line", "unmapped ifrs-full:DeferredTaxAssets at 11% of its reference line", "unmapped ifrs-full:DeferredTaxLiabilities at 11% of its reference line", "unmapped ifrs-full:WorkInProgress at 9% of its reference line", "unmapped ifrs-full:CurrentPortionOfLongtermBorrowings at 8% of its reference line", "unmapped ifrs-full:DividendsPaidOrdinaryShares at 8% of its reference line", "unmapped ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParent at 8% of its reference line", "unmapped ifrs-full:IncreaseDecreaseThroughBusinessCombinationsDeferredTaxLiabilityAsset at 7% of its reference line", "unmapped ifrs-full:AdjustmentsForDecreaseIncreaseInInventories at 7% of its reference line", "unmapped ifrs-full:TradeAndOtherCurrentPayablesToTradeSuppliers at 7% of its reference line", "unmapped ifrs-full:ProceedsFromIssuingShares at 6% of its reference line", "unmapped ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParentRelatingToPriorYears at 6% of its reference line", "unmapped ifrs-full:NoncurrentRecognisedLiabilitiesDefinedBenefitPlan at 5% of its reference line", "unmapped ifrs-full:SurplusDeficitInPlan at 5% of its reference line", "unmapped ifrs-full:TaxExpenseIncomeAtApplicableTaxRate at 5% of its reference line", "unmapped ifrs-full:PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities at 5% of its reference line"], "stop_reason": null, "payload_hash": "4e7a8541a6e55f89c4293083f9bc35dfc50139affe4a44a7fcf3bac26a1dc7c1"}
+{"at": "2026-09-11T21:24:23.838247+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "53607f5645694c2bb442b8e061ed6ddd"}
+{"at": "2026-09-11T21:24:23.845740+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:24:23.845853+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:24:23.845906+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.845955+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.845997+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.846036+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.846076+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:24:23.846156+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.846213+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-11T21:24:23.846260+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.846302+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:23.846342+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870557+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870707+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870811+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870872+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870921+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.870962+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.871002+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:24:28.871054+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:25:19.035110+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2716"}
+{"at": "2026-09-11T21:25:24.048387+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2707"}
+{"at": "2026-09-11T21:25:29.063964+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2247"}
+{"at": "2026-09-11T21:26:14.226110+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3407"}
+{"at": "2026-09-11T21:26:24.263256+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.5735"}
+{"at": "2026-09-11T21:26:24.263414+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:26:24.263477+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:26:49.348801+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0501"}
+{"at": "2026-09-11T21:26:49.348977+00:00", "event": "step", "step": "gate_assumptions", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:26:49.350155+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 145.5, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:27:50.607361+00:00", "event": "screen.failed", "page": "console", "stderr": "AgeanticInvestmentPlatform/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py\", line 563, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f\", waiting until \"networkidle\"\n\n"}
+{"at": "2026-09-11T21:27:53.199805+00:00", "event": "screen.captured", "page": "assumptions", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/assumptions", "status": 200, "title": "Confirm the numbers the valuation will use? \u00b7 Tracework Invest", "payload_hash": "8965c49f534214858bc609f7f3adf3c4d827715e352414fd5f78cccfea051bf3", "words": 1287, "uuids": 0, "approve_control": 1, "raw_token_count": 11}
+{"at": "2026-09-11T21:27:53.263586+00:00", "event": "gate.decided", "gate": "ASSUMPTIONS", "approved": true, "rationale": "Audit policy: 7 row(s) on the gate, 4 supplied by the operator, 1 amended to a bound, 0 refused by the platform, 2 skipped.", "findings": ["outstanding capex_intensity: supplied by the operator (Capex intensity could not be derived: capital expenditure over revenue is availa\u2026)", "outstanding tax_rate: supplied by the operator (Tax rate could not be derived: at least one period is negative, so a trailing av\u2026)", "outstanding risk_free_rate: supplied by the operator (No macroeconomic series has been acquired for this run, so there is no published\u2026)", "outstanding equity_risk_premium: supplied by the operator (The equity risk premium is a judgement with no series behind it, and no role in \u2026)", "beta proposed at 0.278618602016 by 'aer.services.prices', outside 0.3-2.0; amended to 0.3"], "stop_reason": null, "payload_hash": "ba9229c44fb34e6dc64ec2f40807862e79591084b83e89b19514e8d3c0f92d25"}
+{"at": "2026-09-11T21:27:53.285197+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "1e60c9059ebf4ab8ab625d43d924fa92"}
+{"at": "2026-09-11T21:27:53.294512+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:27:53.294638+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:27:53.294701+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.294745+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.294787+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.294827+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.294867+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:27:53.294906+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.294944+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-11T21:27:53.294983+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295021+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295061+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295139+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295191+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295233+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3407"}
+{"at": "2026-09-11T21:27:53.295273+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.5735"}
+{"at": "2026-09-11T21:27:53.295313+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2716"}
+{"at": "2026-09-11T21:27:53.295372+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2707"}
+{"at": "2026-09-11T21:27:53.295415+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2247"}
+{"at": "2026-09-11T21:27:53.295455+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:53.295502+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0501"}
+{"at": "2026-09-11T21:27:53.295542+00:00", "event": "step", "step": "gate_assumptions", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:58.327037+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:58.327235+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:27:58.327298+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:33:54.860946+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.8337"}
+{"at": "2026-09-11T21:33:54.861207+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:33:59.883367+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:33:59.883539+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.593722+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "FAILED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.594954+00:00", "event": "advanced", "status": "FAILED", "elapsed_seconds": 537.3, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-11T21:36:50.597005+00:00", "event": "run.failed", "error": null}
+{"at": "2026-09-11T21:36:50.617301+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "90c988e41809499195e7900358f5ecc9"}
+{"at": "2026-09-11T21:36:50.626268+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-11T21:36:50.626385+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-11T21:36:50.626438+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626482+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626524+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626564+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626605+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-11T21:36:50.626646+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626687+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-11T21:36:50.626726+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626766+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626805+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626844+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626883+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.626922+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3407"}
+{"at": "2026-09-11T21:36:50.626960+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.5735"}
+{"at": "2026-09-11T21:36:50.627000+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2716"}
+{"at": "2026-09-11T21:36:50.627039+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2707"}
+{"at": "2026-09-11T21:36:50.627088+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2247"}
+{"at": "2026-09-11T21:36:50.627128+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.627212+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0501"}
+{"at": "2026-09-11T21:36:50.627258+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.627299+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.627340+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.8337"}
+{"at": "2026-09-11T21:36:50.627380+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:50.627419+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "FAILED", "cost_gbp": "0"}
+{"at": "2026-09-11T21:36:55.657095+00:00", "event": "step", "step": "red_team", "attempt": 1, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-11T21:39:16.161075+00:00", "event": "step", "step": "red_team", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0.3044"}
+{"at": "2026-09-11T21:39:16.161280+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:03.446099+00:00", "event": "web.started", "pid": 1129, "url": "http://127.0.0.1:8000"}
+{"at": "2026-09-12T07:17:03.454518+00:00", "event": "ledger.before", "platform_gbp": "13.206136", "baseline_gbp": "18.6565", "other_gbp": "0", "total_gbp": "31.862636", "ceiling_gbp": "100.00", "remaining_gbp": "68.137364"}
+{"at": "2026-09-12T07:17:03.487774+00:00", "event": "resumed_existing", "status": "QUEUED", "subject": "azn", "label": "azn", "request_id": "f2db06d3-cbe6-4490-917c-2e30e2ea4f4a", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "as_of_date": "2026-09-11", "cap_gbp": "10.00", "resumed_by_driver": true}
+{"at": "2026-09-12T07:17:05.495762+00:00", "event": "worker.started", "pid": 1162, "after_seconds": 2.0}
+{"at": "2026-09-12T07:17:05.499509+00:00", "event": "recovery.already_queued", "status": "QUEUED"}
+{"at": "2026-09-12T07:17:05.524352+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-12T07:17:05.524498+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-12T07:17:05.524559+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524593+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524645+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524745+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524784+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-12T07:17:05.524815+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524867+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-12T07:17:05.524900+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.524947+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525004+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525034+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525056+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525077+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3407"}
+{"at": "2026-09-12T07:17:05.525111+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.5735"}
+{"at": "2026-09-12T07:17:05.525135+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2716"}
+{"at": "2026-09-12T07:17:05.525156+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2707"}
+{"at": "2026-09-12T07:17:05.525178+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2247"}
+{"at": "2026-09-12T07:17:05.525206+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525248+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0501"}
+{"at": "2026-09-12T07:17:05.525299+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525328+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525356+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.8337"}
+{"at": "2026-09-12T07:17:05.525410+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:05.525435+00:00", "event": "step", "step": "red_team", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0.3044"}
+{"at": "2026-09-12T07:17:05.525479+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:17:10.539153+00:00", "event": "step", "step": "revise", "attempt": 1, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:26:02.829746+00:00", "event": "step", "step": "revise", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0.9748"}
+{"at": "2026-09-12T07:26:02.829990+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:26:07.843950+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0123"}
+{"at": "2026-09-12T07:26:07.844120+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:08.031323+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1158"}
+{"at": "2026-09-12T07:27:08.031473+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:13.047448+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:13.049016+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 607.5, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-12T07:27:20.016423+00:00", "event": "screen.captured", "page": "console", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f", "status": 200, "title": "Run \u00b7 AZN", "payload_hash": null, "words": 544, "uuids": 0, "approve_control": 0, "raw_token_count": 24}
+{"at": "2026-09-12T07:27:23.257597+00:00", "event": "screen.captured", "page": "review", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/review", "status": 200, "title": "Approve this report? \u00b7 Tracework Invest", "payload_hash": "eb244a1466c0ca5a59a946e7e3660f3d832fe0bdf2413c5a27688e5ac03d2789", "words": 15713, "uuids": 0, "approve_control": 1, "raw_token_count": 52}
+{"at": "2026-09-12T07:27:23.403717+00:00", "event": "gate.decided", "gate": "FINAL", "approved": true, "rationale": "Audit policy: 18/18 sections generated, 0 failed, triggers ['low_source_coverage', 'high_model_uncertainty', 'material_missing_section', 'cost_above_threshold'], 9 challenge(s) (6 material) left unsettled for the reader, 8 revision note(s), no metric failing.", "findings": ["section valuation_dcf generated: No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis.", "section catalysts generated: Insufficient evidence: This section's policy requires 1 distinct source(s); its claims cite 0. This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.", "trigger fired: low_source_coverage", "trigger fired: high_model_uncertainty", "trigger fired: material_missing_section", "trigger fired: cost_above_threshold"], "stop_reason": null, "payload_hash": "eb244a1466c0ca5a59a946e7e3660f3d832fe0bdf2413c5a27688e5ac03d2789"}
+{"at": "2026-09-12T07:27:23.428034+00:00", "event": "run.enqueued", "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f", "task": "c111739dd1b44049bcd14e4180307095"}
+{"at": "2026-09-12T07:27:23.435250+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1497"}
+{"at": "2026-09-12T07:27:23.435367+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3420"}
+{"at": "2026-09-12T07:27:23.435412+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435461+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435504+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435530+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435556+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0153"}
+{"at": "2026-09-12T07:27:23.435596+00:00", "event": "step", "step": "gate_peer_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435621+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0120"}
+{"at": "2026-09-12T07:27:23.435663+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435688+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435718+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435737+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435757+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435778+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3407"}
+{"at": "2026-09-12T07:27:23.435844+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.5735"}
+{"at": "2026-09-12T07:27:23.435885+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2716"}
+{"at": "2026-09-12T07:27:23.435913+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2707"}
+{"at": "2026-09-12T07:27:23.435934+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2247"}
+{"at": "2026-09-12T07:27:23.435957+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.435978+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0501"}
+{"at": "2026-09-12T07:27:23.435999+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.436019+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.436067+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.8337"}
+{"at": "2026-09-12T07:27:23.436094+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:23.436115+00:00", "event": "step", "step": "red_team", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0.3044"}
+{"at": "2026-09-12T07:27:23.436135+00:00", "event": "step", "step": "revise", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0.9748"}
+{"at": "2026-09-12T07:27:23.436175+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0123"}
+{"at": "2026-09-12T07:27:23.436203+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1158"}
+{"at": "2026-09-12T07:27:23.436236+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:28.458049+00:00", "event": "step", "step": "gate_final", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:28.458192+00:00", "event": "step", "step": "render", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:33.483393+00:00", "event": "step", "step": "render", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-12T07:27:33.484503+00:00", "event": "advanced", "status": "SUCCEEDED", "elapsed_seconds": 10.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-12T07:27:37.185463+00:00", "event": "screen.captured", "page": "console", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f", "status": 200, "title": "Run \u00b7 AZN", "payload_hash": null, "words": 398, "uuids": 0, "approve_control": 0, "raw_token_count": 19}
+{"at": "2026-09-12T07:27:39.733523+00:00", "event": "screen.captured", "page": "review", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/review", "status": 200, "title": "Approve this report? \u00b7 Tracework Invest", "payload_hash": null, "words": 15676, "uuids": 0, "approve_control": 0, "raw_token_count": 52}
+{"at": "2026-09-12T07:27:41.136544+00:00", "event": "screen.captured", "page": "sources", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/sources", "status": 200, "title": "Sources \u00b7 AZN", "payload_hash": null, "words": 823, "uuids": 0, "approve_control": 0, "raw_token_count": 1}
+{"at": "2026-09-12T07:27:45.024454+00:00", "event": "screen.captured", "page": "claims", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/claims", "status": 200, "title": "Claims \u00b7 AZN", "payload_hash": null, "words": 5391, "uuids": 0, "approve_control": 0, "raw_token_count": 15}
+{"at": "2026-09-12T07:27:46.500995+00:00", "event": "screen.captured", "page": "valuation", "url": "http://127.0.0.1:8000/runs/6f2a7527-99a8-455f-9c28-8333c8080f8f/valuation", "status": 200, "title": "Valuation \u00b7 Tracework Invest", "payload_hash": null, "words": 282, "uuids": 0, "approve_control": 0, "raw_token_count": 0}
+{"at": "2026-09-12T07:27:49.350917+00:00", "event": "screen.captured", "page": "report", "url": "http://127.0.0.1:8000/reports/1d9e5f8d-c6b6-407b-9109-0d0b2ee4a83b", "status": 200, "title": "AZN \u00b7 Research note", "payload_hash": null, "words": 12747, "uuids": 0, "approve_control": 0, "raw_token_count": 33}
+{"at": "2026-09-12T07:27:49.354776+00:00", "event": "ledger.after", "platform_gbp": "14.309052", "baseline_gbp": "18.6565", "other_gbp": "0", "total_gbp": "32.965552", "ceiling_gbp": "100.00", "remaining_gbp": "67.034448"}
+{"at": "2026-09-12T07:27:49.355074+00:00", "event": "run.finished", "stop_reason": null, "status": "SUCCEEDED", "spend_gbp": "6.834009"}
+{"at": "2026-09-12T07:27:50.020835+00:00", "event": "worker.stopped", "pid": 1162, "hard": false, "returncode": 0}
+{"at": "2026-09-12T07:27:50.235505+00:00", "event": "web.stopped", "pid": 1129}

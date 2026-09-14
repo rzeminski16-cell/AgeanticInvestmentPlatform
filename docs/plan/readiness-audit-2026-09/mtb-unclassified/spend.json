@@ -1,0 +1,100 @@
+{
+  "total_gbp": "2.027037",
+  "calls": 28,
+  "output_tokens": 46373,
+  "cache": {
+    "fresh_tokens": 440708,
+    "read_tokens": 42196,
+    "written_tokens": 41681
+  },
+  "by_kind": [
+    [
+      "cache_read",
+      "0.010325"
+    ],
+    [
+      "cache_write",
+      "0.134161"
+    ],
+    [
+      "llm_input",
+      "1.105830"
+    ],
+    [
+      "llm_output",
+      "0.745121"
+    ],
+    [
+      "web_search",
+      "0.031600"
+    ]
+  ],
+  "by_role": [
+    {
+      "role": "analysis",
+      "model": "claude-sonnet-5",
+      "calls": 22,
+      "output_tokens": 20941,
+      "cache": {
+        "fresh_tokens": 421351,
+        "read_tokens": 40159,
+        "written_tokens": 32853
+      }
+    },
+    {
+      "role": "planner",
+      "model": "claude-opus-5",
+      "calls": 2,
+      "output_tokens": 17997,
+      "cache": {
+        "fresh_tokens": 8581,
+        "read_tokens": 2037,
+        "written_tokens": 2037
+      }
+    },
+    {
+      "role": "plan_critic",
+      "model": "claude-opus-5",
+      "calls": 1,
+      "output_tokens": 4490,
+      "cache": {
+        "fresh_tokens": 6479,
+        "read_tokens": 0,
+        "written_tokens": 1633
+      }
+    },
+    {
+      "role": "assumption_proposal",
+      "model": "claude-opus-5",
+      "calls": 1,
+      "output_tokens": 1615,
+      "cache": {
+        "fresh_tokens": 3907,
+        "read_tokens": 0,
+        "written_tokens": 1738
+      }
+    },
+    {
+      "role": "theme_proposal",
+      "model": "claude-sonnet-5",
+      "calls": 1,
+      "output_tokens": 609,
+      "cache": {
+        "fresh_tokens": 331,
+        "read_tokens": 0,
+        "written_tokens": 1725
+      }
+    },
+    {
+      "role": "peer_proposal",
+      "model": "claude-sonnet-5",
+      "calls": 1,
+      "output_tokens": 721,
+      "cache": {
+        "fresh_tokens": 59,
+        "read_tokens": 0,
+        "written_tokens": 1695
+      }
+    }
+  ]
+}

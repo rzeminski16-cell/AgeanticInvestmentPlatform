@@ -1,6 +1,7 @@
 # Tracework Invest
 
-A local-first, auditable equity research platform for UK and US listed equities.
+A local-first, auditable equity research platform for equities that file with the SEC:
+US listings, and UK companies that file a 20-F.
 
 It produces **one institutional-style research report at a time**, under explicit human
 approval, with every number traceable to a formula and every fact traceable to a hashed

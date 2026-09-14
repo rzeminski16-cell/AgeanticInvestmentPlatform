@@ -43,6 +43,7 @@ from aer.core.disagreement import (
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.db.models import (
     Artefact,
+    Calculation,
     Company,
     Disagreement,
     FinancialFact,
@@ -55,6 +56,7 @@ from aer.db.models import (
 )
 from aer.db.models.report_section import ReportSection
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.services.citations import record_claim
 from aer.services.disagreements import (
@@ -63,7 +65,12 @@ from aer.services.disagreements import (
     settle_by_hand,
 )
 from aer.services.escalation import triggers_for_job
-from aer.services.red_team import MATERIAL_SEVERITY, _shortened, run_red_team
+from aer.services.red_team import (
+    MATERIAL_SEVERITY,
+    _evidence_index,
+    _shortened,
+    run_red_team,
+)
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
@@ -471,6 +478,76 @@ async def _rows(session: AsyncSession, job_id: Any) -> list[Disagreement]:
     )
 
 
+class _UnusableOnce(FakeProvider):
+    """The adversary's first reply is paid for and unreadable; the second is the fixture."""
+
+    def __init__(self, report: RedTeamReport) -> None:
+        super().__init__({"RedTeamReport": report})
+        self.unusable_replies = 0
+
+    def _unusable(self) -> SpentButUnusableError:
+        self.unusable_replies += 1
+        return SpentButUnusableError(
+            "claude-opus-5's reply could not be read as RedTeamReport: List should have at "
+            "most 8 items after validation, not 9",
+            usage=Usage(input_tokens=1200, output_tokens=900, model="claude-opus-5"),
+            request_payload={},
+            response_payload={},
+            context={"schema": "RedTeamReport"},
+        )
+
+    async def complete_structured(self, *args: Any, **kwargs: Any) -> Any:
+        if self.unusable_replies == 0:
+            raise self._unusable()
+        return await super().complete_structured(*args, **kwargs)
+
+    async def complete_structured_batch(self, *args: Any, **kwargs: Any) -> Any:
+        if self.unusable_replies == 0:
+            raise self._unusable()
+        return await super().complete_structured_batch(*args, **kwargs)
+
+
+class TestAnUnusableReplyIsRetriedOnce:
+    """Readiness audit 2026-09: on the AstraZeneca run the adversary returned nine
+    challenges against a ceiling of eight, the reply escaped the retry loop, and the run
+    failed at `red_team`; the operator's Continue re-ran the step from nothing."""
+
+    async def test_the_second_attempt_carries_the_step(self, scene: dict[str, Any]) -> None:
+        provider = _UnusableOnce(_fixture_report(scene))
+
+        outcome = await run_red_team(
+            _context(scene, provider),
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+            use_batch=False,
+        )
+
+        assert provider.unusable_replies == 1
+        assert outcome.challenges == 3
+        # The second ask names what was wrong with the first reply.
+        second = provider.calls[-1]
+        assert "could not be used" in str(second.get("payload") or second)
+
+    async def test_two_unusable_replies_still_fail_the_step(self, scene: dict[str, Any]) -> None:
+        provider = _UnusableOnce(_fixture_report(scene))
+
+        async def always_unusable(*args: Any, **kwargs: Any) -> Any:
+            raise provider._unusable()
+
+        provider.complete_structured = always_unusable  # type: ignore[method-assign]
+
+        with pytest.raises(SpentButUnusableError):
+            await run_red_team(
+                _context(scene, provider),
+                scene["session"],
+                job=scene["job"],
+                request=scene["request"],
+                use_batch=False,
+            )
+        assert provider.unusable_replies == 2
+
+
 class TestThePlantedContradictionIsChallenged:
     @pytest.fixture
     async def outcome(self, scene: dict[str, Any]) -> dict[str, Any]:
@@ -635,6 +712,101 @@ class TestThePlantedContradictionIsChallenged:
             outcome["session"], job=outcome["job"], request=outcome["request"]
         )
         assert [t.kind for t in fired] == []
+
+
+class TestTheAdversarySeesTheFigureTheDraftWasWrittenFrom:
+    """The readiness audit's second AstraZeneca run produced eight escalated challenges,
+    six of them severity 3 to 5, saying every headline figure in the draft contradicted the
+    run's own record: gross margin 0.668 against the draft's 81.9%, operating margin 0.028
+    against 23.4%, free cash flow $4,872m against $11,765m. The draft was right — the run
+    holds FY2025 gross margin 0.818978 and free cash flow $11,765m — and the adversary was
+    shown FY2021 and FY2022, because the index took the first forty rows by sequence and
+    the ratio suite computes the oldest year first. Worse, the entries carried no period at
+    all, so the two could not be told apart even in principle.
+
+    The accusations then reached the published report, unresolved, where a reader meets them
+    as the platform's own verdict on its own figures.
+    """
+
+    async def _with_five_years(self, scene: dict[str, Any]) -> dict[str, Any]:
+        session: AsyncSession = scene["session"]
+        for index, year in enumerate(range(2021, 2026)):
+            session.add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    name="gross_margin",
+                    formula="gross margin = gross profit / revenue",
+                    function_ref="aer.calc.ratios:gross_margin",
+                    code_version="test",
+                    inputs=[],
+                    output_value=Decimal("0.60") + Decimal("0.05") * index,
+                    output_unit="pure",
+                    period_label=f"FY{year}",
+                    period_end=date(year, 12, 31),
+                    sequence=index,
+                )
+            )
+        # A sensitivity cell: one of a grid of them, and never the figure a draft quotes.
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="test",
+                inputs=[],
+                parameters={"case": "sensitivity"},
+                output_value=Decimal("11.11"),
+                output_unit="USD/shares",
+                sequence=98,
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="test",
+                inputs=[],
+                parameters={"case": "base"},
+                output_value=Decimal("99.99"),
+                output_unit="USD/shares",
+                sequence=99,
+            )
+        )
+        await session.flush()
+        return scene
+
+    async def test_the_newest_period_is_what_the_adversary_is_shown(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+        margins = [row for row in index.calculations if row["name"] == "gross_margin"]
+
+        assert len(margins) == 1, "one row per figure, at its newest period"
+        assert margins[0]["period"] == "FY2025"
+        assert Decimal(margins[0]["value"]) == Decimal("0.80")
+
+    async def test_every_figure_states_its_period(self, scene: dict[str, Any]) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+
+        assert index.calculations, "the index must carry the run's figures"
+        assert all("period" in row for row in index.calculations)
+
+    async def test_a_sensitivity_cell_is_not_offered_as_the_answer(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+        per_share = [row for row in index.calculations if row["name"] == "value_per_share"]
+
+        assert [Decimal(row["value"]) for row in per_share] == [Decimal("99.99")]
 
 
 class TestRejectionAndSkipping:

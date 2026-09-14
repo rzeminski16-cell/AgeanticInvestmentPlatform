@@ -1,0 +1,63 @@
+{
+  "payload": {
+    "subject": "d88e5c60-588d-44a1-b4aa-8e5421eddc90",
+    "subject_period_end": "2026-09-11",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0001652044",
+        "name": "Alphabet Inc.",
+        "rationale": "Direct overlap in cloud infrastructure (Google Cloud vs Azure), enterprise software, and AI investment; differs in ad-driven revenue mix, but comparable scale and platform economics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001018724",
+        "name": "AMAZON COM INC",
+        "rationale": "AWS competes directly with Azure in cloud infrastructure; Amazon's retail segment is not comparable, so multiple reflects a blended, partly overlapping business.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001341439",
+        "name": "ORACLE CORP",
+        "rationale": "Enterprise software and cloud infrastructure competitor with overlapping database, ERP, and cloud migration customers, though smaller scale and more concentrated in enterprise apps.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001108524",
+        "name": "Salesforce, Inc.",
+        "rationale": "Enterprise SaaS competitor overlapping in CRM, productivity, and AI-enabled business software; smaller and more narrowly focused than Microsoft's diversified portfolio.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001000184",
+        "name": "SAP SE",
+        "rationale": "Global enterprise software leader competing in ERP and cloud business applications, similar large-enterprise customer base though less diversified into consumer/OS/gaming.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000051143",
+        "name": "INTERNATIONAL BUSINESS MACHINES CORP",
+        "rationale": "Overlaps in enterprise IT services, hybrid cloud, and AI software; IBM's legacy hardware/consulting mix makes the comparison partial.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000796343",
+        "name": "ADOBE INC.",
+        "rationale": "Comparable high-margin software subscription model and enterprise/creative software overlap, though far smaller scale and no cloud infrastructure business.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000320193",
+        "name": "Apple Inc.",
+        "rationale": "Comparable as a mega-cap technology platform with software/services growth focus, though core hardware-driven revenue model differs substantially from Microsoft's.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "658f9ed710e807e88add2feb8580ff71a53b666629789ad925d3301e5d306923",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "8d1127b2-9ec9-450b-9ad6-1366c7bfb791"
+  }
+}

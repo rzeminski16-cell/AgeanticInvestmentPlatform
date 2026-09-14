@@ -109,7 +109,7 @@ from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
 from aer.services import requests as request_service
 from aer.services.acquisition import acquisition_root, record_acquisition
-from aer.services.analysis import analyse_company
+from aer.services.analysis import analyse_company, annual_facts
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
 from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
@@ -125,6 +125,7 @@ from aer.services.comps import (
     peer_set_required,
     propose_peers_from_sic,
 )
+from aer.services.comps import payload_for_job as peer_payload_for_job
 from aer.services.comps_run import build_comps_table
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
@@ -160,6 +161,7 @@ from aer.services.themes import (
     theme_set_payload,
     theme_set_required,
 )
+from aer.services.themes import payload_for_job as theme_payload_for_job
 from aer.services.valuation_run import value_the_business
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
@@ -2317,14 +2319,15 @@ async def _classify(context: StepContext) -> StepResult:
     A SIC code matching no specialist profile produces an empty proposal, no gate, and the
     standard model — which is the right answer for most listed companies.
 
-    **`Company.sic` is populated by the adapters that parse it**, which today means Companies
-    House and the SEC *submissions* endpoint. This slice acquires *companyfacts*, which does
-    not carry a SIC code, so a run through this path classifies nothing and takes the standard
-    model. That is safe rather than merely convenient — an absent classification is the
-    permissive state and it is reached here by the data genuinely not being present, not by a
-    lookup failing quietly — but it does mean the block is exercised by runs that resolve a
-    SIC and not yet by this one. The mechanism, the gate and the refusal are tested
-    independently of where the proposal came from.
+    **`Company.sic` is populated by the adapters that parse it**, which means Companies House
+    and the SEC *submissions* index — the index `acquire` already fetches for the filings, and
+    which `aer.services.filings` records the code from. It did not, once, and the consequence
+    was not theoretical: M&T Bank's live audit run classified nothing, met no sector gate and
+    ran the standard model on a bank, which is the one thing ADR 0029 exists to prevent. A SIC
+    code matching no specialist profile still produces an empty proposal, no gate and the
+    standard model, and an index that carries no code at all leaves the column as it was —
+    the permissive state is reached by the data saying nothing, never by a lookup failing
+    quietly.
     """
     acquired = context.output_of("acquire")
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
@@ -2546,7 +2549,16 @@ async def _gate_peer_set(context: StepContext) -> StepResult:
     if not peer_set_required(produced):
         return StepResult(output={"gate": GateKind.PEER_SET.value, "required": False, "peers": 0})
 
-    return await _require_approval(context, gate=GateKind.PEER_SET, of_step=PEER_SET_STEP)
+    # The whole set — the step's proposal and the operator's additions — exactly as the
+    # review page hashes it. Before the readiness audit of 2026-09 the gate verified the
+    # step's frozen proposal alone, so an operator who added a peer could never pass it.
+    live = await peer_payload_for_job(context.session, context.job.id)
+    return await _require_approval(
+        context,
+        gate=GateKind.PEER_SET,
+        of_step=PEER_SET_STEP,
+        expected_hash=sha256_hex(canonical_json(live)),
+    )
 
 
 def theme_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
@@ -2659,7 +2671,14 @@ async def _gate_theme_set(context: StepContext) -> StepResult:
     if not theme_set_required(produced):
         return StepResult(output={"gate": GateKind.THEME_SET.value, "required": False, "themes": 0})
 
-    return await _require_approval(context, gate=GateKind.THEME_SET, of_step=THEME_STEP)
+    # The whole slate, as the review page hashes it (see `_gate_peer_set`).
+    live = await theme_payload_for_job(context.session, context.job.id)
+    return await _require_approval(
+        context,
+        gate=GateKind.THEME_SET,
+        of_step=THEME_STEP,
+        expected_hash=sha256_hex(canonical_json(live)),
+    )
 
 
 # ==========================================================================================
@@ -2929,20 +2948,27 @@ async def _revenue_growth(
     that. Returns ``None`` when there is only one year, which is a fact about the company
     rather than a failure of the run.
     """
-    facts = list(
-        await context.session.scalars(
-            select(FinancialFact)
-            .where(
-                FinancialFact.company_id == company_id,
-                FinancialFact.concept == SLICE_CONCEPT,
-                FinancialFact.unit == "USD",
-                # The consolidated line only: a segment's revenue as either endpoint
-                # would put one slice's growth forward as the company's.
-                FinancialFact.dimension_axis.is_(None),
-            )
-            .order_by(FinancialFact.period_end)
-        )
+    # Fiscal years only, chosen exactly as the analysis chooses them. The store also
+    # holds every quarter a 10-Q filed, and a September run on a June-quarter filer
+    # would otherwise compound an annual figure into a three-month one (readiness
+    # audit 2026-09): the newest `period_end` was a quarter's.
+    request = await _request_for(context)
+    by_period = await annual_facts(
+        context.session,
+        company_id=company_id,
+        as_of=request.work_order.as_of_date,
+        point_in_time=request.work_order.point_in_time,
     )
+    facts = [
+        fact
+        for period in sorted(by_period)
+        for fact in by_period[period]
+        if fact.concept == SLICE_CONCEPT
+        and fact.unit == "USD"
+        # The consolidated line only: a segment's revenue as either endpoint would put
+        # one slice's growth forward as the company's.
+        and fact.dimension_axis is None
+    ]
 
     minimum_for_a_growth_rate = 2
     if len(facts) < minimum_for_a_growth_rate:
@@ -3470,17 +3496,33 @@ async def gate_payload(session: AsyncSession, *, job: Job, gate: str) -> dict[st
     if gate == GateKind.FINAL.value:
         return await final_gate_payload(session, job_id=job.id)
 
+    if gate in _OPERATOR_EXTENDED_GATES:
+        return await _whole_set_payload(session, job=job, gate=gate, produced=produced)
+
     builder = _STEP_OUTPUT_GATES.get(gate)
-    if builder is None:
+    return {} if builder is None else builder(produced)
+
+
+# The peer set and the theme slate are the step's proposal plus whatever the operator added
+# on the review page, and the services own that funnel: the page renders it, the approval
+# hashes it, the gate verifies against it. Building either from the step's frozen output
+# was how an operator's addition made the gate impassable (readiness audit 2026-09).
+_OPERATOR_EXTENDED_GATES: Final = frozenset({GateKind.PEER_SET.value, GateKind.THEME_SET.value})
+
+
+async def _whole_set_payload(
+    session: AsyncSession, *, job: Job, gate: str, produced: Mapping[str, Any]
+) -> dict[str, Any]:
+    if not produced:
         return {}
-    return builder(produced)
+    if gate == GateKind.PEER_SET.value:
+        return await peer_payload_for_job(session, job.id)
+    return await theme_payload_for_job(session, job.id)
 
 
-# The five that are a pure function of one step's output.
+# The two that are a pure function of one step's output.
 _STEP_OUTPUT_GATES: Final[Mapping[str, Callable[[Mapping[str, Any]], dict[str, Any]]]] = {
     GateKind.SECTOR_SPECIALIST.value: sector_gate_payload,
-    GateKind.PEER_SET.value: peer_gate_payload,
-    GateKind.THEME_SET.value: theme_gate_payload,
     GateKind.UNMAPPED_CONCEPTS.value: unmapped_gate_payload,
 }
 
@@ -3709,24 +3751,29 @@ async def _render(context: StepContext) -> StepResult:
         select(Approval).where(Approval.job_id == context.job.id, Approval.gate == GateKind.FINAL)
     )
 
-    report = Report(
-        job_id=context.job.id,
-        request_id=request.id,
-        company_id=company.id if company is not None else None,
-        as_of_date=request.work_order.as_of_date,
-        rating=None,
-        confidence=None,
-        content={"markdown": markdown, "sections": document.section_keys},
-        content_hash=sha256_hex(markdown),
-        markdown_artefact_id=markdown_artefact.artefact.id,
-        html_artefact_id=html_artefact.artefact.id,
-        approved_by=approval.actor_user_id if approval is not None else None,
-        approved_at=approval.decided_at if approval is not None else None,
-        # Frozen only because a human approved it. The check constraint enforces the same
-        # rule, so an immutable report always has an approval behind it.
-        immutable=approval is not None,
-    )
-    context.session.add(report)
+    # Re-entrant. A step that fails after this row is flushed publishes it with FAILED
+    # (the engine commits what a failed step wrote), and `reports.job_id` is unique — so
+    # before the readiness audit of 2026-09 a PDF renderer that raised once left a run
+    # that could neither be resumed (a second insert) nor started afresh (a report
+    # exists). The row is the run's, and a re-run of the step is the same report again.
+    report = await context.session.scalar(select(Report).where(Report.job_id == context.job.id))
+    if report is None:
+        report = Report(job_id=context.job.id, request_id=request.id)
+        context.session.add(report)
+    report.company_id = company.id if company is not None else None
+    report.as_of_date = request.work_order.as_of_date
+    report.rating = None
+    report.confidence = None
+    report.content = {"markdown": markdown, "sections": document.section_keys}
+    report.content_hash = sha256_hex(markdown)
+    report.markdown_artefact_id = markdown_artefact.artefact.id
+    report.html_artefact_id = html_artefact.artefact.id
+    report.pdf_artefact_id = None
+    report.approved_by = approval.actor_user_id if approval is not None else None
+    report.approved_at = approval.decided_at if approval is not None else None
+    # Frozen only because a human approved it. The check constraint enforces the same
+    # rule, so an immutable report always has an approval behind it.
+    report.immutable = approval is not None
     await context.session.flush()
 
     # The confirmed themes land in rows only now, pointed at this report, so the edge

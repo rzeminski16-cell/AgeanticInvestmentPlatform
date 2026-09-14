@@ -1,0 +1,31 @@
+{
+  "payload": {
+    "subject": "d8831bbf-ae2c-400c-8e56-c5ffbc0d8fa3",
+    "themes": [
+      {
+        "key": "cre-credit-cycle",
+        "label": "Commercial real estate credit cycle",
+        "rationale": "M&T carries a sizable CRE and office/multifamily loan book; asset quality and reserve levels move with CRE valuations, refinancing stress and occupancy trends across its Northeast/Mid-Atlantic footprint.",
+        "existing": false
+      },
+      {
+        "key": "net-interest-margin-rate-sensitivity",
+        "label": "Net interest margin sensitivity to policy rates",
+        "rationale": "As a deposit-funded regional bank, M&T's core earnings are highly sensitive to Fed rate moves, deposit repricing lags and yield curve shape, directly driving net interest income swings.",
+        "existing": false
+      },
+      {
+        "key": "regional-bank-deposit-competition",
+        "label": "Regional bank deposit competition and funding cost pressure",
+        "rationale": "Post-2023 deposit flight to money-market funds and large banks pressures M&T's funding costs and deposit mix, a structural force shared across mid-size regional banks.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "89a56ed2d9229fad7a8a2d97461af1475e2a8b3fd783f93f688aed6397a262f9",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb"
+  }
+}

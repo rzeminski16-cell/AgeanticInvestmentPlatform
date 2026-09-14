@@ -203,16 +203,33 @@ class TestPricing:
         # On the row, so last month's costs stay reconcilable when the rate changes.
         assert line.fx_rate == Decimal("0.79")
 
+    def test_a_dated_snapshot_id_is_priced_as_its_alias(self) -> None:
+        """The API echoes `claude-haiku-4-5-20251001` for a route that named the alias.
+
+        Readiness audit 2026-09, F-13: every Haiku call on a live run was metered at Opus
+        rates because the table held only the alias and the fallback is the dearest model.
+        """
+        usage = Usage(input_tokens=MILLION, output_tokens=0, model="claude-haiku-4-5-20251001")
+        assert price_usage(usage, provider="a", usd_to_gbp=Decimal(1))[0].amount_usd == Decimal(
+            "1.00"
+        )
+
+    def test_the_tier_above_opus_is_priced_at_its_own_rate(self) -> None:
+        usage = Usage(input_tokens=0, output_tokens=MILLION, model="claude-fable-5-1")
+        assert price_usage(usage, provider="a", usd_to_gbp=Decimal(1))[0].amount_usd == Decimal(
+            "50.00"
+        )
+
     def test_an_unknown_model_is_priced_at_the_dearest_known_one(self) -> None:
         """Overstating pauses a run for a decision; understating spends money nobody agreed to."""
         assert unknown_model_prices("claude-something-unreleased") == max(
             DEFAULT_PRICES.values(), key=lambda p: p.output_usd
         )
 
-        # Opus 5's rate, $5/$25 — the dearest in the table.
+        # Fable 5's rate, $10/$50 — the dearest in the table.
         usage = Usage(input_tokens=MILLION, output_tokens=0, model="claude-unreleased")
         assert price_usage(usage, provider="a", usd_to_gbp=Decimal(1))[0].amount_usd == Decimal(
-            "5.00"
+            "10.00"
         )
 
     def test_the_published_opus_rate_is_what_the_table_holds(self) -> None:

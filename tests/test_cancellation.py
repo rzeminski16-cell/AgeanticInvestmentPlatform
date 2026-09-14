@@ -79,6 +79,18 @@ class TestRequestingIt:
         assert found.reason == "Wrong as-of date"
         assert found.requested_by == user.id
 
+    async def test_a_run_waiting_at_a_gate_ends_at_once(self, queued: dict) -> None:
+        """Readiness audit 2026-09: a cancellation of a run waiting at a gate was a row
+        nothing would ever act on — no worker holds a paused run, so no scheduling boundary
+        reads it — and the console said "Stopping" for ever."""
+        session, job, user = queued["session"], queued["job"], queued["user"]
+        job.status = JobStatus.AWAITING_APPROVAL
+
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+
+        assert job.status is JobStatus.CANCELLED
+        assert job.finished_at is not None
+
     async def test_it_is_not_written_to_the_jobs_row(self, queued: dict) -> None:
         # The whole design in one assertion. The worker holds this row's lock for the length
         # of the run, so a cancellation that touched it would block until the run it was

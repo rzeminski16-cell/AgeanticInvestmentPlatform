@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    :root{
+      --canvas:#F4F7F8; --surface:#FFFFFF; --sunken:#EAF0F1; --selected:#E2F3F4;
+      --ink:#15252E; --muted:#52656E; --subtle:#5B6D75;
+      --line:#CDD8DC; --line-strong:#9AAEB5; --boundary:#6D8189;
+      --verif:#0F6673; --verif-strong:#084D57; --verif-wash:#E2F3F4; --on-verif:#FFFFFF;
+      --warn:#7A4B00; --warn-wash:#FFF3D6; --on-warn:#FFFFFF;
+      --ok:#14613F; --ok-wash:#E3F4EA;
+      --fail:#9B293F; --fail-wash:#FBEAED;
+      --refuse:#6B3F60; --refuse-wash:#F6EAF2;
+      --mut-wash:#EAF0F1;
+      --bar:"Barlow Semi Condensed","Arial Narrow",sans-serif;
+      --ss:"Source Sans 3","Segoe UI",Arial,sans-serif;
+      --mono:"IBM Plex Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--ss);
+      font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased}
+    a{color:var(--verif);text-decoration:none} a:hover{color:var(--verif-strong)}
+    .app{display:flex;height:900px;overflow:hidden}
+    .nav{width:232px;flex:none;background:var(--surface);border-right:1px solid var(--line);
+      padding:20px 12px;display:flex;flex-direction:column;gap:2px}
+    .brand{font-family:var(--bar);font-size:24px;line-height:30px;font-weight:700;
+      letter-spacing:-.005em;color:var(--ink);padding:0 12px 20px}
+    .nl{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:4px;
+      font-size:16px;line-height:24px;color:var(--muted);font-weight:500}
+    .nl.on{background:var(--selected);color:var(--verif);font-weight:600}
+    .nl .c{width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center}
+    .nspace{flex:1}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .top{height:56px;flex:none;border-bottom:1px solid var(--line);background:var(--surface);
+      display:flex;align-items:center;gap:12px;padding:0 24px}
+    .cmd{flex:1;max-width:440px;height:32px;border:1px solid var(--boundary);border-radius:4px;
+      display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--subtle);
+      font-size:14px;line-height:20px;background:var(--surface)}
+    .kbd{margin-left:auto;font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;
+      color:var(--subtle);border:1px solid var(--line);border-radius:2px;padding:0 4px}
+    .body{flex:1;overflow:hidden;padding:32px}
+    .eyebrow{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:600;
+      letter-spacing:.055em;text-transform:uppercase;color:var(--subtle)}
+    h1{font-family:var(--bar);font-size:32px;line-height:36px;font-weight:700;
+      letter-spacing:-.01em;margin:0}
+    h2{font-family:var(--bar);font-size:20px;line-height:26px;font-weight:600;margin:0}
+    .lead{font-size:18px;line-height:28px;color:var(--muted);margin:6px 0 0}
+    .sheet{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+    .cap{font-size:12px;line-height:16px;font-weight:500;letter-spacing:.01em;color:var(--subtle)}
+    .data{font-family:var(--mono);font-size:14px;line-height:20px;font-weight:450;
+      font-variant-numeric:tabular-nums lining-nums}
+    .datasm{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;
+      letter-spacing:.015em;font-variant-numeric:tabular-nums lining-nums}
+    .dataxl{font-family:var(--mono);font-size:28px;line-height:34px;font-weight:600;
+      letter-spacing:-.02em;font-variant-numeric:tabular-nums lining-nums}
+    .btn{height:32px;border:1px solid var(--boundary);border-radius:4px;background:var(--surface);
+      color:var(--ink);font-family:var(--ss);font-size:14px;line-height:20px;font-weight:600;
+      display:inline-flex;align-items:center;padding:0 12px;gap:6px}
+    .btn.pri{background:var(--verif);border-color:var(--verif);color:var(--on-verif)}
+    .btn.dec{background:var(--warn);border-color:var(--warn);color:var(--on-warn)}
+    .tag{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 6px;border-radius:2px;
+      font-family:var(--mono);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.015em}
+    .foot{padding:12px 32px;border-top:1px solid var(--line);color:var(--subtle);
+      font-size:12px;line-height:16px;font-weight:500;letter-spacing:.01em;display:flex;gap:16px}
+
+  </style>
+</helmet>
+<div class="app">
+<div class="nav"><div class="brand">Ageantic</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11M3 10h7M3 14h9"/><path d="M13.5 13.5l2 2 3.5-4"/></svg></span>Today</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h14"/><rect x="4" y="9" width="3" height="7"/><rect x="8.5" y="5" width="3" height="11"/><rect x="13" y="11" width="3" height="5"/></svg></span>Portfolio</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h14M5 17V5l7-2v14M12 17V8l5 1.5V17"/><path d="M7.5 7.5h1.5M7.5 10.5h1.5"/></svg></span>Companies</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v3h3"/><circle cx="9" cy="11" r="2.5"/><path d="M11 13l2 2"/></svg></span>Research</div><div class="nl on"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--verif)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a6 6 0 1 1 1.8 4.3"/><path d="M4 15v-4h4"/><path d="M10 7v3.5l2.5 1.5"/></svg></span>Review</div><div class="nspace"></div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="8" cy="6" r="1.8"/><circle cx="13" cy="10" r="1.8"/><circle cx="7" cy="14" r="1.8"/></svg></span>Platform</div></div>
+<div class="main">
+<div class="top"><div class="cmd"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--subtle)" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>Jump to a company, or start a request<span class="kbd">/</span></div></div>
+<div class="body" style="overflow:auto">
+  <div class="eyebrow">Review · closed 12 January 2026</div>
+  <h1 style="margin-top:3px">M&amp;G — was the reasoning sound?</h1>
+  <p class="lead" style="max-width:80ch">Two questions, and the form will not let you conflate them. A trade that made money
+    on a broken thesis is a bad decision that paid; a loss on sound reasoning is not a mistake.</p>
+
+  <div style="display:flex;gap:20px;margin-top:20px;align-items:flex-start">
+    <div style="flex:1;min-width:0">
+      <div class="sheet" style="padding:18px 20px">
+        <div class="eyebrow" style="color:var(--verif)">Question one — at the time, was the reasoning sound?</div>
+        <div class="cap" style="margin-top:4px">Answered against what you could know then. Every document carries the date it was retrieved.</div>
+        <div style="margin-top:11px">
+          <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)">
+            <span class="tag" style="background:#E3F4EA;color:#14613F">held</span>
+            <span style="flex:1;font-size:14px;line-height:20px">Net interest margin expands as rates stay above 4%</span>
+            <span class="datasm" style="color:var(--subtle)">measured 3 times</span></div>
+          <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)">
+            <span class="tag" style="background:#FBEAED;color:#9B293F">broke</span>
+            <span style="flex:1;font-size:14px;line-height:20px">Assets under management grow above 5% a year</span>
+            <span class="datasm" style="color:var(--subtle)">broke 4 Nov</span></div>
+          <div style="display:flex;gap:11px;padding:9px 0">
+            <span class="tag" style="background:#EAF0F1;color:#52656E">by hand</span>
+            <span style="flex:1;font-size:14px;line-height:20px">The new chief executive keeps the dividend</span>
+            <span class="datasm" style="color:var(--subtle)">never reviewed</span></div>
+        </div>
+        <div style="margin-top:13px;display:flex;gap:8px">
+          <span class="btn" style="background:#14613F;border-color:#14613F;color:#fff">Sound</span>
+          <span class="btn">Sound, with a gap</span><span class="btn">Not sound</span></div>
+        <div style="margin-top:13px;border:1px solid var(--boundary);border-radius:4px;padding:10px 12px;font-size:14px;line-height:20px;min-height:60px">
+          Two of three premises were testable and one broke five weeks before I sold. I acted on it,
+          which is the process working. I never set a test for the dividend premise and should have.</div>
+      </div>
+
+      <div class="sheet" style="margin-top:16px;padding:18px 20px">
+        <div class="eyebrow" style="color:var(--verif)">Question two — did it work out?</div>
+        <div style="margin-top:9px;display:flex;gap:22px">
+          <div><div class="cap">Realised</div><div class="data" style="font-size:18px;color:#14613F;font-weight:550">+£3,214</div></div>
+          <div><div class="cap">Return</div><div class="data" style="font-size:18px;color:#14613F;font-weight:550">+14.1%</div></div>
+          <div><div class="cap">Held for</div><div class="data" style="font-size:18px">11 months</div></div>
+          <div><div class="cap">Against the index</div><div class="data" style="font-size:18px;color:#9B293F;font-weight:550">&#8722;2.8%</div></div>
+        </div></div>
+    </div>
+
+    <div style="width:390px;flex:none">
+      <div class="sheet" style="padding:18px 20px">
+        <h2>Which of the four was it?</h2>
+        <div class="cap" style="margin-top:4px">The middle two are the ones worth learning from.</div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+<div style="flex:1;border:2px solid #14613F;border-radius:8px;padding:14px 16px;background:#E3F4EA">
+  <div style="font-size:15px;line-height:21px;font-weight:600;color:#14613F">Right for the right reasons</div>
+  <div class="cap" style="margin-top:5px">Sound reasoning, and it worked.</div></div>
+<div style="flex:1;border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--surface)">
+  <div style="font-size:15px;line-height:21px;font-weight:600;color:#7A4B00">Right anyway</div>
+  <div class="cap" style="margin-top:5px">Weak reasoning that paid. The dangerous one — it teaches the wrong lesson.</div></div>
+<div style="flex:1;border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--surface)">
+  <div style="font-size:15px;line-height:21px;font-weight:600;color:#0F6673">Wrong for good reasons</div>
+  <div class="cap" style="margin-top:5px">Sound reasoning, poor outcome. Not a mistake.</div></div>
+<div style="flex:1;border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--surface)">
+  <div style="font-size:15px;line-height:21px;font-weight:600;color:#9B293F">Wrong for bad reasons</div>
+  <div class="cap" style="margin-top:5px">The only one that is simply an error.</div></div>
+        </div>
+        <span class="btn pri" style="margin-top:14px;width:100%;justify-content:center">Record the review</span>
+        <div class="cap" style="margin-top:9px">This is the eleventh review. Calibration needs about twenty before it says anything.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span>This is not investment advice.</span><span style="margin-left:auto">Valued at the close of 13 September</span></div>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

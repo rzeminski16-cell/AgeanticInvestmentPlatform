@@ -1,0 +1,24 @@
+{
+  "payload": {
+    "sector_key": "banks",
+    "rationale": "SIC 6022 matches Banks.",
+    "proposed_by": "sic_lookup",
+    "blocked_models": [
+      "dcf_fcff"
+    ],
+    "allowed_models": [
+      "comps_multiples",
+      "dividend_discount",
+      "residual_income"
+    ],
+    "warnings": [
+      "Enterprise value and free cash flow to the firm are not meaningful for a bank: deposits and debt are raw material, not financing.",
+      "Capital adequacy, net interest margin and provisioning govern the valuation. The residual-income model offered here values the excess return earned on book value, and equals a dividend discount only under clean surplus: a bond book carrying unrealised losses through other comprehensive income is treated as fully earning."
+    ]
+  },
+  "hash": "728e26ce33249183f70742d51ae2e48884d7094ab0827260aa473d61cd613f34",
+  "pause_context": {
+    "gate": "SECTOR_SPECIALIST",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb"
+  }
+}

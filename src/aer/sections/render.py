@@ -77,8 +77,14 @@ CITATION_KEYS = ("source_document_id", "calculation_id")
 # Keys that carry provenance rather than content: never rendered as text, only turned into
 # footnotes. ``financial_fact_id`` and ``extraction_id`` are provenance the numeral rule
 # reads and no reader can follow — they name rows in this platform's own tables — so they
-# are hidden here exactly as the numeral rule exempts them.
-_METADATA_KEYS = frozenset({*CITATION_KEYS, "confidence", "financial_fact_id", "extraction_id"})
+# are hidden here exactly as the numeral rule exempts them. ``prior_report_id`` is the
+# same kind of thing and was not: every row of the refresh run's comparison table carries
+# one, so MSFT's second live run reached gate 2 with twenty-one raw UUIDs in front of the
+# reader and `presentation_integrity` failed on all of them. The id stays in the content
+# for the export and the interface, which can resolve it; the printed table cannot.
+_METADATA_KEYS = frozenset(
+    {*CITATION_KEYS, "confidence", "financial_fact_id", "extraction_id", "prior_report_id"}
+)
 
 _HEADING_BASE = 2
 

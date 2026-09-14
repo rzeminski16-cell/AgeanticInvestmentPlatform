@@ -1,0 +1,401 @@
+{
+  "payload": {
+    "plan_id": "699fc429-da4e-4e0d-9368-30f86730c952",
+    "workflow_version": "vertical_slice_v1",
+    "summary": "Standard point-in-time run on M&T Bank Corporation (MTB, NYSE), USD, 12-month horizon, using only material published on or before 2026-09-12; the latest completed reporting period is the quarter ended 2026-06-30. Built around three operator questions: CRE exposure and reserve coverage; whether NIM is at a cyclical peak and what deposit repricing does to it; whether ROTCE justifies the price-to-tangible-book multiple. Evidence is primary-regulatory first (FY2023-FY2025 10-Ks, Q1/Q2 2026 10-Qs, 8-K supplements, FR Y-9C, Call Reports, UBPR). Revised after review: peer CRE and capital data now come from peers' own FR Y-9C/UBPR schedule lines rather than non-uniform 10-Q tables; cost of equity is explicitly sourced and recorded as a labelled assumption, with implied P/TBV shown across a range rather than a point; traded P/TBV is paired with reported ROTCE across the full history, not only at spot; and the disclosed rate-shock simulation is treated as a management model output, cross-checked against realised deposit betas computed by code from average-balance tables. No figure is stated in this plan; all numbers are computed by code from stored facts.",
+    "sections": [
+      {
+        "key": "balance_sheet_liquidity",
+        "focus": "Answers question (a). Loan mix by class from the 10-K/10-Q loan tables: CRE (construction, non-owner-occupied, multifamily, owner-occupied) against total loans and against total risk-based capital, plus the supervisory concentration screens computed on FR Y-9C lines. CECL allowance rollforward and allocation by class, nonaccrual, criticized/classified, net charge-offs and delinquency by class. Funding side for question (b): deposit mix (noninterest-bearing, interest-bearing, time), uninsured share, brokered funding, borrowings, securities portfolio, AOCI and HTM unrealized position, liquidity and capital ratios."
+      },
+      {
+        "key": "earnings_quality",
+        "focus": "Answers question (b) at the reported level. Decompose net interest income into average earning-asset balances, asset yields, interest-bearing liability costs and margin from the average-balance tables. Separate durable spread from items that flatter it: purchase-accounting accretion, day-count and reset effects, securities repositioning gains, reserve build/release, non-recurring fee and expense items. Have code compute realised interest-bearing deposit betas quarter by quarter from those tables against observed policy-rate moves, so the deposit-repricing answer rests on observed behaviour. All forward NIM commentary marked unverified guidance."
+      },
+      {
+        "key": "historical_financial_analysis",
+        "focus": "Multi-year factual base from FY2023-FY2025 10-Ks and 2026 interims: net interest income and margin, provision and net charge-offs, fee income, expense and efficiency, net income to common, ROA, ROCE, ROTCE, tangible common equity, tangible book value per share, share count. Establish the observed peak-to-trough path of margin and CRE balances. Added after review: pair the quarterly price series with the same-period reported TBV per share and ROTCE so code produces a historical P/TBV and P/TBV-to-ROTCE series, giving the spot multiple a reference against MTB's own cycle."
+      },
+      {
+        "key": "valuation_dcf",
+        "focus": "Answers question (c). A free-cash-flow DCF is not a valid frame for a bank holding company; the intended method is residual income on tangible common equity with a dividend-discount cross-check, output as an implied P/TBV from sustainable ROTCE versus cost of equity. Cost of equity has no filed provenance: it is built from the as-of-date Treasury yield, a documented published ERP and a beta estimated by code over a fixed price window, recorded as a labelled assumption. Implied P/TBV must be shown across a stated range of costs of equity and compared to both the traded multiple at the as-of date and the historical P/TBV series."
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "focus": "Parameterise the two quantitative questions. For NIM: deposit-beta scenarios on the down-rate path, asset repricing and fixed-rate rollover. The 10-K/10-Q simulated net interest income change for parallel shocks is used as a reference point but labelled a management model output whose beta, repricing and balance-growth assumptions are undisclosed and not reproducible; it is presented alongside the independently computed realised deposit betas. For credit: CRE loss-severity scenarios on office, multifamily and construction balances, benchmarked to disclosed criticized balances and supervisory stressed loss rates. Assumptions labelled as assumptions."
+      },
+      {
+        "key": "industry_landscape",
+        "focus": "Peer context for the CRE and multiple questions, built for like-for-like comparison. CRE-to-total-capital, allowance-to-loans and asset-quality metrics for the peer set are drawn from the peers' own FR Y-9C/UBPR schedule lines, the same lines used for MTB; peer 10-Qs are used only for items regulatory reports do not carry (tangible common equity, share count). State the peer-selection rule and the published vintage of every regulatory report used, and state any residual definitional difference (owner-occupied, held-for-sale, construction treatment) that survives the common-schedule approach. Include supervisory concentration thresholds."
+      },
+      {
+        "key": "segment_analysis",
+        "focus": "Map reportable segments as defined in the FY2025 10-K segment footnote, with segment net interest income, provision, revenue and average loans and deposits. Reconcile where CRE exposure sits by segment and flag any segment redefinition across the review period that breaks comparability. Include geographic footprint and deposit-share context only where a filed source supports it, since regional concentration bears directly on the CRE loss question."
+      },
+      {
+        "key": "capital_allocation",
+        "focus": "Capital return and its interaction with the book-value multiple: CET1, internal target and the stress capital buffer in force at the as-of date, dividend declarations, repurchase authorisation and actual repurchases by quarter, the effect of buybacks on tangible book value per share and share count, and AOCI accretion. Cover acquisition-related capital use and any transaction announced in 8-Ks through 2026-09-12. Tie payout and retention to the residual-income inputs so the valuation section and this section use one set of stored facts."
+      },
+      {
+        "key": "investment_thesis",
+        "focus": "State the thesis as falsifiable propositions tied to the three operator questions: whether CRE reserve coverage is adequate relative to observed criticized migration; whether the margin is peaking, plateauing or still expanding under the prevailing rate path; and whether normalised ROTCE clears an assumed cost of equity by enough to justify the traded multiple of tangible book, stated across the cost-of-equity range rather than at one point. Each proposition carries the specific filed evidence that would confirm or break it and the section presenting it. No figures here; references only."
+      },
+      {
+        "key": "key_risks",
+        "focus": "Company-level risks over the 12-month horizon: CRE credit migration concentrated in office and construction, deposit-cost stickiness compressing spread if rates fall faster than assets reprice, securities and AOCI marks, regulatory capital change, Northeast/Mid-Atlantic concentration, acquisition and integration risk, and operational or legal matters from the 10-K risk factors and legal proceedings note. Distinguish risks the filings disclose from risks proposed by the analyst and not yet evidenced."
+      },
+      {
+        "key": "catalysts",
+        "focus": "Dated, checkable events in the next twelve months: the Q3 2026 earnings release and 10-Q (after the as-of date, therefore outside the evidence set but inside the horizon), subsequent quarterly releases, dividend declaration dates, buyback authorisation renewal, the next supervisory stress-test cycle and stress capital buffer reset, and scheduled policy-rate decisions that drive deposit repricing. Each item flagged as scheduled-and-unknown rather than forecast."
+      },
+      {
+        "key": "executive_summary",
+        "focus": "Written last, from validated section outputs only. One paragraph per operator question, each stating the answer, the confidence, the single piece of filed evidence it rests on, and the condition that would reverse it. Where the answer depends on an assumed input with no filed provenance (cost of equity, rate path, loss severity), say so in the same sentence as the answer. Every figure is a reference to a stored, code-computed fact. Any question the evidence base could not answer at the as-of date is stated as unanswered rather than softened."
+      }
+    ],
+    "section_listing": [
+      {
+        "key": "executive_summary",
+        "title": "Executive Summary",
+        "position": "100.00",
+        "required": true,
+        "token_budget": 2000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0672"
+      },
+      {
+        "key": "investment_thesis",
+        "title": "Investment Thesis",
+        "position": "110.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "business_overview",
+        "title": "Business Overview",
+        "position": "120.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "segment_analysis",
+        "title": "Segment Analysis",
+        "position": "130.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "industry_landscape",
+        "title": "Industry & Competitive Positioning",
+        "position": "140.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "management_governance",
+        "title": "Management & Governance",
+        "position": "150.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "historical_financial_analysis",
+        "title": "Historical Financial Analysis",
+        "position": "200.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "earnings_quality",
+        "title": "Earnings Quality",
+        "position": "210.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "title": "Balance Sheet & Liquidity",
+        "position": "220.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "cash_flow_analysis",
+        "title": "Cash Flow Analysis",
+        "position": "230.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "capital_allocation",
+        "title": "Capital Allocation",
+        "position": "240.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "growth_outlook",
+        "title": "Growth Outlook",
+        "position": "250.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "valuation_dcf",
+        "title": "Valuation \u2014 Discounted Cash Flow",
+        "position": "300.00",
+        "required": true,
+        "token_budget": 5000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0790"
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "title": "Scenarios & Sensitivities",
+        "position": "310.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "key_risks",
+        "title": "Key Risks",
+        "position": "400.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "catalysts",
+        "title": "Catalysts",
+        "position": "410.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "prior_research_comparison",
+        "title": "Prior Research Comparison",
+        "position": "900.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      },
+      {
+        "key": "validation_disagreements",
+        "title": "Validation & Disagreements",
+        "position": "910.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      }
+    ],
+    "planned_sources": [
+      {
+        "why": "Most recent periodic disclosure available at the as-of date; the primary anchor for CRE exposure, reserve coverage and current-quarter margin.",
+        "tier": "primary_regulatory",
+        "what": "MTB Form 10-Q for the quarter ended 2026-06-30: loan table by class, CECL allowance rollforward and allocation, nonaccrual/criticized detail, average balance and rate tables, capital ratios, deposit composition.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Only annual document with full CRE composition, allowance methodology and the rate-shock disclosure needed for the credit and NIM scenarios.",
+        "tier": "primary_regulatory",
+        "what": "MTB Form 10-K for FY2025: loan portfolio by class and property type, allowance methodology and CECL assumptions, selected financial data, interest-rate sensitivity simulation, segment footnote, risk factors, legal proceedings.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Supplies the intermediate quarter so margin and deposit-cost trajectory can be traced sequentially rather than year-over-year only.",
+        "tier": "primary_regulatory",
+        "what": "MTB Form 10-Q for the quarter ended 2026-03-31: same loan, allowance, deposit and average-balance schedules.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Establishes whether current margin and reserve levels are peaks, plateaus or mid-trend, which question (b) cannot be answered without.",
+        "tier": "primary_regulatory",
+        "what": "MTB Forms 10-K for FY2024 and FY2023: prior-year comparatives for loans by class, allowance, NIM, ROTCE and tangible book value per share.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Supplements carry per-quarter detail on deposit cost and CRE by property type that the 10-Q narrative often omits.",
+        "tier": "primary_company",
+        "what": "MTB Forms 8-K with EX-99 earnings releases and quarterly financial supplements, Q1 2024 through Q2 2026: NIM, deposit cost by category, net charge-offs, criticized balances, ROTCE, TBV per share, accretion where disclosed.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Gives the uniform, cross-bank-comparable basis for CRE-to-total-risk-based-capital used identically for MTB and every peer.",
+        "tier": "primary_regulatory",
+        "what": "MTB FR Y-9C consolidated holding-company reports through 2026-06-30: HC-C loans by category, HC-R regulatory capital, HI income, and the CRE concentration items; record filed and amended vintages.",
+        "provider": "FFIEC CDR"
+      },
+      {
+        "why": "Added after review: puts peer CRE and capital on the identical schedule lines so the concentration comparison is like-for-like, not 10-Q definition-dependent.",
+        "tier": "primary_regulatory",
+        "what": "FR Y-9C reports through the latest common published cycle for the defined peer set, same HC-C, HC-R and concentration lines used for MTB.",
+        "provider": "FFIEC CDR"
+      },
+      {
+        "why": "Bank-level granularity on nonaccrual and uninsured deposits that holding-company filings aggregate away.",
+        "tier": "primary_regulatory",
+        "what": "Call Reports (FFIEC 031) for Manufacturers and Traders Trust Company through 2026-06-30: loan detail, past due and nonaccrual schedule, deposit insurance and uninsured deposit items.",
+        "provider": "FFIEC CDR"
+      },
+      {
+        "why": "Regulator-defined peer positioning. Availability check first because the 2026-06-30 cycle may not be published at the as-of date; MTB is then restated on the same earlier cycle.",
+        "tier": "primary_regulatory",
+        "what": "UBPR peer-group percentiles for CRE concentration, allowance-to-loans, net charge-off rate, NIM and efficiency; first check publication status at 2026-09-12 and record the actual published cycle and retrieval date.",
+        "provider": "FFIEC UBPR"
+      },
+      {
+        "why": "Externally produced severe-case CRE loss benchmark for the credit scenario; cycle year must be recorded because MTB may be tested biennially.",
+        "tier": "primary_regulatory",
+        "what": "Most recent DFAST/CCAR disclosure covering MTB published on or before 2026-09-12, including stressed CRE and total loan loss rates and the stress capital buffer in effect; record the cycle year.",
+        "provider": "Federal Reserve Board"
+      },
+      {
+        "why": "Regulatory reports do not carry tangible common equity or share count; peer CRE and allowance data come from Y-9C/UBPR instead to avoid definitional drift.",
+        "tier": "primary_regulatory",
+        "what": "Q2 2026 Forms 10-Q for the defined regional-bank peer set (e.g. Citizens Financial, KeyCorp, Huntington, Regions, Fifth Third, Comerica), restricted to tangible common equity, goodwill and intangibles, and share count.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Added after review: supports a historical P/TBV series paired with reported ROTCE, and supplies the beta estimation window, not just a spot multiple.",
+        "tier": "market_data",
+        "what": "Daily closing prices for MTB and each peer from 2023-01-01 through 2026-09-12, with shares outstanding and dividend history, point-in-time with no post-date revisions.",
+        "provider": "Market data vendor"
+      },
+      {
+        "why": "Supplies rate-path inputs for deposit-repricing scenarios, the observed policy-rate moves for realised beta computation, and the risk-free leg of cost of equity.",
+        "tier": "market_data",
+        "what": "Policy rate, Treasury par yields and SOFR curve levels as of 2026-09-12 and the preceding 24 months, plus the forward path implied at that date; the 10-year Treasury yield at the as-of date as the risk-free input.",
+        "provider": "Federal Reserve H.15 / FRED"
+      },
+      {
+        "why": "Added after review: gives the beta input in the cost-of-equity build an explicit, reproducible provenance instead of an analyst assertion.",
+        "tier": "market_data",
+        "what": "Total-return series for a stated market index and a regional-bank index over a fixed 60-month window ending 2026-09-12, for code to estimate MTB's beta under a documented convention.",
+        "provider": "Market data vendor"
+      },
+      {
+        "why": "The ERP cannot be derived from filings. Sourcing it explicitly makes it a labelled, dated assumption rather than an unattributed number in the model.",
+        "tier": "third_party_reference",
+        "what": "A named, dated equity risk premium estimate published on or before 2026-09-12 (e.g. an implied-ERP series or a published survey), with the publication date and method recorded.",
+        "provider": "Published ERP reference"
+      },
+      {
+        "why": "Source for management's stated deposit-beta and NIM expectations; recorded as attributed guidance requiring verification, never as established fact.",
+        "tier": "primary_company",
+        "what": "Q1 and Q2 2026 earnings call transcripts and any investor-day or conference presentations dated on or before 2026-09-12.",
+        "provider": "Company investor relations"
+      },
+      {
+        "why": "Shows whether management is paid on the same return measure question (c) turns on; availability at the as-of date is checked, not assumed.",
+        "tier": "primary_company",
+        "what": "MTB DEF 14A proxy filed in 2026 if available at the as-of date: incentive-plan performance metrics, ROTCE and credit-quality targets, board and risk-committee structure, insider ownership.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Captures dividend declarations, buyback authorisations, management changes, acquisitions and any credit disclosures made between periodic filings.",
+        "tier": "primary_company",
+        "what": "All MTB Forms 8-K and Form 4 filings between 2026-01-01 and 2026-09-12.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Provides the regulatory thresholds and system-wide CRE asset-quality context against which MTB's concentration is judged.",
+        "tier": "primary_regulatory",
+        "what": "Supervisory guidance on CRE concentration risk management and published Shared National Credit review results dated on or before 2026-09-12.",
+        "provider": "Federal Reserve / FDIC"
+      }
+    ],
+    "known_risks": [
+      "Cost of equity has no filed provenance. Accepted from review: the risk-free rate, ERP and beta are sourced and dated but remain assumptions, and they dominate the residual-income output. The valuation section must publish implied P/TBV across a range of costs of equity; any single-point 'justified multiple' conclusion is not supported by evidence and must not be stated as one.",
+      "The 10-K/10-Q rate-shock simulation is a management model output whose deposit-beta, repricing and balance-growth assumptions are undisclosed and not reproducible. Accepted from review: it is labelled as such, not treated as regulator-verified, and is presented next to realised deposit betas computed by code from the quarterly average-balance tables against observed policy-rate moves.",
+      "Regulatory-source vintage risk. The 2026-06-30 UBPR cycle may not be published by 2026-09-12; a 2026 DFAST covering MTB may not exist if the firm is on a biennial cycle; the 2026 DEF 14A may post-date the run. Each source gets an availability check recording published vintage and retrieval date, and the fallback is to use the latest common published cycle for MTB and peers together rather than mixing periods inside one comparison.",
+      "Point-in-time cutoff: the quarter ending 2026-09-30 is incomplete, so the most recent reported period is 2026-06-30, leaving roughly ten weeks of unobserved credit and deposit behaviour. Questions about current-quarter margin direction are unanswerable from evidence.",
+      "Section-contract mismatch on valuation: a free-cash-flow DCF is not a valid frame for a bank holding company. The intended method is residual income on tangible common equity with a dividend-discount cross-check and an implied-versus-traded P/TBV comparison. If valuation_dcf requires FCF and WACC fields, the mismatch must be surfaced, not filled with inapplicable inputs.",
+      "CRE granularity risk: the split by property type (office, multifamily, retail, healthcare, construction), by geography, and by criticized or nonaccrual status within property type may appear only in investor supplements or call commentary rather than machine-extractable tables. Reserve coverage by property type may not be disclosed at all.",
+      "Reserve adequacy is not verifiable from public filings. CECL allowances rest on internal models, scenario weights and qualitative overlays that are described but not reproducible. The analysis can report coverage ratios and migration trends; it cannot conclude that reserves are sufficient.",
+      "Residual peer non-comparability. Even on common FR Y-9C lines, treatment of owner-occupied CRE, loans held for sale and construction can differ by filer practice, and tangible common equity from peer 10-Qs uses each filer's own intangible definitions. Any surviving difference must be stated in industry_landscape. Separately, the historical P/TBV series spans different rate regimes, so a multiple above or below its own history is context, not a valuation conclusion.",
+      "Restatement and amendment risk: no 10-K/A, revised regulatory report or reclassification filed after 2026-09-12 may be used, so figures may later prove superseded. FR Y-9C and Call Reports are routinely amended and the point-in-time vintage must be pinned per source.",
+      "Purchase-accounting accretion from prior acquisitions can inflate reported margin without representing durable spread. If accretion is not separately disclosed for every quarter in the window, the earnings-quality adjustment cannot be completed and the margin-peak conclusion weakens accordingly. Segment redefinition over the period may likewise prevent clean attribution of CRE exposure to a reportable segment."
+    ],
+    "prior_research": "",
+    "critique": {
+      "revised": true,
+      "consulted": true,
+      "challenges": [
+        {
+          "aspect": "sources",
+          "severity": 4,
+          "statement": "Question (c) is framed as normalised ROTCE versus cost of equity, but no planned source establishes the cost of equity. Filings give tangible common equity, ROTCE and payout; they do not give a risk-free rate convention, equity risk premium or beta. As specified, the single most outcome-determining input to the residual-income model has no evidentiary provenance and would have to be asserted by the analyst.",
+          "suggestion": "Add an explicit cost-of-equity input source and rule (e.g. as-of-date Treasury yield from FRED plus a stated, documented ERP and a beta estimated from a fixed price window), record it as a labelled assumption, and require the valuation section to show P/TBV implied across a range of costs of equity rather than one point."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "The market-data source is a single price snapshot at 2026-09-12 for MTB and peers. The operator asks whether ROTCE justifies the multiple of book value; no section asks where the traded P/TBV sits relative to its own history, so the plan can compute a model-implied multiple and a spot multiple but cannot say whether the market is paying an unusual multiple by MTB's own standards over the cycle.",
+          "suggestion": "Extend the market-data request to a daily or quarterly price series over the FY2023-2026 window used elsewhere, and add to valuation_dcf or historical_financial_analysis a focus item pairing observed P/TBV against the same period's reported ROTCE so the implied-versus-traded comparison has a historical reference."
+        },
+        {
+          "aspect": "sources",
+          "severity": 3,
+          "statement": "Peer CRE balances and allowance ratios are drawn from peer Forms 10-Q, where CRE definitions are not uniform across banks (treatment of owner-occupied, multifamily, construction and loans held for sale differs). The plan applies uniform Y-9C/UBPR schedules to MTB but non-uniform filings to peers, so the CRE-concentration comparison that the peer-selection rule is meant to make reproducible may still not be like-for-like.",
+          "suggestion": "Source peer CRE-to-capital and allowance data from the peers' own FR Y-9C/UBPR filings on the same schedule lines used for MTB, and restrict peer 10-Qs to items regulatory reports do not carry (tangible common equity, share count). Require any residual definitional difference to be stated in the section."
+        },
+        {
+          "aspect": "risks",
+          "severity": 3,
+          "statement": "The scenarios section anchors NIM sensitivity on the 10-K/10-Q simulated net interest income change for parallel shocks. That disclosure is itself a management model output whose deposit-beta, repricing and balance-sheet-growth assumptions are not disclosed and not reproducible. The risk list flags management NIM commentary as unverified but treats the rate-shock table as an anchor, which imports the same unverifiable assumptions under a regulatory label.",
+          "suggestion": "Label the rate-shock disclosure as a model output with undisclosed assumptions, and require an independent cross-check: realised interest-bearing deposit betas computed by code from the quarterly average-balance and rate tables against observed policy-rate moves, presented alongside the disclosed simulation."
+        },
+        {
+          "aspect": "point_in_time",
+          "severity": 3,
+          "statement": "Two regulatory sources may not exist in the required vintage at the as-of date. UBPR peer-group percentiles for the 2026-06-30 cycle are published with a lag after Call Report filing, and the DEF 14A and DFAST availability are assumed. If the 2026-06-30 UBPR is not yet published on 2026-09-12, the regulator-defined peer comparison falls back to an earlier period while MTB's own data is current, creating a date mismatch inside the same comparison.",
+          "suggestion": "Add an availability check as a first step for each regulatory source, record the actual published vintage and retrieval date, and pre-specify the fallback (use the latest published UBPR cycle and restate MTB on that same cycle, rather than mixing periods within one comparison)."
+        },
+        {
+          "aspect": "focus",
+          "severity": 2,
+          "statement": "The DEF 14A is planned with a stated rationale about incentive metrics, credit oversight and insider ownership, but no section focus consumes it: capital_allocation covers dividends, buybacks and CET1; investment_thesis and key_risks make no reference to compensation design or risk-committee structure. A source with no consuming section will either be dropped silently or surface as unattributed commentary.",
+          "suggestion": "Either assign the proxy explicitly to a section (e.g. add to capital_allocation or key_risks: whether incentive metrics are tied to ROTCE and credit quality, and who oversees concentration limits) or remove it from the source list so the evidence set matches what the report will use."
+        }
+      ],
+      "coverage_note": "Reviewed the three operator questions against section focus, source coverage, as-of-date feasibility and the named risk list. The plan is unusually disciplined on point-in-time handling, CRE granularity limits and the bank-valuation frame. Challenges concentrate on inputs with no provenance (cost of equity), peer-data comparability, unconsumed sources and unverified model anchors. No view on the company is expressed or implied."
+    },
+    "estimated_cost_gbp": "9.2986",
+    "estimated_runtime_seconds": 2197,
+    "skills": []
+  },
+  "hash": "fec782ea1c5fd296c2d4791bf49b1c3a4d9974ece7c762b8a3d4d4af36230523",
+  "pause_context": {
+    "gate": "PLAN",
+    "job_id": "cf99d6a2-c3d7-47a8-a153-23b634dd7b23"
+  }
+}

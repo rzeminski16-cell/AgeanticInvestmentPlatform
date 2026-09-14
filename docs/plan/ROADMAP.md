@@ -43,7 +43,7 @@ which is the operator's move rather than a session's.
 4. **§3.12 — the interface overhaul. Done 2026-08-30.** All ten tranches built and
    verified green — tranche 9, the removal-and-hardening pass, closed §2.5 and §3.12
    together; the record is the status section of
-   [`interface-overhaul.md`](interface-overhaul.md).
+   [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md).
 5. **§2.5 — the palette migration. Done 2026-08-30, inside §3.12.** The ramp ledger fell
    1,837 → 0 across tranches 2 and 4–9, the legacy aliases are gone from the stylesheet,
    and the ratchet is now the hard zero §2.5 asked for
@@ -52,9 +52,40 @@ which is the operator's move rather than a session's.
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
 
-Everything else sits in its bucket below. The running order across everything open — the
-phases, what gates each, and the moves only the operator can make — is
-[`remaining-work.md`](remaining-work.md); this list stays the authority on priority.
+**The confirmation run happened, five times over, in the readiness audit of 2026-09-12** —
+[`readiness-audit-2026-09.md`](readiness-audit-2026-09.md). Item 1 is closed by it: 18 of 18
+sections drafted on every run, nothing starved and no section lost.
+
+**What the audit put in front of this list instead is two issues, and they are now §2.10,
+§2.11 and §3.16.**
+
+1. **The platform is not ready for a user.** Three of six runs reached an approved report;
+   £14.41 was destroyed by two states the interface could not leave; 135 code identifiers
+   reach gate pages and the terminal is load-bearing. **§2.11.**
+2. **The platform is not better than a Claude console note.** Nine of nine blind comparisons
+   chose the console; six of six judges would not act on what the platform produced.
+   **§3.16**, and the abandonment criterion inside it is what stops that being an article of
+   faith.
+3. **A bank cannot produce an approvable report**, because its revenue resolves to its
+   ASC 606 fee income. The one open *blocking* finding. **§2.10**, decided in ADR 0114.
+
+**The running order is now [`../V1.0_Alpha/05-delivery-plan.md`](../V1.0_Alpha/05-delivery-plan.md)** —
+seven phases, about sixty-four sessions and £64 of live spend, with the gate that would stop
+the work stated before it starts. This list stays the authority on priority; that plan is the
+authority on sequence within §3.16. Everything the audit decided and everything the design
+conversation settled is written up in [`../V1.0_Alpha/`](../V1.0_Alpha/README.md), with eight
+ADRs (0113–0120) drafted ahead of the code.
+
+**All three of those were settled on 14 September 2026**, and are recorded in
+[`../V1.0_Alpha/06-open-questions.md`](../V1.0_Alpha/06-open-questions.md):
+
+- **The price subscription** is treated as permitting publication of derived figures, which is
+  the permission `fetch/policy.py:192` already records. If the agreement turns out to restrict
+  it, the figure is withheld through ADR 0034's type — which has no field for a figure it may
+  not carry — rather than quietly printed or silently dropped.
+- **"UK or US" is built, not narrowed.** §3.17.
+- **The abandonment criterion is signed off**, which is what makes every other gate in the plan
+  able to fail.
 
 ---
 
@@ -107,7 +138,8 @@ ADR by its old number reads four low.
 ## 2. Fixes and bugs
 
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
-one costs, worst first. **§2.1 is next.**
+one costs, worst first. **§2.10 is next** — it is the one open blocking finding of the
+readiness audit, and a bank cannot produce an approvable report until it is closed.
 
 **2.1 A63 — sections fail to draft. Diagnosed 2026-09-01 from the operator's export;
 the fixes are landing, and the confirmation run is outstanding.** Eight of eighteen
@@ -317,7 +349,7 @@ themselves were removed in tranche 9 — ending with exactly the test asked for:
 fails when a template reintroduces a raw ramp.
 
 The measurements live in one place — **the ramp ledger in
-[`interface-overhaul.md`](interface-overhaul.md)**, with the census command and the standing
+[`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md)**, with the census command and the standing
 caveat that the method must be stated with the number. Opened at 1,837 over forty-one
 templates; closed at zero on 2026-08-30.
 
@@ -374,12 +406,35 @@ writes into alias-table entries stays a deliberate act by a person reading it.
 failure mode returns whenever a new refusal path gets a placeholder written in the
 platform's voice rather than the report's.
 
+**2.10 A bank's revenue resolves to its ASC 606 fee income.** The one open blocking finding
+of the readiness audit. `RevenueFromContractWithCustomerExcludingAssessedTax` is a correct
+fact and the wrong answer: for M&T it is $1,657m against $6,948m of net interest income and
+$2,742m of non-interest income, so the published net margin was **172.1%** and every ratio
+with revenue in its denominator is nonsense. A bank has no revenue caption to extract; the
+figure must be derived. Every guard held — the fact was hashed, the calculation recorded, the
+citations verified — which is why `calc/plausibility.py` exists and why this is a fact-layer
+fix rather than a rendering one. **Decided in ADR 0114**: derive it, at the fact layer, only
+for a filer the sector gate has confirmed as a bank, and raise rather than coerce on a unit
+mismatch. Specified as F7 in [`../V1.0_Alpha/04-feature-specifications.md`](../V1.0_Alpha/04-feature-specifications.md).
+
+**2.11 A stopped run has no way forward that is not the terminal.** The audit lost **£14.41**
+on two runs — MSFT #2 and M&T — that reached a state the interface could not leave: a
+rejected gate leaves the job non-terminal (`services/runs.py:165`), the eleven evaluation rows
+are written once inside `validate`, and the engine skips any step whose row says SUCCEEDED
+(`workflow/engine.py:518`). Three of six runs reached an approved report. Alongside it, 135
+distinct code identifiers reach gate pages, and the console tells the operator to watch
+`just worker`. This is the whole of ISSUE 1 in the V1.0 delivery plan and is measured by the
+journey harness in [`../V1.0_Alpha/11-testing-strategy.md`](../V1.0_Alpha/11-testing-strategy.md)
+§3.1 — every stopped state carries a labelled forward control, zero UUIDs, zero shell
+commands, and pressing the control moves the job.
+
 ---
 
 ## 3. New additions
 
-Nothing here is broken; it does not exist. §3.1 is the one an operator is currently blocked
-by. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
+Nothing here is broken; it does not exist. **§3.16 is where this bucket now leads**: the
+judgement layer of §3.5–§3.11 is built and unreached, and V1.0 is what connects it to a
+report. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
 nothing after theses can exist before them.
 
 **3.1 The portfolio — getting a ticker in. All three doors, 2026-08-29.** `Security` rows
@@ -597,22 +652,22 @@ each kind.
 
 **3.12 The interface overhaul. Done 2026-08-30: specified, designed and planned 2026-08-25;
 all ten tranches built and verified green by 2026-08-30 — the record
-is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
+is the top section of [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md).** Four
 surfaces were in scope and the rest of the product deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 
-**Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
-came back as [`../redesign/`](../redesign/README.md) — a token system, page specifications, a
+**Where it stands.** The requirements are in [`../design/`](../archive/superseded-2026-09/design-requirements/README.md); the design
+came back as [`../redesign/`](../archive/superseded-2026-09/redesign-delivered/README.md) — a token system, page specifications, a
 production handoff and a twelve-screen prototype. It was reviewed against the invariants and
 the code, and **adopted with nine corrections**, one of which is a WCAG failure the design's own
 validation reported as passing: the navigation rail keeps dark colours on a light page, its
 tokens were never in the normative table, and the light-theme focus ring measures 2.04:1 on it.
-The review is [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
+The review is [`../redesign/05-review-and-corrections.md`](../archive/superseded-2026-09/redesign-delivered/05-review-and-corrections.md)
 and it wins where it and the design system disagree.
 
-**The work is sequenced in [`interface-overhaul.md`](interface-overhaul.md)** — ten tranches,
+**The work is sequenced in [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md)** — ten tranches,
 each independently releasable — with its testing in
-[`interface-overhaul-testing.md`](interface-overhaul-testing.md).
+[`interface-overhaul-testing.md`](../archive/superseded-2026-09/interface-overhaul-testing.md).
 
 **Every blocking decision was cleared on 2026-08-25** and three became records: **0087** (a
 verdict has two halves — a composed half that is live, and an authored half a model writes once
@@ -628,7 +683,7 @@ platform's interface grew a page at a time, each one correct in isolation, and t
 two designs sharing a shell — the boundary §2.5 measures. A palette migration alone would
 make the two halves the same colour without making them the same product.
 
-So the deliverable is [`../design/`](../design/README.md): every surface in scope with its
+So the deliverable is [`../design/`](../archive/superseded-2026-09/design-requirements/README.md): every surface in scope with its
 purpose, its reader, its data contract, every input and how it is collected, every state it
 can be in, what is wrong with it today, and what a redesign must not break. It is written for
 a designer rather than for a developer, and it is the input to the work rather than the work.
@@ -791,6 +846,103 @@ that already print a typed readout to the console rather than a web page, which 
 shape for something meant to be read by whoever — human or Claude — is sitting at the
 terminal deciding whether to continue.
 
+**3.16 V1.0 Alpha — the report becomes a loop.** The eighteen features that turn a report
+generator into *research → decide → hold → review*, each stage writing a record the next
+stage reads. Specified in full in [`../V1.0_Alpha/`](../V1.0_Alpha/README.md); this entry is
+what makes them scope.
+
+**Why it is one item and not eighteen.** They are not independent: F9 (the thesis) is the
+load-bearing one and F2, F11, F13 and F14 cannot exist before it, while F1 must land first
+and alone because it touches the drafting prompts. Splitting them into eighteen roadmap
+numbers would invite them to be worked in an order the dependency graph forbids. The order is
+in [`../V1.0_Alpha/05-delivery-plan.md`](../V1.0_Alpha/05-delivery-plan.md) and it is the
+authority on sequencing within this item.
+
+| | Feature | Needs |
+|---|---|---|
+| F1 | Remove point-in-time | ADR 0113 |
+| F2 | The adversary argues the opposite case | ADR 0115, F13 |
+| F3 | The closing section reads the operator's own book | F12 |
+| F4 | The refresh | ADR 0116, F7 |
+| F5 | The model workbook | — |
+| F6 | Ask, in three tiers | F7 for tier 3 |
+| F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
+| F8 | Print what the run already computed | ADR 0118, F16 |
+| F9 | The thesis, as premises with tests | — |
+| F10 | Decisions | F9, F12 |
+| F11 | The monitor | F9, F15 |
+| F12 | Risk and the pre-trade check | — |
+| F13 | The stated view, in two halves | ADR 0117, F9 |
+| F14 | Post-trade review and decision analytics | F10 |
+| F15 | Scheduling | — |
+| F16 | The evidence boundary | ADR 0119 |
+| F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
+| F18 | Model portability | — |
+| F19 | The UK path | ADR 0121 — and it has its own number, **§3.17** |
+| F20 | The knowledge map learns what you decided | ADR 0122 — **§3.18** |
+
+**What this item does not commit to.** Phase 5 of the delivery plan carries an abandonment
+criterion: if a measured round moves no verdict and changes no judge's stated reason, the
+work stops and the product's claim narrows to what the audit already scores as true — an
+evidence base and a checking instrument. That gate is real, it is pre-registered before the
+round, and it needs the operator's sign-off to be worth anything. **F17 is deferred** on the
+operator's decision of 14 September 2026, until a solicitor has read the
+consequences-not-instructions design; ADR 0120 is drafted anyway so that V1.0's schema does
+not foreclose it.
+
+**3.17 A London listing can be researched.** The product documentation has said "UK or US"
+since the first plan, and a company listed in London that files only with Companies House
+cannot get past `acquire` — every subject is resolved against EDGAR's ticker list. **The
+operator decided on 14 September 2026 to build the path rather than narrow the claim.**
+Argued in **ADR 0121**, specified as **F19**, delivered as **Phase 4a** (8–11 sessions, £8
+live).
+
+Most of it exists and has never been called: a complete `CompaniesHouseClient` with 32 tests,
+both hosts allowlisted in the fetch policy, the rate limit verified on 2026-09-04 (§commercial
+check 2), the credential wired in `runtime.py`, an offline iXBRL extractor built for UK filings,
+and a `companies.company_number` column whose check constraint — `cik IS NOT NULL OR
+company_number IS NOT NULL` — was written for exactly a CIK-less UK company. Earlier plans said
+that constraint fails. It does not.
+
+Four things are genuinely missing, and only the second is large:
+
+1. `acquire` names `sec_client` directly rather than dispatching on the resolved registry.
+2. **`CompaniesHouseClient` has no `fetch_facts`, because Companies House publishes no
+   companyfacts equivalent.** A UK filer's numbers exist only inside its accounts, as inline
+   XBRL, one period at a time — so a UK acquisition is *n* fetches and *n* parses, and every UK
+   fact is this platform's own parse rather than a registry's aggregation.
+3. Every `SectorProfile.sic_prefixes` is a US SIC code. UK SIC 2007 is a different scheme, so a
+   UK bank matches nothing, the gate does not fire, and it takes the standard model — the ADR
+   0029 hole that produced §2.10's 172.1%. `companies.sic_scheme` is the one new column.
+4. No GBP risk-free series: `risk_free_series_for` refuses rather than defaulting, because the
+   Bank of England's `robots.txt` disallows the CSV handler it documents (ADR 0026's
+   Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is
+   commercial check 6 below.
+
+**3.18 The knowledge map learns what you decided.** The knowledge layer is built and
+`../archive/knowledge-graph.md` says so in its own words — seven node kinds, six edge kinds, an
+Obsidian projection and an in-app graph view, growing on its own as the platform is used. It
+reads back into exactly two places: the planner's prior digests (ADR 0064) and the
+`prior_research_comparison` section.
+
+V1.0 opens a hole in it. The map records what you *researched* and knows nothing about what you
+*decided* — no thesis, no premise, no decision, no finding, no post-trade verdict. So it gains
+four node kinds and five edges under the rule it already runs on (only confirmed state produces
+an edge), and four surfaces start reading it: the monitor surfaces a broken premise against every
+other position that shares it; Ask's tier 1 answers from it for nothing; the refresh's
+materiality becomes partly a property of what you hold; and the methodology library measures
+which *methods* worked, the way `calc/outcomes.py` already measures assumptions.
+
+**And it becomes evidence for nothing.** No claim may name a thesis, a premise, a decision or a
+verdict; a premise is an attestation under ADR 0073, so a lineage containing one reaches no
+shareable surface; and the vault stays one-directional, which matters more once a decision record
+exists, because a vault note is a file anything can edit. Argued in **ADR 0122**, specified as
+**F20**. Last in the dependency order — there is nothing to record until F9, F10 and F14 exist.
+
+**§3.19 is deliberately unallocated.** Anything this phase turns up gets a number here rather
+than being folded into §3.16, §3.17 or §3.18, so that work found during V1.0 is visible as work
+found rather than as scope that was always there.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
@@ -802,6 +954,13 @@ anything else. Grouped because they stand or fall together.
   supervision.
 
 Treat these as a single gate rather than three tickets. Shipping any one alone buys nothing.
+
+**This is F17, and it now has a design**: ADR 0120 — an account owns a book, and a share is a
+sealed, read-only evidence pack rather than a login. It is **deferred** out of V1.0 on the
+operator's decision, and the ADR names the three constraints it places on work happening now
+so that deferring it stays cheap: write `user_id` into new tables while one user exists, never
+add a service function whose only scope is a company or a request, and keep ADR 0073's
+attested-figure rule intact.
 
 ### Commercial and licence checks still outstanding
 
@@ -841,6 +1000,12 @@ not a design task, and each should be done **before** money or a dependency is c
    licence reason for preferring the fallback, not the reason for waiting.
 5. Validate **WeasyPrint's native dependencies** on the target Windows machine. It is the one
    tooling choice that can force late rework.
+6. Verify a **GBP risk-free series** — its identifier, its frequency and its terms — against the
+   primary source, before §3.17's sterling valuations depend on anything but an
+   operator-confirmed assumption. The named candidate is the OECD long-term UK government bond
+   yield republished by FRED, which is already a wired source with a cleared licence; it is
+   **not** adopted until verified, because this repository does not adopt a data series on a
+   recollection. Open question 19 in `../V1.0_Alpha/06-open-questions.md`.
 
 ---
 

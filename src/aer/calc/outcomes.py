@@ -63,6 +63,20 @@ UNMEASURABLE_JUDGEMENTS: Final[dict[str, str]] = {
         "an exit multiple is a claim about a future market price, and filings carry no "
         "market prices"
     ),
+    # The cost of capital's inputs belong here for the same reason, and were missing: they
+    # fell through to "the concept map cannot place an assumption named 'beta'", which
+    # blames the map for a parameter no filing has ever carried. A live report told its
+    # reader exactly that about the beta its own valuation had just used.
+    "risk_free_rate": (
+        "a risk-free rate is a market yield on a date, and filings carry no market rates"
+    ),
+    "beta": (
+        "beta is estimated from price history against an index; no filing reports a company's beta"
+    ),
+    "equity_risk_premium": (
+        "an equity risk premium is a market-wide judgement about the future, and no filing "
+        "states one"
+    ),
 }
 
 

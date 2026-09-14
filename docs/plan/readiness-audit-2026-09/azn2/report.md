@@ -1,0 +1,769 @@
+# ASTRAZENECA PLC — Research Note
+
+**Ticker:** AZN (NYSE)  
+**As-of date:** 12 September 2026  
+**Base currency:** USD  
+**Point-in-time:** enforced  
+**Generated:** 12 September 2026, 18:41 UTC  
+**Non-binding view:** no view reached  
+
+> This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.
+
+---
+
+## At a glance
+
+### Latest reported figures
+
+| Label | Period | Value |
+|---|---|---|
+| Revenue | FY2025 | $58,739m[^1] |
+| Net income | FY2025 | $10,225m[^2] |
+| EPS (diluted) | FY2025 | $6.54[^3] |
+
+### Revenue history
+
+|  | FY2021 | FY2022 | FY2023 | FY2024 | FY2025 |
+|---|---|---|---|---|---|
+| Revenue | $37,417m[^4] | $44,351m[^4] | $45,811m[^4] | $54,073m[^4] | $58,739m[^4] |
+
+### Headline figures
+
+| Label | Period | Value |
+|---|---|---|
+| Gross margin | FY2025 | 81.9%[^5] |
+| Operating margin | FY2025 | 23.4%[^6] |
+| Net margin | FY2025 | 17.4%[^7] |
+| Free cash flow | FY2025 | $11,765m[^8] |
+| Net debt | — | $23,911m[^9] |
+| WACC | — | 5.8%[^10] |
+| Value per share (base) | — | $169.80[^11] |
+
+> **Coverage notice:** 1 section was shortened to fit the length allotted. The evidence this report rests on is listed in [Sources](#sources).
+
+## Executive Summary
+
+### Thesis
+
+AstraZeneca's filed FY2025 economics describe a high-gross-margin franchise that reinvests heavily: an 81.9% gross margin falls to a 23.4% operating margin after research and selling costs, with a 17.4% net margin and a 21.0% return on equity. That profitability base is the only one of the three questions put to this section that the available filings answer; the other two we mark unresolved rather than infer.
+
+### Key Points
+
+- Exclusivity exposure — unresolved. The available filings carry no product, molecule or geographic revenue split and no expiry dates, so revenue behind exclusivity lapsing inside the horizon cannot be separated from revenue lapsing in the two years immediately after, and neither tranche can be flagged as a within-horizon price risk on evidence. Only group revenue is available: 58,739m USD for the year ended December 2025.
+- Reverse DCF and pipeline — unresolved. No discount rate, terminal growth assumption, invested capital, return on invested capital, share price or share count is available. Recorded FY2025 NOPAT of 11.34bn USD cannot by itself establish a spread over any cost of capital, so no conclusion that returns sit comfortably above it, and no per-share output, is defensible here.
+- US pricing and tariffs — unresolved. The only company risk language available concerns regulatory approval delays, which it says may adversely affect revenue, and post-approval requirements, which it says could increase costs; it addresses neither US price levels nor tariffs, so both the direction and the size of that pressure go unevidenced.
+- Evidenced profitability: FY2025 revenue of 58,739m USD and operating income of 13,743m USD, with EBITDA of 18,829m USD at a 32.1% EBITDA margin and a 9.0% return on assets. Each ratio here is a recorded FY2025 calculation resting on those same filed revenue and cost lines, and the margins reconcile with them.
+
+### Key Risks
+
+- Figures stop at the year ended December 2025; no FY2026 interim results are available, so this picture may be stale as of September 2026.
+- No balance sheet detail, invested capital or share data: leverage, returns on capital and valuation are all unverified here.
+- Approval delays and post-approval trial requirements are disclosed by the company as risks to revenue and to cost.
+- Product and segment concentration is unmeasured, which is the same gap that leaves exclusivity exposure unsized.
+
+### Headline Figures
+
+| Label | Value |
+|---|---|
+| Revenue, FY2025 | 58,739 USD millions[^12] |
+| Gross margin, FY2025 | 81.9%[^13] |
+| Operating margin, FY2025 | 23.4%[^14] |
+| Net margin, FY2025 | 17.4%[^15] |
+| Return on equity, FY2025 | 21%[^16] |
+
+## Investment Thesis
+
+### Thesis Statement
+
+AstraZeneca's case as of September 2026 rests on a base of profitability that the filed record documents plainly, and on three forward links that it does not. Revenue of $58.7 billion for the full year ended December 2025 converted at an 81.9% gross margin and a 23.4% operating margin, with a 15.6% return on invested capital — economics that fund $14.2 billion of research internally. What the shares are worth, though, turns on how much of that base faces loss of exclusivity inside the forecast horizon and in the two years after it, on whether the pipeline can cover the growth embedded in the price, and on whether pricing or trade policy compresses margin; none of the three is settled by the evidence available for this note. We therefore hold a constructive but low-confidence view: the returns are proven, the durability is not.
+
+### Supporting Pillars
+
+| Pillar | Evidence |
+|---|---|
+| The earnings base is high-margin and capital-efficient, and that link is settled | Revenue of $58.7 billion for the full year ended December 2025 carried an 81.9% gross margin, a 23.4% operating margin, a 32.1% EBITDA margin and a 17.4% net margin. On $72.6 billion of invested capital the group earned a 15.6% return, alongside a 21.0% return on equity. This is the one link the stored figures close: the base business earns well above any plausible cost of capital and self-funds $14.2 billion of research without recourse to external equity.[^17][^18] |
+| Exclusivity exposure is the decisive variable and is not sized in the record | The Form 20-F dated February 24, 2026 carries its Therapy Area Review, Business Review, revenue note and segment note by incorporation by reference rather than in the body, so product-level revenue and patent-expiry schedules do not appear in the material available here. The share of the base at risk within the forecast horizon, and in the two years after it, therefore cannot be quantified in this note. An expiry cluster falling just beyond the horizon would still be discounted inside it, and we treat that as an open downside rather than a resolved one.[^19] |
+| Pipeline: activity is disclosed, replacement value is asserted rather than shown | The incorporated disclosures record pipeline-strengthening transactions among the principal decisions taken in 2025, and the group's September 2026 oncology communications address settings including HR-positive breast cancer, which the company describes as the most common subtype of the disease. Whether that output covers the growth an investor must assume at the current price cannot be tested against the material here, since no market-implied growth calculation sits in the record. In our judgement the burden rests with disclosed launch economics, not with an assumption of them.[^20] |
+| Funding and policy sensitivity bite later, not obviously now | Liquidity ratios sit below one — a current ratio of 0.94 and a quick ratio of 0.68 — so the group leans on operating cash generation and continued capital-market access, with interest expense of $1.7 billion for the full year ended December 2025. An 81.9% gross margin gives wide absorptive capacity against drug-pricing reform or tariff costs, but nothing in the evidence here dates or sizes such a measure, so we carry pricing and trade policy as a later-horizon margin risk rather than a live one.[^17][^21] |
+
+### What Would Change The View
+
+- Product-level revenue disclosure showing a large share of sales facing loss of exclusivity within the forecast horizon or the two years immediately after it would turn the constructive view negative.
+- Evidence that the growth priced into the shares exceeds what the disclosed pipeline and management's stated ambitions can deliver would break the second link of the chain.
+- A dated, quantified pricing or tariff measure applying to the group's principal markets, large enough to compress the gross margin materially, would move the policy risk inside the horizon.
+- Sustained erosion of the return on invested capital or of the operating margin, or reliance on debt rather than operating cash to fund research, would undermine the one link currently settled.
+
+## Business Overview
+
+### Commentary
+
+AstraZeneca is a biopharmaceutical group whose reported revenue in the fiscal year ended December 2025 reached approximately 58.7 billion US dollars, generating a gross profit of roughly 48.1 billion US dollars, a gross margin near 81.9 percent, and an operating margin of about 23.4 percent, implying a business with substantial scale and a cost base weighted toward selling, general and administrative spend (about 19.9 billion US dollars for the year) and research and development (about 14.2 billion US dollars for the year). The company's own filings identify revenue recognition as one of the key judgements and significant estimates underlying its financial statements, alongside impairment and useful-life assessments for intangible assets and accounting for business combinations and goodwill — the last point relevant given the group's acquisition history, which includes Alexion Pharmaceuticals. This signals that meaningful portions of reported revenue likely depend on estimates tied to collaboration, licence, or contingent consideration arrangements, and that intangible assets recognised on acquisitions (including any acquired NDAs, BLAs, or equivalent marketing authorisations) are subject to ongoing judgement about carrying value. However, the evidence available for this note does not include a breakdown of revenue by product, collaboration or profit-share agreement, royalty terms, or a listing of which specific legal entities — parent, subsidiaries such as those from the Alexion transaction, or third-party partners — hold the marketing authorisations behind individual products. Any register search intended to trace applicant-of-record status for AstraZeneca products should therefore not be limited to the parent company name alone, given the group's history of consolidating acquired businesses that may retain their own regulatory filings. Similarly, the evidence here does not include a site-by-site manufacturing and supply footprint, nor does it substantiate any specific announced US manufacturing investment or supply commitment; recent regulatory filings in the record touch on matters such as a bond offering, admission of securities to trading, total voting rights, and a US approval for a breast-cancer therapy and lung-cancer trial data, but none of these establish manufacturing locations or capital commitments. Readers relying on this note for exposure or margin analysis should treat the revenue-recognition and entity-ownership questions, and the manufacturing footprint, as open items pending further primary-source confirmation, rather than assuming the absence of detail here reflects an absence of complexity in the underlying business. What the financial results do support is that the group operates at a scale consistent with a diversified, patent-protected pharmaceutical portfolio sold into multiple national healthcare systems, where government pricing policy, reimbursement mechanisms, and initiatives such as the US Inflation Reduction Act and the EU Joint Clinical Assessment process are disclosed as ongoing considerations affecting commercial execution and pricing. The overall margin profile — high gross margin, moderate operating margin after heavy R&D and SG&A spend — is typical of an innovator pharmaceutical model funded substantially by sales of the pharmaceutical products, though this note contains no basis to allocate that revenue across specific brands, indications, or geographic markets. In short, the size and profitability of the business are evidenced, but the internal architecture of how revenue is earned per product, and where it is physically manufactured, is not established by the material reviewed and should be flagged for confirmation before being used in more granular exposure work.
+
+### Revenue Streams
+
+| Label | Value |
+|---|---|
+| Total revenue | 58.7 USD billions[^22] |
+| Gross profit | 48.1 USD billions[^23] |
+
+## Segment Analysis
+
+> **Insufficient evidence: This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.**
+
+### Commentary
+
+Segment analysis for AstraZeneca requires a therapy-area and product-level breakdown of revenue for FY2025 and H1 2026, with prior-period comparatives, plus a schedule of US and EU exclusivity expiry dates through 2030 for material products. The material available for this note contains only consolidated income-statement line items (revenue, cost of revenue, gross profit, operating expenses, operating income and derived margins) for FY2025 and the second quarter of 2025, together with a handful of unrelated regulatory filing references. None of the retrievable material includes the Therapy Area Review, Note 2 (Revenue) or Note 7 (Segment information) disclosures that would show revenue by therapy area or by named product such as Tagrisso, Farxiga, Imfinzi or the vaccines and immune therapies portfolio, nor does it include any patent, exclusivity or regulatory data-exclusivity schedule for those products in the United States or European Union. Consequently no segment or product-level revenue decomposition can be presented, no concentration measure can be computed, and no exclusivity-expiry table — including any flag for expiry within the next twelve months, immediately beyond that horizon, or later through 2030 — can be constructed here. Presenting such a table without the underlying disclosure would substitute assertion for measurement, which this note avoids. What can be stated, from the consolidated figures on record, is that group revenue for the fiscal year ended December 31, 2025 was approximately $58.7 billion, with cost of revenue near $10.6 billion and gross profit near $48.1 billion, implying a gross margin of roughly 81.9% at the consolidated level. Operating income for the year was approximately $13.7 billion, equivalent to an operating margin of about 23.4%, and net income was approximately $10.2 billion, a net margin of roughly 17.4%. These consolidated ratios describe the group as a whole and say nothing about how growth, margin or capital intensity differ across therapy areas or individual products; a business with several large, differently-aged franchises can produce a stable blended margin while masking wide dispersion at the product level, including exposure concentrated in a small number of medicines nearing loss of exclusivity. Confidence in any characterisation of segment mix, product concentration or exclusivity timing should therefore be treated as low until the underlying therapy-area and product schedules, and the associated patent and regulatory exclusivity dates, are available for review alongside the H1 2026 interim comparatives.
+
+## Industry & Competitive Positioning
+
+### Commentary
+
+AstraZeneca competes in a concentrated, high-barrier segment of global pharmaceuticals in which a small set of research-intensive multinationals — spanning oncology, cardiovascular-renal-metabolic (CVRM), respiratory and immunology, and rare disease — compete on differentiated molecules, regulatory approvals and payer access rather than on price alone. The company's own 20-F risk disclosure identifies the US Inflation Reduction Act (IRA), the EU Joint Clinical Assessment, and broader government price-control measures as structural pressures reshaping the industry, alongside patent-cliff dynamics, prescribing-habit shifts and emerging-market volatility. The available record for this note does not include the CMS Medicare Drug Price Negotiation selected-drug lists, maximum fair price announcements, Federal Register notices on most-favoured-nation pricing or Section 232 pharmaceutical trade-action filings, so no determination can be made here on whether any AstraZeneca product — matched by applicant entity as well as brand — currently appears on a published CMS selected-drug list, nor on the legal status (proposed, finalized, litigated or enjoined) of any such measure as of the report date. What the company's own disclosure does confirm is that IRA-related pricing and negotiation dynamics are treated internally as a live commercial risk factor affecting launch timing and revenue expectations, without specifying which products or price points are implicated.
+
+### Competitive Position
+
+AstraZeneca's position rests on the scale and profitability generated by a broad, oncology-led portfolio; the company describes itself as having built one of the most diverse pipelines in a challenging-cancer-focused industry. Financially, the group generated substantial revenue in fiscal 2025, with a gross margin near 82 percent and an operating margin near 23 percent, supporting continued investment in research and development and providing headroom to absorb pricing pressure in individual markets or products. Net margin of roughly 17 percent and an EBITDA margin above 32 percent point to a business model still well insulated from the direct effects of any single pricing action, even as government intervention — through Medicare negotiation, most-favoured-nation policy proposals, or IRA Part D redesign — continues to be flagged by the company as a source of uncertainty for future launches and pricing. Without primary CMS or Federal Register documentation in evidence, competitive positioning here should be read as resting on general diversification and margin strength rather than on any confirmed, product-specific pricing outcome; that gap should be closed before drawing conclusions on exposure to negotiated-price risk for specific AstraZeneca brands.
+
+### Industry Trends
+
+- Government and payer price-control measures, including the US Inflation Reduction Act, are cited by the company as an ongoing structural pressure on the pharmaceutical industry.
+- The EU Joint Clinical Assessment framework is reshaping how new medicines are evaluated across European markets.
+- Health-equalisation initiatives seeking higher drug spending in some markets are described as part of a shift toward a more balanced global pricing landscape.
+
+## Management & Governance
+
+### Commentary
+
+AstraZeneca's public filings on record for this review do not carry the kind of granular management and governance detail — named executive biographies, board composition, remuneration outcomes — that a full assessment of stewardship and incentive alignment would require. The company's 2026 Form 20-F does confirm that its corporate governance disclosures, including compliance with the UK Corporate Governance Code and the board's account of its leadership and purpose, are addressed in the incorporated Annual Report rather than restated in the filing itself, which is a standard structure for a UK-domiciled, US-listed issuer. Beyond that cross-reference, no compensation tables, board tenure data, or insider ownership figures were available to support specific commentary here. What can be said with more confidence is that the group continues to operate at meaningful scale, with a diluted share base in the roughly 1.56 billion range for fiscal 2025, a factor relevant to how equity-based incentive plans would dilute existing holders, though the underlying grant sizes and vesting terms are not evidenced in what was reviewed. Recent regulatory and clinical announcements, including a US approval in HR-positive breast cancer and positive overall-survival data in small-cell lung cancer, point to management continuing to execute against a pipeline-led strategy, but attributing these outcomes to specific leadership decisions or incentive structures would go beyond what the record supports. Investors seeking a governance-focused view of AstraZeneca should treat this section as a placeholder pending fuller disclosure rather than a substantive verdict on board effectiveness or pay-for-performance alignment.
+
+### Governance Observations
+
+- The 2026 Form 20-F incorporates its UK Corporate Governance Code compliance disclosure, including board leadership and company purpose commentary, by reference to the Annual Report rather than restating it, consistent with standard practice for dual-listed UK issuers.
+- No executive compensation, board composition, or insider ownership data were present in the material reviewed, limiting the scope of governance analysis possible here.
+
+## Historical Financial Analysis
+
+### Commentary
+
+The reported annual history we can stand behind for AstraZeneca covers the year ended 31 December 2025 only. Comparable prior-year income statement detail and the 2026 interim statements are not in the record available to this section, so what follows characterises the FY2025 base rather than a multi-year margin path; no trend or growth statement is made, because none can be evidenced here.
+
+On the FY2025 base, revenue was 58,739 million US dollars against cost of revenue of 10,633 million, leaving gross profit of 48,106 million and a gross margin of 81.9 percent. That is the margin of a branded pharmaceutical franchise whose unit manufacturing cost is a small fraction of price, and it means the reported profitability of the group is determined almost entirely below the gross line.
+
+The cost lines driving the gap between gross and operating margin are selling, general and administrative expense of 19,933 million and research and development expense of 14,232 million. SG&A is the larger of the two and, taken together, these two lines account for the great majority of the distance from an 81.9 percent gross margin to an operating margin of 23.4 percent on operating income of 13,743 million. Neither line is a variable cost in any near-term sense: commercial infrastructure and a clinical development portfolio are contracted, staffed and enrolled well ahead of the revenue they support. The filings available here do not quantify how much of that base is contractually committed over the next twelve months, and we do not infer a figure; the practical implication is simply that the operating margin has more operating leverage, in both directions, than the gross margin alone would suggest.
+
+Below the operating line, interest expense of 1,694 million and a tax charge of 2,169 million bring the result to net income of 10,225 million, a net margin of 17.4 percent, and diluted earnings per share of 6.54 US dollars. The EBITDA margin of 32.1 percent sits well above the operating margin, indicating that depreciation and amortisation is a substantial charge — consistent with a balance sheet carrying intangible assets of 37,846 million and goodwill of 21,242 million within total assets of 114,074 million. Much of the reported operating cost is therefore non-cash amortisation of acquired and in-licensed rights rather than current cash outlay.
+
+Returns on that capital base were solid: return on equity of 21.0 percent and return on invested capital of 15.6 percent. Cash generation corroborated the earnings quality, with free cash flow of 11,765 million exceeding reported net income. Liquidity is tight on a conventional reading — the current ratio was 0.94, below one — but this is normal for a cash-generative large-cap that funds working capital from operations and commercial paper; leverage was moderate at a debt-to-equity ratio of 0.61 with net debt of 23,911 million.
+
+On geography, the material limitation should be stated plainly: the record available here provides no geographic split of revenue and no geographic split of cost of sales. The 20-F identifies the key currencies of product sales and costs — US dollar, euro, Chinese renminbi, pound sterling, Japanese yen and Swedish krona — but a currency exposure map is not a map of where goods are manufactured or invoiced. Any tariff sensitivity built on this base therefore rests on an assumed allocation of manufacturing cost by jurisdiction rather than a disclosed one, and that assumption, not the reported financials, will drive the answer. Given cost of revenue is a small share of sales, the first-order tariff exposure on the reported cost base is correspondingly narrow, though pricing and mix effects are not bounded by it.
+
+### Financial History
+
+|  | FY2025 |
+|---|---|
+| Revenue | 58,739 USD millions[^24] |
+| Cost of revenue | 10,633 USD millions[^24] |
+| Gross profit | 48,106 USD millions[^24] |
+| Research and development | 14,232 USD millions[^24] |
+| Selling, general and administrative | 19,933 USD millions[^24] |
+| Operating income | 13,743 USD millions[^24] |
+| Net income | 10,225 USD millions[^24] |
+| Diluted earnings per share | 6.54 USD per share[^24] |
+| Gross margin | 81.9%[^25] |
+| Operating margin | 23.4%[^26] |
+| Net margin | 17.4%[^27] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Revenue | 58,739 USD millions[^28] |
+| Gross margin | 81.9%[^29] |
+| Operating margin | 23.4%[^30] |
+| Net margin | 17.4%[^31] |
+| EBITDA margin | 32.1%[^32] |
+| Return on equity | 21%[^33] |
+| Return on invested capital | 15.6%[^34] |
+| Free cash flow | 11,765 USD millions[^35] |
+| Net debt | 23,911 USD millions[^36] |
+| Debt to equity | 0.61[^37] |
+| Current ratio | 0.94[^38] |
+
+### Revenue and margin history
+
+Revenue by fiscal period in USD, with recorded margin trajectories. Every bar and point is a stored figure.[^39][^40][^41][^42][^43][^44][^45][^46][^47][^48][^49][^50][^51][^52][^53]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Earnings Quality
+
+### Commentary
+
+On the single audited year available, AstraZeneca's reported profit is backed by cash. Operating cash flow for the year ended 31 December 2025 was $14,575m against net income of $10,225m, so the accrual result converted into cash with room to spare; after capital expenditure of $2,810m, free cash flow was $11,765m, comfortably ahead of dividends paid of $4,971m. Share-based compensation of $719m is a small non-cash add-back relative to profit, so the gap between earnings and cash is not being widened by equity granted in lieu of pay. The basis is narrow, and we say so plainly: the figures here cover one fiscal year. No multi-period income or cash flow series is available in the material reviewed, so accrual ratios, margin trends and the recurrence of one-off items cannot be tested across years, and nothing here should be read as a growth observation. Earnings quality in this business is judgement-dense on management's own account. The company identifies revenue recognition, the expensing of internal development costs, impairment reviews and useful economic lives of intangible assets, business combinations and goodwill, litigation liabilities and taxation among its key judgements and significant estimates. Two consequences follow: reported tax expense of $2,169m on pre-tax income of $12,402m rests on positions the company itself flags as estimated, and the carrying value of acquired in-process intangibles depends on assumed probability of technical and regulatory success, peak-year sales and revenue-erosion profiles. Those assumptions have already proved fragile once. An in-development intangible recognised on the Fusion acquisition, consolidated from 4 June 2024, was impaired in full in December 2024 after the related activities were terminated — a write-off within months of the acquisition-date valuation. That is the cost of capitalising development-stage value: it enters the balance sheet at a modelled amount and can leave through the income statement quickly. On coverage, the recorded measures are EBITDA-based and should be read as such. Interest cover of 8.11x relates EBITDA of $18,829m to interest expense of $1,694m; net debt of $23,911m is 1.27x EBITDA, and debt to equity is 0.61. A reader who prefers a cover ratio struck on operating income of $13,743m, or on earnings after the amortisation and impairment charges EBITDA excludes, will reach a materially lower figure; that difference is definitional rather than a dispute about the underlying statements, and on a post-amortisation view the leverage cushion is distinctly thinner than the headline suggests. Liquidity is the tighter point either way: a current ratio of 0.94 and a quick ratio of 0.68 are both below one, so the group runs on cash generation and funding access rather than a working-capital buffer.
+
+### Red Flags
+
+- Liquidity leaves no working-capital cushion: the current ratio of 0.94 and quick ratio of 0.68 are both below one, so earnings conversion depends on continued cash generation and funding access.
+- An acquired in-development intangible was impaired in full in December 2024, months after an acquisition-date valuation built on probability of success, peak-year sales and revenue-erosion assumptions — capitalised development value can reverse quickly.
+- Management designates revenue recognition, expensing of internal development costs, intangible impairment and useful lives, goodwill, litigation liabilities and taxation as key judgements and significant estimates, so a wide part of reported profit rests on estimation.
+- Only one fiscal year of income statement and cash flow figures is available, so accrual trends, working-capital swings and the recurrence of one-off charges cannot be tested across periods.
+- Coverage and leverage ratios cited here are EBITDA-based; measures struck after amortisation and impairment would be materially weaker, and the headline cover should not be read as a post-amortisation cushion.
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Operating cash flow (FY2025) | 14,575 USD m[^54] |
+| Net income (FY2025) | 10,225 USD m[^55] |
+| Free cash flow (FY2025) | 11,765 USD m[^56] |
+| Interest cover, EBITDA-based (FY2025) | 8.11[^57] |
+| Net debt / EBITDA (FY2025) | 1.27[^58] |
+| Current ratio (FY2025) | 0.94[^59] |
+| Quick ratio (FY2025) | 0.68[^60] |
+
+## Balance Sheet & Liquidity
+
+### Commentary
+
+The latest balance sheet on record is the year ended 31 December 2025, compared here with the position at 30 June 2025; this is the group as the annual report left it rather than a more recent snapshot.
+
+Long-term borrowings were $24,715m at the year end, with short-term debt of $3,104m, down from $6,492m at the half year as near-term maturities were cleared. Cash and equivalents of $5,711m compare with $7,058m at mid-year. On the derived basis used here, net debt was $23,911m and gearing 0.61x debt to equity. The company's own net debt measure, loans and borrowings net of cash, other investments and derivative financial instruments, is a different and lower figure, and the annual report describes it as having decreased over the year, with gross debt reduced by repayments partly offset by currency movements. The two definitions are not interchangeable, and leverage quoted from different sources should be checked against the definition behind it.
+
+Net debt equates to 1.27x EBITDA on a full-year EBITDA of $18,829m, a 32.1% margin. That multiple is only as sound as its denominator: on a narrower earnings base, whether a half-year figure or an EBITDA struck after items this measure includes, the same net debt converts to a materially higher multiple, so 1.27x is best read as definition-dependent rather than as settled headroom. Interest cover is not established by the figures available, and no view is offered on it here; the leverage read rests on balance sheet multiples alone and is not evidence that earnings cover finance costs.
+
+Working capital is negative at the year end: current assets of $28,723m against current liabilities of $30,617m, a current ratio of 0.94x and a quick ratio of 0.68x, against $28,939m and $33,536m respectively at mid-year. The runway therefore depends on operating cash generation and on undrawn facilities rather than on a stock of liquid assets, and free cash flow of $11,765m for the year is the principal support. The annual report sets out committed bank facilities carrying no financial covenants alongside commercial paper, bank loans and capital markets access, with investment-grade long-term ratings from both major agencies. Disclosed bond maturities run from the late 2020s into the early 2030s across euro callable issues and a sterling note, several designated in net investment, cash flow or fair value hedges, so scheduled refinancing is spread rather than concentrated in a single year.
+
+### Financial History
+
+|  | Q2 FY2025 | FY2025 |
+|---|---|---|
+| Cash and cash equivalents | 7,058 USD m[^61] | 5,711 USD m[^61] |
+| Total current assets | 28,939 USD m[^61] | 28,723 USD m[^61] |
+| Total current liabilities | 33,536 USD m[^61] | 30,617 USD m[^61] |
+| Short-term debt | 6,492 USD m[^62] | 3,104 USD m[^62] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Net debt (derived) | 23,911 USD m[^63] |
+| Net debt / EBITDA | 1.27[^64] |
+| Debt to equity | 0.61[^65] |
+| Long-term debt | 24,715 USD m[^66] |
+| Current ratio | 0.94[^67] |
+| Quick ratio | 0.68[^68] |
+| EBITDA | 18,829 USD m[^69] |
+| Free cash flow | 11,765 USD m[^70] |
+
+### Observations
+
+- Current liabilities exceeded current assets at the year end; liquidity rests on cash generation and committed facilities, not on net working capital.
+- Short-term debt roughly halved between the June and December 2025 balance sheets while cash was drawn down.
+- Leverage differs by definition: the company nets investments and derivatives in its own net debt measure, the derived measure here does not, and the EBITDA base chosen moves the multiple materially.
+
+## Cash Flow Analysis
+
+### Commentary
+
+Cash generation rests on a single, high-margin operating engine. In the year to December 2025 AstraZeneca turned revenue of $58,739m into operating cash flow of $14,575m, against EBITDA of $18,829m. The gap between those two measures is the cash cost of tax, interest and working capital absorption, and operating cash flow is the more reliable gauge of what the business actually banks. The first six months of 2025 contributed $7,099m of that inflow, with the balance arising in the second half.
+
+Reinvestment is the first call on the cash. Capital expenditure of $2,810m for the full year is modest set against operating cash flow, and free cash flow after it was $11,765m. Net cash used in investing activities was materially wider, at an outflow of $6,808m, which indicates that intangible assets, milestone payments and portfolio transactions rather than property, plant and equipment are the larger claim on investing cash. Share-based compensation of $719m is added back as a non-cash charge; at this scale it is a limited quality-of-earnings adjustment.
+
+Distributions dominate the financing line. Financing activities absorbed $7,544m, of which dividends paid of $4,971m are the overwhelming component, $3,357m of that having been paid by the end of June. Debt activity is small and one-directional: repayments of $2,029m against new proceeds of only $15m, so the year was one of modest deleveraging rather than capital-markets funding of returns. Buyback data in the record is inconsistent between the interim and the annual period, and we therefore do not treat repurchases as a recurring use of cash. The company's own accounting policy is worth noting when reading these lines: cash spent by employee benefit trusts buying shares for share-plan vesting sits in financing, while cash flows on replacement awards issued in the Alexion acquisition sit in investing.
+
+On durability, free cash flow covered the dividend with room to spare, and leverage is moderate: net debt of $23,911m is 1.27 times EBITDA and interest is covered 8.1 times. A current ratio of 0.94 shows a working-capital-light, liability-funded balance sheet, so flexibility comes from the cash flow statement rather than from liquid assets on hand. The identifiable calls ahead are ordinary rather than structural: legacy restructuring continues alongside a multi-year enterprise resource planning upgrade that the annual disclosure describes as still some years from completion, and which will keep absorbing cash within operating and investing activities.
+
+Two limits on this assessment should be stated plainly. Comparative prior-year cash flow statements are not in evidence here, so we can characterise the level and composition of cash flow but not its trend or volatility. And the disclosure available does not break the investing outflow into its business-development, intangible and securities components, so the durability of the gap between capital expenditure and total investing spend cannot be tested directly. What the evidence does support is a business funding its capital programme and a large, growing-by-policy dividend entirely from internally generated cash, with leverage that leaves room for external funding if required.
+
+### Financial History
+
+|  | H1 2025 (six months to 30 June) | FY2025 |
+|---|---|---|
+| Operating cash flow | 7,099 USD m[^71] | 14,575 USD m[^71] |
+| Capital expenditure | 1,088 USD m[^72] | 2,810 USD m[^72] |
+| Net cash used in investing activities | -3,361 USD m[^71] | -6,808 USD m[^71] |
+| Net cash used in financing activities | -2,189 USD m[^71] | -7,544 USD m[^71] |
+| Dividends paid | 3,357 USD m[^71] | 4,971 USD m[^71] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Operating cash flow (FY2025) | 14,575 USD m[^73] |
+| Free cash flow (FY2025) | 11,765 USD m[^74] |
+| Capital expenditure (FY2025) | 2,810 USD m[^75] |
+| Dividends paid (FY2025) | 4,971 USD m[^76] |
+| Net debt / EBITDA (FY2025) | 1.27[^77] |
+
+## Capital Allocation
+
+### Commentary
+
+AstraZeneca's FY2025 cash flow statement shows operating cash generation of approximately 14,575 million dollars, funding a mix of reinvestment, debt service and shareholder distributions. Investing activities consumed roughly 6,808 million dollars over the year, a figure that includes capital expenditure of about 2,810 million dollars, indicating continued investment in the manufacturing and R&D infrastructure base. Financing activities absorbed approximately 7,544 million dollars, reflecting dividend payments of about 4,971 million dollars alongside debt repayments of roughly 2,029 million dollars, partially offset by modest new debt proceeds of about 15 million dollars. The company's own 20-F disclosure states plainly that no share repurchases have been made since 2012, and the FY2025 share repurchase figure recorded in the underlying facts is zero, consistent with that statement; the Board's distribution policy is described as comprising a regular cash dividend and potentially a repurchase component, though the latter has not been activated in recent years. Share-based compensation of about 719 million dollars for FY2025 represents a further, non-cash form of capital allocated to employees rather than to shareholders directly. Taken together, the pattern is one of a dividend-led distribution policy funded from operating cash flow, with capital expenditure maintained at a level well below operating cash generation, and financing outflows dominated by dividends and debt reduction rather than buybacks. The evidence available does not extend to management's forward guidance on repurchase policy or capital expenditure plans, so no view is offered on intentions beyond the historical record.
+
+### Uses of Capital
+
+- Dividend payments
+- Capital expenditure
+- Debt repayment
+- Share-based compensation (non-cash)
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Operating cash flow | 14,575 USD millions[^78] |
+| Investing cash flow | -6,808 USD millions[^79] |
+| Financing cash flow | -7,544 USD millions[^80] |
+| Capital expenditure | 2,810 USD millions[^81] |
+| Dividends paid | 4,971 USD millions[^82] |
+| Share repurchases | 0 USD millions[^83] |
+
+## Growth Outlook
+
+### Commentary
+
+**What the evidence supports:** The financial material behind this section is a single annual income statement and one quarter, not a series. It establishes a level — FY2025 revenue of $58,739m, and Q2 2025 revenue of $14,457m — and nothing more. With no prior-period comparative available, this note records no measured growth rate for any line, and no growth rate should be inferred from these two observations. Anything said below about the path from here is a judgement resting on the structure of the business, not a measurement of its trajectory.
+
+**Oncology, as disclosed:** The company's September 2026 disclosure concerning HR-positive breast cancer describes that subtype as the most common form of breast cancer and notes that estrogen receptors often drive the growth of those tumour cells — the clinical rationale for endocrine-directed therapy in the largest breast cancer population. Beyond that, the material available here carries no roster of pivotal-stage assets, no list of filed applications, no published regulatory action dates, and no company-stated revenue ambition attached to a named asset. Approved-product growth therefore cannot be separated from unapproved-asset optionality on disclosed figures. Probability of success and peak sales are declared model inputs in any case, never facts; this section declares none, so the pipeline is carried at zero contribution rather than at an assumed one.
+
+**Reinvestment capacity:** What the single year does show is a business that funds a large research budget from current operations: FY2025 research and development spending of $14,232m against revenue of $58,739m, a gross margin of 81.9%, an operating margin of 23.4%, free cash flow of $11,765m and a return on invested capital of 15.6%. High gross margin plus positive free cash flow is the mechanism by which pipeline optionality is paid for; it is not itself evidence that the pipeline will convert.
+
+**Where the funding read is contested:** The leverage and coverage figures carried here for FY2025 are interest cover of 8.11x, net debt to EBITDA of 1.27x, net debt of $23,911m and debt to equity of 0.61. Each rests on one year and on one EBITDA and debt definition. A reader working from a narrower earnings definition or a broader debt measure can reach a materially weaker coverage reading from the same statements, and the difference is decisive: on a weak reading, interest absorbs earnings and the research budget competes with debt service. Treat balance-sheet capacity to sustain R&D and business development as an open question, not a settled strength.
+
+**Base case:** Our judgement is that growth from here is carried by the approved portfolio, with unapproved assets as unsized optionality. Durability is constrained by two company-named risks: interruption in the manufacture and supply of compliant, quality medicines, which can cause product shortages and lost sales; and failure or breach of the IT systems the company describes as underpinning critical business functions. Confidence is low, and deliberately so — the evidence here supports a structural description, not a forecast.
+
+### Growth Drivers
+
+- Approved-product base, generating high gross margin and positive free cash flow in FY2025
+- Endocrine-directed therapy in HR-positive breast cancer, described by the company as the most common breast cancer subtype
+- Research reinvestment funded from current operations rather than external financing
+- Unapproved pipeline optionality — not sized here, with no company-stated peak sales or revenue-ambition contribution attached to a named asset
+- Constraints on durability: manufacturing and supply compliance, and IT and cybersecurity resilience
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Revenue (FY2025) | 58,739 USD m[^84] |
+| Research and development (FY2025) | 14,232 USD m[^85] |
+| Gross margin (FY2025) | 81.9%[^86] |
+| Operating margin (FY2025) | 23.4%[^87] |
+| Free cash flow (FY2025) | 11,765 USD m[^88] |
+| Return on invested capital (FY2025) | 15.6%[^89] |
+| Interest cover (FY2025) | 8.11[^90] |
+| Net debt to EBITDA (FY2025) | 1.27[^91] |
+
+## Valuation — Discounted Cash Flow
+
+### How These Figures Were Produced
+
+Free cash flows from a 5-year explicit forecast of consolidated figures were discounted at the weighted average cost of capital shown below, with the capital weighted at book values from the filed balance sheet — no market prices were used. The bridge from enterprise to equity value is net debt alone, and the terminal value was taken both ways — a growing perpetuity and an exit multiple — with each carried through to a per-share figure. Every figure cites the calculation that produced it.
+
+### Cost of Capital
+
+| Label | Value | Provenance |
+|---|---|---|
+| Risk-free rate | 4.8% | set by the operator and confirmed at the assumptions gate |
+| Beta | 0.4 | set by the operator and confirmed at the assumptions gate |
+| Equity risk premium | 0.045 | set by the operator and confirmed at the assumptions gate |
+| Tax rate | 20% | set by the operator and confirmed at the assumptions gate |
+| Cost of equity | 0.0663 | computed: Ke = risk-free rate + beta * equity risk premium[^92] |
+| Cost of debt, pre-tax | 0.056544887094 | computed: Kd = interest expense / average debt[^93] |
+| Cost of debt, after tax | 0.045235909675 | computed: Kd after tax = Kd * (1 - tax rate)[^94] |
+| Equity weight | 0.621632668702 | computed: E / (D + E) = equity value / (equity value + debt value) (book values — this run holds no market prices)[^95] |
+| Debt weight | 0.378367331298 | computed: D / (D + E) = debt value / (equity value + debt value) (book values — this run holds no market prices)[^96] |
+| WACC | 5.8% | computed: WACC = Ke * E/(D+E) + Kd_after_tax * D/(D+E)[^97] |
+
+### Forecast Assumptions
+
+| Label | Value | Provenance |
+|---|---|---|
+| Revenue growth | 11.9% | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| EBIT margin | 14.2% | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Capex intensity | 0.033377 | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Depreciation intensity | 0.114739 | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Working capital intensity | -0.035125 | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Terminal growth | 2.5% | proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate |
+| Exit multiple | 11× | proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate |
+
+### The Two Terminal Methods
+
+| Label | Value | Provenance |
+|---|---|---|
+| Value per share — Gordon growth | $333.48 | computed: value per share = equity value / shares outstanding[^98] |
+| Terminal value share — Gordon growth | 87.2% | computed: terminal share = discounted terminal value / enterprise value[^99] |
+| Value per share — Exit multiple | $169.80 | computed: value per share = equity value / shares outstanding[^100] |
+| Terminal value share — Exit multiple | 76% | computed: terminal share = discounted terminal value / enterprise value[^101] |
+| Shares outstanding | 1,562,000,000 | the filed count: diluted_shares_outstanding[^102] |
+
+### Recorded Caveats
+
+- Book equity was used as the equity weight because no market capitalisation was available. Book value is what the shares were issued and retained for rather than what they are worth, and for a profitable company it is usually far lower — so the equity weight is understated, the debt weight overstated, and the resulting WACC too low. Every valuation discounted at it is correspondingly too high.
+- More than three quarters of the enterprise value is terminal value. The explicit forecast is contributing little, so the answer rests almost entirely on the terminal assumption rather than on the projected years a reader can check.
+- The two terminal methods disagree by more than a quarter. That is information, not an error: they are two different guesses about the same unknowable quantity, and the distance between them is the honest width of the answer.
+- The bridge from enterprise value to equity value is net debt alone. Associate holdings, minority interests and pension deficits are not read off the filings by this build, so a business carrying material non-operating items is valued as though it does not.
+
+### Commentary
+
+The valuation rests on a single filed year of cash generation, and that is as much its limitation as its anchor. FY2025 operating cash flow of $14.6 billion against capital expenditure of $2.81 billion left free cash flow of $11.8 billion, on an operating margin of 23.4% and an EBITDA margin of 32.1%. Those are the reference points against which the EBIT margin, capex intensity, depreciation intensity and working capital intensity assumptions should be read: none of them is exotic relative to what the company actually printed, so the near-term forecast years contribute a cash-flow stream close in shape to the filed one, and the revenue growth assumption does nearly all the discretionary work in the explicit period.
+
+The two value per share outputs — Gordon growth and exit multiple — share every input up to the terminal boundary. Whatever separates them is therefore a statement about terminal method, not about the business, and the two terminal value share figures are the honest measure of how much of the answer is being asserted rather than forecast. In a business of this profile that share is structurally large, because the explicit horizon captures only a fraction of the economic life of an approved medicine. Terminal growth and the exit multiple are analyst choices, and a reader who disagrees with either should expect the per-share conclusion to move materially before any operating assumption is touched.
+
+The most important thing this framework cannot do is separate the portfolio into its parts. A single revenue growth path cannot simultaneously represent decline in marketed products as exclusivity lapses and replacement of that revenue by pipeline assets; the two are netted into one rate, and the result is a whole-company going-concern value in which pipeline contribution is implicit rather than isolated. This section does not decompose value into marketed-product cash flows, cash lost to exclusivity expiry and residual implied pipeline value, and readers should not treat the per-share outputs as a sum of those parts. The company's own accounting models work the other way: recoverable amounts are estimated asset by asset using risk-adjusted post-tax cash flows, with probability of technical and regulatory success and sales erosion curves following patent expiry named among the key assumptions. Note also the asymmetry in a margin-based DCF: R&D of $14.2 billion on revenue of $58.7 billion is expensed inside the EBIT margin, so the model pays in full for the pipeline each year while crediting it only through the growth rate. Where growth is set conservatively, that biases the value downward.
+
+On the discount side, capital structure is not the swing factor. Net debt of $23.9 billion is 1.27 times EBITDA, with interest cover of 8.11 times, so the debt weight is modest and neither the pre-tax nor the after-tax cost of debt can pull the WACC far. The cost of equity therefore dominates, and the per-share answer is more sensitive to that single input than to leverage or the tax rate. One external reference point is available without leaving primary disclosure: the Group states a post-tax weighted average cost of capital for its own impairment work and applies risk-adjusted post-tax rates to intangible assets whose upper end sits above it. A discount rate materially above that disclosed level implies the market participant view embedded here is more demanding than management's; materially below, less so. That comparison, rather than any single output, is the right first check on the result.
+
+Returns support a positive terminal assumption in principle. Return on invested capital of 15.6% in FY2025, on NOPAT of $11.3 billion, leaves a wide spread over any plausible discount rate, which is the condition under which continuing growth adds rather than destroys value. Cash returns are covered: dividends paid of $4.97 billion in FY2025 sit well inside free cash flow, leaving reinvestment capacity that the model does not separately reward. Shares outstanding is the least contentious input, the issued share capital carrying voting rights being on record as at 31 August 2026 with no shares held in treasury.
+
+Our judgement is that the outputs should be treated as a range framed by terminal method and cost of equity rather than as a point estimate, and that confidence is low until marketed-product decline and pipeline replacement are modelled as distinct streams rather than as one blended growth rate.
+
+### Valuation football field
+
+Value-per-share ranges from this run's own recorded calculations. Licensed market data under a subscription agreement. Selling, retransmitting, redistributing or displaying the information in original or repackaged form is prohibited without prior written approval. Figures computed from it — multiples, ratios and other derived values — may be published: the operator determined this on 2026-08-09, having read the executed agreement, and the determination is theirs rather than an inference from the published terms. It does not extend to the series itself or to a chart of it, which remain the information in repackaged form. Copies must be deleted within one month of the subscription ending.[^103][^104]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Scenarios & Sensitivities
+
+### Commentary
+
+**What separates the cases:** A small set of inputs separates the bear, base and bull paths, and each can be moved on its own and re-run: the pace of revenue erosion once a generic or biosimilar competitor enters, the entry date itself, and the date on which a negotiated or mandated price becomes effective. Each is applied to the FY2025 revenue base of USD 58,739m and read through the FY2025 cost structure.
+
+**Bear case:** Input moved: the erosion curve is steepened so that most of an exposed product's sales are lost within the first year of competitor entry rather than fading across several, and the entry date is pulled forward into the forecast horizon. The bite is severe because of mix: at a FY2025 gross margin of 81.9 percent, lost revenue brings almost no variable cost relief with it, so it reaches the operating line largely intact against an operating margin of 23.4 percent, while FY2025 R&D of USD 14,232m and SG&A of USD 19,933m do not flex inside the same year.
+
+**Base case:** Input moved: entry occurs on the expected date and erosion follows a moderate multi-period fade, with negotiated-price effective dates left where disclosed. A variant worth holding separately anticipates an expiry that falls just beyond the forecast horizon: nothing in the modelled cash flows changes, but the terminal fade rate is steepened, which moves value through the exit assumption rather than through the near-term revenue line.
+
+**Bull case:** Inputs moved: the entry date slips beyond the horizon on litigation or filing delay, erosion is shallower, and the negotiated-price effective date falls outside the forecast window. In that case the base revenue line compounds unbroken, and free cash flow of USD 11,765m in FY2025 is redeployed at a return on invested capital of 15.6 percent, which is the mechanism by which the bull case compounds rather than merely defers.
+
+**Pricing and trade:** The 20-F filed in February 2026 states that measures taken to limit healthcare spending may lead to lower than anticipated rates of growth in some markets, and that geopolitical tensions may lead to tariffs or other restrictions that increase costs or reduce revenues. The tariff and most-favoured-nation case is therefore declared unsized: the evidence here carries no manufacturing-footprint or cost-geography split to scale it against. The same filing flags supply interruption, which we treat as a separate short-duration revenue case rather than a margin case.
+
+### Scenarios
+
+| Label | Value |
+|---|---|
+| Revenue base applied to all cases (FY2025) | 58,739 USD m[^105] |
+| Gross margin — drop-through on eroded revenue (FY2025) | 81.9%[^106] |
+| Operating margin — cushion absorbing erosion (FY2025) | 23.4%[^107] |
+| EBITDA base (FY2025) | 18,829 USD m[^108] |
+| Free cash flow base (FY2025) | 11,765 USD m[^109] |
+| Reinvestment rate in bull case (FY2025 ROIC) | 15.6%[^110] |
+| Leverage buffer (FY2025 net debt / EBITDA) | 1.27[^111] |
+| Interest cover buffer (FY2025) | 8.11[^112] |
+| Basic EPS base (FY2025) | 6.6 USD per share[^113] |
+
+### Sensitivity Commentary
+
+Ranked by effect on value, erosion pace dominates. With a FY2025 gross margin of 81.9 percent, a revenue assumption is close to an operating income assumption, so steepening the fade curve moves more value than any cost lever available in the same period. Entry-date timing ranks second and is largely a discounting effect: it shifts the same loss earlier or later rather than changing its size, unless the slip carries the expiry outside the horizon, in which case it becomes a terminal-value question. Pricing effective dates rank third and act on the revenue line's growth rate rather than its level. Balance sheet stress is the least sensitive link in the chain: net debt of USD 23,911m at FY2025 leaves net debt at 1.27 times EBITDA with interest cover of 8.11 times, so an EBITDA shortfall would need to be large and sustained before financing terms, rather than earnings, became the binding constraint.
+
+### Sensitivity heatmap
+
+value_per_share_gordon_growth (USD/shares) across wacc and terminal_growth. Each cell is a recorded calculation, not an interpolation.[^114][^115][^116][^117][^118][^119][^120][^121][^122][^123][^124][^125][^126][^127][^128][^129][^130][^131][^132][^133][^134][^135][^136][^137][^138]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Key Risks
+
+### Commentary
+
+Two of the risks below can be sized from the reported balance sheet; the remainder can only be described, and are labelled as such. The quantifiable pair — the weight of acquired goodwill and intangibles within total assets, and a working-capital position that sits below one — are structural rather than acute, and are cushioned by cash generation: EBITDA of USD 18,829 million and a return on invested capital of 15.6% for FY2025. The larger tail sits in the risks that cannot be sized here: litigation and governmental investigations, which the company itself frames as a principal risk, and the exclusivity and generic or biosimilar entry cycle, on which the evidence available for this note is silent as to specific expiry dates, pending ANDA filings or BPCIA proceedings. In our judgement the litigation and exclusivity risks dominate, because they are open-ended in magnitude while the balance-sheet risks are bounded and disclosed.
+
+### Risks
+
+| Risk | Why It Matters | Early Warning |
+|---|---|---|
+| Carrying value of goodwill and acquired intangibles (quantifiable) | Goodwill of USD 21,242 million and intangible assets of USD 37,846 million at 31 December 2025 stand against total assets of USD 114,074 million, making acquired assets the single largest block of the asset base. An impairment triggered by a failed readout, a label restriction or faster-than-assumed erosion of an acquired brand would reduce reported earnings and equity without any cash movement, and would be large relative to annual profit. | Changes to discount-rate or growth assumptions in the annual impairment test; withdrawal, restriction or trial failure on an acquired asset.[^139] |
+| Near-term liquidity and working capital (quantifiable) | The current ratio was 0.94 for FY2025, with current assets of USD 28,723 million set against accounts payable alone of USD 25,280 million. Cash and equivalents of USD 5,711 million at 31 December 2025 were lower than the USD 7,058 million held at 30 June 2025. The position depends on uninterrupted operating cash flow and on committed facilities; the maturity profile of borrowings is not set out in the evidence available here, so refinancing concentration cannot be assessed. | A further fall in cash alongside a build in receivables or inventory; increased reliance on short-term issuance.[^139][^140] |
+| Litigation and governmental investigations (described, not sized) | The company identifies adverse outcomes of litigation and governmental investigations as a principal risk, noting that authorities hold wide-ranging administrative powers and that manufacturing, marketing, promotional, clinical, pharmacovigilance and pricing practices are subject to extensive regulation and investigation, including failures by contractors or external partners. Material matters are directed to the contingent liabilities note (Note 30) of the annual report accompanying the Form 20-F dated February 2026. No aggregate provision or exposure figure is available to us, so the risk is directional only. | New or enlarged contingency disclosure; receipt of subpoenas or civil investigative demands; settlement charges appearing in quarterly reporting.[^141] |
+| Exclusivity expiry and generic or biosimilar entry (described, not sized) | For a company whose economics rest on a concentrated set of protected brands, patent expiry and at-risk launch are the principal revenue discontinuity. The evidence available for this note identifies no specific expiry dates and no pending ANDA or BPCIA proceedings, so neither the timing nor the revenue at stake can be quantified here; the exposure should be treated as present and material but unmeasured. | Paragraph IV notifications, biosimilar filings accepted for review, adverse claim-construction or invalidity rulings, or a launch at risk. |
+| Dependence on pipeline readouts and regulatory decisions (described, not sized) | Growth expectations rest on converting late-stage readouts into approvals and reimbursement. In September 2026 the company reported that the safety and tolerability profile of Imfinzi plus tarlatamab was consistent with the known profiles of the individual treatments, with no new safety signals, and that the data would be shared with global regulatory authorities. Outcomes of such submissions are not assured; slippage in review timing or a narrower label would push revenue beyond the forecast horizon and raise the impairment risk noted above. | Delayed filing acceptance, advisory committee referral, or a complete response letter on a key submission.[^142] |
+
+## Catalysts
+
+> **Insufficient evidence: This section's policy requires 1 distinct source(s); its claims cite 0. This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.**
+
+### Commentary
+
+The evidence available for this note dates no specific forward-looking event inside the next twelve months, such as a company-guided PDUFA date, a trial readout date from the clinical registry, a CMS price-effective date, or a court date in exclusivity litigation; the disclosed items are either regulatory approvals and trial results already announced before this note's date or administrative filings such as bond admissions and total voting rights notices. For a dated catalyst to be added, the company or a regulator would need to disclose a specific upcoming decision date, trial completion date, or contractual milestone, none of which appears in the material reviewed here.
+
+## Prior Research Comparison
+
+### Commentary
+
+1 prior approved report(s) exist for ASTRAZENECA PLC (AZN); the most recent is as of 11 September 2026. Every row below was read from one of them, and the run's export names which.
+
+### Comparisons
+
+| Aspect | Prior | Current |
+|---|---|---|
+| Non-binding view | no view reached | Recorded at this run's approval. |
+| Confidence | not recorded | Recorded at this run's approval. |
+| Valuation range | not recorded | 169.798802002887 to 333.476013557285 USD/shares |
+| Risk — Adverse outcome of litigation or governmental investigations | The company names this as a principal risk in its Form 20-F dated February 24, 2026, stating that manufacturing, marketing, exportation, promotional, clinical, pharmacovigilance and pricing practices, as well as interaction with regulatory agencies, purchasers, prescribers and patients, are subject to extensive regulation, litigation and governmental investigation, and that relevant authorities hold wide-ranging administrative powers. Failures by contractors or external partners are captured in the same exposure. | Carried into this run's key-risks review. |
+| Risk — Working capital offers little buffer against a funding or payment shock | The current ratio for FY2025 stands at 0.94, below one, with accounts payable of USD 25,280 million set against current assets of USD 28,723 million. Cash and equivalents were lower at 31 December 2025, at USD 5,711 million, than at 30 June 2025, at USD 7,058 million. A position of this shape leaves the company reliant on continuing operating inflows and on ready access to debt markets. | Carried into this run's key-risks review. |
+| Risk — Concentration of balance-sheet value in goodwill and acquired intangibles | Intangible assets of USD 37,846 million and goodwill of USD 21,242 million are large items within total assets of USD 114,074 million. Value of this kind is validated by product performance and by successful development of acquired programmes; a failed readout, a lost exclusivity or a demand shortfall in a major acquired franchise would, in our judgement, raise the prospect of an impairment charge well before it shows in cash earnings. | Carried into this run's key-risks review. |
+| Risk — Clinical and regulatory outcomes in the pipeline drive the return on a large capital base | Invested capital of USD 72,578 million earned a return on invested capital of 15.6% in FY2025. That return rests on a portfolio of approved and in-development products, and pivotal-trial or approval disappointments are the most direct route to its erosion. The evidence here does not identify which individual assets carry the largest share of that capital, so the risk is one we can describe but not attribute. | Carried into this run's key-risks review. |
+| Risk — Operating cost base amplifies any revenue or pricing setback | Gross margin of 81.9% in FY2025 falls to an operating margin of 23.4% and a net margin of 17.4%, so a substantial research and commercial cost base sits between the two. Where that base is largely committed in the near term, a revenue shortfall from exclusivity loss, biosimilar entry or mandated price cuts would, on our reading, compress operating and net margin proportionally more than it compresses revenue. | Carried into this run's key-risks review. |
+| Risk — Pricing policy, trade measures and geographic exposure are not sized in the material available | Government pricing intervention, tariff measures on pharmaceutical inputs or finished goods, and country-specific regulatory action are live exposures for any large-cap pharmaceutical group, and the company's own risk disclosure treats pricing practice as subject to regulation and investigation. We flag these as unquantified rather than absent: the material to hand supports no estimate of their revenue or margin effect. | Carried into this run's key-risks review. |
+| Assumption — revenue growth | Confirmed at 0.119346, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — ebit margin | Confirmed at 0.142147, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — capex intensity | Confirmed at 0.05, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — depreciation intensity | Confirmed at 0.114739, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — working capital intensity | Confirmed at -0.035125, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — tax rate | Confirmed at 0.2, held flat across the forecast. | Not yet observable: no full fiscal year after 11 September 2026 is in the store, so the first forecast year has not been filed. |
+| Assumption — beta | Confirmed at 0.3, held flat across the forecast. | Skipped: the concept map cannot place an assumption named 'beta', so no filed line answers it. |
+| Assumption — equity risk premium | Confirmed at 0.045, held flat across the forecast. | Skipped: the concept map cannot place an assumption named 'equity_risk_premium', so no filed line answers it. |
+| Assumption — exit multiple | Confirmed at 11, held flat across the forecast. | Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices. |
+| Assumption — risk free rate | Confirmed at 0.0483, held flat across the forecast. | Skipped: the concept map cannot place an assumption named 'risk_free_rate', so no filed line answers it. |
+| Assumption — terminal growth | Confirmed at 0.025, held flat across the forecast. | Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it. |
+
+## Validation & Disagreements
+
+### Summary
+
+The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. 8 disagreement(s) between sources were recorded, of which 8 were escalated for human decision at approval.
+
+### Validation Metrics
+
+| Metric | Score | Threshold | Verdict |
+|---|---|---|---|
+| assumption_completeness | 1.00000000 | at least 1.00000000 | pass |
+| citation_accuracy | 1.00000000 | at least 0.98000000 | pass |
+| cited_figure_agreement | 0E-8 | at most 0E-8 | pass |
+| figure_plausibility | 0E-8 | at most 0E-8 | pass |
+| hallucinated_citation_rate | 0E-8 | at most 0E-8 | pass |
+| look_ahead_recall | — | at least 1.00000000 | not exercised |
+| numerical_consistency | 0E-8 | at most 0.00500000 | pass |
+| presentation_integrity | 0E-8 | at most 0E-8 | pass |
+| primary_source_ratio | 1.00000000 | at least 0.60000000 | pass |
+| source_coverage | 0.94120000 | at least 0.90000000 | pass |
+| temporal_compliance | 1.00000000 | at least 1.00000000 | pass |
+
+### Disagreements
+
+**Red team — balance sheet, severity 5/5:** The draft's central solvency conclusions invert the recorded calculations. It claims interest cover of 8.11x and net debt of 1.27x EBITDA, and concludes leverage is modest, that balance sheet capacity is the least sensitive scenario element, and that there is room to sustain R&D and bolt-on business development. The recorded interest_cover calculation is 0.812 and the recorded net_debt_to_ebitda is 3.223; recorded net_debt is $24,452m against the claimed $23,911m, debt_to_equity is 0.783 against the claimed 0.61, and recorded EBITDA is $7,586m/$9,237m against the claimed $18,829m. On the recorded numbers, earnings do not cover interest and leverage is not modest.[^143]
+
+**Basis:** Recorded interest_cover, net_debt_to_ebitda, net_debt, debt_to_equity and ebitda calculations all differ from, and in the case of cover and leverage reverse the sign of, the draft's conclusions. No cash, EBIT or interest-expense facts exist in the index to reconcile the gap.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — competitive position, severity 3/5:** The draft concedes it has no product-level revenue split, no collaboration, profit-share or royalty breakdown, no exclusivity dates and no pending ANDA or BPCIA proceedings, and it acknowledges that a high gross margin says nothing about the durability of revenue beneath it. Yet a constructive stance is still taken. For a company whose principal identified source of revenue discontinuity is patent expiry, the absence of any concentration or exclusivity data is not a caveat to a thesis - it removes the basis for one. The only competitive-position evidence cited is the company's own description of its portfolio as among the most diverse in the industry.[^144]
+
+**Basis:** The draft's own claims record the absence of product-level revenue, exclusivity sizing and litigation-docket evidence; the offsetting competitive statement is company self-description from a regulatory filing rather than independent evidence.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — governance, severity 3/5:** The capital allocation section states share repurchases for FY2025 were zero and that the 20-F says no repurchases have been made since 2012. The fact index records share_repurchases of $489m at 2025-06-30 and $81m at 2024-12-31 alongside the zero at 2025-12-31. Either the facts are mislabelled or the 'no buybacks since 2012' framing is wrong; either way a claim about management's distribution policy is resting on data that contradicts itself. This sits alongside the draft's own admission that no executive compensation, board composition or insider ownership evidence exists, leaving the governance assessment qualitative and largely untested.[^144]
+
+**Basis:** Three recorded share_repurchases facts for overlapping periods carry inconsistent values, directly contradicting the draft's zero-buyback narrative; the draft separately records the absence of compensation, board and ownership evidence.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — growth, severity 4/5:** There is no growth evidence in this run. The fact index contains no revenue, earnings or cash-flow series for any period - only share counts, capex, taxes paid, debt balances, share-based compensation and buybacks. The draft itself concedes only one fiscal year of figures is available, that pipeline assets cannot be sized, and that pivotal-stage assets, filings and action dates are not disclosed in the material reviewed. A constructive view and a forward revenue-growth path are therefore asserted on an evidence base that contains not a single growth observation. The only multi-period series present is capex, which rises from $1,361m (2023) to $1,924m (2024) to $2,810m (2025).[^144]
+
+**Basis:** No revenue or income facts of any period exist in the index; the draft's own claims record the absence of pipeline, filing and horizon data. The one available multi-year series is capital expenditure.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — macro, severity 3/5:** The draft demotes pricing reform and trade policy to later-horizon risks on the strength of 'the size of the recorded gross margin cushion'. That cushion is the 81.9% figure, which no recorded calculation supports - the recorded gross_margin values are 0.668 and 0.721. The argument also runs against the draft's own cited disclosure, which identifies the Inflation Reduction Act, EU Joint Clinical Assessment, price controls, payer negotiation delays and tariff escalation as live pressures on revenue and margin. A risk the company itself describes in the present tense is being deferred on an unverified margin figure.[^144][^145]
+
+**Basis:** The recorded gross_margin calculations do not support the cushion figure relied on, while the 20-F risk disclosures cited in the draft describe pricing and trade pressure as current rather than prospective.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — profitability, severity 5/5:** Every headline profitability figure in the draft is contradicted by the run's own recorded calculations. The draft asserts gross margin 81.9%, operating margin 23.4%, net margin 17.4%, EBITDA margin 32.1% and ROE 21.0%. The only recorded calculations carrying those names return gross margin 0.668 and 0.721, operating margin 0.028 and 0.085, net margin 0.003 and 0.074, EBITDA margin 0.203 and 0.208, and ROE 0.003 and 0.089. No recorded calculation reproduces any draft figure. Until the draft ties each numeric claim to a specific calculation_id and period, the profitability picture is unverified and may be materially overstated.[^145]
+
+**Basis:** Named recorded calculations for margin and return concepts differ materially from the values asserted; no calculation in the index matches the draft's figures, and the index carries no revenue, gross profit, operating income or net income facts to adjudicate between them.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — profitability, severity 3/5:** The cash-quality conclusion is not reproducible from the index. The draft claims FY2025 operating cash flow of $14,575m and free cash flow of $11,765m; the only recorded free_cash_flow calculations are $4,872m and $8,717m, and no operating cash flow, dividend or net income fact appears in the index. Meanwhile the recorded capex_to_depreciation ratio of 0.167 implies capital spend far below the depreciation charge, which flatters free cash flow relative to a maintenance-capex basis - and capex has more than doubled across the three recorded years. 'Earnings well backed by cash' and 'dividend funded internally' are therefore judgements without checkable inputs.[^144][^146]
+
+**Basis:** Recorded free_cash_flow calculations are materially below the claimed figure; operating cash flow and dividends paid appear nowhere in the fact index; the recorded capex-to-depreciation ratio and the rising capex series cut against free-cash-flow durability.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — valuation, severity 4/5:** The valuation section's load-bearing inference - that a 15.6% ROIC leaves a spread over any plausible discount rate, so positive terminal growth adds rather than destroys value - rests on figures absent from the evidence. The only recorded return_on_invested_capital is 0.0823, the only recorded invested_capital is $60,124m against the claimed $72.6bn, and the only recorded nopat is $4.95bn against the claimed $11.3bn. At a ROIC near 8% the terminal-growth argument and the 'comfortably above cost of capital' judgement may not hold. The index also contains no share price, share count beyond basic/diluted, or market-implied input, so no per-share output can be checked at all.[^147][^148]
+
+**Basis:** Recorded ROIC, invested capital and NOPAT calculations are roughly half the claimed values; the sole T4 market-tier source is undescribed and no price or market-capitalisation fact appears in the index.
+
+**Resolution:** Escalated for human decision at approval.
+
+## Comparable companies
+
+A comparable-company analysis was attempted as at 12 September 2026, but every one of the eight proposed peers was excluded, because this research holds no filings and no price series for it, and a peer multiple needs both. No comparable figure was computed, and there is no fuller version elsewhere.
+
+## Scope and limitations
+
+- **Segment Analysis:** Insufficient evidence: This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.
+- **Earnings Quality:** Shortened to fit the length allotted to this section.
+- **Catalysts:** Insufficient evidence: This section's policy requires 1 distinct source(s); its claims cite 0. This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary. One or more statements were set aside because what they rested on was not recorded with them.
+
+
+## Notes
+
+[^1]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^2]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^3]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^4]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^5]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^6]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^7]: Calculated: `net margin = net income / revenue` = 0.1741 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^8]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^9]: Calculated: `net debt = total debt - cash and equivalents` = 23911000000.000000000000 USD (`aer.calc.ratios:net_debt`, code version `4c63dbfc4794`).
+[^10]: Calculated: `WACC = Ke * E/(D+E) + Kd_after_tax * D/(D+E)` = 0.0583 (rounded; full precision stored) (`aer.calc.wacc:wacc`, code version `4c63dbfc4794`).
+[^11]: Calculated: `value per share = equity value / shares outstanding` = 169.7988 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^12]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^13]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^14]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^15]: Calculated: `net margin = net income / revenue` = 0.1741 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^16]: Calculated: `ROE = net income / equity` = 0.2101 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_equity`, code version `4c63dbfc4794`).
+[^17]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^18]: Calculated: `ROIC = NOPAT / invested capital` = 0.1562 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_invested_capital`, code version `4c63dbfc4794`).
+[^19]: ASTRAZENECA PLC 20-F 2026-02-24, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/901832/000110465926019130/azn-20251231x20f.htm>
+[^20]: ASTRAZENECA PLC ETCAMAH APPROVED IN THE US FOR HR+ BREAST CANCER 2026-09-08, US Securities and Exchange Commission, published 8 September 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/901832/000165495426008150/a5662t.htm>
+[^21]: Calculated: `current ratio = current assets / current liabilities` = 0.9381 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:current_ratio`, code version `4c63dbfc4794`).
+[^22]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^23]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^24]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^25]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^26]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^27]: Calculated: `net margin = net income / revenue` = 0.1741 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^28]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^29]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^30]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^31]: Calculated: `net margin = net income / revenue` = 0.1741 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^32]: Calculated: `EBITDA margin = EBITDA / revenue` = 0.3206 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:ebitda_margin`, code version `4c63dbfc4794`).
+[^33]: Calculated: `ROE = net income / equity` = 0.2101 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_equity`, code version `4c63dbfc4794`).
+[^34]: Calculated: `ROIC = NOPAT / invested capital` = 0.1562 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_invested_capital`, code version `4c63dbfc4794`).
+[^35]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^36]: Calculated: `net debt = total debt - cash and equivalents` = 23911000000.000000000000 USD for FY2025 (`aer.calc.ratios:net_debt`, code version `4c63dbfc4794`).
+[^37]: Calculated: `debt to equity = total debt / equity` = 0.6087 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:debt_to_equity`, code version `4c63dbfc4794`).
+[^38]: Calculated: `current ratio = current assets / current liabilities` = 0.9381 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:current_ratio`, code version `4c63dbfc4794`).
+[^39]: Calculated: `gross margin = gross profit / revenue` = 0.6676 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^40]: Calculated: `gross margin = gross profit / revenue` = 0.7206 (rounded; full precision stored) for FY2022 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^41]: Calculated: `gross margin = gross profit / revenue` = 0.8195 (rounded; full precision stored) for FY2023 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^42]: Calculated: `gross margin = gross profit / revenue` = 0.8112 (rounded; full precision stored) for FY2024 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^43]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^44]: Calculated: `operating margin = operating income / revenue` = 0.0282 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^45]: Calculated: `operating margin = operating income / revenue` = 0.0847 (rounded; full precision stored) for FY2022 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^46]: Calculated: `operating margin = operating income / revenue` = 0.1788 (rounded; full precision stored) for FY2023 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^47]: Calculated: `operating margin = operating income / revenue` = 0.185 (rounded; full precision stored) for FY2024 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^48]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^49]: Calculated: `net margin = net income / revenue` = 0.003 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^50]: Calculated: `net margin = net income / revenue` = 0.0741 (rounded; full precision stored) for FY2022 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^51]: Calculated: `net margin = net income / revenue` = 0.13 (rounded; full precision stored) for FY2023 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^52]: Calculated: `net margin = net income / revenue` = 0.1301 (rounded; full precision stored) for FY2024 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^53]: Calculated: `net margin = net income / revenue` = 0.1741 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_margin`, code version `4c63dbfc4794`).
+[^54]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^55]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^56]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^57]: Calculated: `interest cover = operating income / interest expense` = 8.1128 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:interest_cover`, code version `4c63dbfc4794`).
+[^58]: Calculated: `net debt to EBITDA = net debt / EBITDA` = 1.2699 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_debt_to_ebitda`, code version `4c63dbfc4794`).
+[^59]: Calculated: `current ratio = current assets / current liabilities` = 0.9381 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:current_ratio`, code version `4c63dbfc4794`).
+[^60]: Calculated: `quick ratio = (cash + short-term investments + receivables) / current liabilities` = 0.6832 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:quick_ratio`, code version `4c63dbfc4794`).
+[^61]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^62]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^63]: Calculated: `net debt = total debt - cash and equivalents` = 23911000000.000000000000 USD for FY2025 (`aer.calc.ratios:net_debt`, code version `4c63dbfc4794`).
+[^64]: Calculated: `net debt to EBITDA = net debt / EBITDA` = 1.2699 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_debt_to_ebitda`, code version `4c63dbfc4794`).
+[^65]: Calculated: `debt to equity = total debt / equity` = 0.6087 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:debt_to_equity`, code version `4c63dbfc4794`).
+[^66]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^67]: Calculated: `current ratio = current assets / current liabilities` = 0.9381 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:current_ratio`, code version `4c63dbfc4794`).
+[^68]: Calculated: `quick ratio = (cash + short-term investments + receivables) / current liabilities` = 0.6832 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:quick_ratio`, code version `4c63dbfc4794`).
+[^69]: Calculated: `EBITDA = operating income + depreciation and amortisation` = 18829000000.000000000000 USD for FY2025 (`aer.calc.ratios:ebitda`, code version `4c63dbfc4794`).
+[^70]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^71]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^72]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^73]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^74]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^75]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^76]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^77]: Calculated: `net debt to EBITDA = net debt / EBITDA` = 1.2699 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_debt_to_ebitda`, code version `4c63dbfc4794`).
+[^78]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^79]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^80]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^81]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^82]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^83]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^84]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^85]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^86]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^87]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^88]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^89]: Calculated: `ROIC = NOPAT / invested capital` = 0.1562 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_invested_capital`, code version `4c63dbfc4794`).
+[^90]: Calculated: `interest cover = operating income / interest expense` = 8.1128 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:interest_cover`, code version `4c63dbfc4794`).
+[^91]: Calculated: `net debt to EBITDA = net debt / EBITDA` = 1.2699 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_debt_to_ebitda`, code version `4c63dbfc4794`).
+[^92]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.066300000000 (`aer.calc.wacc:cost_of_equity`, code version `4c63dbfc4794`).
+[^93]: Calculated: `Kd = interest expense / average debt` = 0.0565 (rounded; full precision stored) (`aer.calc.wacc:cost_of_debt`, code version `4c63dbfc4794`).
+[^94]: Calculated: `Kd after tax = Kd * (1 - tax rate)` = 0.0452 (rounded; full precision stored) (`aer.calc.wacc:after_tax_cost_of_debt`, code version `4c63dbfc4794`).
+[^95]: Calculated: `E / (D + E) = equity value / (equity value + debt value)` = 0.6216 (rounded; full precision stored) (`aer.calc.wacc:equity_weight`, code version `4c63dbfc4794`).
+[^96]: Calculated: `D / (D + E) = debt value / (equity value + debt value)` = 0.3784 (rounded; full precision stored) (`aer.calc.wacc:debt_weight`, code version `4c63dbfc4794`).
+[^97]: Calculated: `WACC = Ke * E/(D+E) + Kd_after_tax * D/(D+E)` = 0.0583 (rounded; full precision stored) (`aer.calc.wacc:wacc`, code version `4c63dbfc4794`).
+[^98]: Calculated: `value per share = equity value / shares outstanding` = 333.476 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^99]: Calculated: `terminal share = discounted terminal value / enterprise value` = 0.8725 (rounded; full precision stored) (`aer.calc.dcf:terminal_value_share`, code version `4c63dbfc4794`).
+[^100]: Calculated: `value per share = equity value / shares outstanding` = 169.7988 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^101]: Calculated: `terminal share = discounted terminal value / enterprise value` = 0.7598 (rounded; full precision stored) (`aer.calc.dcf:terminal_value_share`, code version `4c63dbfc4794`).
+[^102]: Calculated: `value per share = equity value / shares outstanding` = 333.476 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^103]: Calculated: `value per share = equity value / shares outstanding` = 333.476 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^104]: Calculated: `value per share = equity value / shares outstanding` = 169.7988 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^105]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^106]: Calculated: `gross margin = gross profit / revenue` = 0.819 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^107]: Calculated: `operating margin = operating income / revenue` = 0.234 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:operating_margin`, code version `4c63dbfc4794`).
+[^108]: Calculated: `EBITDA = operating income + depreciation and amortisation` = 18829000000.000000000000 USD for FY2025 (`aer.calc.ratios:ebitda`, code version `4c63dbfc4794`).
+[^109]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 11765000000.000000000000 USD for FY2025 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^110]: Calculated: `ROIC = NOPAT / invested capital` = 0.1562 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:return_on_invested_capital`, code version `4c63dbfc4794`).
+[^111]: Calculated: `net debt to EBITDA = net debt / EBITDA` = 1.2699 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:net_debt_to_ebitda`, code version `4c63dbfc4794`).
+[^112]: Calculated: `interest cover = operating income / interest expense` = 8.1128 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:interest_cover`, code version `4c63dbfc4794`).
+[^113]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^114]: Calculated: `value per share = equity value / shares outstanding` = 404.0933 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^115]: Calculated: `value per share = equity value / shares outstanding` = 339.9077 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^116]: Calculated: `value per share = equity value / shares outstanding` = 292.4888 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^117]: Calculated: `value per share = equity value / shares outstanding` = 256.0319 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^118]: Calculated: `value per share = equity value / shares outstanding` = 227.1342 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^119]: Calculated: `value per share = equity value / shares outstanding` = 441.2565 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^120]: Calculated: `value per share = equity value / shares outstanding` = 365.874 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^121]: Calculated: `value per share = equity value / shares outstanding` = 311.5525 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^122]: Calculated: `value per share = equity value / shares outstanding` = 270.5542 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^123]: Calculated: `value per share = equity value / shares outstanding` = 238.5181 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^124]: Calculated: `value per share = equity value / shares outstanding` = 486.3844 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^125]: Calculated: `value per share = equity value / shares outstanding` = 396.4231 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^126]: Calculated: `value per share = equity value / shares outstanding` = 333.476 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^127]: Calculated: `value per share = equity value / shares outstanding` = 286.9709 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^128]: Calculated: `value per share = equity value / shares outstanding` = 251.2155 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^129]: Calculated: `value per share = equity value / shares outstanding` = 542.3447 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^130]: Calculated: `value per share = equity value / shares outstanding` = 432.8857 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^131]: Calculated: `value per share = equity value / shares outstanding` = 358.9551 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^132]: Calculated: `value per share = equity value / shares outstanding` = 305.6786 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^133]: Calculated: `value per share = equity value / shares outstanding` = 265.4679 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^134]: Calculated: `value per share = equity value / shares outstanding` = 613.5696 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^135]: Calculated: `value per share = equity value / shares outstanding` = 477.1628 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^136]: Calculated: `value per share = equity value / shares outstanding` = 388.9309 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^137]: Calculated: `value per share = equity value / shares outstanding` = 327.1926 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^138]: Calculated: `value per share = equity value / shares outstanding` = 281.5794 (rounded; full precision stored) USD/shares (`aer.calc.dcf:value_per_share`, code version `4c63dbfc4794`).
+[^139]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 11 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^140]: Calculated: `current ratio = current assets / current liabilities` = 0.9381 (rounded; full precision stored) for FY2025 (`aer.calc.ratios:current_ratio`, code version `4c63dbfc4794`).
+[^141]: ASTRAZENECA PLC 20-F 2026-02-24, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/901832/000110465926019130/azn-20251231x20f.htm>
+[^142]: ASTRAZENECA PLC IMFINZI+IMDELLTRA IMPROVED OS IN SMALL CELL LUNG 2026-09-08, US Securities and Exchange Commission, published 8 September 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/901832/000165495426008172/a8764t.htm>
+[^143]: Calculated: `interest cover = operating income / interest expense` = 0.8123 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:interest_cover`, code version `4c63dbfc4794`).
+[^144]: ASTRAZENECA PLC XBRL company facts, US Securities and Exchange Commission, published 24 February 2026, retrieved 12 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json>
+[^145]: Calculated: `gross margin = gross profit / revenue` = 0.6676 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:gross_margin`, code version `4c63dbfc4794`).
+[^146]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 4872000000.000000000000 USD for FY2021 (`aer.calc.ratios:free_cash_flow`, code version `4c63dbfc4794`).
+[^147]: ASTRAZENECA PLC daily prices to 2026-09-12, EOD Historical Data, published 11 September 2026, retrieved 12 September 2026, tier T4_LICENSED_MARKET. <https://eodhd.com/api/eod/AZN.US?api_token=REDACTED&fmt=json&period=d&to=2026-09-12&from=2020-09-01>
+[^148]: Calculated: `ROIC = NOPAT / invested capital` = 0.0823 (rounded; full precision stored) for FY2022 (`aer.calc.ratios:return_on_invested_capital`, code version `4c63dbfc4794`).
+
+
+## Sources
+
+| Source | Publisher | Published | Retrieved | Tier | Artefact |
+|---|---|---|---|---|---|
+| [ASTRAZENECA PLC XBRL company facts](https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json) | US Securities and Exchange Commission | 24 February 2026 | 11 September 2026 | T1_REGULATORY | `f8ee3de56da6` |
+| [ASTRAZENECA PLC XBRL company facts](https://data.sec.gov/api/xbrl/companyfacts/CIK0000901832.json) | US Securities and Exchange Commission | 24 February 2026 | 12 September 2026 | T1_REGULATORY | `f8ee3de56da6` |
+| [ASTRAZENECA PLC 20-F 2026-02-24](https://www.sec.gov/Archives/edgar/data/901832/000110465926019130/azn-20251231x20f.htm) | US Securities and Exchange Commission | 24 February 2026 | 12 September 2026 | T1_REGULATORY | `5f65a1e4d20e` |
+| [ASTRAZENECA PLC ETCAMAH APPROVED IN THE US FOR HR+ BREAST CANCER 2026-09-08](https://www.sec.gov/Archives/edgar/data/901832/000165495426008150/a5662t.htm) | US Securities and Exchange Commission | 8 September 2026 | 12 September 2026 | T1_REGULATORY | `7e8bf77c81a6` |
+| [ASTRAZENECA PLC IMFINZI+IMDELLTRA IMPROVED OS IN SMALL CELL LUNG 2026-09-08](https://www.sec.gov/Archives/edgar/data/901832/000165495426008172/a8764t.htm) | US Securities and Exchange Commission | 8 September 2026 | 12 September 2026 | T1_REGULATORY | `b94fd6dd5178` |
+| [ASTRAZENECA PLC daily prices to 2026-09-12](https://eodhd.com/api/eod/AZN.US?api_token=REDACTED&fmt=json&period=d&to=2026-09-12&from=2020-09-01) | EOD Historical Data | 11 September 2026 | 12 September 2026 | T4_LICENSED_MARKET | `d632f7d90eb8` |
+
+
+---
+
+This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.

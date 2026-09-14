@@ -6,7 +6,7 @@
 # should say so on the summary line, not in the middle of two thousand dots.
 #
 # No network and no model spend. Every corpus is bytes in this repository, the HTTP tests
-# replay recorded cassettes, and nothing here has an API key to spend with.
+# answer from stored fixtures through respx, and nothing here has an API key to spend with.
 
 name: CI
 
@@ -84,7 +84,7 @@ jobs:
       - name: Test suite
         run: uv run pytest --ignore=tests/e2e -q
 
-      # Eight numbers, each with a threshold, each blocking — plus the thirty golden
+      # Ten numbers, each with a threshold, each blocking — plus the thirty-nine golden
       # calculations held to 0.01%. See docs/adr/0025 and docs/archive/PLAN.md section 2.10.
       - name: Evaluation gate
         run: >-

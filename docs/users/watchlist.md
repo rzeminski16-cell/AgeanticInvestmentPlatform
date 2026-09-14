@@ -23,7 +23,8 @@ stopped. Researching it is a run dated as at a day. The page keeps the two apart
 Open **Watchlist** from the menu and fill in the form: the company's name, its ticker, its
 exchange, and **what would make it worth researching** — a sentence, so the queue is a list
 of reasons rather than a list of tickers. The listing is checked against the same universe
-a research request is: a UK or US listing, not a fund or an OTC quote.
+a research request is: a listing that files with the SEC — a US listing, or a UK plc with
+a 20-F — and not a fund or an OTC quote.
 
 Each entry shows when it was followed and where it stands, and once it has been
 commissioned more than once it opens to **every commission** it has had, newest first, each

@@ -28,6 +28,7 @@ from aer.calc.dcf import (
     METHOD_DISAGREEMENT_CAVEAT,
     NARROW_SPREAD_CAVEAT,
     NEGATIVE_EQUITY_CAVEAT,
+    SENSITIVITY_CASE,
     BridgeItem,
     DcfInputs,
     DriverPath,
@@ -573,7 +574,7 @@ class TestProvenance:
             "projected_working_capital",
             "change_in_working_capital",
             "forecast_ebitda",
-            "free_cash_flow",
+            "forecast_free_cash_flow",
             "discount_factor",
         ):
             assert len(context.named(name)) == 3, name
@@ -649,7 +650,24 @@ class TestTheSensitivityGrid:
         assert len({record.output_value for record in context.named("discount_factor")}) == 9
         # The forecast itself depends on neither axis, so all nine cells share one, and the
         # ledger holds those three years once rather than twenty-seven times (gap R14).
-        assert len(context.named("free_cash_flow")) == 3
+        assert len(context.named("forecast_free_cash_flow")) == 3
+
+    def test_the_cells_are_recorded_as_sensitivity_not_base(self, context):
+        """Readiness audit 2026-09: nine grid corners recorded under case "base" were what
+        the front page and the football field read the base band off."""
+        sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=GridAxis("wacc", (rate("0.09"), rate("0.10"))),
+            columns=GridAxis("terminal_growth", (rate("0.02"), rate("0.03"))),
+            method=TerminalMethod.GORDON_GROWTH,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        per_share = context.named("value_per_share")
+        assert per_share
+        assert {record.parameters.get("case") for record in per_share} == {SENSITIVITY_CASE}
 
     def test_the_base_case_cell_matches_the_base_case(self, context):
         grid = sensitivity_grid(

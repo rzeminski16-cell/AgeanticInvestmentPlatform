@@ -92,6 +92,27 @@ def context():
     return CalculationContext(code_version="testsha")
 
 
+class TestTheKernelRefusesARateThatIsNotOne:
+    """Readiness audit 2026-09: `net_income_from_roe(book=100, roe=12)` returned 1,200 and a
+    terminal growth of -2 produced a negative terminal value from a positive residual
+    income; nothing in the bank model range-checked either."""
+
+    def test_a_return_of_twelve_hundred_per_cent_is_refused(self) -> None:
+        context = CalculationContext(code_version="test")
+        with pytest.raises(CalculationError, match="return_on_equity"):
+            net_income_from_roe(context, opening_book_value=usd("100"), return_on_equity=rate("12"))
+
+    def test_a_terminal_growth_below_minus_one_is_refused(self) -> None:
+        context = CalculationContext(code_version="test")
+        with pytest.raises(CalculationError, match="terminal_growth"):
+            perpetual_residual_value(
+                context,
+                final_residual_income=usd("100"),
+                cost_of_equity=rate("0.10"),
+                terminal_growth=rate("-2"),
+            )
+
+
 def rate(value: str) -> Quantity:
     return Quantity.of(Decimal(value), source=ASSUMPTION)
 

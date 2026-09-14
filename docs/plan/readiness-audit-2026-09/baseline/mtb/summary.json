@@ -1,0 +1,50 @@
+{
+  "subject": "mtb",
+  "label": "mtb",
+  "model": "claude-opus-5",
+  "effort": "high",
+  "as_of": "2026-09-12",
+  "started_at": "2026-09-12T07:15:41.213464+00:00",
+  "finished_at": "2026-09-12T07:29:44.588709+00:00",
+  "elapsed_seconds": 843.375245,
+  "turns": 1,
+  "stop_reasons": [
+    "end_turn"
+  ],
+  "usage": [
+    {
+      "input_tokens": 1338741,
+      "output_tokens": 62065,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_search_requests": 25
+    }
+  ],
+  "searches": 25,
+  "citations": 0,
+  "words": 11225,
+  "price": {
+    "lines": [
+      {
+        "category": "llm_input",
+        "units": "1338741",
+        "usd": "6.693705",
+        "gbp": "5.28802695"
+      },
+      {
+        "category": "llm_output",
+        "units": "62065",
+        "usd": "1.551625",
+        "gbp": "1.22578375"
+      },
+      {
+        "category": "web_search",
+        "units": "25",
+        "usd": "0.25",
+        "gbp": "0.1975"
+      }
+    ],
+    "total_gbp": "6.7113",
+    "fx_rate": "0.79"
+  }
+}

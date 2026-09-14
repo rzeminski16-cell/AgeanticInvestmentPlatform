@@ -27,7 +27,7 @@ from aer.api.deps import CurrentUser, DbSession, RedisClient, StateDep
 from aer.api.sse import SSE_MEDIA_TYPE, event_stream
 from aer.core.enums import Decision, GateKind
 from aer.db.models import Job, JobStep, ResearchRequest, User, WorkOrder
-from aer.errors import AerError
+from aer.errors import AerError, ValidationError
 from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
 from aer.services import cancellation as cancellation_service
@@ -368,6 +368,32 @@ async def decide_gate(
             approved. Both are refused in :mod:`aer.services.approvals`.
     """
     job = await _owned_job(session, job_id=job_id, user=user)
+
+    # What the client hashed must be what the gate shows now, as the web route already
+    # requires. Before the readiness audit of 2026-09 any 64-character string was
+    # recorded, and an approval against the wrong content is one the run never releases
+    # and the gate then refuses to take again.
+    # Only for the gate the run is actually at: a decision on some other gate is refused
+    # for its order by the service below, which is the more useful answer.
+    pending = await approval_service.pending_gate(session, job)
+    shown = (
+        await _payload_for(session, job=job, gate=gate)
+        if pending is None or pending is gate
+        else {}
+    )
+    if shown and payload.payload_hash != payload_hash_for(shown):
+        message = (
+            f"The {gate.value} gate shows different content from what this decision was "
+            "taken on. Read the gate again and decide on what it shows now."
+        )
+        raise ValidationError(
+            message,
+            context={
+                "gate": gate.value,
+                "submitted_hash": payload.payload_hash,
+                "current_hash": payload_hash_for(shown),
+            },
+        )
 
     await approval_service.record_decision(
         session,

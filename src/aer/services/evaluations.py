@@ -1,6 +1,6 @@
 """The per-run validators: §2.10's judgement applied to a live run, written as rows.
 
-Task 39. Four validators, eight rows, one rule about authority:
+Task 39. Four validators, eleven rows, one rule about authority:
 
 * **citation** — the deterministic verifier is authoritative. It runs first, its verdicts
   become the accuracy and hallucination rows, and the LLM only *locates* candidate
@@ -15,7 +15,7 @@ Task 39. Four validators, eight rows, one rule about authority:
   composed policy, and the primary-source ratio over the run's numeric claims.
 
 **A metric with nothing to measure is recorded as not exercised** — a NULL value and a
-NULL verdict — because "every completed run carries all eight rows" must be a checkable
+NULL verdict — because "every completed run carries all eleven rows" must be a checkable
 property, and a fabricated pass would be the one kind of row worse than a missing one.
 """
 

@@ -31,8 +31,17 @@ def ordering(seed: int) -> list[str]:
 
     Sorted before shuffling so the same seed gives the same order regardless of what the
     filesystem happens to return — a reproducible ordering is the whole point.
+
+    **Every directory, not just this one.** The glob used to be flat, so a suite in a
+    subdirectory was never shuffled at all: the readiness audit's own `tests/audit/` ran in
+    `just test` and not here, which is thirty-five tests whose order-independence nobody had
+    checked. `tests/e2e/` stays out deliberately — Playwright's sync API leaves a running
+    loop on the main thread that wedges every pytest-asyncio test after it, so the browser
+    suite is its own process.
     """
-    paths = sorted(p.as_posix() for p in HERE.glob("test_*.py"))
+    paths = sorted(
+        p.as_posix() for p in HERE.rglob("test_*.py") if "e2e" not in p.relative_to(HERE).parts
+    )
     random.Random(seed).shuffle(paths)  # noqa: S311 -- a test order, not a secret
     return paths
 

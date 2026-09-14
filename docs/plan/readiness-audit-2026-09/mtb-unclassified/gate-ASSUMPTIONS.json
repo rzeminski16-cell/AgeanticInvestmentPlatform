@@ -1,0 +1,98 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.566015463654",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-12, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.025860000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 3 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31. The individual observations were 0.0249, 0.0262, 0.0265.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "cost_of_debt",
+        "value": "0.263723000000",
+        "unit": "pure",
+        "justification": "Cash interest paid of 3,524,000,000 over the average of 13,665,000,000 at 2024-12-31 and 13,060,000,000 at 2025-12-31. This is a cash-basis proxy, not the accrual cost of debt: this company tags no interest expense, so the rate normally derived from the income statement does not exist for it. Cash interest differs from the charge to profit by payment timing and by any interest capitalised into assets, so this figure can sit either side of the true rate. Confirm it only if that substitution is one you accept; amend it if you hold the rate from a debt footnote or a traded yield.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.116499000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 4 period(s) ending 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0345, 0.0315, 0.2051, 0.1949.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "8.000000000000",
+        "unit": "pure",
+        "justification": "EV/EBITDA is not how banks are priced \u2014 interest is operating revenue and debt is raw material, so enterprise value is near-meaningless here. 8x is calibrated by translation: regional banks trade near 10-12x earnings; at the derived 23.4% tax rate that is roughly 8x pre-tax, and D&A is small relative to earnings. Note the derived revenue series (5,992m to 1,657m) looks like a tagging change, so the EBITDA base this multiple is applied to may itself be distorted; a multiple cannot repair that. Of the two, I regard the perpetual-growth route as the better terminal estimate for this business, with 8x as a cross-check only.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.3
+      },
+      {
+        "name": "revenue_growth",
+        "value": "-0.274834000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 5,992,000,000 to 1,657,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.233732000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.2428, 0.2374, 0.2426, 0.2181, 0.2278.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken to be below a cost of equity of roughly 9-11% for a large US regional bank (the derived 26.4% cost of debt is a cash-interest artifact and should not anchor the discount rate). 2.5% is long-run US nominal GDP: M&T is a deposit-funded, branch-footprint bank in the Northeast/Mid-Atlantic, so its perpetual loan and fee growth is tied to regional nominal economic activity, not to a secular share gain. The 2Q26 record EPS and +8% C&I growth are cyclical, not perpetual. Lower it toward 2.0% if you view the deposit franchise as share-losing; it cannot support more than ~3% without assuming permanent outgrowth of the economy.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "ebit_margin",
+        "reason": "Ebit margin could not be derived: operating income over revenue is available for 0 period(s), and an average needs at least 2."
+      },
+      {
+        "name": "working_capital_intensity",
+        "reason": "Working capital intensity could not be derived: current assets, current liabilities and revenue are available together for 0 period(s), and an average needs at least 2."
+      },
+      {
+        "name": "risk_free_rate",
+        "reason": "No macroeconomic series has been acquired for this run, so there is no published government yield to propose. Enter the rate you are using and say which instrument and date it is from."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from."
+      }
+    ],
+    "refused": [],
+    "skipped": [
+      "Ebit margin could not be derived: operating income over revenue is available for 0 period(s), and an average needs at least 2.",
+      "Working capital intensity could not be derived: current assets, current liabilities and revenue are available together for 0 period(s), and an average needs at least 2."
+    ]
+  },
+  "hash": "9ff8639ad66a22a108bde40bed3f75c2d44dfd3772fa654a0c8b14f6559fd092",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "cf99d6a2-c3d7-47a8-a153-23b634dd7b23"
+  }
+}

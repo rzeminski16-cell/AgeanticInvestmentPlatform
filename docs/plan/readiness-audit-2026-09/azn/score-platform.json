@@ -1,0 +1,4817 @@
+{
+  "label": "azn",
+  "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f",
+  "subject": {
+    "company_name": "AstraZeneca PLC",
+    "ticker": "AZN",
+    "exchange": "NYSE",
+    "as_of_date": "2026-09-11",
+    "point_in_time": true,
+    "analysis_mode": "standard",
+    "max_cost_gbp": "10.00"
+  },
+  "reliability": {
+    "status": "SUCCEEDED",
+    "steps_total": 31,
+    "steps_failed": [],
+    "non_gate_retries": [
+      {
+        "step": "red_team",
+        "attempt": 1
+      },
+      {
+        "step": "revise",
+        "attempt": 1
+      }
+    ],
+    "gate_second_runs": 6,
+    "resume_events": 1,
+    "stop_events": [],
+    "sections_by_status": {
+      "generated": 18
+    },
+    "sections_degraded": [
+      {
+        "key": "valuation_dcf",
+        "note": "No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis.",
+        "confidence": null
+      },
+      {
+        "key": "catalysts",
+        "note": "Insufficient evidence: This section's policy requires 1 distinct source(s); its claims cite 0. This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.",
+        "confidence": 0.3
+      }
+    ],
+    "sections_lost": [],
+    "draft_attempts_per_section": {
+      "executive_summary": 1,
+      "investment_thesis": 2,
+      "business_overview": 1,
+      "segment_analysis": 1,
+      "industry_landscape": 1,
+      "management_governance": 1,
+      "historical_financial_analysis": 1,
+      "earnings_quality": 2,
+      "balance_sheet_liquidity": 1,
+      "cash_flow_analysis": 1,
+      "capital_allocation": 1,
+      "growth_outlook": 1,
+      "valuation_dcf": 0,
+      "scenarios_sensitivities": 1,
+      "key_risks": 1,
+      "catalysts": 1
+    },
+    "draft_refusal_causes": {
+      "numeral": 2,
+      "length": 1
+    },
+    "model_calls": 54,
+    "model_call_stop_reasons": {
+      "end_turn": 49,
+      "schema_rejected": 5
+    },
+    "wall_clock_seconds": 36827.291991,
+    "step_elapsed_seconds": {
+      "plan": 95.652544,
+      "critique_plan": 178.638428,
+      "gate_plan": 0.006246,
+      "acquire": 9.854372,
+      "classify": 0.006217,
+      "gate_sector_specialist": 0.002934,
+      "propose_peers": 9.209473,
+      "gate_peer_set": 0.003952,
+      "propose_themes": 7.222562,
+      "gate_theme_set": 0.004791,
+      "extract": 37.31874,
+      "gate_unmapped_concepts": 0.004004,
+      "acquire_prices": 2.762517,
+      "calculate": 0.406289,
+      "research_company": 105.208793,
+      "research_industry": 118.890583,
+      "research_macro": 53.751415,
+      "research_recent_developments": 56.585629,
+      "research_technical_context": 63.440608,
+      "comps": 0.615517,
+      "propose_assumptions": 21.864142,
+      "gate_assumptions": 0.023358,
+      "value": 0.376578,
+      "draft": 360.204615,
+      "validate": 3.84442,
+      "red_team": 142.456191,
+      "revise": 534.232015,
+      "verdict": 3.119414,
+      "brief_challenges": 63.560869,
+      "gate_final": 1.697778,
+      "render": 4.039852
+    }
+  },
+  "gate_waits": [
+    {
+      "gate": "PLAN",
+      "seconds": 73.018097,
+      "approved": true,
+      "findings": 0
+    },
+    {
+      "gate": "PEER_SET",
+      "seconds": 63.580936,
+      "approved": true,
+      "findings": 0
+    },
+    {
+      "gate": "THEME_SET",
+      "seconds": 63.365222,
+      "approved": true,
+      "findings": 0
+    },
+    {
+      "gate": "UNMAPPED_CONCEPTS",
+      "seconds": 68.840185,
+      "approved": true,
+      "findings": 51
+    },
+    {
+      "gate": "ASSUMPTIONS",
+      "seconds": 63.913431,
+      "approved": true,
+      "findings": 5
+    },
+    {
+      "gate": "FINAL",
+      "seconds": 10.354701,
+      "approved": true,
+      "findings": 6
+    }
+  ],
+  "accuracy": {
+    "metrics": {
+      "assumption_completeness": {
+        "value": null,
+        "threshold": "1.00000000",
+        "passed": null,
+        "population": 0
+      },
+      "citation_accuracy": {
+        "value": "1.00000000",
+        "threshold": "0.98000000",
+        "passed": true,
+        "population": 35
+      },
+      "cited_figure_agreement": {
+        "value": "0E-8",
+        "threshold": "0E-8",
+        "passed": true,
+        "population": 77
+      },
+      "figure_plausibility": {
+        "value": "0E-8",
+        "threshold": "0E-8",
+        "passed": true,
+        "population": 19
+      },
+      "hallucinated_citation_rate": {
+        "value": "0E-8",
+        "threshold": "0E-8",
+        "passed": true,
+        "population": 35
+      },
+      "look_ahead_recall": {
+        "value": null,
+        "threshold": "1.00000000",
+        "passed": null,
+        "population": 0
+      },
+      "numerical_consistency": {
+        "value": "0E-8",
+        "threshold": "0.00500000",
+        "passed": true,
+        "population": 152
+      },
+      "presentation_integrity": {
+        "value": "0E-8",
+        "threshold": "0E-8",
+        "passed": true,
+        "population": 18
+      },
+      "primary_source_ratio": {
+        "value": "1.00000000",
+        "threshold": "0.60000000",
+        "passed": true,
+        "population": 173
+      },
+      "source_coverage": {
+        "value": "0.94120000",
+        "threshold": "0.90000000",
+        "passed": true,
+        "population": 17
+      },
+      "temporal_compliance": {
+        "value": "1.00000000",
+        "threshold": "1.00000000",
+        "passed": true,
+        "population": 14
+      }
+    },
+    "metrics_failed": [],
+    "metrics_not_exercised": [
+      "assumption_completeness",
+      "look_ahead_recall"
+    ],
+    "citations": 34,
+    "citations_verified": 34,
+    "claims": 243,
+    "numeric_claims": 175,
+    "acceptance_passed": true,
+    "acceptance": {
+      "report": {
+        "passed": true,
+        "measured": "approved and immutable"
+      },
+      "sections": {
+        "passed": true,
+        "measured": "18 of 18 generated, 0 pending"
+      },
+      "citations": {
+        "passed": true,
+        "measured": "34 of 34 verified"
+      },
+      "metrics": {
+        "passed": true,
+        "measured": "9 metric(s) exercised, none failing"
+      },
+      "cited_sources": {
+        "passed": true,
+        "measured": "0 foreign issuer(s) cited"
+      },
+      "front_page": {
+        "passed": true,
+        "measured": "present, 3 headline row(s)"
+      },
+      "spend": {
+        "passed": null,
+        "measured": "\u00a36.83"
+      }
+    }
+  },
+  "cost": {
+    "total_gbp": "6.4913",
+    "run_spend_gbp": "6.834009",
+    "per_step_gbp": {
+      "plan": "0.1497",
+      "critique_plan": "0.3420",
+      "propose_peers": "0.0153",
+      "propose_themes": "0.0120",
+      "research_company": "0.3407",
+      "research_industry": "0.5735",
+      "research_macro": "0.2716",
+      "research_recent_developments": "0.2707",
+      "research_technical_context": "0.2247",
+      "propose_assumptions": "0.0501",
+      "draft": "2.8337",
+      "red_team": "0.3044",
+      "revise": "0.9748",
+      "verdict": "0.0123",
+      "brief_challenges": "0.1158"
+    },
+    "estimate_vs_actual": {
+      "plan": {
+        "estimate": "0.20",
+        "actual": "0.1497",
+        "ratio": "0.75"
+      },
+      "critique_plan": {
+        "estimate": "0.30",
+        "actual": "0.3420",
+        "ratio": "1.14"
+      },
+      "propose_peers": {
+        "estimate": "0.02",
+        "actual": "0.0153",
+        "ratio": "0.76"
+      },
+      "propose_themes": {
+        "estimate": "0.02",
+        "actual": "0.0120",
+        "ratio": "0.60"
+      },
+      "research_company": {
+        "estimate": "0.30",
+        "actual": "0.3407",
+        "ratio": "1.14"
+      },
+      "research_industry": {
+        "estimate": "0.30",
+        "actual": "0.5735",
+        "ratio": "1.91"
+      },
+      "research_macro": {
+        "estimate": "0.30",
+        "actual": "0.2716",
+        "ratio": "0.91"
+      },
+      "research_recent_developments": {
+        "estimate": "0.30",
+        "actual": "0.2707",
+        "ratio": "0.90"
+      },
+      "research_technical_context": {
+        "estimate": "0.30",
+        "actual": "0.2247",
+        "ratio": "0.75"
+      },
+      "propose_assumptions": {
+        "estimate": "0.10",
+        "actual": "0.0501",
+        "ratio": "0.50"
+      },
+      "draft": {
+        "estimate": "5.00",
+        "actual": "2.8337",
+        "ratio": "0.57"
+      },
+      "validate": {
+        "estimate": "0.02",
+        "actual": "0",
+        "ratio": "0.00"
+      },
+      "red_team": {
+        "estimate": "0.35",
+        "actual": "0.3044",
+        "ratio": "0.87"
+      },
+      "revise": {
+        "estimate": "1.50",
+        "actual": "0.9748",
+        "ratio": "0.65"
+      },
+      "verdict": {
+        "estimate": "0.10",
+        "actual": "0.0123",
+        "ratio": "0.12"
+      },
+      "brief_challenges": {
+        "estimate": "0.20",
+        "actual": "0.1158",
+        "ratio": "0.58"
+      }
+    },
+    "guard_table_total_gbp": "9.31",
+    "by_role": [
+      {
+        "role": "analysis",
+        "model": "claude-sonnet-5",
+        "calls": 22,
+        "output_tokens": 20028,
+        "cache": {
+          "fresh_tokens": 399437,
+          "read_tokens": 40021,
+          "written_tokens": 32853
+        }
+      },
+      {
+        "role": "report_writer",
+        "model": "claude-opus-5",
+        "calls": 14,
+        "output_tokens": 132325,
+        "cache": {
+          "fresh_tokens": 21689,
+          "read_tokens": 20019,
+          "written_tokens": 128239
+        }
+      },
+      {
+        "role": "report_writer",
+        "model": "claude-sonnet-5",
+        "calls": 7,
+        "output_tokens": 19590,
+        "cache": {
+          "fresh_tokens": 10529,
+          "read_tokens": 0,
+          "written_tokens": 71318
+        }
+      },
+      {
+        "role": "red_team",
+        "model": "claude-opus-5",
+        "calls": 2,
+        "output_tokens": 18355,
+        "cache": {
+          "fresh_tokens": 69364,
+          "read_tokens": 1976,
+          "written_tokens": 1976
+        }
+      },
+      {
+        "role": "planner",
+        "model": "claude-opus-5",
+        "calls": 2,
+        "output_tokens": 16894,
+        "cache": {
+          "fresh_tokens": 7436,
+          "read_tokens": 2037,
+          "written_tokens": 2037
+        }
+      },
+      {
+        "role": "challenge_brief",
+        "model": "claude-haiku-4-5",
+        "calls": 2,
+        "output_tokens": 3927,
+        "cache": {
+          "fresh_tokens": 9669,
+          "read_tokens": 0,
+          "written_tokens": 0
+        }
+      },
+      {
+        "role": "plan_critic",
+        "model": "claude-opus-5",
+        "calls": 1,
+        "output_tokens": 4461,
+        "cache": {
+          "fresh_tokens": 5482,
+          "read_tokens": 0,
+          "written_tokens": 1633
+        }
+      },
+      {
+        "role": "assumption_proposal",
+        "model": "claude-opus-5",
+        "calls": 1,
+        "output_tokens": 1298,
+        "cache": {
+          "fresh_tokens": 4009,
+          "read_tokens": 0,
+          "written_tokens": 1738
+        }
+      },
+      {
+        "role": "verdict",
+        "model": "claude-haiku-4-5",
+        "calls": 1,
+        "output_tokens": 70,
+        "cache": {
+          "fresh_tokens": 2774,
+          "read_tokens": 0,
+          "written_tokens": 0
+        }
+      },
+      {
+        "role": "theme_proposal",
+        "model": "claude-sonnet-5",
+        "calls": 1,
+        "output_tokens": 538,
+        "cache": {
+          "fresh_tokens": 215,
+          "read_tokens": 0,
+          "written_tokens": 1725
+        }
+      },
+      {
+        "role": "peer_proposal",
+        "model": "claude-sonnet-5",
+        "calls": 1,
+        "output_tokens": 856,
+        "cache": {
+          "fresh_tokens": 62,
+          "read_tokens": 0,
+          "written_tokens": 1695
+        }
+      }
+    ],
+    "by_kind": [
+      [
+        "cache_read",
+        "0.018980"
+      ],
+      [
+        "cache_write",
+        "0.988378"
+      ],
+      [
+        "llm_input",
+        "1.723564"
+      ],
+      [
+        "llm_output",
+        "4.047787"
+      ],
+      [
+        "web_search",
+        "0.055300"
+      ]
+    ],
+    "cache_hit_rate": 0.07644167254422489,
+    "unusable_replies": [
+      {
+        "step": "research_industry",
+        "role": "analysis",
+        "stop_reason": "schema_rejected",
+        "output_tokens": 2595
+      },
+      {
+        "step": "research_macro",
+        "role": "analysis",
+        "stop_reason": "schema_rejected",
+        "output_tokens": 1509
+      },
+      {
+        "step": "research_recent_developments",
+        "role": "analysis",
+        "stop_reason": "schema_rejected",
+        "output_tokens": 2507
+      },
+      {
+        "step": "red_team",
+        "role": "red_team",
+        "stop_reason": "schema_rejected",
+        "output_tokens": 9919
+      },
+      {
+        "step": "brief_challenges",
+        "role": "challenge_brief",
+        "stop_reason": "schema_rejected",
+        "output_tokens": 2176
+      }
+    ],
+    "effort_requested_vs_applied": {
+      "claude-opus-5:high": 20,
+      "claude-sonnet-5:medium": 31,
+      "claude-haiku-4-5:low": 3
+    }
+  },
+  "completeness": {
+    "sections_generated": 18,
+    "sections_total": 18,
+    "sections_missing": [],
+    "headline_figures_present": {
+      "market_capitalisation": false,
+      "enterprise_value": true,
+      "ev_ebitda": false,
+      "pe": false,
+      "dcf_value_per_share": true,
+      "scenario_range": true,
+      "comps_table": true,
+      "wacc": true,
+      "sensitivity": true
+    },
+    "coverage_notices_in_report": 0,
+    "report_words": 12548,
+    "footnotes": 114,
+    "facts_chosen": 4181,
+    "facts_rejected": 5217,
+    "unmapped_tags": 322,
+    "unmapped_concepts": [
+      {
+        "tag": "ifrs-full:NoncurrentAssetsOtherThanFinancialInstrumentsDeferredTaxAssetsPostemploymentBenefitAssetsAndRightsArisingUnderInsuranceContracts",
+        "unit": "USD",
+        "label": "",
+        "share": "1.267046",
+        "units": [
+          "USD"
+        ],
+        "value": "74425000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:RevenueFromSaleOfGoods",
+        "unit": "USD",
+        "label": "",
+        "share": "0.946101",
+        "units": [
+          "USD"
+        ],
+        "value": "55573000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:NetAssetsLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.829415",
+        "units": [
+          "USD"
+        ],
+        "value": "48719000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:SharePremium",
+        "unit": "USD",
+        "label": "",
+        "share": "0.600385",
+        "units": [
+          "USD"
+        ],
+        "value": "35266000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:FinancialLiabilitiesAtFairValue",
+        "unit": "USD",
+        "label": "",
+        "share": "0.566097",
+        "units": [
+          "USD"
+        ],
+        "value": "33252000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 24
+      },
+      {
+        "tag": "ifrs-full:FinancialLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.524030",
+        "units": [
+          "USD"
+        ],
+        "value": "30781000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 24
+      },
+      {
+        "tag": "ifrs-full:LiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.524030",
+        "units": [
+          "USD"
+        ],
+        "value": "30781000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 31
+      },
+      {
+        "tag": "ifrs-full:LongtermBorrowings",
+        "unit": "USD",
+        "label": "",
+        "share": "0.478966",
+        "units": [
+          "USD"
+        ],
+        "value": "28134000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:IssueOfEquity",
+        "unit": "USD",
+        "label": "",
+        "share": "0.463304",
+        "units": [
+          "USD"
+        ],
+        "value": "27214000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 46
+      },
+      {
+        "tag": "ifrs-full:NetDebt",
+        "unit": "USD",
+        "label": "",
+        "share": "0.448152",
+        "units": [
+          "USD"
+        ],
+        "value": "26324000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 14
+      },
+      {
+        "tag": "ifrs-full:ChangesInEquity",
+        "unit": "USD",
+        "label": "",
+        "share": "0.402612",
+        "units": [
+          "USD"
+        ],
+        "value": "23649000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:CashFlowsFromUsedInOperations",
+        "unit": "USD",
+        "label": "",
+        "share": "0.318970",
+        "units": [
+          "USD"
+        ],
+        "value": "18736000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:CashAndCashEquivalentsIfDifferentFromStatementOfFinancialPosition",
+        "unit": "USD",
+        "label": "",
+        "share": "0.258721",
+        "units": [
+          "USD"
+        ],
+        "value": "15197000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 72
+      },
+      {
+        "tag": "ifrs-full:EmployeeBenefitsExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.247672",
+        "units": [
+          "USD"
+        ],
+        "value": "14548000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DefinedBenefitObligationAtPresentValue",
+        "unit": "USD",
+        "label": "",
+        "share": "0.236129",
+        "units": [
+          "USD"
+        ],
+        "value": "13870000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:ComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.220228",
+        "units": [
+          "USD"
+        ],
+        "value": "12936000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:ComprehensiveIncomeAttributableToOwnersOfParent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.219956",
+        "units": [
+          "USD"
+        ],
+        "value": "12920000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:AccountingProfit",
+        "unit": "USD",
+        "label": "",
+        "share": "0.211137",
+        "units": [
+          "USD"
+        ],
+        "value": "12402000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:WagesAndSalaries",
+        "unit": "USD",
+        "label": "",
+        "share": "0.186826",
+        "units": [
+          "USD"
+        ],
+        "value": "10974000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:PlanAssetsAtFairValue",
+        "unit": "USD",
+        "label": "",
+        "share": "0.181617",
+        "units": [
+          "USD"
+        ],
+        "value": "10668000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity",
+        "unit": "USD",
+        "label": "",
+        "share": "0.174075",
+        "units": [
+          "USD"
+        ],
+        "value": "10225000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CostOfInventoriesRecognisedAsExpenseDuringPeriod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.164116",
+        "units": [
+          "USD"
+        ],
+        "value": "9640000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:UndrawnBorrowingFacilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.161732",
+        "units": [
+          "USD"
+        ],
+        "value": "9500000000",
+        "refusal": "",
+        "period_end": "2021-07-21",
+        "observations": 19
+      },
+      {
+        "tag": "ifrs-full:NoncurrentPayables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.161528",
+        "units": [
+          "USD"
+        ],
+        "value": "9488000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:NetDeferredTaxLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.155638",
+        "units": [
+          "USD"
+        ],
+        "value": "9142000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:TemporaryDifferencesAssociatedWithInvestmentsInSubsidiariesBranchesAndAssociatesAndInterestsInJointVentures",
+        "unit": "USD",
+        "label": "",
+        "share": "0.144027",
+        "units": [
+          "USD"
+        ],
+        "value": "8460000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 14
+      },
+      {
+        "tag": "ifrs-full:NetDeferredTaxAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.136179",
+        "units": [
+          "USD"
+        ],
+        "value": "7999000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:FinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.134051",
+        "units": [
+          "USD"
+        ],
+        "value": "7874000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:BalancesWithBanks",
+        "unit": "USD",
+        "label": "",
+        "share": "0.132791",
+        "units": [
+          "USD"
+        ],
+        "value": "7800000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInCashAndCashEquivalentsBeforeEffectOfExchangeRateChanges",
+        "unit": "USD",
+        "label": "",
+        "share": "0.131139",
+        "units": [
+          "USD"
+        ],
+        "value": "7703000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughFinancingCashFlowsLiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.130305",
+        "units": [
+          "USD"
+        ],
+        "value": "7654000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 22
+      },
+      {
+        "tag": "ifrs-full:AccrualsClassifiedAsCurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.123564",
+        "units": [
+          "USD"
+        ],
+        "value": "7258000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:ContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.117452",
+        "units": [
+          "USD"
+        ],
+        "value": "6899000000",
+        "refusal": "",
+        "period_end": "2014-12-31",
+        "observations": 72
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForDepreciationAndAmortisationExpenseAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.113860",
+        "units": [
+          "USD"
+        ],
+        "value": "6688000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:ShorttermDepositsClassifiedAsCashEquivalents",
+        "unit": "USD",
+        "label": "",
+        "share": "0.113213",
+        "units": [
+          "USD"
+        ],
+        "value": "6650000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+        "unit": "USD",
+        "label": "",
+        "share": "0.110523",
+        "units": [
+          "USD"
+        ],
+        "value": "6492000000",
+        "refusal": "",
+        "period_end": "2025-06-30",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.106505",
+        "units": [
+          "USD"
+        ],
+        "value": "6256000000",
+        "refusal": "",
+        "period_end": "2025-06-30",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.105654",
+        "units": [
+          "USD"
+        ],
+        "value": "6206000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:WorkInProgress",
+        "unit": "USD",
+        "label": "",
+        "share": "0.088800",
+        "units": [
+          "USD"
+        ],
+        "value": "5216000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:CurrentPortionOfLongtermBorrowings",
+        "unit": "USD",
+        "label": "",
+        "share": "0.084509",
+        "units": [
+          "USD"
+        ],
+        "value": "4964000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:DividendsPaidOrdinaryShares",
+        "unit": "USD",
+        "label": "",
+        "share": "0.082501",
+        "units": [
+          "USD"
+        ],
+        "value": "4846000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.082501",
+        "units": [
+          "USD"
+        ],
+        "value": "4846000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 29
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughBusinessCombinationsDeferredTaxLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.071060",
+        "units": [
+          "USD"
+        ],
+        "value": "4174000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForDecreaseIncreaseInInventories",
+        "unit": "USD",
+        "label": "",
+        "share": "0.067093",
+        "units": [
+          "USD"
+        ],
+        "value": "3941000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:TradeAndOtherCurrentPayablesToTradeSuppliers",
+        "unit": "USD",
+        "label": "",
+        "share": "0.065033",
+        "units": [
+          "USD"
+        ],
+        "value": "3820000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:ProceedsFromIssuingShares",
+        "unit": "USD",
+        "label": "",
+        "share": "0.060011",
+        "units": [
+          "USD"
+        ],
+        "value": "3525000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParentRelatingToPriorYears",
+        "unit": "USD",
+        "label": "",
+        "share": "0.055312",
+        "units": [
+          "USD"
+        ],
+        "value": "3249000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:NoncurrentRecognisedLiabilitiesDefinedBenefitPlan",
+        "unit": "USD",
+        "label": "",
+        "share": "0.054512",
+        "units": [
+          "USD"
+        ],
+        "value": "3202000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:SurplusDeficitInPlan",
+        "unit": "USD",
+        "label": "",
+        "share": "0.054512",
+        "units": [
+          "USD"
+        ],
+        "value": "-3202000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 13
+      },
+      {
+        "tag": "ifrs-full:TaxExpenseIncomeAtApplicableTaxRate",
+        "unit": "USD",
+        "label": "",
+        "share": "0.052793",
+        "units": [
+          "USD"
+        ],
+        "value": "3101000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.052691",
+        "units": [
+          "USD"
+        ],
+        "value": "3095000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.048588",
+        "units": [
+          "USD"
+        ],
+        "value": "2854000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 35
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxesPaidRefundClassifiedAsOperatingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.048435",
+        "units": [
+          "USD"
+        ],
+        "value": "2845000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.047839",
+        "units": [
+          "USD"
+        ],
+        "value": "2810000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:CashFlowsUsedInObtainingControlOfSubsidiariesOrOtherBusinessesClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.047175",
+        "units": [
+          "USD"
+        ],
+        "value": "2771000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxesPaidRefund",
+        "unit": "USD",
+        "label": "",
+        "share": "0.046817",
+        "units": [
+          "USD"
+        ],
+        "value": "2750000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.046017",
+        "units": [
+          "USD"
+        ],
+        "value": "2703000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:RepaymentsOfBondsNotesAndDebentures",
+        "unit": "USD",
+        "label": "",
+        "share": "0.043736",
+        "units": [
+          "USD"
+        ],
+        "value": "2569000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxExpenseIncomeRelatingToOriginationAndReversalOfTemporaryDifferences",
+        "unit": "USD",
+        "label": "",
+        "share": "0.043634",
+        "units": [
+          "USD"
+        ],
+        "value": "-2563000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.043395",
+        "units": [
+          "USD"
+        ],
+        "value": "2549000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 41
+      },
+      {
+        "tag": "ifrs-full:OtherOperatingIncomeExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.043021",
+        "units": [
+          "USD"
+        ],
+        "value": "2527000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 69
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughObtainingOrLosingControlOfSubsidiariesOrOtherBusinessesLiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.042953",
+        "units": [
+          "USD"
+        ],
+        "value": "2523000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:CashFlowsFromUsedInIncreaseDecreaseInCurrentBorrowings",
+        "unit": "USD",
+        "label": "",
+        "share": "0.042612",
+        "units": [
+          "USD"
+        ],
+        "value": "2503000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 14
+      },
+      {
+        "tag": "ifrs-full:CashTransferred",
+        "unit": "USD",
+        "label": "",
+        "share": "0.042561",
+        "units": [
+          "USD"
+        ],
+        "value": "2500000000",
+        "refusal": "",
+        "period_end": "2016-02-02",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:AmountsPayableToTransfereeInRespectOfTransferredAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.041846",
+        "units": [
+          "USD"
+        ],
+        "value": "2458000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 7
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxExpenseIncomeAndAdjustmentsForCurrentTaxOfPriorPeriods",
+        "unit": "USD",
+        "label": "",
+        "share": "0.041625",
+        "units": [
+          "USD"
+        ],
+        "value": "2445000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxExpenseIncomeRecognisedInProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.041335",
+        "units": [
+          "USD"
+        ],
+        "value": "-2428000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxExpenseIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.041148",
+        "units": [
+          "USD"
+        ],
+        "value": "2417000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 21
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInDeferredTaxLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.040791",
+        "units": [
+          "USD"
+        ],
+        "value": "-2396000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 7
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxExchangeDifferencesOnTranslation",
+        "unit": "USD",
+        "label": "",
+        "share": "0.040637",
+        "units": [
+          "USD"
+        ],
+        "value": "2387000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:OtherNoncurrentPayables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.040263",
+        "units": [
+          "USD"
+        ],
+        "value": "2365000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:ProceedsFromSalesOfIntangibleAssetsClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.039803",
+        "units": [
+          "USD"
+        ],
+        "value": "2338000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 40
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeThatWillBeReclassifiedToProfitOrLossNetOfTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.039480",
+        "units": [
+          "USD"
+        ],
+        "value": "2319000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:NoncurrentInvestmentsOtherThanInvestmentsAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.037845",
+        "units": [
+          "USD"
+        ],
+        "value": "2223000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:FinancialAssetsMeasuredAtFairValueThroughOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.037658",
+        "units": [
+          "USD"
+        ],
+        "value": "2212000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:Provisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.037284",
+        "units": [
+          "USD"
+        ],
+        "value": "2190000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:FinancialLiabilitiesAtAmortisedCost",
+        "unit": "USD",
+        "label": "",
+        "share": "0.036535",
+        "units": [
+          "USD"
+        ],
+        "value": "2146000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:FinancialAssetsAvailableforsale",
+        "unit": "USD",
+        "label": "",
+        "share": "0.035462",
+        "units": [
+          "USD"
+        ],
+        "value": "2083000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:OtherReserves",
+        "unit": "USD",
+        "label": "",
+        "share": "0.035377",
+        "units": [
+          "USD"
+        ],
+        "value": "2078000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:CurrentPrepayments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.034628",
+        "units": [
+          "USD"
+        ],
+        "value": "2034000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:OtherCurrentReceivables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.034338",
+        "units": [
+          "USD"
+        ],
+        "value": "2017000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 11
+      },
+      {
+        "tag": "ifrs-full:FinishedGoods",
+        "unit": "USD",
+        "label": "",
+        "share": "0.034253",
+        "units": [
+          "USD"
+        ],
+        "value": "2012000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:OtherInflowsOutflowsOfCashClassifiedAsFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.032568",
+        "units": [
+          "USD"
+        ],
+        "value": "1913000000",
+        "refusal": "",
+        "period_end": "2018-06-30",
+        "observations": 31
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughChangesInOwnershipInterestsInSubsidiariesThatDoNotResultInLossOfControl",
+        "unit": "USD",
+        "label": "",
+        "share": "0.032398",
+        "units": [
+          "USD"
+        ],
+        "value": "1903000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxAssetsCurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.031648",
+        "units": [
+          "USD"
+        ],
+        "value": "1859000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 14
+      },
+      {
+        "tag": "ifrs-full:CurrentRawMaterialsAndCurrentProductionSupplies",
+        "unit": "USD",
+        "label": "",
+        "share": "0.031614",
+        "units": [
+          "USD"
+        ],
+        "value": "1857000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:OtherCurrentPayables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.030525",
+        "units": [
+          "USD"
+        ],
+        "value": "1793000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.030372",
+        "units": [
+          "USD"
+        ],
+        "value": "1784000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 47
+      },
+      {
+        "tag": "ifrs-full:RightofuseAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.029640",
+        "units": [
+          "USD"
+        ],
+        "value": "1741000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 40
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForDecreaseIncreaseInTradeAndOtherReceivables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.029418",
+        "units": [
+          "USD"
+        ],
+        "value": "-1728000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:ContractualCapitalCommitments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.029401",
+        "units": [
+          "USD"
+        ],
+        "value": "1727000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:OtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.029350",
+        "units": [
+          "USD"
+        ],
+        "value": "1724000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:OtherEmployeeExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.027375",
+        "units": [
+          "USD"
+        ],
+        "value": "1608000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParentRelatingToCurrentYear",
+        "unit": "USD",
+        "label": "",
+        "share": "0.027188",
+        "units": [
+          "USD"
+        ],
+        "value": "1597000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxLiabilitiesCurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.026967",
+        "units": [
+          "USD"
+        ],
+        "value": "1584000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:ImpairmentLossRecognisedInProfitOrLossIntangibleAssetsOtherThanGoodwill",
+        "unit": "USD",
+        "label": "",
+        "share": "0.026797",
+        "units": [
+          "USD"
+        ],
+        "value": "1574000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:AdjustedWeightedAverageShares",
+        "unit": "shares",
+        "label": "",
+        "share": "0.026609",
+        "units": [
+          "shares"
+        ],
+        "value": "1563000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:WeightedAverageShares",
+        "unit": "shares",
+        "label": "",
+        "share": "0.026388",
+        "units": [
+          "shares"
+        ],
+        "value": "1550000000",
+        "refusal": "",
+        "period_end": "2023-06-30",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInExistingProvisionsOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.025758",
+        "units": [
+          "USD"
+        ],
+        "value": "1513000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:DecreaseThroughClassifiedAsHeldForSaleIntangibleAssetsOtherThanGoodwill",
+        "unit": "USD",
+        "label": "",
+        "share": "0.025605",
+        "units": [
+          "USD"
+        ],
+        "value": "1504000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:Cash",
+        "unit": "USD",
+        "label": "",
+        "share": "0.024873",
+        "units": [
+          "USD"
+        ],
+        "value": "1461000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:FinanceIncomeCost",
+        "unit": "USD",
+        "label": "",
+        "share": "0.023749",
+        "units": [
+          "USD"
+        ],
+        "value": "-1395000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 37
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxAssetsNoncurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.023681",
+        "units": [
+          "USD"
+        ],
+        "value": "1391000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseOnBorrowings",
+        "unit": "USD",
+        "label": "",
+        "share": "0.023681",
+        "units": [
+          "USD"
+        ],
+        "value": "1391000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:ProceedsFromOtherLongtermAssetsClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.023511",
+        "units": [
+          "USD"
+        ],
+        "value": "1381000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 40
+      },
+      {
+        "tag": "ifrs-full:NoncurrentProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.023102",
+        "units": [
+          "USD"
+        ],
+        "value": "1357000000",
+        "refusal": "",
+        "period_end": "2023-06-30",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:SocialSecurityContributions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022949",
+        "units": [
+          "USD"
+        ],
+        "value": "1348000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:NoncurrentFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022796",
+        "units": [
+          "USD"
+        ],
+        "value": "1339000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 9
+      },
+      {
+        "tag": "ifrs-full:NoncurrentFinancialAssetsAtFairValueThroughOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022796",
+        "units": [
+          "USD"
+        ],
+        "value": "1339000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForFinanceIncomeCost",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022711",
+        "units": [
+          "USD"
+        ],
+        "value": "-1334000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:RecognisedLiabilitiesDefinedBenefitPlan",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022643",
+        "units": [
+          "USD"
+        ],
+        "value": "1330000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:CurrentAccruedIncomeOtherThanCurrentContractAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022626",
+        "units": [
+          "USD"
+        ],
+        "value": "1329000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 11
+      },
+      {
+        "tag": "ifrs-full:OtherNoncurrentReceivables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.022591",
+        "units": [
+          "USD"
+        ],
+        "value": "1327000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:ExpenseOfRestructuringActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.021842",
+        "units": [
+          "USD"
+        ],
+        "value": "1283000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 33
+      },
+      {
+        "tag": "ifrs-full:ProvisionUsedOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.021825",
+        "units": [
+          "USD"
+        ],
+        "value": "1282000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:CurrentProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.021604",
+        "units": [
+          "USD"
+        ],
+        "value": "1269000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:ReturnOnPlanAssetsNetDefinedBenefitLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.021570",
+        "units": [
+          "USD"
+        ],
+        "value": "1267000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:SettledLiabilitiesContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019816",
+        "units": [
+          "USD"
+        ],
+        "value": "1164000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:ReverseRepurchaseAgreementsAndCashCollateralOnSecuritiesBorrowed",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019595",
+        "units": [
+          "USD"
+        ],
+        "value": "1151000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 11
+      },
+      {
+        "tag": "ifrs-full:CurrentFinancialAssetsAvailableforsale",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019578",
+        "units": [
+          "USD"
+        ],
+        "value": "1150000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:ShorttermInvestmentsClassifiedAsCashEquivalents",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019578",
+        "units": [
+          "USD"
+        ],
+        "value": "1150000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:AcquisitionsThroughBusinessCombinationsPropertyPlantAndEquipment",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019323",
+        "units": [
+          "USD"
+        ],
+        "value": "1135000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxGainsLossesOnRemeasurementsOfDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.019033",
+        "units": [
+          "USD"
+        ],
+        "value": "1118000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:CashAndCashEquivalentsAmountContributedToFairValueOfPlanAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.018233",
+        "units": [
+          "USD"
+        ],
+        "value": "1071000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:NoncurrentAssetsOrDisposalGroupsClassifiedAsHeldForSaleOrAsHeldForDistributionToOwners",
+        "unit": "USD",
+        "label": "",
+        "share": "0.016718",
+        "units": [
+          "USD"
+        ],
+        "value": "982000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 25
+      },
+      {
+        "tag": "ifrs-full:OtherTaxEffectsForReconciliationBetweenAccountingProfitAndTaxExpenseIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.016020",
+        "units": [
+          "USD"
+        ],
+        "value": "-941000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxGainsLossesFromInvestmentsInEquityInstruments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.015969",
+        "units": [
+          "USD"
+        ],
+        "value": "938000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 55
+      },
+      {
+        "tag": "ifrs-full:NoncurrentFinancialAssetsAvailableforsale",
+        "unit": "USD",
+        "label": "",
+        "share": "0.015884",
+        "units": [
+          "USD"
+        ],
+        "value": "933000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:PaymentsToAcquireOrRedeemEntitysShares",
+        "unit": "USD",
+        "label": "",
+        "share": "0.015663",
+        "units": [
+          "USD"
+        ],
+        "value": "920000000",
+        "refusal": "",
+        "period_end": "2022-06-30",
+        "observations": 7
+      },
+      {
+        "tag": "ifrs-full:FinancialAssetsAtFairValueThroughProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.014862",
+        "units": [
+          "USD"
+        ],
+        "value": "873000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeThatWillNotBeReclassifiedToProfitOrLossNetOfTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.013892",
+        "units": [
+          "USD"
+        ],
+        "value": "816000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:OtherAdjustmentsForNoncashItems",
+        "unit": "USD",
+        "label": "",
+        "share": "0.013858",
+        "units": [
+          "USD"
+        ],
+        "value": "-814000000",
+        "refusal": "",
+        "period_end": "2022-06-30",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForGainLossOnDisposalOfInvestmentsInSubsidiariesJointVenturesAndAssociates",
+        "unit": "USD",
+        "label": "",
+        "share": "0.013211",
+        "units": [
+          "USD"
+        ],
+        "value": "776000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:OtherCashReceiptsFromSalesOfInterestsInJointVenturesClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.013211",
+        "units": [
+          "USD"
+        ],
+        "value": "776000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:ProceedsFromSalesOfInvestmentsAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.013211",
+        "units": [
+          "USD"
+        ],
+        "value": "776000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:OtherInflowsOutflowsOfCashClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012683",
+        "units": [
+          "USD"
+        ],
+        "value": "745000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForSharebasedPayments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012241",
+        "units": [
+          "USD"
+        ],
+        "value": "719000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DeductibleTemporaryDifferencesForWhichNoDeferredTaxAssetIsRecognised",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012241",
+        "units": [
+          "USD"
+        ],
+        "value": "719000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:ExpenseFromSharebasedPaymentTransactionsWithEmployees",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012241",
+        "units": [
+          "USD"
+        ],
+        "value": "719000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughSharebasedPaymentTransactions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012241",
+        "units": [
+          "USD"
+        ],
+        "value": "719000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:IncreaseThroughNewLeasesLiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.012087",
+        "units": [
+          "USD"
+        ],
+        "value": "710000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:NoncurrentPrepayments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011951",
+        "units": [
+          "USD"
+        ],
+        "value": "702000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxLiabilitiesNoncurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011917",
+        "units": [
+          "USD"
+        ],
+        "value": "700000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseOnDebtInstrumentsIssued",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011917",
+        "units": [
+          "USD"
+        ],
+        "value": "700000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughEffectOfChangesInForeignExchangeRatesLiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011781",
+        "units": [
+          "USD"
+        ],
+        "value": "692000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 22
+      },
+      {
+        "tag": "ifrs-full:MinimumLeasePaymentsPayableUnderNoncancellableOperatingLease",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011645",
+        "units": [
+          "USD"
+        ],
+        "value": "684000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:InventoryWritedown2011",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011304",
+        "units": [
+          "USD"
+        ],
+        "value": "664000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 25
+      },
+      {
+        "tag": "ifrs-full:WritedownsReversalsOfInventories",
+        "unit": "USD",
+        "label": "",
+        "share": "0.011304",
+        "units": [
+          "USD"
+        ],
+        "value": "664000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:GoodwillDerecognisedWithoutHavingPreviouslyBeenIncludedInDisposalGroupClassifiedAsHeldForSale",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010828",
+        "units": [
+          "USD"
+        ],
+        "value": "636000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:PostemploymentBenefitExpenseInProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010521",
+        "units": [
+          "USD"
+        ],
+        "value": "618000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:TaxEffectFromChangeInTaxRate",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010487",
+        "units": [
+          "USD"
+        ],
+        "value": "-616000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:ExpenseFromEquitysettledSharebasedPaymentTransactionsInWhichGoodsOrServicesReceivedDidNotQualifyForRecognitionAsAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010470",
+        "units": [
+          "USD"
+        ],
+        "value": "615000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:GrossFinancialAssetsSubjectToOffsettingEnforceableMasterNettingArrangementsOrSimilarAgreements",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010385",
+        "units": [
+          "USD"
+        ],
+        "value": "610000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForUnrealisedForeignExchangeLossesGains",
+        "unit": "USD",
+        "label": "",
+        "share": "0.010044",
+        "units": [
+          "USD"
+        ],
+        "value": "-590000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentPayablesOnSocialSecurityAndTaxesOtherThanIncomeTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.009874",
+        "units": [
+          "USD"
+        ],
+        "value": "580000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:DistributionCosts",
+        "unit": "USD",
+        "label": "",
+        "share": "0.009857",
+        "units": [
+          "USD"
+        ],
+        "value": "579000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:TerminationBenefitsExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.009840",
+        "units": [
+          "USD"
+        ],
+        "value": "578000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:GrossFinancialLiabilitiesSubjectToOffsettingEnforceableMasterNettingArrangementsOrSimilarAgreements",
+        "unit": "USD",
+        "label": "",
+        "share": "0.009432",
+        "units": [
+          "USD"
+        ],
+        "value": "554000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:PostemploymentBenefitExpenseDefinedContributionPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.009415",
+        "units": [
+          "USD"
+        ],
+        "value": "553000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:ReserveOfExchangeDifferencesOnTranslationHedgingRelationshipsForWhichHedgeAccountingIsNoLongerApplied",
+        "unit": "USD",
+        "label": "",
+        "share": "0.008972",
+        "units": [
+          "USD"
+        ],
+        "value": "527000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughChangeInDiscountRateContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.008921",
+        "units": [
+          "USD"
+        ],
+        "value": "-524000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 22
+      },
+      {
+        "tag": "ifrs-full:NoncurrentDerivativeFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.008665",
+        "units": [
+          "USD"
+        ],
+        "value": "509000000",
+        "refusal": "",
+        "period_end": "2025-06-30",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:DerivativeFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.008580",
+        "units": [
+          "USD"
+        ],
+        "value": "504000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:CashCollateralPledgedSubjectToEnforceableMasterNettingArrangementOrSimilarAgreementNotSetOffAgainstFinancialLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.007916",
+        "units": [
+          "USD"
+        ],
+        "value": "465000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:CashCollateralReceivedSubjectToEnforceableMasterNettingArrangementOrSimilarAgreementNotSetOffAgainstFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.007916",
+        "units": [
+          "USD"
+        ],
+        "value": "465000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:CashOutflowForLeases",
+        "unit": "USD",
+        "label": "",
+        "share": "0.007695",
+        "units": [
+          "USD"
+        ],
+        "value": "452000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:MergerReserve",
+        "unit": "USD",
+        "label": "",
+        "share": "0.007627",
+        "units": [
+          "USD"
+        ],
+        "value": "448000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:ActuarialGainsLossesArisingFromChangesInFinancialAssumptionsBeforeTaxDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.007423",
+        "units": [
+          "USD"
+        ],
+        "value": "436000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:MiscellaneousOtherOperatingIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006912",
+        "units": [
+          "USD"
+        ],
+        "value": "406000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForCurrentTaxOfPriorPeriod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006878",
+        "units": [
+          "USD"
+        ],
+        "value": "-404000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:DepreciationRightofuseAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006878",
+        "units": [
+          "USD"
+        ],
+        "value": "404000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:IssuedCapital",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006605",
+        "units": [
+          "USD"
+        ],
+        "value": "388000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 54
+      },
+      {
+        "tag": "ifrs-full:CurrentLeaseLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006503",
+        "units": [
+          "USD"
+        ],
+        "value": "382000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 39
+      },
+      {
+        "tag": "ifrs-full:PaymentsOfLeaseLiabilitiesClassifiedAsFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006333",
+        "units": [
+          "USD"
+        ],
+        "value": "372000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 34
+      },
+      {
+        "tag": "ifrs-full:BankOverdraftsClassifiedAsCashEquivalents",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006299",
+        "units": [
+          "USD"
+        ],
+        "value": "370000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:OtherCashPaymentsToAcquireInterestsInJointVenturesClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006265",
+        "units": [
+          "USD"
+        ],
+        "value": "368000000",
+        "refusal": "",
+        "period_end": "2019-06-30",
+        "observations": 32
+      },
+      {
+        "tag": "ifrs-full:IncreaseThroughAdjustmentsArisingFromPassageOfTimeContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006061",
+        "units": [
+          "USD"
+        ],
+        "value": "356000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 23
+      },
+      {
+        "tag": "ifrs-full:DerivativesAmountContributedToFairValueOfPlanAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.006044",
+        "units": [
+          "USD"
+        ],
+        "value": "-355000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:UnusedProvisionReversedOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005925",
+        "units": [
+          "USD"
+        ],
+        "value": "348000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:InterestReceivedClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005839",
+        "units": [
+          "USD"
+        ],
+        "value": "343000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:WritedownsReversalsOfPropertyPlantAndEquipment",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005839",
+        "units": [
+          "USD"
+        ],
+        "value": "343000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:TaxEffectOfTaxLosses",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005805",
+        "units": [
+          "USD"
+        ],
+        "value": "341000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005788",
+        "units": [
+          "USD"
+        ],
+        "value": "340000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:ReclassificationAdjustmentsOnCashFlowHedgesBeforeTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005363",
+        "units": [
+          "USD"
+        ],
+        "value": "315000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 62
+      },
+      {
+        "tag": "ifrs-full:ReturnOnPlanAssetsExcludingInterestIncomeOrExpenseBeforeTaxDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005363",
+        "units": [
+          "USD"
+        ],
+        "value": "-315000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnCashFlowHedgesBeforeTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005295",
+        "units": [
+          "USD"
+        ],
+        "value": "311000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 62
+      },
+      {
+        "tag": "ifrs-full:InvestmentAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005141",
+        "units": [
+          "USD"
+        ],
+        "value": "302000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 55
+      },
+      {
+        "tag": "ifrs-full:InterestIncomeDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.005107",
+        "units": [
+          "USD"
+        ],
+        "value": "300000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:AccrualsClassifiedAsNoncurrent",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004971",
+        "units": [
+          "USD"
+        ],
+        "value": "292000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:ProceedsFromSalesOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004801",
+        "units": [
+          "USD"
+        ],
+        "value": "282000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 43
+      },
+      {
+        "tag": "ifrs-full:OtherAssetsAmountContributedToFairValueOfPlanAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004563",
+        "units": [
+          "USD"
+        ],
+        "value": "268000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:CurrentDerivativeFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004392",
+        "units": [
+          "USD"
+        ],
+        "value": "258000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughTransfersAndOtherChangesOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004392",
+        "units": [
+          "USD"
+        ],
+        "value": "258000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:CurrentGovernmentGrants",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004307",
+        "units": [
+          "USD"
+        ],
+        "value": "253000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:ImpairmentLossRecognisedInProfitOrLossPropertyPlantAndEquipment",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004290",
+        "units": [
+          "USD"
+        ],
+        "value": "252000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:CurrentTaxExpenseIncomeRelatedToPillarTwoIncomeTaxes",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004052",
+        "units": [
+          "USD"
+        ],
+        "value": "238000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:RestrictedCashAndCashEquivalents",
+        "unit": "USD",
+        "label": "",
+        "share": "0.004018",
+        "units": [
+          "USD"
+        ],
+        "value": "236000000",
+        "refusal": "",
+        "period_end": "2022-06-30",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:TaxEffectOfForeignTaxRates",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003967",
+        "units": [
+          "USD"
+        ],
+        "value": "-233000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToRemeasurementsOfDefinedBenefitPlansOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003933",
+        "units": [
+          "USD"
+        ],
+        "value": "231000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:PurchaseOfOtherLongtermAssetsClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003916",
+        "units": [
+          "USD"
+        ],
+        "value": "230000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 45
+      },
+      {
+        "tag": "ifrs-full:RevenueFromGovernmentGrants",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003779",
+        "units": [
+          "USD"
+        ],
+        "value": "222000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnFinancialAssetsAtFairValueThroughProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003711",
+        "units": [
+          "USD"
+        ],
+        "value": "-218000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 21
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToComponentsOfOtherComprehensiveIncomeThatWillNotBeReclassifiedToProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003677",
+        "units": [
+          "USD"
+        ],
+        "value": "216000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:TradingIncomeExpenseOnForeignExchangeContracts",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003677",
+        "units": [
+          "USD"
+        ],
+        "value": "-216000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForGainsLossesOnChangeInFairValueOfDerivatives",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003558",
+        "units": [
+          "USD"
+        ],
+        "value": "209000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 11
+      },
+      {
+        "tag": "ifrs-full:TaxEffectOfExpenseNotDeductibleInDeterminingTaxableProfitTaxLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003541",
+        "units": [
+          "USD"
+        ],
+        "value": "208000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:AdditionalLiabilitiesContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003371",
+        "units": [
+          "USD"
+        ],
+        "value": "198000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:NewLiabilitiesContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003371",
+        "units": [
+          "USD"
+        ],
+        "value": "198000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInAccumulatedDeferredTaxRecognisedInOtherComprehensiveIncomeDueToChangeInTaxRate",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003320",
+        "units": [
+          "USD"
+        ],
+        "value": "-195000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:LeaseAndSubleasePaymentsRecognisedAsExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003201",
+        "units": [
+          "USD"
+        ],
+        "value": "188000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:TaxBenefitArisingFromPreviouslyUnrecognisedTaxLossTaxCreditOrTemporaryDifferenceOfPriorPeriodUsedToReduceCurrentTaxExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003167",
+        "units": [
+          "USD"
+        ],
+        "value": "186000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:PaymentsFromChangesInOwnershipInterestsInSubsidiaries",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003115",
+        "units": [
+          "USD"
+        ],
+        "value": "183000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:NoncurrentPortionOfNoncurrentSecuredBankLoansReceived",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003081",
+        "units": [
+          "USD"
+        ],
+        "value": "181000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:NoncurrentDerivativeFinancialLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003064",
+        "units": [
+          "USD"
+        ],
+        "value": "180000000",
+        "refusal": "",
+        "period_end": "2022-06-30",
+        "observations": 51
+      },
+      {
+        "tag": "ifrs-full:PostemploymentBenefitExpenseDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.003064",
+        "units": [
+          "USD"
+        ],
+        "value": "180000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToComponentsOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002979",
+        "units": [
+          "USD"
+        ],
+        "value": "175000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 23
+      },
+      {
+        "tag": "ifrs-full:MiscellaneousOtherOperatingExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002860",
+        "units": [
+          "USD"
+        ],
+        "value": "168000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:TaxEffectOfRevenuesExemptFromTaxation2011",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002775",
+        "units": [
+          "USD"
+        ],
+        "value": "163000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForDeferredTaxOfPriorPeriods",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002758",
+        "units": [
+          "USD"
+        ],
+        "value": "-162000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:GainsOnDisposalsOfInvestments",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002741",
+        "units": [
+          "USD"
+        ],
+        "value": "161000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:InvestmentsInSubsidiariesJointVenturesAndAssociates",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002673",
+        "units": [
+          "USD"
+        ],
+        "value": "157000000",
+        "refusal": "",
+        "period_end": "2018-06-30",
+        "observations": 7
+      },
+      {
+        "tag": "ifrs-full:CurrentDerivativeFinancialLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002656",
+        "units": [
+          "USD"
+        ],
+        "value": "156000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 53
+      },
+      {
+        "tag": "ifrs-full:CapitalRedemptionReserve",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002605",
+        "units": [
+          "USD"
+        ],
+        "value": "153000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:NetForeignExchangeLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002520",
+        "units": [
+          "USD"
+        ],
+        "value": "148000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 25
+      },
+      {
+        "tag": "ifrs-full:AcquisitionsThroughBusinessCombinationsOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002400",
+        "units": [
+          "USD"
+        ],
+        "value": "141000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:PurchaseOfInterestsInInvestmentsAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002383",
+        "units": [
+          "USD"
+        ],
+        "value": "140000000",
+        "refusal": "",
+        "period_end": "2024-06-30",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxAvailableforsaleFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002366",
+        "units": [
+          "USD"
+        ],
+        "value": "139000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughOtherChangesLiabilitiesArisingFromFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002349",
+        "units": [
+          "USD"
+        ],
+        "value": "138000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:ComprehensiveIncomeAttributableToNoncontrollingInterests",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002264",
+        "units": [
+          "USD"
+        ],
+        "value": "-133000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 58
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughNetExchangeDifferencesDeferredTaxLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002179",
+        "units": [
+          "USD"
+        ],
+        "value": "128000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxExpenseArisingFromWritedownOrReversalOfWritedownOfDeferredTaxAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002145",
+        "units": [
+          "USD"
+        ],
+        "value": "126000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughNetExchangeDifferencesOtherProvisions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002077",
+        "units": [
+          "USD"
+        ],
+        "value": "122000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 26
+      },
+      {
+        "tag": "ifrs-full:InterestIncomeOnDeposits",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002077",
+        "units": [
+          "USD"
+        ],
+        "value": "122000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:ReversedUnsettledLiabilitiesContingentLiabilitiesRecognisedInBusinessCombination",
+        "unit": "USD",
+        "label": "",
+        "share": "0.002060",
+        "units": [
+          "USD"
+        ],
+        "value": "121000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:ShareOfProfitLossOfAssociatesAndJointVenturesAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001975",
+        "units": [
+          "USD"
+        ],
+        "value": "-116000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 63
+      },
+      {
+        "tag": "ifrs-full:RoyaltyExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001941",
+        "units": [
+          "USD"
+        ],
+        "value": "114000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:GainsOnChangeInFairValueOfDerivatives",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001924",
+        "units": [
+          "USD"
+        ],
+        "value": "113000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForGainLossOnDisposalsPropertyPlantAndEquipment",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001907",
+        "units": [
+          "USD"
+        ],
+        "value": "112000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:ActuarialGainsLossesArisingFromExperienceAdjustmentsBeforeTaxDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001822",
+        "units": [
+          "USD"
+        ],
+        "value": "-107000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:FinancialInstrumentsSubjectToEnforceableMasterNettingArrangementOrSimilarAgreementNotSetOffAgainstFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001822",
+        "units": [
+          "USD"
+        ],
+        "value": "107000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:FinancialInstrumentsSubjectToEnforceableMasterNettingArrangementOrSimilarAgreementNotSetOffAgainstFinancialLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001822",
+        "units": [
+          "USD"
+        ],
+        "value": "107000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:RevenueThatWasIncludedInContractLiabilityBalanceAtBeginningOfPeriod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001822",
+        "units": [
+          "USD"
+        ],
+        "value": "107000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:NoncurrentRecognisedAssetsDefinedBenefitPlan",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001805",
+        "units": [
+          "USD"
+        ],
+        "value": "106000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:DeferredTaxRelatingToItemsChargedOrCreditedDirectlyToEquity",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001788",
+        "units": [
+          "USD"
+        ],
+        "value": "-105000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 20
+      },
+      {
+        "tag": "ifrs-full:KeyManagementPersonnelCompensation",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001692",
+        "units": [
+          "USD"
+        ],
+        "value": "99393000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:RecognisedAssetsDefinedBenefitPlan",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001685",
+        "units": [
+          "USD"
+        ],
+        "value": "99000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:NetFinancialLiabilitiesSubjectToOffsettingEnforceableMasterNettingArrangementsOrSimilarAgreements",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001617",
+        "units": [
+          "USD"
+        ],
+        "value": "95000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToComponentsOfOtherComprehensiveIncomeThatWillBeReclassifiedToProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001600",
+        "units": [
+          "USD"
+        ],
+        "value": "94000000",
+        "refusal": "",
+        "period_end": "2017-06-30",
+        "observations": 61
+      },
+      {
+        "tag": "ifrs-full:ReversalOfImpairmentLossRecognisedInProfitOrLossIntangibleAssetsOtherThanGoodwill",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001600",
+        "units": [
+          "USD"
+        ],
+        "value": "94000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 9
+      },
+      {
+        "tag": "ifrs-full:CurrentServiceCostDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001464",
+        "units": [
+          "USD"
+        ],
+        "value": "86000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnDisposalsOfNoncurrentAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001447",
+        "units": [
+          "USD"
+        ],
+        "value": "85000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToHedgesOfNetInvestmentsInForeignOperationsOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001413",
+        "units": [
+          "USD"
+        ],
+        "value": "-83000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 24
+      },
+      {
+        "tag": "ifrs-full:NetFinancialAssetsSubjectToOffsettingEnforceableMasterNettingArrangementsOrSimilarAgreements",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001396",
+        "units": [
+          "USD"
+        ],
+        "value": "82000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 5
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseOnLeaseLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001362",
+        "units": [
+          "USD"
+        ],
+        "value": "80000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 18
+      },
+      {
+        "tag": "ifrs-full:ShorttermDepositsNotClassifiedAsCashEquivalents",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001362",
+        "units": [
+          "USD"
+        ],
+        "value": "80000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 21
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToExchangeDifferencesOnTranslationOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001345",
+        "units": [
+          "USD"
+        ],
+        "value": "79000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:NoncurrentContractLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001328",
+        "units": [
+          "USD"
+        ],
+        "value": "78000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:NoncurrentAccruedIncomeOtherThanNoncurrentContractAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001277",
+        "units": [
+          "USD"
+        ],
+        "value": "75000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 14
+      },
+      {
+        "tag": "ifrs-full:ActuarialGainsLossesArisingFromChangesInDemographicAssumptionsBeforeTaxDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001260",
+        "units": [
+          "USD"
+        ],
+        "value": "-74000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnAvailableforsaleFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001260",
+        "units": [
+          "USD"
+        ],
+        "value": "74000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseOnBankLoansAndOverdrafts",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001260",
+        "units": [
+          "USD"
+        ],
+        "value": "74000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseThroughTreasuryShareTransactions",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001158",
+        "units": [
+          "USD"
+        ],
+        "value": "-68000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:AdjustmentsForUndistributedProfitsOfInvestmentsAccountedForUsingEquityMethod",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001090",
+        "units": [
+          "USD"
+        ],
+        "value": "-64000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 17
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInNetDefinedBenefitLiabilityAsset",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001090",
+        "units": [
+          "USD"
+        ],
+        "value": "-64000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToAvailableforsaleFinancialAssetsOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001038",
+        "units": [
+          "USD"
+        ],
+        "value": "61000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnHedgesOfNetInvestmentsInForeignOperationsBeforeTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001021",
+        "units": [
+          "USD"
+        ],
+        "value": "60000000",
+        "refusal": "",
+        "period_end": "2020-06-30",
+        "observations": 37
+      },
+      {
+        "tag": "ifrs-full:AllowanceAccountForCreditLossesOfFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001004",
+        "units": [
+          "USD"
+        ],
+        "value": "59000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:KeyManagementPersonnelCompensationSharebasedPayment",
+        "unit": "USD",
+        "label": "",
+        "share": "0.001003",
+        "units": [
+          "USD"
+        ],
+        "value": "58915000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:NoncurrentAccruedIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000953",
+        "units": [
+          "USD"
+        ],
+        "value": "56000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxFinancialAssetsMeasuredAtFairValueThroughOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000953",
+        "units": [
+          "USD"
+        ],
+        "value": "56000000",
+        "refusal": "",
+        "period_end": "2017-06-30",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:NoncurrentGovernmentGrants",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000936",
+        "units": [
+          "USD"
+        ],
+        "value": "55000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:OtherCashPaymentsToAcquireEquityOrDebtInstrumentsOfOtherEntitiesClassifiedAsInvestingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000936",
+        "units": [
+          "USD"
+        ],
+        "value": "55000000",
+        "refusal": "",
+        "period_end": "2021-06-30",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:InterestExpenseIncomeDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000902",
+        "units": [
+          "USD"
+        ],
+        "value": "53000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:LossesOnChangeInFairValueOfDerivatives",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000834",
+        "units": [
+          "USD"
+        ],
+        "value": "49000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 13
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxHedgesOfNetInvestmentsInForeignOperations",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000749",
+        "units": [
+          "USD"
+        ],
+        "value": "44000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 23
+      },
+      {
+        "tag": "ifrs-full:ReclassificationAdjustmentsOnAvailableforsaleFinancialAssetsNetOfTax",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000732",
+        "units": [
+          "USD"
+        ],
+        "value": "-43000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:PaymentsOfFinanceLeaseLiabilitiesClassifiedAsFinancingActivities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000715",
+        "units": [
+          "USD"
+        ],
+        "value": "42000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 7
+      },
+      {
+        "tag": "ifrs-full:KeyManagementPersonnelCompensationShorttermEmployeeBenefits",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000696",
+        "units": [
+          "USD"
+        ],
+        "value": "40893000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:CurrentFinancialAssetsAtFairValueThroughProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000630",
+        "units": [
+          "USD"
+        ],
+        "value": "37000000",
+        "refusal": "",
+        "period_end": "2024-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:InterestIncomeOnLoansAndReceivables",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000613",
+        "units": [
+          "USD"
+        ],
+        "value": "36000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 15
+      },
+      {
+        "tag": "ifrs-full:PastServiceCostDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000494",
+        "units": [
+          "USD"
+        ],
+        "value": "-29000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:ReversalOfImpairmentLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000477",
+        "units": [
+          "USD"
+        ],
+        "value": "28000000",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:TaxBenefitArisingFromPreviouslyUnrecognisedTaxLossTaxCreditOrTemporaryDifferenceOfPriorPeriodUsedToReduceDeferredTaxExpense",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000460",
+        "units": [
+          "USD"
+        ],
+        "value": "27000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnDisposalsOfOtherNoncurrentAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000426",
+        "units": [
+          "USD"
+        ],
+        "value": "25000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToInvestmentsInEquityInstrumentsOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000426",
+        "units": [
+          "USD"
+        ],
+        "value": "25000000",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:CurrentSecuredBankLoansReceivedAndCurrentPortionOfNoncurrentSecuredBankLoansReceived",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000375",
+        "units": [
+          "USD"
+        ],
+        "value": "22000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToCashFlowHedgesOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000375",
+        "units": [
+          "USD"
+        ],
+        "value": "-22000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 9
+      },
+      {
+        "tag": "ifrs-full:ImpairmentLossOnFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000358",
+        "units": [
+          "USD"
+        ],
+        "value": "21000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeBeforeTaxChangeInFairValueOfFinancialLiabilityAttributableToChangeInCreditRiskOfLiability",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000255",
+        "units": [
+          "USD"
+        ],
+        "value": "-15000000",
+        "refusal": "",
+        "period_end": "2020-06-30",
+        "observations": 52
+      },
+      {
+        "tag": "ifrs-full:ImpairmentLossRecognisedInProfitOrLossRightofuseAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000238",
+        "units": [
+          "USD"
+        ],
+        "value": "14000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:DilutiveEffectOfShareOptionsOnNumberOfOrdinaryShares",
+        "unit": "shares",
+        "label": "",
+        "share": "0.000221",
+        "units": [
+          "shares"
+        ],
+        "value": "13000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 21
+      },
+      {
+        "tag": "ifrs-full:DividendsRecognisedAsDistributionsToNoncontrollingInterests",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000221",
+        "units": [
+          "USD"
+        ],
+        "value": "13000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 8
+      },
+      {
+        "tag": "ifrs-full:AdministrationCostsNotReflectedInReturnOnPlanAssetsDefinedBenefitPlans",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000187",
+        "units": [
+          "USD"
+        ],
+        "value": "11000000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:NetForeignExchangeGain",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000136",
+        "units": [
+          "USD"
+        ],
+        "value": "8000000",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:IncomeFromSubleasingRightofuseAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000119",
+        "units": [
+          "USD"
+        ],
+        "value": "7000000",
+        "refusal": "",
+        "period_end": "2020-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:CurrentFinanceLeaseLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000085",
+        "units": [
+          "USD"
+        ],
+        "value": "5000000",
+        "refusal": "",
+        "period_end": "2017-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:ExpenseRelatingToShorttermLeasesForWhichRecognitionExemptionHasBeenUsed",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000068",
+        "units": [
+          "USD"
+        ],
+        "value": "4000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:ExpenseRelatingToVariableLeasePaymentsNotIncludedInMeasurementOfLeaseLiabilities",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000068",
+        "units": [
+          "USD"
+        ],
+        "value": "4000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnChangeInFairValueOfDerivatives",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000068",
+        "units": [
+          "USD"
+        ],
+        "value": "-4000000",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:KeyManagementPersonnelCompensationPostemploymentBenefits",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000045",
+        "units": [
+          "USD"
+        ],
+        "value": "2636000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:SharesInEntityHeldByEntityOrByItsSubsidiariesOrAssociates",
+        "unit": "shares",
+        "label": "",
+        "share": "0.000028",
+        "units": [
+          "shares"
+        ],
+        "value": "1671446",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 25
+      },
+      {
+        "tag": "ifrs-full:DescriptionOfAmountsOfEntitysOwnFinancialInstrumentsIncludedInFairValueOfPlanAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000017",
+        "units": [
+          "USD"
+        ],
+        "value": "1000000",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 9
+      },
+      {
+        "tag": "ifrs-full:ExpenseRelatingToLeasesOfLowvalueAssetsForWhichRecognitionExemptionHasBeenUsed",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000017",
+        "units": [
+          "USD"
+        ],
+        "value": "1000000",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 6
+      },
+      {
+        "tag": "ifrs-full:IncomeTaxRelatingToOtherIndividuallyImmaterialComponentsOfOtherComprehensiveIncome",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000017",
+        "units": [
+          "USD"
+        ],
+        "value": "-1000000",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:IncreaseDecreaseInNumberOfSharesOutstanding",
+        "unit": "shares",
+        "label": "",
+        "share": "0.000015",
+        "units": [
+          "shares"
+        ],
+        "value": "907239",
+        "refusal": "",
+        "period_end": "2019-12-31",
+        "observations": 2
+      },
+      {
+        "tag": "ifrs-full:NumberOfInstrumentsOtherEquityInstrumentsGranted",
+        "unit": "shares",
+        "label": "",
+        "share": "0.000005",
+        "units": [
+          "shares"
+        ],
+        "value": "267000",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:AverageNumberOfEmployees",
+        "unit": "employee",
+        "label": "",
+        "share": "0.000002",
+        "units": [
+          "employee"
+        ],
+        "value": "95100",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:NumberOfEmployees",
+        "unit": "employee",
+        "label": "",
+        "share": "0.000002",
+        "units": [
+          "employee"
+        ],
+        "value": "96100",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 27
+      },
+      {
+        "tag": "ifrs-full:ApplicableTaxRate",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "0.25",
+        "refusal": "",
+        "period_end": "2023-04-01",
+        "observations": 23
+      },
+      {
+        "tag": "ifrs-full:AverageEffectiveTaxRate",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "1.43",
+        "refusal": "",
+        "period_end": "2021-12-31",
+        "observations": 9
+      },
+      {
+        "tag": "ifrs-full:BorrowingsInterestRate",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "0.059",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:ClosingForeignExchangeRate",
+        "unit": "JPY/USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "CNY/USD",
+          "EUR/USD",
+          "JPY/USD"
+        ],
+        "value": "78.01",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:DividendsRecognisedAsDistributionsToOwnersPerShare",
+        "unit": "USD/shares",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD/shares"
+        ],
+        "value": "3.13",
+        "refusal": "",
+        "period_end": "2025-12-31",
+        "observations": 12
+      },
+      {
+        "tag": "ifrs-full:GainsLossesOnIneffectivenessOfCashFlowHedgesRecognisedInProfitOrLoss",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD"
+        ],
+        "value": "0",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:InterestCostsCapitalised",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD"
+        ],
+        "value": "0",
+        "refusal": "",
+        "period_end": "2022-12-31",
+        "observations": 4
+      },
+      {
+        "tag": "ifrs-full:OtherComprehensiveIncomeNetOfTaxAvailableforsaleFinancialAssets",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD"
+        ],
+        "value": "0",
+        "refusal": "",
+        "period_end": "2018-12-31",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:ParValuePerShare",
+        "unit": "USD/shares",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD/shares"
+        ],
+        "value": "0.25",
+        "refusal": "",
+        "period_end": "2015-12-31",
+        "observations": 42
+      },
+      {
+        "tag": "ifrs-full:PercentageOfReasonablyPossibleDecreaseInActuarialAssumption",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "0.005",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:PercentageOfReasonablyPossibleIncreaseInActuarialAssumption",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "0.005",
+        "refusal": "",
+        "period_end": "2016-12-31",
+        "observations": 10
+      },
+      {
+        "tag": "ifrs-full:ProportionOfVotingPowerHeldInAssociate",
+        "unit": "pure",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "pure"
+        ],
+        "value": "0.29",
+        "refusal": "",
+        "period_end": "2019-10-08",
+        "observations": 1
+      },
+      {
+        "tag": "ifrs-full:PurchaseOfTreasuryShares",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD"
+        ],
+        "value": "0",
+        "refusal": "",
+        "period_end": "2023-12-31",
+        "observations": 3
+      },
+      {
+        "tag": "ifrs-full:ReserveOfExchangeDifferencesOnTranslation",
+        "unit": "USD",
+        "label": "",
+        "share": "0.000000",
+        "units": [
+          "USD"
+        ],
+        "value": "0",
+        "refusal": "",
+        "period_end": "2003-01-01",
+        "observations": 6
+      }
+    ],
+    "refused_tags": 0,
+    "mapped_concepts": 1025,
+    "prices_acquired": true,
+    "prices_reason": null,
+    "beta_reason": "",
+    "peers_in_comps": 0,
+    "comps_built": true,
+    "comps_exclusions": [
+      {
+        "name": "PFIZER INC",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0000078003",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "Merck & Co., Inc.",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0000310158",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "BRISTOL MYERS SQUIBB CO",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0000014272",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "ELI LILLY & Co",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0000059478",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "NOVARTIS AG",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0001114448",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "Sanofi",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0001121404",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "GSK plc",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0001131399",
+        "period_end": "2026-09-11"
+      },
+      {
+        "name": "JOHNSON & JOHNSON",
+        "reason": "this research holds no filings and no price series for it, and a peer multiple needs both",
+        "identifier": "0000200406",
+        "period_end": "2026-09-11"
+      }
+    ],
+    "valued": false,
+    "value_reason": "The valuation needs a share count for the year ending 2025-12-31 and the filings carry none \u2014 neither diluted, basic nor a plain outstanding figure. Without one there is no per-share value to report, and an enterprise value on its own is not a recommendation.",
+    "calculations": 152,
+    "source_documents": 14,
+    "web_searches_billed": "0.055300"
+  }
+}

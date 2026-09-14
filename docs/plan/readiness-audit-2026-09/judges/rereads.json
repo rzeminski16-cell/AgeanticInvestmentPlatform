@@ -1,0 +1,1036 @@
+{
+  "model": "claude-opus-5",
+  "effort": "medium",
+  "started_at": "2026-09-14T16:27:48.190526+00:00",
+  "finished_at": "2026-09-14T16:29:30.378352+00:00",
+  "cost_gbp": "3.95869790",
+  "rereads": [
+    {
+      "subject": "msft1",
+      "doc": "A",
+      "lens": "sceptic",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/msft1/report.md",
+      "usage": {
+        "input_tokens": 44370,
+        "output_tokens": 1513,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.20514325",
+      "answer": {
+        "single_change": "A reconciliation table in 'At a glance' that shows, for every headline figure, the exact calculation, period and inputs that produced it — so 'Free cash flow $139,225m' resolves to a named forecast-year FCFF (not FY2026 OCF−capex of ~$67bn) and 'Value per share (base) $485.29' is shown as one of the DCF's own outputs alongside $242.78 and $449.79, with the deleted claim in the Executive Summary that no valuation exists.",
+        "to_prefer_it": "Every number on the page must trace to one period and one method with no self-contradiction: the headline table reconciled to the DCF section, the Executive Summary's denial of a valuation removed, DPS stated on an annual basis, one share count used throughout, and the six red-team disagreements either dismissed on the record as FY2022-vs-FY2026 period mismatches or upheld with the FY2026 recomputation shown — rather than all six left 'Escalated'.",
+        "ranked_changes": [
+          {
+            "change": "Add a headline reconciliation table tying $139,225m FCF and $485.29/share to their source calculation, period and inputs, and delete the Executive Summary bullet asserting no valuation, discount rate or per-share value exists.",
+            "touches": "At a glance; Executive Summary — Key Points; Investment Thesis; Valuation — DCF",
+            "why_it_moves_you": "As written the document contradicts itself on the same page, so no figure in the headline table can be trusted at all.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Re-run the six red-team disagreements against FY2026 inputs and record, for each, either the FY2026 recomputation that matches the draft or the figure that does not, replacing 'Escalated for human decision' with a stated resolution.",
+            "touches": "Validation & Disagreements",
+            "why_it_moves_you": "Every footnote behind the severity-3-to-5 challenges reads 'for FY2022', so the note currently carries an unresolved severity-5 attack on every margin it uses that is probably just a period mismatch.",
+            "effort_guess": "medium",
+            "category": "adversary_quality"
+          },
+          {
+            "change": "Pull the FY2024–FY2026 segment revenue and operating income table and the Microsoft Cloud gross margin percentage from the cited 10-K segment note, with page or exhibit references, into Segment Analysis in place of the 'Rendered in the HTML and PDF editions' placeholder.",
+            "touches": "Segment Analysis; Business Overview; Historical Financial Analysis",
+            "why_it_moves_you": "The data is in the filing the note already cites, and without it the cloud margin durability question — the note's own central question — cannot be tested at all.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Quote the 10-K PP&E note's stated useful lives for server and network equipment (with any change in estimate), and run a bear case that shortens them by a stated number of years, showing the resulting FY2026 D&A, operating margin and DCF value per share.",
+            "touches": "Earnings Quality; Scenarios & Sensitivities — Bear case",
+            "why_it_moves_you": "The note names useful lives the dominant swing factor, declares them undisclosed when they are in the cited filing, and then gives the bear case no number.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          },
+          {
+            "change": "Show the 11 September 2026 closing price and market capitalisation, use market-value equity weights in the WACC, and set the resulting value-per-share range against the price in the Executive Summary.",
+            "touches": "At a glance; Executive Summary; Valuation — Cost of Capital and Recorded Caveats",
+            "why_it_moves_you": "The note holds a licensed price series, admits its book-value WACC is too low and every value therefore too high, and still shows no price to judge anything against.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "No management guidance, no named competitor or peer multiple, no remaining performance obligations, and no sourced account of the OpenAI relationship or open regulatory matters — so a 12-month view would still rest on consolidated history plus a DCF."
+      }
+    },
+    {
+      "subject": "msft1",
+      "doc": "A",
+      "lens": "operator",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/msft1/report.md",
+      "usage": {
+        "input_tokens": 44438,
+        "output_tokens": 1454,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.2042466",
+      "answer": {
+        "single_change": "One reconciled valuation block at the top: the current share price as at 11 September 2026 next to a single stated base-case value per share with the method named (DCF, Gordon terminal, WACC 9.3%) and the alternative exit-multiple figure as the range endpoint — so the $485.29 headline, the $242.78 and the $449.79 are the same number or explicitly the same range, and the Executive Summary no longer says no valuation exists.",
+        "to_prefer_it": "I would need the three focus questions each answered with a magnitude on the page, not just a direction: the five-year gross/operating margin series in the body (not footnotes to an unrendered chart), a forecast FCF path with EV and equity value so the per-share figures can be re-performed, and a bear case with a dollar-per-share number attached to a stated useful-life assumption — plus a stated price so any of it can be set against something. Until then a Claude session with the 10-K and the Q4 call answers my questions faster, even with weaker provenance.",
+        "ranked_changes": [
+          {
+            "change": "Reconcile the three conflicting per-share figures into one base case with a named method, state the current share price beside it, and delete the Executive Summary bullet claiming no valuation exists.",
+            "touches": "At a glance, Executive Summary Key Points, Valuation — Discounted Cash Flow",
+            "why_it_moves_you": "Right now the document contradicts itself on whether it has a valuation at all, so nothing downstream is actionable and I stop there.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Show the five-year forecast FCF path, enterprise value, net-debt bridge and equity value in the DCF section, plus a second column holding capex intensity at FY2026 levels.",
+            "touches": "Valuation — Discounted Cash Flow (new forecast table)",
+            "why_it_moves_you": "It turns the capital-intensity argument the note makes well into a checkable number and gives me the base FCF trajectory focus question 2 asks for.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Put the FY2022–FY2026 gross, operating and EBITDA margin series and revenue growth rates in a body table with the FY2026 margin decomposed into mix versus depreciation, and state an assumed useful-life range with the per-share and margin effect of shortening it by two years.",
+            "touches": "Historical Financial Analysis, Earnings Quality, Scenarios & Sensitivities (bear case)",
+            "why_it_moves_you": "It supplies the magnitude behind the note's strongest insight and gives the bear case a number instead of 'the direction is assertable'.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          },
+          {
+            "change": "Add FY2024–FY2026 segment revenue and operating income in dollars plus Microsoft Cloud revenue and gross margin, from the 10-K segment note, and state what the 2 September 8-K recast actually changes.",
+            "touches": "Segment Analysis, Growth Outlook",
+            "why_it_moves_you": "Without segment dollars I cannot locate where the margin pressure or the growth sits, which is the whole cloud-durability question.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Re-run the red team against FY2026 records and drop or re-date the six FY2022-based disagreements, keeping only those that genuinely dispute FY2026 figures.",
+            "touches": "Validation & Disagreements",
+            "why_it_moves_you": "As written, a severity-5 'every headline margin is unreconciled' finding is a year mismatch, which makes me distrust the whole checking process rather than the figures.",
+            "effort_guess": "small",
+            "category": "adversary_quality"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "Management guidance for the coming quarter, remaining performance obligations or any disclosed AI revenue run-rate, and named-competitor capex and cloud-growth context — without which the 'is the AI spend earning a return' question stays unanswerable and no 12-month view is defensible."
+      }
+    },
+    {
+      "subject": "msft1",
+      "doc": "A",
+      "lens": "reader",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/msft1/report.md",
+      "usage": {
+        "input_tokens": 44610,
+        "output_tokens": 1587,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.20755275",
+      "answer": {
+        "single_change": "Reconcile the valuation into one place: an At-a-glance line that reads 'Value per share, base case $X (exit-multiple DCF, WACC 9.3%, terminal growth 3%), range $196–$485 across the WACC/terminal grid', with the executive summary and the red-team entry rewritten to match, so no sentence in the document says a valuation does not exist while a DCF section prints two per-share results and the headline prints a third.",
+        "to_prefer_it": "Every headline figure on the At-a-glance table would have to survive being read alone — the 'Free cash flow $139,225m' line labelled with its period and method and reconciled to OCF $182.9bn less capex $115.9bn = $67.0bn, and the base value per share traceable to one of the two terminal methods actually shown — plus the six escalated red-team disagreements resolved in the text rather than left as competing numbers a reader cannot arbitrate.",
+        "ranked_changes": [
+          {
+            "change": "Delete or correct the three mutually exclusive valuation statements — the $485.29 headline, the two DCF per-share outputs, and the executive-summary/red-team claims that no valuation exists — leaving one stated base case with its method named.",
+            "touches": "At a glance, Executive Summary > Thesis and Key Points, Valuation — DCF, Validation & Disagreements",
+            "why_it_moves_you": "As it stands I cannot tell which half of the document is the record, so I can trust none of its per-share numbers.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Add a five-line free cash flow reconciliation in Cash Flow Analysis — OCF $182.9bn, less capex $115.9bn, equals FCF $67.0bn — and relabel the At-a-glance 'Free cash flow $139,225m' with its forecast year and 'FCFF, DCF year 1' tag.",
+            "touches": "At a glance; Cash Flow Analysis > Figures",
+            "why_it_moves_you": "A headline cash-flow figure that is double the obvious arithmetic and carries no period is the single most misleading number on the page.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Restate the six red-team disagreements on FY2026 inputs, showing the period label beside each 'recorded' comparator, and state in one sentence for each whether the draft figure or the recorded figure stands.",
+            "touches": "Validation & Disagreements",
+            "why_it_moves_you": "The severity-5 'unreconciled margins' finding appears to compare FY2022 calculations against FY2026 claims, which either voids the objection or voids the margins — and the document never says which.",
+            "effort_guess": "medium",
+            "category": "adversary_quality"
+          },
+          {
+            "change": "Print the FY2026 segment revenue and operating income table (Productivity and Business Processes, Intelligent Cloud, More Personal Computing, plus the Microsoft Cloud aggregate) in dollars from the 10-K segment note, with the 2 September 2026 recast basis noted.",
+            "touches": "Segment Analysis (replacing the 'Rendered in the HTML and PDF editions' placeholder)",
+            "why_it_moves_you": "Every durability argument in the note is about cloud margin, and the document currently quantifies cloud with nothing at all.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Quote the MSFT closing price and market capitalisation at 11 September 2026 in the At-a-glance table and rerun the WACC on market equity weights, replacing the book-weight caveat.",
+            "touches": "At a glance; Valuation > Cost of Capital and Recorded Caveats",
+            "why_it_moves_you": "Without a price, no per-share value in the document means anything to me, and the note itself admits every valuation is 'too high' because of the book weighting.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "No forward guidance, no named competitor or peer multiple, no quantified bear case, and useful lives for datacentre equipment still undisclosed — so the capitalisation question the note itself calls central would remain unanswered numerically."
+      }
+    },
+    {
+      "subject": "msft1",
+      "doc": "B",
+      "lens": "operator",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/msft1/note.md",
+      "usage": {
+        "input_tokens": 41662,
+        "output_tokens": 1648,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.1971129",
+      "answer": {
+        "single_change": "Replace the '$24bn–$44bn' depreciation proxy in §8 with the FY26 10-K cash flow statement's actual depreciation, depletion and amortisation line, quoted verbatim with the statement caption and the EDGAR accession URL, and recompute the '$72–92bn of economic cost not yet in the P&L' and the 'expensed as incurred' margin from it in the same paragraph.",
+        "to_prefer_it": "I would need the note's single most quotable and most load-bearing number — the capitalisation-flatters-margin claim — to rest on a filed figure rather than two acknowledged-weak proxies, and the FY26 balance sheet and finance-lease liability to come from the 10-K rather than Yahoo and a common-size aggregator that disagree with each other by $45bn; with those two fixed, the Underweight case would be verifiable end to end rather than verifiable-except-at-the-hinge.",
+        "ranked_changes": [
+          {
+            "change": "Source FY26 D&A directly from the 10-K cash flow statement and rebuild the §8 deferral arithmetic and the §15 risk-6 depreciation-catch-up mechanism from it.",
+            "touches": "§8 'Yes, capitalisation is flattering the reported margin', §15 risk 6, §18.5 confidence statement",
+            "why_it_moves_you": "It is the first thing I said I would check and the difference between a sharp answer to focus question 1 and a rough magnitude gesture.",
+            "effort_guess": "small",
+            "category": "provenance"
+          },
+          {
+            "change": "Replace the aggregator-sourced FY26 balance sheet in §9 with the as-filed 10-K balance sheet and lease note, resolving the $62bn-vs-$16.53bn finance-lease discrepancy and re-sourcing the $329.1bn of uncommenced leases to the filing rather than btw.media and a Substack.",
+            "touches": "§9 Balance Sheet & Liquidity, §18.2 items 1 and 4, §2 pillar (iv)",
+            "why_it_moves_you": "An unresolved $45bn contradiction inside the note's own leverage argument is the kind of thing that stops me sizing a position, even where the author flags it.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Add a return-on-AI-capex panel in §12: FY24–FY26 incremental Microsoft Cloud revenue per incremental dollar of cumulative capex, plus incremental segment operating income on the same base, with the arithmetic shown and each input tagged to the segment exhibit and cash flow statement.",
+            "touches": "§12 Growth Outlook, feeding §13.3 capex-taper justification",
+            "why_it_moves_you": "Focus question 2 is only half answered; without any incremental-return figure I cannot judge whether the capex taper assumption in the DCF is charitable or harsh.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Build §17.2 with AWS and Google Cloud FY26 revenue growth and segment operating margin, and AMZN/GOOGL EV/FCF and forward P/E, each cited to the respective 10-K or 10-Q, replacing the ten rows of 'not sourced'.",
+            "touches": "§17.2 Comparable companies, §5 competitive positioning",
+            "why_it_moves_you": "Without knowing whether AWS gross margin is also compressing, I cannot tell if Microsoft's 420bp Intelligent Cloud decline is company-specific or industry-wide — which changes the Underweight from a stock call to a sector call.",
+            "effort_guess": "medium",
+            "category": "named_competitors"
+          },
+          {
+            "change": "Add a §12 one-year bridge from FY26 EPS $17.95 to FY27E $19.19 to the $405 target, naming each step (revenue +16%, margin 46.0%, tax 20%, nil investment marks, share count) and the exit multiple, sitting alongside the DCF rather than replacing it.",
+            "touches": "§12 'My FY27 estimate', §13.6 target derivation, §1 Executive Summary",
+            "why_it_moves_you": "My horizon is twelve months and the target currently reaches me only through a ten-year DCF; an explicit earnings-and-multiple bridge tells me what has to happen by next October for the call to work.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "The 10-K Item 1A risk factors, the proxy (compensation metrics, board changes) and open regulatory matters would remain absent, so governance and regulatory exposure stay unassessed."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "A",
+      "lens": "operator",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 51835,
+        "output_tokens": 1378,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23196375",
+      "answer": {
+        "single_change": "Read the linked 'Patent Expiries of Key Marketed Products (10 Feb 2026)' schedule and put a table in Section 12 listing, product by product and jurisdiction, every US/EU exclusivity loss falling between September 2026 and September 2027, with each product's FY2025 revenue and its US-only portion pulled from the 20-F — so the horizon exposure is a sourced number rather than Farxiga's global $8,492m standing in for a US-only event.",
+        "to_prefer_it": "A sourced horizon-expiry table with US-only revenue splits for Farxiga, Brilinta and Soliris, plus a populated peer multiple table (or an explicit statement of what the DCF would have to be wrong about for the peer read to override it), so the Underweight rests on more than one unsourced cost-of-equity assumption.",
+        "ranked_changes": [
+          {
+            "change": "Add a sourced per-product expiry table for Sep 2026–Sep 2027 with FY2025 US-only revenue for each affected product, replacing the current 'global figure for a US event' row.",
+            "touches": "Section 12, the 'Exposure already crystallised' table and the 'Answer to the question' paragraph",
+            "why_it_moves_you": "It is the load-bearing answer to the question I most need before sizing a position, and today it is admittedly unread.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Build a CAPM or peer-implied cost of equity in Section 13.3 — a named risk-free rate, ERP and beta with sources — and show the DCF at both that figure and the market-implied 7.2%, stating which rating each supports.",
+            "touches": "Section 13.3, 13.4 output, and the Executive Summary rating line",
+            "why_it_moves_you": "The author concedes the rating is 'one assumption deep'; until that assumption is sourced I cannot act on a 20% downside call.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Populate the Section 14.4 peer table with market cap, EV/Core EBIT and forward P/E for at least five named large-cap pharma peers, each figure linked to a filing or dated quote.",
+            "touches": "Section 14.4 and the Section 17 consensus comparison",
+            "why_it_moves_you": "An Underweight resting entirely on one DCF with no relative cross-check is not enough to short or avoid a name trading at 15.7x forward Core EPS.",
+            "effort_guess": "medium",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Add a 12-month forward cash bridge: H2 2026 plus H1 2027 expected OCF against the ~$5.1bn FY2026 dividend, capex, the $1,904m of announced BD upfronts, the 1.2% 2026 note maturity (sized) and the committed facility quantum.",
+            "touches": "New table at the end of Section 9 or 11",
+            "why_it_moves_you": "The pieces are all sourced but never assembled, so I cannot tell whether the dividend and the deal pipeline compete for the same cash inside my holding period.",
+            "effort_guess": "small",
+            "category": "bear_case_with_a_number"
+          },
+          {
+            "change": "Add a short subsection summarising the 20-F Item 3.D risk factors alongside the author's own list, and a paragraph on board/executive changes in the last twelve months.",
+            "touches": "Sections 15 and 6",
+            "why_it_moves_you": "It closes two blank checklist items cheaply and tells me whether the author's risk list omits anything the company itself flags.",
+            "effort_guess": "small",
+            "category": "provenance"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "The US drug-pricing regime — MFN, Section 232 tariffs, product-specific maximum fair prices — which the note never reads and which sits unhandicapped in the bear case."
+      }
+    },
+    {
+      "subject": "msft1",
+      "doc": "B",
+      "lens": "reader",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/msft1/note.md",
+      "usage": {
+        "input_tokens": 41751,
+        "output_tokens": 1353,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.19163820",
+      "answer": {
+        "single_change": "Replace the $24–44bn proxy depreciation range in §8 with the actual FY26 depreciation and amortisation charge read off the 10-K cash flow statement, cited with a page or statement reference, and re-run the 'expensed as incurred' magnitude check so the printed formula and the stated result agree.",
+        "to_prefer_it": "One disclosed D&A number plus a corrected arithmetic line in §8 — the load-bearing paragraph for the note's first and strongest conclusion — together with the FY26 balance sheet and lease note read from the filing rather than aggregators, so that the $16.5bn vs ~$62bn finance-lease conflict in §18.2 is resolved rather than flagged.",
+        "ranked_changes": [
+          {
+            "change": "State the actual FY26 D&A from the 10-K cash flow statement, recompute the capitalisation gap and fix the '155.237 − (115.95 − 44.1) = $63bn / 19%' mismatch.",
+            "touches": "§8 Earnings Quality, capitalisation paragraph; §15 risk 6",
+            "why_it_moves_you": "It converts the note's central quality claim from a proxy range with a visible arithmetic error into a checkable fact.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Rebuild §9 from the as-filed 30 June 2026 balance sheet and lease note, giving finance lease liabilities and the $329.1bn uncommenced-lease figure with filing citations instead of Yahoo, btw.media and a Substack.",
+            "touches": "§9 Balance Sheet, §18.2 discrepancy list",
+            "why_it_moves_you": "The largest off-balance-sheet obligation in the thesis currently rests on secondary sources and two lease figures that differ by ~$45bn.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Add a short §15 subsection reproducing the company's own Item 1A risk factor headings from the FY26 10-K, and a one-line statement of any FY26 management/board changes and acquisitions (or that there were none).",
+            "touches": "§6 Management & Governance, §15 Key Risks",
+            "why_it_moves_you": "Three checklist items are simply absent, and their absence means I cannot tell whether a company-named risk was omitted or judged immaterial.",
+            "effort_guess": "small",
+            "category": "excerpt_and_evidence"
+          },
+          {
+            "change": "Add a revenue-per-dollar-of-capex / incremental-return table (FY24–FY26 capex against incremental Microsoft Cloud and Azure revenue) and a year-by-year bear FCF path, in §10 or §12.",
+            "touches": "§10 Cash Flow, §12 Growth Outlook, §14.1 Bear column",
+            "why_it_moves_you": "It is the only way the second focus question — how much capex is already earning a return, and what FCF looks like if it is not — gets answered rather than gestured at.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Cite the ERP and beta to a dated named source (or state a defended range) in §13.2, and delete the process narration ('Search budget is now exhausted', 'search capacity exhausted') from the body.",
+            "touches": "§13.2 cost of capital; opening line, §16, §17.2",
+            "why_it_moves_you": "The $315–407 valuation range swings entirely on two bare assumptions, and the leaked narration tells me the research was truncated before I reach any conclusion.",
+            "effort_guess": "small",
+            "category": "provenance"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "Peer economics for AWS and Google Cloud — §17.2 would remain an empty grid, so the note would still have no comparable-company check on its DCF."
+      }
+    },
+    {
+      "subject": "msft1",
+      "doc": "B",
+      "lens": "sceptic",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/msft1/note.md",
+      "usage": {
+        "input_tokens": 41954,
+        "output_tokens": 1699,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.19927355",
+      "answer": {
+        "single_change": "Replace the derived $24–44bn depreciation proxy in §8 with the FY26 10-K cash-flow line 'Depreciation, amortization, and other' read directly and cited to the filing, and re-run the magnitude check with the arithmetic shown so the printed formula produces the stated result (the note currently prints '155.237 − (115.95 − 44.1)' and claims $63bn/19% where it yields ~$83bn/~25%).",
+        "to_prefer_it": "I would need §8's capitalisation argument to rest on a filed depreciation figure rather than two proxies, the §8 arithmetic to re-perform to its own stated result, and the 30 June 2026 balance sheet plus the FY26 lease note (finance lease liabilities and the $329.1bn uncommenced-lease figure) sourced to the 10-K rather than to Yahoo, btw.media and a Substack — at that point every load-bearing number in the thesis traces to a filing and I could get from any objection to a document.",
+        "ranked_changes": [
+          {
+            "change": "Read FY26 'Depreciation, amortization, and other' from the 10-K cash flow statement, cite it, and re-print the §8 deferral calculation so the stated result matches the printed formula.",
+            "touches": "§8 Earnings Quality (deferral magnitude check), §15 risk 6, focus question 1's second half",
+            "why_it_moves_you": "The single largest claim in the note ('$72–92bn of economic cost not yet in the P&L') currently rests on a $20bn-wide proxy range and an arithmetic error, in a document that cites the very filing containing the actual line.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Source the 30 June 2026 balance sheet, finance lease liabilities and the $329.1bn uncommenced-lease disclosure from the FY26 10-K balance sheet and lease note, replacing Yahoo/btw.media/Substack and resolving the $62bn vs $16.53bn finance-lease contradiction the note admits it cannot reconcile.",
+            "touches": "§9 Balance Sheet & Liquidity, §18.2 items 1 and 4, thesis pillar (iv)",
+            "why_it_moves_you": "An off-balance-sheet obligation stack equal to 74% of book equity is a thesis pillar; I will not lean on it while its two key figures are irreconcilable and neither is from a filing.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Add a return-on-capex exhibit — incremental revenue and incremental segment operating income per dollar of the FY25–FY26 capex vintage, with a bear-case FY27–FY30 FCF path in the same table format as the base case — under a heading that matches the question asked.",
+            "touches": "§10/§12/§14.1; new sub-section answering focus question 2",
+            "why_it_moves_you": "Question 2 is currently answered as 'how much revenue is AI'; with no ROIC-type measure and only FY36 bear endpoints, I cannot check whether the capex is earning anything or what near-term FCF looks like if it is not.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          },
+          {
+            "change": "Replace the secondary-sourced FY27 guidance rows (LicenseQ blog, CNBC, GuruFocus) with quotations from the 29 July 2026 CFO prepared remarks/transcript, and archive or date-stamp the CNN/CNBC/X quote pages used for the 90-day news items.",
+            "touches": "§12 FY27 outlook table, §6 and §15 litigation bullets, Appendix",
+            "why_it_moves_you": "Every guidance number driving the FY27E and the DCF's first forecast year currently routes through a licensing consultancy's blog and dynamic quote pages that will not reproduce on a later check.",
+            "effort_guess": "small",
+            "category": "provenance"
+          },
+          {
+            "change": "Add a short §15A summarising the FY26 10-K Item 1A risk factors as the company states them, plus the FY26 acquisitions cash-flow line and any open regulatory matters (EU/CMA/FTC), each cited to the filing or docket.",
+            "touches": "§15 Key Risks, §11 Capital Allocation, §6",
+            "why_it_moves_you": "These are the standard checks I run against management's own words, and their total absence means the risk section is only the author's frame with nothing to test it against.",
+            "effort_guess": "small",
+            "category": "excerpt_and_evidence"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "The two assumptions that move the valuation most — a 5.0% ERP and a 1.00 beta — would still be unsourced bare priors driving the $341/$405/$488 spread, and the peer comparison in §17.2 would remain unbuilt."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "A",
+      "lens": "reader",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 52657,
+        "output_tokens": 1562,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23884465",
+      "answer": {
+        "single_change": "A short cost-of-equity section that actually derives the discount rate — a named risk-free rate (10-year US Treasury yield with date and source), a sourced beta, a stated ERP, the resulting CAPM figure, and a one-line statement of what the note does when that figure differs from 8.5% — placed at 13.3 in place of the current 'an assumption, not a derivation' paragraph, with the base-case per-share value restated at the derived rate in the Executive Summary.",
+        "to_prefer_it": "I would need the single load-bearing input to stop being unsourced: the rating survives or changes on a derived cost of equity rather than on the author's own admission that 'the rating is one assumption deep', and the patent-expiry schedule the note lists as read to actually be extracted, so the brief's first question is answered from dates in a filing rather than from erosion already visible in the results.",
+        "ranked_changes": [
+          {
+            "change": "Derive the cost of equity from a dated risk-free rate, a sourced beta and a stated ERP, and restate the base-case per-share value at that derived rate in Section 1.",
+            "touches": "Section 13.3, Section 1 headline value, Section 14.2 grid centre",
+            "why_it_moves_you": "The note itself says at 7.2% the rating should be Hold, so this one input decides the whole conclusion and is currently the only figure a reader cannot trace to anything.",
+            "effort_guess": "small",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Extract the patent-expiry table and add a short table in Section 12 listing every key product whose exclusivity or expiry falls between Sep 2026 and Sep 2027, with the jurisdiction, the date, the FY2025 sales for that product and that jurisdiction, and the page reference in the expiry PDF.",
+            "touches": "Section 12 'The patent-cliff question', replacing the 'Method note'",
+            "why_it_moves_you": "It converts the brief's first question from 'erosion already under way' into a forward number, and removes the note's own weakest concession plus the Farxiga global-for-US mismatch.",
+            "effort_guess": "medium",
+            "category": "excerpt_and_evidence"
+          },
+          {
+            "change": "Add a 12-month sources-and-uses table for FY2026E in Section 11 setting FY2026E OCF and FCFE against the ~$5.1bn dividend, guided or H1-annualised R&D, capex and announced BD upfronts, with the principal of the 1.2% Notes due 2026 and the committed undrawn facility quantum from the H1 6-K.",
+            "touches": "Section 11, with the ratios in Section 9 re-sourced to the H1 6-K instead of Dukascopy",
+            "why_it_moves_you": "It answers the dividend-plus-R&D question directly instead of leaving the reader to assemble it, and it removes the reliance on a secondary source the note elsewhere discards.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Populate Section 14.4 with sourced market cap, EV, EV/EBIT and forward P/E for at least Merck, Novartis, Roche, GSK and Sanofi, each with a dated source link, and add one paragraph reconciling the peer read to the DCF conclusion.",
+            "touches": "Section 14.4 peer table and a new paragraph under it",
+            "why_it_moves_you": "With every cell 'not sourced' the Underweight rests on one model with no external cross-check; a peer read either corroborates or contradicts it in a way I can verify.",
+            "effort_guess": "medium",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Quote the company's own principal risks from the FY2025 20-F risk-factor section (three to five, with the filing's wording and a note-or-page anchor) at the head of Section 15, before the author's list, and fix the title-line stray text and the appendix truncated at source #40.",
+            "touches": "Section 15 opening, title line, Appendix",
+            "why_it_moves_you": "It closes the one absent checklist item I can see a filing answer for, and the production defects currently make me doubt whether the appendix I am checking against is complete.",
+            "effort_guess": "small",
+            "category": "provenance"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "No primary source on US drug pricing (MFN, Section 232 tariffs, Medicare maximum fair prices for AstraZeneca products) and nothing on board or executive changes in the last year."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "B",
+      "lens": "operator",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn/report.md",
+      "usage": {
+        "input_tokens": 40473,
+        "output_tokens": 1320,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.18593835",
+      "answer": {
+        "single_change": "A product-level revenue table in Segment Analysis — FY2025 sales for the top ten products from the 20-F therapy-area review, each with its US loss-of-exclusivity date and the resulting share of the $58,739m base falling off inside the horizon — plus a one-line summary of that exposed percentage in the Executive Summary.",
+        "to_prefer_it": "That table, plus the FY2025 headline lines reconciled against the nine escalated red-team findings (a note saying which are FY2021 period mismatches and which stand), and a current share price with a stated base-case value range. Without those three, the note tells me only what I could read off the XBRL feed myself, and I would sooner open the annual report directly.",
+        "ranked_changes": [
+          {
+            "change": "Add a product-by-product FY2025 revenue table with US patent/exclusivity expiry dates and the percentage of revenue exposed inside the horizon.",
+            "touches": "Segment Analysis; summarised in Executive Summary Key Points and the Investment Thesis bull/bear pillars",
+            "why_it_moves_you": "It is the load-bearing question of the whole thesis and is currently posed and left entirely blank, which makes every downstream scenario directional noise.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Reconcile the nine escalated red-team findings in the body: a short table stating, for each, the period the challenged figure belongs to (FY2021/FY2022 versus FY2025) and whether the headline stands.",
+            "touches": "Validation & Disagreements, with a pointer from Executive Summary",
+            "why_it_moves_you": "A printed severity-5 claim that 'every headline margin is contradicted' with no resolution means I cannot use a single ratio in the note until I check the filing myself.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Quote the H1 2026 results (revenue, core EPS) and management's FY2026 guidance and 2030 revenue ambition, dated and sourced, in Growth Outlook and the Executive Summary.",
+            "touches": "Growth Outlook; Executive Summary; Catalysts",
+            "why_it_moves_you": "A September 2026 note whose latest interim is Q2 2025 is stale by four quarters, and guidance is the only forward anchor a private investor can act against.",
+            "effort_guess": "medium",
+            "category": "guidance_and_recent"
+          },
+          {
+            "change": "State the current AZN share price, share count/ADS ratio and trailing P/E and EV/EBITDA against three named large-cap pharma peers, with a base-case value range and the method named, in the Executive Summary.",
+            "touches": "Executive Summary; Valuation; Comparable companies",
+            "why_it_moves_you": "The note holds a price series and never quotes a price, so it cannot tell me whether anything it describes is cheap — which is the only decision I face.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Attach a number to the bear case: revenue and operating-margin outcome if the identified expiring products erode at a stated percentage, shown against the FY2025 base.",
+            "touches": "Scenarios & Sensitivities bear case and Sensitivity Commentary",
+            "why_it_moves_you": "A downside expressed only as 'the severe end' gives me no position size and no stop.",
+            "effort_guess": "small",
+            "category": "bear_case_with_a_number"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "Open legal and regulatory matters, the debt maturity ladder behind the EUR2.55bn bond, and any board or management assessment would still be absent, leaving the governance and contingent-liability side of the case unexamined."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "A",
+      "lens": "sceptic",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 51551,
+        "output_tokens": 1450,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23226395",
+      "answer": {
+        "single_change": "Read the linked AstraZeneca Patent Expiries schedule and Note 2 of the 20-F, and replace the Section 12 'Answer to the question' paragraph with a table of every product/jurisdiction whose exclusivity ends between 11 Sept 2026 and 11 Sept 2027, each row carrying FY2025 sales, the region split (Farxiga US vs ex-US in particular), and a page/exhibit citation — with the currently-unsourced '2028-2035 window' recollection either sourced or deleted.",
+        "to_prefer_it": "The horizon question answered from the company's own expiry schedule rather than by proxy from already-crystallised LOEs, plus the Section 9 balance sheet and liquidity ratios re-sourced to the H1 2026 6-K instead of Dukascopy — i.e. no load-bearing figure resting on a secondary source the note itself discredits elsewhere.",
+        "ranked_changes": [
+          {
+            "change": "A horizon-specific patent-expiry table sourced to the company's own expiry schedule, with FY2025 sales and US/ex-US split per product, replacing the global-Farxiga proxy.",
+            "touches": "Section 12, 'The patent-cliff question' and its 'Answer to the question' paragraph",
+            "why_it_moves_you": "It converts the weakest paragraph in the note — the one directly answering a posed question — from an unsourced recollection into something I can check in one filing.",
+            "effort_guess": "medium",
+            "category": "excerpt_and_evidence"
+          },
+          {
+            "change": "Rebuild the Section 9 balance-sheet table, working capital, current ratio and interest cover from the H1 2026 6-K with line citations, dropping Dukascopy entirely, and add a debt-maturity table with amounts for 2026/2027 plus the committed undrawn facility quantum.",
+            "touches": "Section 9 Balance Sheet & Liquidity; Section 18 validation item 8",
+            "why_it_moves_you": "The note discredits Dukascopy for market cap and EV, then leans on it for the whole balance sheet — that inconsistency undermines the provenance discipline the rest of the note earns.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Replace the naked 8.5% cost of equity with a stated build (risk-free rate, beta, ERP, each sourced) or an explicit market-implied anchor, shown beside the company's own 4.9% long-dated coupon in Section 13.3.",
+            "touches": "Section 13.3 'Cost of capital'; Section 18 item 19",
+            "why_it_moves_you": "The author concedes the rating is 'one assumption deep' on this input; without an external anchor the Underweight is a preference, not a finding.",
+            "effort_guess": "small",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Add an H2 2026 / H1 2027 cash bridge showing forecast OCF against dividends, R&D, capex and committed BD upfronts, with the debt maturing inside the horizon netted in.",
+            "touches": "Sections 10 and 11, as a new table before 'Assessment'",
+            "why_it_moves_you": "It would answer the dividend-plus-R&D question as posed for the horizon rather than asserting 'the constraint is not solvency' from full-year aggregates.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Fix the two arithmetic/basis defects: the FY2026E OCF stated as $14,448m but tabled as $14,414m, and the oncology share computed on Product Sales only (40.3%) while the H1 2026 46% and the $80bn target include Alliance Revenue.",
+            "touches": "Section 13.2 assumption 4, Section 13.4 table, and the oncology CAGR table in Section 13",
+            "why_it_moves_you": "The oncology basis mismatch flows straight into the '14% CAGR or the rest of the group must be flat' conclusion, which is one of the note's headline arguments.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "Company-named risks from the 20-F risk factors, open legal proceedings, board and executive changes, peer trading multiples, and any primary source on the US drug-pricing regime would all still be absent."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "B",
+      "lens": "sceptic",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn/report.md",
+      "usage": {
+        "input_tokens": 44458,
+        "output_tokens": 1574,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.2066956",
+      "answer": {
+        "single_change": "Adjudicate the nine escalated red-team objections before shipping: in \"## Validation & Disagreements\", each entry should carry a resolution line naming the period of the contested calculation (e.g. \"objection withdrawn — recorded 3.22x is FY2021 net debt/EBITDA per [^107]; FY2025 figure 1.27x stands\"), so the document does not ship with its own QA saying the profitability core is unevidenced.",
+        "to_prefer_it": "Resolved contradictions plus a per-share anchor: a diluted share count (derivable from net income / diluted EPS, which the note already has), the as-of share price from the T4 series already in Sources, and the resulting market cap, P/E and dividend yield in the Executive Summary — so that a reader has at least one figure connecting the audited FY2025 economics to what is being paid.",
+        "ranked_changes": [
+          {
+            "change": "Add a resolution line to each of the nine escalated disagreements stating the period and basis of the contested figure and whether the objection stands or falls.",
+            "touches": "\"## Validation & Disagreements\" → Disagreements",
+            "why_it_moves_you": "As shipped, the note's own validator says the headline margins may be wrong, which makes every number in it unquotable until someone re-derives the footnote periods by hand.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Fetch the 20-F revenue note and therapy-area review and publish a product-level revenue table for FY2025 with the patent expiry / regulatory exclusivity date for each product above, say, $1bn, plus the share of FY2025 revenue falling due inside the horizon.",
+            "touches": "\"## Segment Analysis\" and \"## Key Risks\"",
+            "why_it_moves_you": "It is the brief's first question, the disclosure is inside a filing the note already cites, and without it the bear case has no exposed revenue to work on.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Derive the diluted share count (net income $10,225m / diluted EPS $6.54 ≈ 1,563m, cross-checked against dividends paid / DPS) and use it with the T4 price series already in Sources to state market cap, P/E, dividend yield and a stated fair-value range with method named, in the Executive Summary.",
+            "touches": "\"## Valuation — Discounted Cash Flow\", \"## Comparable companies\", Executive Summary",
+            "why_it_moves_you": "The stated reason for producing no valuation — no share count exists in the filings — is refuted twice over by figures already on the page, so the abstention is unearned rather than disciplined.",
+            "effort_guess": "small",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Footnote the entire \"## Capital Allocation\" section to the same tier-1 sources used in Cash Flow Analysis, correct the sentence claiming investing plus financing outflows (14,352) exceeded operating cash flow (14,575), and drop or evidence the \"growing distribution\" claim.",
+            "touches": "\"## Capital Allocation\" → Commentary and Figures",
+            "why_it_moves_you": "It is the only uncited section and it contains an arithmetic sign error that a later inference rests on — exactly the pattern that makes me distrust the rest.",
+            "effort_guess": "small",
+            "category": "provenance"
+          },
+          {
+            "change": "Pull H1 2026 results and the terms of the EUR2.55bn September 2026 bond, restate net debt, leverage and interest cover pro forma, and add a bear-case output row with a revenue decline, resulting operating margin and EPS rather than FY2025 actuals labelled \"structural anchor\".",
+            "touches": "\"## Balance Sheet & Liquidity\", \"## Scenarios & Sensitivities\", \"## Cash Flow Analysis\"",
+            "why_it_moves_you": "A September 2026 note running on December 2025 figures with a cited-but-unquantified new bond cannot answer whether the balance sheet supports the dividend and R&D through the horizon.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "Named competitors with peer multiples, board and remuneration detail, and any specific open litigation or CMS-selected-drug matter would still be absent, and the 20-F citations would still point at a whole document rather than a page or excerpt."
+      }
+    },
+    {
+      "subject": "azn",
+      "doc": "B",
+      "lens": "reader",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn/report.md",
+      "usage": {
+        "input_tokens": 44632,
+        "output_tokens": 1672,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.2093184",
+      "answer": {
+        "single_change": "Resolve the nine red-team disagreements before publication and say so on the page: in \"Validation & Disagreements\", each entry should carry a dated resolution line naming the period of the disputed calculation (e.g. \"the 0.6676 gross margin is FY2021 [^110]; the FY2025 figure is 0.819 [^59] — challenge withdrawn, period mismatch\"), so no severity-5 claim that every headline margin is unevidenced is left standing in the delivered document.",
+        "to_prefer_it": "I would need the document's own arithmetic to be internally uncontested — no unresolved severity-4/5 challenge to the margins, returns, leverage and cash flow that carry the only focus question it partly answers — plus the operating-cash-flow conflict ($14,575m claimed vs $18,736m filed) settled in print with the XBRL tag named, so that a number I read can be trusted without my running a forensic diagnosis first.",
+        "ranked_changes": [
+          {
+            "change": "Add a dated resolution line to every entry in \"Validation & Disagreements\", naming the period and basis of each disputed calculation, and delete or correct any claim in the body it defeats.",
+            "touches": "Validation & Disagreements; any body figure it overturns",
+            "why_it_moves_you": "As delivered, the document asserts twice over that its own headline margins, returns, leverage and cash conversion are unevidenced, which makes every number in it provisional to a reader.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Give every filed base fact a resolvable locator in its footnote — XBRL tag, unit, context/period and filed value (e.g. \"IfrsFullCashFlowsFromUsedInOperatingActivities, FY2025, 14,575m USD\") — and state in Cash Flow Analysis which tag the $14,575m comes from and why it differs from the $18,736m the red team cites.",
+            "touches": "All footnotes to the companyfacts JSON; Cash Flow Analysis → Commentary",
+            "why_it_moves_you": "Derived figures are already checkable in one division inside the document, but filed facts dead-end in a multi-megabyte JSON, and the one I tried to check ended unresolved.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Publish a valuation block in the Executive Summary: share count derived and stated (net income $10,225m / diluted EPS $6.54 ≈ 1,563m shares, with the derivation shown), the last close from the licensed price series [^114], the resulting P/E and EV/EBITDA, and a stated base-case range with the method named against that price.",
+            "touches": "Valuation — Discounted Cash Flow; Executive Summary; At a glance",
+            "why_it_moves_you": "The stated reason for having no valuation is contradicted three times in the same file, so the absence reads as a process failure rather than an evidence limit, and there is no anchor of any kind for what is priced in.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "In Capital Allocation, footnote the entire Figures table, cite the dividend rates and the \"no repurchases since 2012\" claim, correct the arithmetic error (6,808 + 7,544 = 14,352, below operating cash flow of 14,575), and add one line putting dividends of $4,971m plus R&D of $14,232m against operating cash flow of $14,575m with the shortfall named.",
+            "touches": "Capital Allocation → Commentary and Figures; Cash Flow Analysis",
+            "why_it_moves_you": "This is the only focus question with real numbers behind it, yet the note never performs the addition the question asks and contradicts itself on the same figures two sections apart.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Add a product-level revenue table for FY2025 with the patent/exclusivity schedule beside it — product, worldwide sales, US and ex-US expiry or SPC dates, sourced to the 20-F therapy-area review and Orange Book — or, failing that, state in the Executive Summary that the first focus question cannot be answered from this evidence base.",
+            "touches": "Segment Analysis; Executive Summary",
+            "why_it_moves_you": "Not one AstraZeneca product is named anywhere in the document, so the central proposition of the thesis is untestable and the brief's first question comes back blank.",
+            "effort_guess": "large",
+            "category": "segment_and_breakdown"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "The financial base would still close 31 December 2025 with Q2 2025 as the latest interim — two reporting cycles stale at a September 2026 as-of date — and no competitor or director would be named anywhere."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "A",
+      "lens": "operator",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn2/report.md",
+      "usage": {
+        "input_tokens": 53038,
+        "output_tokens": 1433,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23780185",
+      "answer": {
+        "single_change": "Put the product-level revenue table and loss-of-exclusivity schedule on the page: the top ten products with FY2025 revenue in $m, share of the $58,739m base, and US/EU exclusivity expiry dates, in §Segment Analysis, sourced to the FY2025 results announcement and the Orange/Purple Book — with the at-risk revenue inside the twelve-month horizon totalled in the Executive Summary.",
+        "to_prefer_it": "That table plus a share-price line — current ADR and ordinary quote, the share-class basis behind the per-share output, and implied upside/downside against a stated base-case range — in the Executive Summary, and the eight red-team entries resolved rather than escalated, so I know which set of numbers the document actually stands behind.",
+        "ranked_changes": [
+          {
+            "change": "Add a product-level FY2025 revenue table with each product's share of group revenue and its US/EU exclusivity expiry date, and total the revenue expiring inside the horizon.",
+            "touches": "§Segment Analysis, with the total carried into §Executive Summary and §Scenarios",
+            "why_it_moves_you": "It is the entire first focus question and the reason anyone underwrites AstraZeneca in 2026; without it the note has no decision content.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Print the current share price and market capitalisation, state explicitly whether the 1,562,000,000 divisor is ordinary shares or ADRs and what the ADR ratio is, and show implied upside/downside for both the $169.80 and $333.48 outputs.",
+            "touches": "§At a glance and §Valuation",
+            "why_it_moves_you": "Right now I cannot tell whether the note implies fair value or 100% upside, which makes every per-share number unusable.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Resolve the eight red-team disagreements before publication — state for each whether it is a period mismatch (FY2021/FY2022 compared against FY2025) and which value the note stands behind — and fix the beta (0.4 vs 0.3), capex intensity (0.033377 vs 0.05), interest-cover (8.11x vs 'not established') and buyback ($0 vs $489m) contradictions.",
+            "touches": "§Validation & Disagreements, §Balance Sheet, §Valuation, §Capital Allocation, §Prior Research Comparison",
+            "why_it_moves_you": "As published, the note accuses itself of overstating every headline figure and leaves it unresolved, which destroys reliance on all of them.",
+            "effort_guess": "medium",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Add H1 2026 results, FY2026 management guidance and the stated 2030 revenue ambition, with dates and sources, in §Growth Outlook and §Catalysts.",
+            "touches": "§Growth Outlook, §Catalysts, §Executive Summary",
+            "why_it_moves_you": "A financial base stopping nine months before the as-of date, with no guidance and no dated catalyst inside a twelve-month horizon, is stale on arrival.",
+            "effort_guess": "small",
+            "category": "guidance_and_recent"
+          },
+          {
+            "change": "Convert the bear case into outputs: bear revenue, EBIT, EPS and value per share on the stated erosion curve, sitting below the $169.80 base, with the assumption justifications for 11.9% growth and 14.2% EBIT margin printed rather than referenced.",
+            "touches": "§Scenarios & Sensitivities and §Valuation Forecast Assumptions",
+            "why_it_moves_you": "The published 'range' has no downside in it and the two load-bearing assumptions look like mechanical history extrapolation, which is precisely wrong for a patent-cliff question.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "Named competitors with forward multiples, and any board or executive detail, would remain absent."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "A",
+      "lens": "reader",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn2/report.md",
+      "usage": {
+        "input_tokens": 50289,
+        "output_tokens": 1652,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23126855",
+      "answer": {
+        "single_change": "Resolve the eight recorded contradictions before publication — in particular, print in \"## Validation & Disagreements\" the period label for every \"recorded\" figure (interest cover 0.812 = FY2021, ROIC 0.0823 = FY2022, gross margin 0.668 = FY2021) and a one-line disposition stating which value governs the FY2025 text, so the note gives one answer on solvency instead of three.",
+        "to_prefer_it": "A single, period-stamped set of FY2025 figures that the whole document agrees on — no severity 5/5 entry left \"escalated\" with no decision, no interest-cover sentence that contradicts its own footnote, and a net debt of $23,911m that reconciles to the borrowings and cash lines printed in \"## Balance Sheet & Liquidity\" (or a stated bridge for the $1.8bn gap).",
+        "ranked_changes": [
+          {
+            "change": "Stamp every red-team \"recorded\" figure with its fiscal period and add a Resolution line naming the governing value and why.",
+            "touches": "\"## Validation & Disagreements\" — all eight disagreement blocks, plus the Resolution field",
+            "why_it_moves_you": "Right now the note tells me twice, in opposite directions, whether earnings cover interest; a period stamp would either dissolve the alarm or confirm it, and until then I cannot trust any FY2025 margin, ROIC or free-cash-flow figure in the document.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Print the share price and market capitalisation as at 12 September 2026 in \"At a glance\" and repeat it beside the $169.80 and $333.48 outputs in \"### The Two Terminal Methods\", with the implied upside or downside stated as a percentage.",
+            "touches": "\"## At a glance\"; \"## Valuation — Discounted Cash Flow\"",
+            "why_it_moves_you": "A price series was already fetched ([^147]); without a price the valuation range is a number with nothing to stand against, which makes the whole DCF unreadable for a twelve-month horizon.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Correct the \"## Earnings Quality\" sentence to \"Interest cover of 8.11x relates operating income of $13,743m to interest expense of $1,694m\", delete the inverted caution built on it, and rewrite the Red Flags bullet that repeats the error as fact; separately reconcile net debt $23,911m to the printed $24,715m + $3,104m − $5,711m or show the missing component.",
+            "touches": "\"## Earnings Quality\" Commentary and Red Flags; \"## Balance Sheet & Liquidity\" Figures",
+            "why_it_moves_you": "These are two errors I caught on paper in under ten minutes; if the arithmetic I can check fails, the arithmetic I cannot check loses its claim on me.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Add a product-level revenue table for FY2025 from Note 2 and the Therapy Area Review, with US and EU exclusivity dates for each brand above 5% of sales, and a row flagging the share of revenue expiring inside the horizon.",
+            "touches": "\"## Segment Analysis\" (replacing the Insufficient-evidence banner); feeding \"## Key Risks\" and the Bear case",
+            "why_it_moves_you": "The brief's first question comes back blank four times over, and the note itself calls exclusivity the decisive variable — sizing it converts the bear case from a list of inputs into an outcome.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Attach a bear-case output — revenue, EBIT and value per share — to \"## Scenarios & Sensitivities\", derived from the named erosion curve and entry date rather than only listing the inputs, and print the sensitivity grid's WACC and terminal-growth axis values in this edition.",
+            "touches": "\"## Scenarios & Sensitivities\" and the heatmap caption",
+            "why_it_moves_you": "The lowest figure in the note, $227.13, is a WACC cell I cannot locate on an axis, so there is currently no downside number I can read.",
+            "effort_guess": "medium",
+            "category": "bear_case_with_a_number"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "No H1 2026 results or FY2026 guidance, no named peer set or competitor, and no board or management detail — so the note would be trustworthy and positioned against a price, but still stale at FY2025 and blind on relative valuation and stewardship."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "A",
+      "lens": "sceptic",
+      "identity": "platform",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/azn2/report.md",
+      "usage": {
+        "input_tokens": 51953,
+        "output_tokens": 1545,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.23572810",
+      "answer": {
+        "single_change": "Resolve the eight escalated red-team disagreements before shipping: in \"Validation & Disagreements\", each entry should name the period of the recorded calculation it cites (FY2021/FY2022) against the period of the draft claim (FY2025), and state a decision — \"period mismatch, disagreement withdrawn\" or \"draft figure retracted\" — so the document does not simultaneously assert 81.9% gross margin and that no recorded calculation reproduces it.",
+        "to_prefer_it": "I would need the document to agree with itself on its own headline numbers — one interest-cover figure with one stated formula across Earnings Quality, Balance Sheet, Growth Outlook and Scenarios; an Executive Summary that does not deny the WACC, ROIC, share count and per-share values printed elsewhere; and a validation section whose disagreements are adjudicated rather than escalated into the published text — plus a per-fact citation (XBRL concept, period, unit) so I can land on a specific line rather than a multi-megabyte JSON.",
+        "ranked_changes": [
+          {
+            "change": "Adjudicate and date-stamp every red-team disagreement, printing the period of each cited recorded calculation next to the period of the draft claim, with a resolution line per item.",
+            "touches": "Validation & Disagreements, and the Executive Summary risk list",
+            "why_it_moves_you": "As shipped the note says its own headline profitability may be materially overstated and takes no position, which makes every other figure unusable until settled.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Fix the interest-cover description to operating income / interest expense = 8.11x and state it identically in Earnings Quality, Red Flags, Balance Sheet & Liquidity, Growth Outlook and Scenarios, removing the \"not established\" and \"EBITDA-based\" statements.",
+            "touches": "Earnings Quality Commentary and Red Flags; Balance Sheet & Liquidity Commentary",
+            "why_it_moves_you": "It is the one outright arithmetic falsehood in the note, sits on a load-bearing ratio for the dividend/R&D question, and its presence undermines the note's claim to be careful.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Replace the generic companyfacts URL with per-fact citations giving the XBRL concept name, context period and unit for each reported line item, and print the five forecast-year free cash flows, enterprise value and equity value behind $169.80 and $333.48.",
+            "touches": "Notes/footnotes throughout; Valuation — Discounted Cash Flow",
+            "why_it_moves_you": "Without the tag and period I cannot confirm any figure or explain the 15-point FY2021→FY2023 gross-margin jump, and the per-share outputs are currently unreproducible at any price in time.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Print the current AZN share price and market capitalisation in \"At a glance\", re-weight the WACC on market equity, and express both terminal-method values as up/downside against that price.",
+            "touches": "At a glance; Valuation — Discounted Cash Flow Cost of Capital",
+            "why_it_moves_you": "The price series was fetched and appears in no figure; without it the valuation cannot be checked against anything and the note itself says its book-value weighting biases every value high.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Add FY2025 revenue by therapy area and by named product from Note 2/Note 7, with a US/EU exclusivity-expiry column flagging any expiry inside the next 24 months, and attach a bear-case revenue, EBIT and per-share number to the erosion scenario.",
+            "touches": "Segment Analysis; Scenarios & Sensitivities",
+            "why_it_moves_you": "Focus question 1 is unanswered and the bear case has no number, so the note's central risk is described but never sized.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "H1 2026 results and FY2026 guidance, named competitors and comparable multiples, named litigation from Note 30, and any dated catalyst inside the horizon — so the note would be internally sound but still nine months stale and without a peer or event check."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "B",
+      "lens": "operator",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 54524,
+        "output_tokens": 1657,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.24809555",
+      "answer": {
+        "single_change": "Resolve the reference price: a short block in §1 (and §17) showing one sourced GBP/USD rate for 10 September 2026, the London close in pence, the NYSE ordinary-share close, and the arithmetic reconciling them — with the $190.43 Form 4 price of 6 July and HSBC's 13,920 GBp target converted on the same rate, so every return figure in the note (−17% capital, −15.2% total) hangs off a price I can verify.",
+        "to_prefer_it": "Before I would prefer this to a note I could act on directly, I need the reference price settled, the Farxiga US-versus-ex-US split replacing the global $8,492m as the LOE exposure number, and at least a minimal sourced peer table (forward P/E and EV/EBIT for four or five large-cap pharma names) so the Underweight has a cross-check outside its own DCF — plus a cost of equity built from a sourced risk-free rate, ERP and beta rather than asserted at 8.5%.",
+        "ranked_changes": [
+          {
+            "change": "Add a price reconciliation block: sourced GBP/USD for 10 Sep 2026, London pence close, NYSE ordinary close, and the same-rate conversion of both the $190.43 Form 4 price and HSBC's 13,920 GBp target.",
+            "touches": "§1 Executive Summary key-metric table and §17 Prior Research Comparison",
+            "why_it_moves_you": "Every return, yield and multiple in the note is anchored to $159.64, and the note itself leaves a ~16% gap between two of its own sourced prices for the same share unresolved.",
+            "effort_guess": "small",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Replace the global Farxiga figure with a sourced US/ex-US split from the 20-F Note 2 regional table, and add a per-product expiry column (year and jurisdiction) for Farxiga, Brilinta, Soliris, Lynparza, Calquence, Imfinzi, Tagrisso and Ultomiris from the 10 Feb 2026 patent-expiry schedule.",
+            "touches": "§12 patent-cliff table and the DCF revenue fade in §13.2 assumption 2",
+            "why_it_moves_you": "The first focus question is currently answered with a US-only event sized on global revenue for a product that grew +10%, and no expiry is shown to fall inside my holding period.",
+            "effort_guess": "medium",
+            "category": "segment_and_breakdown"
+          },
+          {
+            "change": "Populate §14.4 with sourced market cap, net debt, forward P/E and EV/EBIT for at least five named large-cap pharma peers, each cell carrying a date and link, and state whether AZ trades at a premium or discount on each line.",
+            "touches": "§14.4 Comparable companies, and the rating conclusion in §1 and §2",
+            "why_it_moves_you": "An Underweight resting entirely on a DCF whose own author calls it 'one assumption deep' has no independent check; peers would tell me in a minute whether $132 is a relative call or just a discount-rate choice.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Derive the cost of equity in §13.3 from a sourced risk-free rate, equity risk premium and beta, with the CAPM arithmetic shown, and state explicitly at what value the rating flips from Underweight to Hold.",
+            "touches": "§13.3 cost of capital and the sensitivity grids in §14.2–14.3",
+            "why_it_moves_you": "The whole −17% call turns on 8.5% versus a market-implied 7.2%, and an assumed number cannot carry that weight for money I am putting at risk.",
+            "effort_guess": "small",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Add a section summarising the FY2025 20-F principal risk factors and the legal-proceedings/contingencies note — patent litigation, product liability, investigations, and the current status and quantum of the China Imfinzi/Imjudo appraisal — with the 20-F section reference for each.",
+            "touches": "§15 Key Risks (currently the author's own list) and §5 China",
+            "why_it_moves_you": "The company's own named risks are absent and the omission is not even declared, and the one open legal matter is a two-year-old opinion of unknown current status.",
+            "effort_guess": "medium",
+            "category": "excerpt_and_evidence"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "US drug-pricing policy as at September 2026 — MFN, Section 232 tariffs and Medicare maximum fair prices on named AZ products — which sits inside the 90-day window and inside the margin assumption the valuation turns on, plus the governance and board-change void in §6."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "B",
+      "lens": "reader",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 54194,
+        "output_tokens": 1854,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.2506828",
+      "answer": {
+        "single_change": "Replace the headline patent-exposure figure with Farxiga's US-only FY2025 sales, taken from the 20-F product-by-region revenue note (the same Note 2 table §4.2 already uses), so §12's exposure table reads \"Farxiga US $X,XXXm = Y% of Total Revenue (global $8,492m, 14.5%)\" and the \"Answer to the question\" paragraph restates the exposure on the geography where the LOE actually happened.",
+        "to_prefer_it": "Before I would prefer this to a note whose numbers I can take at face value, I need every figure I am asked to trust to come from where the note says it does: the Farxiga exposure restated on a US basis, the §9 balance sheet and interest cover re-sourced to the primary H1 2026 statements rather than Dukascopy (or §1's \"every number is from a primary filing\" claim narrowed to match), and the three arithmetic gaps I could not close from the text — the $579m operating-expense residual in §7.2, the $434m net-debt difference in §9, and the H2 2026 revenue that the stated method does not produce — either explained in a footnote at the point of use or corrected.",
+        "ranked_changes": [
+          {
+            "change": "State Farxiga's US-only FY2025 sales from the 20-F region note and restate the \"approximately 15% of revenue is directly exposed\" answer on that basis, with the global figure kept alongside it.",
+            "touches": "§12 exposure table and its \"Answer to the question\" paragraph; the thesis in §2",
+            "why_it_moves_you": "The note's own table concedes \"US portion not separately sourced,\" so the single most load-bearing number in the central thesis is knowingly overstated by an unstated margin and I cannot use it as written.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Rebuild §9's balance sheet lines, the 15.9x interest cover and the working-capital figures from the primary H1 2026 half-year statements, and where a primary line is genuinely unavailable label the row \"secondary — Dukascopy\" in the table itself.",
+            "touches": "§9 Balance Sheet & Liquidity; §8(b); the provenance claim in §1",
+            "why_it_moves_you": "§1 promises every number is primary-sourced while a whole section rests on an aggregator the note elsewhere says it distrusts, which undermines the trust the rest of the arithmetic earns.",
+            "effort_guess": "medium",
+            "category": "provenance"
+          },
+          {
+            "change": "Close the three figures that do not reconcile from the text: add the missing expense line behind the $579m gap in §7.2, footnote the $434m difference between gross debt less cash and stated net debt in §9, and correct §12's H2 2026 build so the stated method produces the $32.8bn actually used.",
+            "touches": "§7.2, §9, §12, and assumption 1 of §13.2",
+            "why_it_moves_you": "These are the only places where I re-derived a number and it did not come out, and each one makes a reader wonder what else silently does not tie.",
+            "effort_guess": "small",
+            "category": "internal_contradiction"
+          },
+          {
+            "change": "Finish the file: delete the stray pre-title line, complete the source appendix past entry 40, and add every secondary source the body relies on (Dukascopy, GuruFocus, Wallflake, Macrotrends, Citeline, MarketChameleon) as numbered rows with a \"secondary\" flag, with body links carrying the footnote number.",
+            "touches": "Front matter and the Appendix; every inline link in the body",
+            "why_it_moves_you": "The appendix numbering is currently decorative and the truncation hides exactly the sources I most need labelled, so I cannot go from a claim to a source entry.",
+            "effort_guess": "small",
+            "category": "provenance"
+          },
+          {
+            "change": "Extract the per-product expiry years from the Patent Expiries schedule the note already links and add a dated table of expiries falling inside and just beyond the horizon, for at least Farxiga, Brilinta, Soliris, Lynparza, Calquence, Imfinzi, Tagrisso and Ultomiris.",
+            "touches": "§12 \"The patent-cliff question\"; §15 item 5; the terminal-value discussion in §13.4",
+            "why_it_moves_you": "Without dates the note leaves open the question it was asked and leaves 58% of the equity value resting on an unexamined assumption about portfolio replacement.",
+            "effort_guess": "medium",
+            "category": "excerpt_and_evidence"
+          }
+        ],
+        "if_all_were_made": "partly",
+        "what_would_still_be_missing": "The rating would still be \"one assumption deep\" on an unsourced 8.5% cost of equity with no peer cross-check, and the company's own named risks, board changes and US pricing specifics would remain absent."
+      }
+    },
+    {
+      "subject": "azn2",
+      "doc": "B",
+      "lens": "sceptic",
+      "identity": "baseline",
+      "path": "/home/user/AgeanticInvestmentPlatform/audit/out/baseline/azn/note.md",
+      "usage": {
+        "input_tokens": 54443,
+        "output_tokens": 1523,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.24512910",
+      "answer": {
+        "single_change": "Replace the 8.5% cost of equity with an observably built discount rate in §13.3: AZ's own bond yields to maturity as at 10 Sept 2026 (not coupons), a named beta with its source, a current 10-year Treasury yield, and an equity risk premium with a citation — shown as a CAPM line that arrives at the number, with the reverse-DCF 7.20% set beside it and a one-line statement of why the gap is not just the author's preference.",
+        "to_prefer_it": "Two things: the rating input sourced rather than assumed (the discount rate built from observable market data), and focus question 1 actually answered — i.e. per-product expiry dates read off AZ's own Patent Expiries schedule, with anything falling due Sept 2026–Sept 2027 named, and the Farxiga headline restated on US revenue rather than the global $8,492m. Until both are fixed, the note is a superb fact base attached to a rating I cannot check.",
+        "ranked_changes": [
+          {
+            "change": "Build the cost of equity from AZ bond yields to maturity, a sourced beta, a dated risk-free rate and a cited ERP, replacing the 3.6pp spread-over-coupons assumption.",
+            "touches": "§13.2 assumption 9, §13.3, and the target in §1 and §14.1",
+            "why_it_moves_you": "The note itself concedes \"the rating is one assumption deep\" and worth ~$33/share; without an observable rate the whole Underweight is unfalsifiable.",
+            "effort_guess": "medium",
+            "category": "valuation_shown"
+          },
+          {
+            "change": "Read the Patent Expiries of Key Marketed Products schedule and state, product by product with jurisdiction, every expiry falling between Sept 2026 and Sept 2027, plus the Farxiga US-only FY2025 revenue and H1 2026 run-rate, and restate the \"15% exposed\" headline on that base.",
+            "touches": "§12 table, the §1 executive summary, §15 risk 5, §18 item 15",
+            "why_it_moves_you": "It converts the one focus question the note reframes rather than answers into a sourced number, and removes a headline built on a global figure for a US event that began before the as-of date.",
+            "effort_guess": "small",
+            "category": "excerpt_and_evidence"
+          },
+          {
+            "change": "Replace the entire 30 June 2026 balance-sheet table with the primary H1 2026 6-K/RNS statements (already appendix items 5 and 26), show gross debt less cash reconciling to the $26,912m net debt line by line, and cite H1 2026 Core operating profit rather than asserting \"$10.5bn\".",
+            "touches": "§9 table and Assessment, §8(b), §13.2 assumption 5",
+            "why_it_moves_you": "Three load-bearing inputs — the terminal OCF margin, the leverage ratios and interest cover — currently rest on a secondary source the note discards elsewhere plus a $434m unexplained gap.",
+            "effort_guess": "small",
+            "category": "provenance"
+          },
+          {
+            "change": "Populate §14.4 with sourced EV/EBIT and forward P/E for at least Merck, Novartis, Sanofi, GSK, Pfizer and BMS, each with the filing or dated quote behind it, and state in one line where AZ sits relative to the set.",
+            "touches": "§14.4, §17, and the rating rationale in §2",
+            "why_it_moves_you": "A call 38% below consensus with no cross-check outside a DCF whose terminal value is 58% of the answer has nothing independent to test it against.",
+            "effort_guess": "medium",
+            "category": "price_and_multiples"
+          },
+          {
+            "change": "Add a subsection quoting the FY2025 20-F's principal risk factors and its legal-proceedings note verbatim in summary, mapped against the author's own thirteen-item list, and note the current status of the China Imfinzi/Imjudo appraisal matter.",
+            "touches": "§15, §5 China paragraph, §18's list of unsourced items",
+            "why_it_moves_you": "The 20-F is cited repeatedly for revenue but never for risk, so the company's own stated exposures — patent litigation, product liability — are absent and the omission is not even registered.",
+            "effort_guess": "small",
+            "category": "adversary_quality"
+          }
+        ],
+        "if_all_were_made": "yes",
+        "what_would_still_be_missing": "Board and management changes, the remuneration report, and any primary source on MFN/Section 232/maximum-fair-price arrangements would still be unread, so the governance and US-pricing sections would remain the note's acknowledged blind spots."
+      }
+    }
+  ],
+  "failures": []
+}

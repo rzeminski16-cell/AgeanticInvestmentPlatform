@@ -1087,6 +1087,84 @@ class TestTheWalkStripsNotation:
         assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 
 
+class TestAPriorReportIdIsProvenanceNotAColumn:
+    """The refresh run's own comparison table printed the prior report's UUID.
+
+    MSFT's second live run (2026-09-12, the refresh use case) reached gate 2 with every
+    check green but `presentation_integrity`, which counted twenty-one raw UUIDs: the
+    `prior_research_comparison` rows each carry a `prior_report_id`, the contract requires
+    it, and nothing hid it from the rendered table. A report id names a row in this
+    platform's own table — a reader holding the PDF cannot follow it — so it is
+    provenance, exactly like `financial_fact_id`, and belongs in the export rather than in
+    front of the reader.
+    """
+
+    CONTRACT: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "commentary": {"type": "string"},
+            "comparisons": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["aspect", "prior", "current", "prior_report_id"],
+                    "properties": {
+                        "aspect": {"type": "string"},
+                        "prior": {"type": "string"},
+                        "current": {"type": "string"},
+                        "prior_report_id": {"type": "string"},
+                    },
+                },
+            },
+        },
+    }
+
+    PRIOR_ID = "350fc450-9c9b-4cb6-a2ad-0ddfc76ae788"
+
+    def _rendered(self) -> str:
+        return render_section(
+            key="prior_research_comparison",
+            title="Prior Research Comparison",
+            contract=self.CONTRACT,
+            content={
+                "commentary": "One prior approved report exists; the most recent is as "
+                "of 2026-09-11.",
+                "comparisons": [
+                    {
+                        "aspect": "Non-binding view",
+                        "prior": "no view reached",
+                        "current": "Recorded at this run's approval.",
+                        "prior_report_id": self.PRIOR_ID,
+                    },
+                    {
+                        "aspect": "Valuation range",
+                        "prior": "not recorded",
+                        "current": "206.87 to 512.50 USD/shares",
+                        "prior_report_id": self.PRIOR_ID,
+                    },
+                ],
+            },
+        ).markdown
+
+    def test_the_id_never_reaches_the_reader(self) -> None:
+        markdown = self._rendered()
+
+        assert self.PRIOR_ID not in markdown
+        assert "Prior Report Id" not in markdown
+
+    def test_the_columns_a_reader_needs_are_all_still_there(self) -> None:
+        markdown = self._rendered()
+
+        assert "Non-binding view" in markdown
+        assert "Valuation range" in markdown
+        assert "206.87 to 512.50 USD/shares" in markdown
+
+    def test_the_presentation_check_passes_on_the_section(self) -> None:
+        result = presentation_integrity(self._rendered(), "<main></main>", sections=1)
+
+        assert result.failures == ()
+
+
 class TestThePeriodSeries:
     """Gap R9: a period series renders as a financial table — periods across the top,
     line items down the side, a footnote per cell — never a key-value dump."""
@@ -1343,6 +1421,48 @@ class TestTheFrontPageNumbers:
         html = render_html(document)
         assert html.index('id="at-a-glance"') < html.index('id="contents"')
 
+    async def test_the_front_page_shows_the_reported_free_cash_flow_not_the_forecast(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Readiness audit 2026-09, F-11: the headline read `Free cash flow | — | $139,225m`,
+        the DCF's final forecast year, twice the filed figure. The forecast rows now carry
+        their own name and the reported year's row, with its period, is what the page shows."""
+        session: AsyncSession = scene["session"]
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="free_cash_flow",
+                formula="free cash flow = operating cash flow - capital expenditure",
+                function_ref="aer.calc.ratios:free_cash_flow",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("65149000000"),
+                output_unit="USD",
+                period_label="FY2022",
+                sequence=6,
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="forecast_free_cash_flow",
+                formula="FCFF_t = NOPAT_t + depreciation_t - capex_t - change in working capital_t",
+                function_ref="aer.calc.dcf:free_cash_flow",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("139224921462"),
+                output_unit="USD",
+                parameters={"case": "base"},
+                sequence=7,
+            )
+        )
+        await session.flush()
+        document = await _document(await self._with_figures(scene))
+
+        markdown = serialise_markdown(document)
+        assert "| Free cash flow | FY2022 | $65,149m" in markdown
+        assert "139,225" not in markdown.split("## Golden Overview")[0]
+
     async def test_a_run_with_nothing_to_show_shows_nothing(self, scene: dict[str, Any]) -> None:
         """The golden scene holds no facts and no curated calculation: no block, no
         apology — the coverage notice owns the honest account."""
@@ -1377,7 +1497,10 @@ class TestTheFrontPageNumbers:
         markdown = serialise_markdown(document)
         assert "At a glance" not in markdown
         assert "Coverage notice" in markdown
-        assert "front page must not mix issuers" in markdown
+        assert "must not mix one company's figures with another's" in markdown
+        # And it reaches the page in a reader's words: the decision it enforces is named in
+        # the code, because `presentation_integrity` refuses a decision record in the prose.
+        assert "ADR" not in markdown
 
 
 class TestTheOnePageSummary:

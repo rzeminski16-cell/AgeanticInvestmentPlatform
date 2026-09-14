@@ -1,0 +1,14 @@
+{
+  "page": "sources",
+  "url": "http://127.0.0.1:8000/runs/8d1127b2-9ec9-450b-9ad6-1366c7bfb791/sources",
+  "status": 200,
+  "title": "Sources \u00b7 MSFT",
+  "payload_hash": null,
+  "words": 798,
+  "raw_tokens": [
+    "http_header",
+    "sec_edgar"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

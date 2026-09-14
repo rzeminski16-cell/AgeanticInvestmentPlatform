@@ -1,0 +1,11 @@
+{
+  "page": "peers",
+  "url": "http://127.0.0.1:8000/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/peers",
+  "status": 200,
+  "title": "Confirm which companies this one is compared with? \u00b7 Tracework Invest",
+  "payload_hash": "3a3943f4b29e902b15e6bfc9bdf6f4dc1e16380bf9323887483eb065c9883f38",
+  "words": 700,
+  "raw_tokens": [],
+  "uuids": 0,
+  "approve_control": 1
+}

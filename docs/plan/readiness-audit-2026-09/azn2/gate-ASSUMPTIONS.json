@@ -1,0 +1,89 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "capex_intensity",
+        "value": "0.033377000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0292, 0.0246, 0.0297, 0.0356, 0.0478.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.114739000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.142147000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "11.000000000000",
+        "unit": "pure",
+        "justification": "Large-cap branded pharma typically clears in the high-single to low-teens EV/EBITDA; 11x sits mid-band and is partly a convention drawn from that peer range rather than from any AZN filing \u2014 the operator should know that. It is adjusted downward from an asset-light comparison because D&A runs ~11.5% of revenue (Alexion intangibles), so EBITDA here overstates cash economics relative to EBIT of ~14% mean. Roughly consistent with 2.5% perpetual growth. I regard the perpetuity-growth terminal value as the better estimate; this multiple is a cross-check, since comps embed current pipeline sentiment (e.g. the Sept 2026 camizestrant and Imfinzi readouts). Higher if amortisation is judged non-recurring.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.119346000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken to be below any ordinary WACC for a large-cap pharma (I assumed 7-9%); 2.5% clears that with wide margin. Grounded in the business's own structure: the filings frame it around 'Patent Expiries of Key Marketed Products', so the 11.9% trailing CAGR is a launch-cycle rate, not a perpetual one. In steady state a diversified innovator replacing genericised brands should track nominal global healthcare spend, i.e. modest real growth plus inflation. I'd lower it toward 2.0% if the reviewer thinks pricing policy caps pharma below nominal GDP; raise toward 3.0% only with evidence of durable pipeline replacement.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "-0.035125000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "tax_rate",
+        "reason": "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+      },
+      {
+        "name": "risk_free_rate",
+        "reason": "No macroeconomic series has been acquired for this run, so there is no published government yield to propose. Enter the rate you are using and say which instrument and date it is from."
+      },
+      {
+        "name": "beta",
+        "reason": "No price history has been acquired for this run, so no beta could be regressed. Enter one and say what it is measured against \u2014 beta is a first-class assumption here, and a documented, confirmed figure is more defensible than a regression nobody inspected."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from."
+      }
+    ],
+    "refused": [],
+    "skipped": [
+      "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+    ]
+  },
+  "hash": "89be6aa8457319ba6b86adf7c95c33bb1b97a1cda3bbf2e7fefc3310ca9e1c6e",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "571b1434-66d2-4f6d-9534-7ca671fe6caf"
+  }
+}
