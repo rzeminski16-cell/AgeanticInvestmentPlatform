@@ -111,7 +111,7 @@ judge reads produced a pile of complaints and no ordering over them.
 
 | # | What | Why it is first |
 |---|---|---|
-| 0.1 | Re-run the **18 existing reads over the 18 existing documents** with two added rubric keys: *"what one change to this document would move you off 'no'?"* and *"what would you need to see to prefer it?"* | Judge tokens only — no live run, no code, no new documents. It converts complaints into a ranked backlog before ~40 sessions are committed on an ordering inferred from post-hoc prose |
+| 0.1 | **DONE, 14 September 2026, £3.96** — [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md). Re-ran the **18 existing reads over the 18 existing documents** with two added rubric keys: *"what one change to this document would move you off 'no'?"* and *"what would you need to see to prefer it?"* | Judge tokens only — no live run, no code, no new documents. It converts complaints into a ranked backlog before ~40 sessions are committed on an ordering inferred from post-hoc prose |
 | 0.2 | **Map both console notes source by source.** For each figure a judge called decisive, record the document it came from and whether that accession is already in the platform's submissions index | One sitting, £0. It is what established §2's finding 2, and it is what keeps the tier-ceiling decision out of this plan |
 | 0.3 | **Settle three facts in writing**: do the five audit run databases and the artefact store still exist (every £0 re-render in this plan depends on it); what does the executed EODHD agreement permit in an *exported* artefact; and what the pre-registered targets and the abandonment criterion are (§7) | Four plans costed their whole offline economy on stored rows nobody checked. If the answer is no, one seeding run is bought now and said so |
 | 0.4 | **The operator reads two documents blind, themselves** — audit §4.4 checks 1 and 2, files already committed | Three model judges are standing in for one real decision-maker who has not yet read them |
@@ -124,6 +124,30 @@ that turns out to be wrong; and the abandonment criterion in §9 is signed off.
 
 **Exit:** a ranked backlog, a source map, a committed pre-registration with targets and an
 abandonment criterion, the operator's own read, and a decision on the spine.
+
+### What 0.1 came back with, and what it changes
+
+Three results, in [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md):
+
+1. **Self-contradiction outranks everything** — weight 9.42, named first by **seven of nine**
+   judges, and twelve of thirteen mentions tagged *small*. It confirms this plan's ordering
+   (Phase 3 is already self-contradiction, Phase 4 already print-what-exists) and changes their
+   weight: they are not tranches A and B of ISSUE 2, they are most of it.
+2. **`states_a_view` was not named once** across nine platform reads. F13 has not disappeared —
+   it has been **absorbed**: what the judges ask for is one reconciled base case with its method
+   named and a price beside it, which is F13's composed half arriving as the resolution of a
+   contradiction. **Phase 6's view work is re-scoped to the composed half**, and F13's cost and
+   prominence fall. ADR 0117 stands as written; it already ships the halves in that order.
+3. **Eight of nine say *partly*** if every change they named were made; one says yes. That
+   number belongs in the Phase 5 pre-registration: the judges are saying in advance that
+   document changes alone move them from *no* to *partly*, which is movement and is not
+   preference. A round producing exactly that is the middle row of §9's table, not the top one.
+
+And from the comparator's side: the nine baseline reads rank **provenance first**, asking for
+figures sourced to the 10-K rather than to Yahoo, btw.media and a Substack. That is the thing
+the platform already does best and the console structurally cannot — the durable advantage,
+confirmed from the other side rather than asserted from ours, and the argument for F8 printing
+the verified excerpt behind F16's boundary.
 
 ## 5. Phase 1 — The half that needs no judge and no money
 
@@ -276,6 +300,33 @@ That last row is the abandonment criterion, and it is the line that makes every 
 - **Read `thesis_monitor.py` before wiring the view into it** — one session. Half the product
   downstream of a stated view is undiagnosed.
 
+## 10a. Phase 6b — The knowledge map learns what you decided
+
+**Scope addition · 5–7 sessions · £0 live · 1 ADR (0122) · added 14 September 2026**
+
+The same pattern as the judgement layer, found the same way: **already built, barely read.**
+`../archive/knowledge-graph.md` says in its own words that the layer it planned is built — seven
+node kinds, six edge kinds, an Obsidian projection, an in-app graph view, growing on its own as
+the platform is used. It reads back into two places and knows nothing about what the operator
+decided. Specified as **F20**; argued in **ADR 0122**.
+
+| # | What | Notes |
+|---|---|---|
+| 6b.1 | **Four node kinds and five edges** — thesis, premise, decision, verdict — under the rule the map already runs on: only confirmed state produces an edge | A decision points at a **thesis version**, not a thesis. *What did I believe when I bought this?* is a different question from *what do I believe now* |
+| 6b.2 | **The monitor traverses it**: a finding on one premise surfaces against every other position sharing its metric *and* a theme or sector | The connective tissue exists (ADR 0065); nothing traverses it on a finding. Deliberately narrow first cut — two holdings sharing "revenue growth" share almost nothing |
+| 6b.3 | **Ask tier 1 reads it** — *"which of my holdings depend on the same premise?"* becomes free rather than research | The map **is** the record tier 1 answers from |
+| 6b.4 | **Materiality becomes partly positional**: a section feeding a premise you hold is material at a smaller move than one feeding nothing you own | Sharpens F4 without changing its thresholds |
+| 6b.5 | **The methodology library measures methods**, as `calc/outcomes.py` already measures assumptions | The difference between a library of methods and one that knows which worked |
+| 6b.6 | **Prove it is evidence for nothing** — a seeded attempt to cite a premise is refused | A premise is an attestation (ADR 0073), so its lineage reaches no shareable surface; the vault stays one-directional |
+
+**Why here.** It is last in the dependency order and cannot move earlier: there is nothing to
+record until F9, F10 and F14 exist. It is placed after Phase 6 and before the verdict round so
+that what it changes is in the documents the round judges.
+
+**Exit:** a finding on one holding's premise surfaces against another that shares it; Ask answers
+a cross-position question from the record for nothing; a seeded premise citation is refused; and
+nothing is backfilled — the map starts empty on the judgement side and fills with use.
+
 ## 11. Phase 7 — The verdict round, and the roadmap
 
 **3 live runs · £31.50 · 2 days of operator time**
@@ -333,17 +384,20 @@ a repeat of it would be a different instrument wearing the same name.
 | 4 — print what exists | 11–13 | 0 | 1 |
 | 4a — the UK path | 8–11 | 8 | 2 |
 | 5 — first signal | 2 | 21 | 8 |
-| 6 — view and argument | 14–18 | 0 | 2 |
+| 6 — view and argument | 12–16 | 0 | 2 |
+| 6b — the knowledge map | 5–7 | 0 | 1 |
 | 7 — verdict and roadmap | 4 | 31.50 | 16 |
-| **Total** | **71–88** | **~£80** | **~38** |
+| **Total** | **74–94** | **~£80** | **~39** |
 
 £36.68 of the audit's £100 remains, so the programme needs about £43 more, and Phase 5's gate
 stands between the operator and most of it. The rise from ~£64 is Phase 4a (the UK path, £8) and
 Phase 0's added QUICK run (£4). At four sessions a week this is three to four months;
 the stop points are Phase 2 (a bank works), Phase 4 (the document stops lying about itself) and
-Phase 5 (the evidence to continue or to narrow). **Phase 4a is the one phase that can be dropped
-without disturbing the sequence** — it adds a market rather than fixing a defect, and it sits
-before the gate precisely so that dropping it is cheap.
+Phase 5 (the evidence to continue or to narrow). **Phase 4a and Phase 6b are the two that can be
+dropped without disturbing the sequence** — one adds a market and one adds connective tissue,
+neither fixes a defect, and Phase 4a sits before the gate precisely so that dropping it is cheap.
+Phase 6 loses two sessions because 0.1 showed the authored half of the view is asked for by
+nobody, which pays for most of Phase 6b.
 
 **Decisions only the operator can take**, in the order they are needed:
 

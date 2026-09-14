@@ -879,6 +879,7 @@ authority on sequencing within this item.
 | F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
 | F18 | Model portability | — |
 | F19 | The UK path | ADR 0121 — and it has its own number, **§3.17** |
+| F20 | The knowledge map learns what you decided | ADR 0122 — **§3.18** |
 
 **What this item does not commit to.** Phase 5 of the delivery plan carries an abandonment
 criterion: if a measured round moves no verdict and changes no judge's stated reason, the
@@ -918,8 +919,28 @@ Four things are genuinely missing, and only the second is large:
    Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is
    commercial check 6 below.
 
-**§3.18–§3.19 are deliberately unallocated.** Anything this phase turns up gets a number here
-rather than being folded into §3.16 or §3.17, so that work found during V1.0 is visible as work
+**3.18 The knowledge map learns what you decided.** The knowledge layer is built and
+`../archive/knowledge-graph.md` says so in its own words — seven node kinds, six edge kinds, an
+Obsidian projection and an in-app graph view, growing on its own as the platform is used. It
+reads back into exactly two places: the planner's prior digests (ADR 0064) and the
+`prior_research_comparison` section.
+
+V1.0 opens a hole in it. The map records what you *researched* and knows nothing about what you
+*decided* — no thesis, no premise, no decision, no finding, no post-trade verdict. So it gains
+four node kinds and five edges under the rule it already runs on (only confirmed state produces
+an edge), and four surfaces start reading it: the monitor surfaces a broken premise against every
+other position that shares it; Ask's tier 1 answers from it for nothing; the refresh's
+materiality becomes partly a property of what you hold; and the methodology library measures
+which *methods* worked, the way `calc/outcomes.py` already measures assumptions.
+
+**And it becomes evidence for nothing.** No claim may name a thesis, a premise, a decision or a
+verdict; a premise is an attestation under ADR 0073, so a lineage containing one reaches no
+shareable surface; and the vault stays one-directional, which matters more once a decision record
+exists, because a vault note is a file anything can edit. Argued in **ADR 0122**, specified as
+**F20**. Last in the dependency order — there is nothing to record until F9, F10 and F14 exist.
+
+**§3.19 is deliberately unallocated.** Anything this phase turns up gets a number here rather
+than being folded into §3.16, §3.17 or §3.18, so that work found during V1.0 is visible as work
 found rather than as scope that was always there.
 
 ### Before this leaves one machine

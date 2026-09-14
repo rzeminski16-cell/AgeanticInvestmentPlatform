@@ -1,7 +1,7 @@
 # Feature specifications
 
 *What each feature of V1.0 is, why it exists, how it works, what it touches, and how we will
-know it is done. Nineteen features. Compiled 14 September 2026 from the decisions taken across
+know it is done. Twenty features. Compiled 14 September 2026 from the decisions taken across
 the design conversation, and normative where it and a page specification disagree about
 behaviour — the page specification wins on layout, this wins on mechanism.*
 
@@ -630,6 +630,76 @@ each, so comparable multiples stay deferred.
 
 ---
 
+## F20 · The knowledge map learns what you decided
+
+**What it is.** The knowledge layer — which already grows on its own as the platform is used —
+gains the judgement layer as nodes and edges, and four surfaces start reading it back.
+
+**Why.** It is the same pattern as the judgement layer itself: **already built, barely read.**
+`docs/archive/knowledge-graph.md` says so in its own words — *"the layer this document planned
+is built"* — and it is right. Seven node kinds, six edge kinds, an Obsidian projection and an
+in-app graph view. A run resolves a company and a node appears; a confirmed peer set makes a stub
+node for a company nobody has researched; a confirmed theme links companies across industries; a
+catalyst accumulates references across runs because its identity is `(company, label)` rather
+than `(run, label)`.
+
+**What it reads back is two things**: prior conclusions in front of the planner as labelled
+hypothesis material (ADR 0064), and the `prior_research_comparison` section at draft time. That
+is all.
+
+And V1.0 opens a hole in it: **the map records what you researched and knows nothing about what
+you decided.** A thesis, a premise and its threshold, a decision, a monitor finding, a post-trade
+verdict — none is a node, none is an edge, none is read. A knowledge map that accumulates
+research and forgets judgement is a library with no borrowing record.
+
+**How it works.**
+
+1. **Four node kinds and five edges**, under the rule the map already runs on — *only confirmed
+   state produces an edge*. Thesis, premise, decision, verdict; company→thesis, thesis→premise,
+   decision→**thesis version**, premise←finding, verdict→decision. A draft thesis and an unfiled
+   review produce nothing.
+2. **Four surfaces read it back**, each a question the operator can already ask aloud and the
+   platform cannot answer:
+   - **The monitor** — a finding on one premise surfaces against every other position sharing
+     its metric *and* a theme or sector. *"The thing that just broke here is load-bearing in two
+     other places."* The connective tissue exists; nothing traverses it on a finding.
+   - **Ask tier 1** — the map **is** the record tier 1 answers from, so *"which of my holdings
+     depend on the same premise?"* becomes free rather than research.
+   - **The refresh** — materiality stops being only a property of the figure and becomes partly
+     a property of your position: a section feeding a premise you hold is material at a smaller
+     move than one feeding nothing you own.
+   - **The methodology library** — `calc/outcomes.py` already measures a confirmed assumption
+     against the year it forecast. With decisions and verdicts in the map, the same measurement
+     runs over *methods*. That is the difference between a library of methods and one that knows
+     which ones worked.
+3. **It becomes evidence for nothing.** No claim may name a thesis, a premise, a decision or a
+   verdict — the rule ADR 0095 applies to a challenge brief. A premise is an **attestation**
+   (ADR 0073), so a lineage containing one reaches no shareable surface, which is what keeps it
+   out of the evidence pack. Anything from the map that reaches a prompt is wrapped under
+   ADR 0119.
+4. **The vault stays one-directional.** From the vault, nothing, ever — and it matters more now:
+   a vault note is a file anything can edit, and a decision record editable outside the database
+   would destroy the one property a post-trade review depends on.
+
+**Touches.** `aer.obsidian.export` and `graph.py`, `aer.services.knowledge`,
+`aer.services.graph_view`, `aer.services.history`, the monitor, Ask's tier 1, the refresh's
+materiality classifier, and `aer.calc.outcomes`.
+
+**Needs an ADR.** Yes — **ADR 0122**, drafted.
+
+**Depends on.** F9, F10 and F14. There is nothing to record until theses, decisions and reviews
+exist, which is why this is last.
+
+**Done when.** A finding on one holding's premise surfaces against another holding that shares
+it; Ask answers *"which positions rest on this same belief?"* from the record for nothing; and a
+seeded attempt to cite a premise as evidence is refused.
+
+**What it does not do.** It does not backfill. The three stored reports have no theses, decisions
+or reviews, and the migration invents none — a map with judgement nodes on day one would have
+got them from somewhere nobody authorised.
+
+---
+
 ## The order these want to be built in
 
 Not a schedule — [`05-delivery-plan.md`](05-delivery-plan.md) holds that — but the dependency
@@ -654,4 +724,6 @@ F17 auth and sharing             ── independent, and a change of who the pro
 F18 model portability            ── independent, any time
 F19 the UK path                  ── independent; follows F7, whose acquisition work it
                                     would otherwise be done twice alongside
+F20 the knowledge map           ── last. Needs F9, F10 and F14: nothing to record until
+                                   theses, decisions and reviews exist
 ```

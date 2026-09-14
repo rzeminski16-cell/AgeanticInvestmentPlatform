@@ -28,7 +28,7 @@ is the thing a chat session structurally cannot do, and it is the whole of the p
 | 1 | [`01-tools-and-success-criteria.md`](01-tools-and-success-criteria.md) | Every tool and sub-tool, what each must make possible, and the measurable bar it has to clear |
 | 2 | [`02-information-architecture.md`](02-information-architecture.md) | How nineteen surfaces become six destinations, and the three that deliberately have no menu item |
 | 3 | [`03-page-specifications.md`](03-page-specifications.md) | Every surface: layout, components, states, data contract, actions, constraints. **This is what you build from** |
-| 4 | [`04-feature-specifications.md`](04-feature-specifications.md) | Nineteen features: what, why, the mechanism, what it touches, the ADR it needs, and how we know it is done |
+| 4 | [`04-feature-specifications.md`](04-feature-specifications.md) | Twenty features: what, why, the mechanism, what it touches, the ADR it needs, and how we know it is done |
 | 5 | [`05-delivery-plan.md`](05-delivery-plan.md) | Phases, sessions, pounds, operator hours, the targets stated before the work, and the result that would mean stopping |
 | 6 | [`06-open-questions.md`](06-open-questions.md) | What is not decided, who decides it, and what it blocks |
 | — | [`design/`](design/README.md) | The nineteen drawn screens, how to use them, and the intent behind each |
@@ -43,10 +43,11 @@ read back and found thin in eight places. These answer *how*, where the first si
 | 9 | [`09-the-workbook.md`](09-the-workbook.md) | The spreadsheet, sheet by sheet: named ranges, the blue-and-black convention, the provenance tab, and the recompute test that proves it is a model rather than a picture |
 | 10 | [`10-migration.md`](10-migration.md) | Nine additive migrations, the one that can fail and how it is checked first, and what is deliberately **not** backfilled |
 | 11 | [`11-testing-strategy.md`](11-testing-strategy.md) | The journey harness, what asserts the invariants once three of them change, how the judgement layer is tested with no live run, and the nine things that must be green before a measurement round may spend |
+| 12 | [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md) | **Measured, not planned.** Phase 0.1, run for £3.96: the eighteen judges asked what would have to be different. Self-contradiction outranks everything and is small work; "state a view" was not asked for once; and fixing everything they named still leaves eight of nine at *partly* |
 
-## The nine ADRs
+## The ten ADRs
 
-An ADR before the code, wherever a feature says it needs one. All nine are drafted and sit in
+An ADR before the code, wherever a feature says it needs one. All ten are drafted and sit in
 [`../adr/`](../adr/), marked **Proposed** until the change each argues lands.
 
 | ADR | Decides | For |
@@ -60,6 +61,7 @@ An ADR before the code, wherever a feature says it needs one. All nine are draft
 | [0119](../adr/0119-a-printed-excerpt-re-enters-as-data-and-the-prior-research-type-stays-narrow.md) | The evidence boundary, decided before an excerpt is printed | F16 |
 | [0120](../adr/0120-an-account-owns-a-book-and-a-share-is-a-sealed-pack.md) | Accounts and the sealed evidence pack — **deferred**, drafted so V1.0's schema does not foreclose it | F17 |
 | [0121](../adr/0121-a-uk-filer-is-acquired-from-its-own-accounts.md) | A UK filer is acquired from its own accounts — there is no companyfacts equivalent | F19 |
+| [0122](../adr/0122-the-knowledge-map-learns-what-you-decided.md) | The knowledge map learns what you decided, and still becomes evidence for nothing | F20 |
 
 ## The evidence underneath it
 
@@ -89,7 +91,7 @@ which block a feature and two of which need a solicitor rather than an engineer.
 2. **The screens are illustrations**, not a source of truth. No figure in them is real.
 3. **`../plan/ROADMAP.md` still outranks everything here**, and the ADRs outrank it. A feature in
    this folder does not exist as scope until it has a roadmap number.
-4. **An ADR before the code**, wherever a feature says it needs one. Nine do, and all nine
+4. **An ADR before the code**, wherever a feature says it needs one. Ten do, and all ten
    are drafted — see the table above. They are **Proposed**, not Accepted: an ADR becomes
    Accepted when the change it argues lands, and until then it can still be argued with.
 5. **A question leaves `06-open-questions.md` by being answered in a document**, not by being
