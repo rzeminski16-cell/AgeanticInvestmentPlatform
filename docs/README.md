@@ -124,7 +124,8 @@ the next stage reads.
 
 ### `plan/` — what happens next
 
-The record of scope, and the evidence that shaped it.
+The record of scope, and the evidence that shaped it. [`plan/README.md`](plan/README.md) is
+the index, and states the order of authority: ADRs, then the roadmap, then `V1.0_Alpha/`.
 
 - [`ROADMAP.md`](plan/ROADMAP.md) — **the authority on scope.** What is built, what is not, what
   is deliberately not being built. An item does not exist as scope until it is in here.

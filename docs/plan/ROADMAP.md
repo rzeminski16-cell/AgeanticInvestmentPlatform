@@ -54,17 +54,34 @@ disclosure (§4.15), which were the two at the top of this list.*
 
 **The confirmation run happened, five times over, in the readiness audit of 2026-09-12** —
 [`readiness-audit-2026-09.md`](readiness-audit-2026-09.md). Item 1 is closed by it: 18 of 18
-sections drafted on every run, nothing starved and no section lost. What the pass put in
-front of this list instead is three blocking findings — two fixed there (the refresh run's
-leaked identifier; no run resolving the filer's industry code, so a bank took the standard
-model) and **one open: a bank's revenue resolves to its ASC 606 fee income**, so every
-margin on it is impossible and a bank cannot produce an approvable report. That, and the
-fifteen decisions in the audit's §8, are the next thing that would otherwise put a wrong
-number or no answer in front of somebody.
+sections drafted on every run, nothing starved and no section lost.
 
-Everything else sits in its bucket below. The running order across everything open — the
-phases, what gates each, and the moves only the operator can make — is
-[`remaining-work.md`](../archive/superseded-2026-09/remaining-work.md); this list stays the authority on priority.
+**What the audit put in front of this list instead is two issues, and they are now §2.10,
+§2.11 and §3.16.**
+
+1. **The platform is not ready for a user.** Three of six runs reached an approved report;
+   £14.41 was destroyed by two states the interface could not leave; 135 code identifiers
+   reach gate pages and the terminal is load-bearing. **§2.11.**
+2. **The platform is not better than a Claude console note.** Nine of nine blind comparisons
+   chose the console; six of six judges would not act on what the platform produced.
+   **§3.16**, and the abandonment criterion inside it is what stops that being an article of
+   faith.
+3. **A bank cannot produce an approvable report**, because its revenue resolves to its
+   ASC 606 fee income. The one open *blocking* finding. **§2.10**, decided in ADR 0114.
+
+**The running order is now [`../V1.0_Alpha/05-delivery-plan.md`](../V1.0_Alpha/05-delivery-plan.md)** —
+seven phases, about sixty-four sessions and £64 of live spend, with the gate that would stop
+the work stated before it starts. This list stays the authority on priority; that plan is the
+authority on sequence within §3.16. Everything the audit decided and everything the design
+conversation settled is written up in [`../V1.0_Alpha/`](../V1.0_Alpha/README.md), with eight
+ADRs (0113–0120) drafted ahead of the code.
+
+**Three things need the operator before code starts**, and they are listed as such in
+[`../V1.0_Alpha/06-open-questions.md`](../V1.0_Alpha/06-open-questions.md): what the price
+subscription permits in an exported file (question 2, blocks F8's multiples and the
+workbook's price-derived rows); whether the "UK or US" claim in the product documentation is
+narrowed or built (question 6); and sign-off on the abandonment criterion, without which no
+other gate in the plan can fail.
 
 ---
 
@@ -117,7 +134,8 @@ ADR by its old number reads four low.
 ## 2. Fixes and bugs
 
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
-one costs, worst first. **§2.1 is next.**
+one costs, worst first. **§2.10 is next** — it is the one open blocking finding of the
+readiness audit, and a bank cannot produce an approvable report until it is closed.
 
 **2.1 A63 — sections fail to draft. Diagnosed 2026-09-01 from the operator's export;
 the fixes are landing, and the confirmation run is outstanding.** Eight of eighteen
@@ -384,12 +402,35 @@ writes into alias-table entries stays a deliberate act by a person reading it.
 failure mode returns whenever a new refusal path gets a placeholder written in the
 platform's voice rather than the report's.
 
+**2.10 A bank's revenue resolves to its ASC 606 fee income.** The one open blocking finding
+of the readiness audit. `RevenueFromContractWithCustomerExcludingAssessedTax` is a correct
+fact and the wrong answer: for M&T it is $1,657m against $6,948m of net interest income and
+$2,742m of non-interest income, so the published net margin was **172.1%** and every ratio
+with revenue in its denominator is nonsense. A bank has no revenue caption to extract; the
+figure must be derived. Every guard held — the fact was hashed, the calculation recorded, the
+citations verified — which is why `calc/plausibility.py` exists and why this is a fact-layer
+fix rather than a rendering one. **Decided in ADR 0114**: derive it, at the fact layer, only
+for a filer the sector gate has confirmed as a bank, and raise rather than coerce on a unit
+mismatch. Specified as F7 in [`../V1.0_Alpha/04-feature-specifications.md`](../V1.0_Alpha/04-feature-specifications.md).
+
+**2.11 A stopped run has no way forward that is not the terminal.** The audit lost **£14.41**
+on two runs — MSFT #2 and M&T — that reached a state the interface could not leave: a
+rejected gate leaves the job non-terminal (`services/runs.py:165`), the eleven evaluation rows
+are written once inside `validate`, and the engine skips any step whose row says SUCCEEDED
+(`workflow/engine.py:518`). Three of six runs reached an approved report. Alongside it, 135
+distinct code identifiers reach gate pages, and the console tells the operator to watch
+`just worker`. This is the whole of ISSUE 1 in the V1.0 delivery plan and is measured by the
+journey harness in [`../V1.0_Alpha/11-testing-strategy.md`](../V1.0_Alpha/11-testing-strategy.md)
+§3.1 — every stopped state carries a labelled forward control, zero UUIDs, zero shell
+commands, and pressing the control moves the job.
+
 ---
 
 ## 3. New additions
 
-Nothing here is broken; it does not exist. §3.1 is the one an operator is currently blocked
-by. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
+Nothing here is broken; it does not exist. **§3.16 is where this bucket now leads**: the
+judgement layer of §3.5–§3.11 is built and unreached, and V1.0 is what connects it to a
+report. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
 nothing after theses can exist before them.
 
 **3.1 The portfolio — getting a ticker in. All three doors, 2026-08-29.** `Security` rows
@@ -801,6 +842,52 @@ that already print a typed readout to the console rather than a web page, which 
 shape for something meant to be read by whoever — human or Claude — is sitting at the
 terminal deciding whether to continue.
 
+**3.16 V1.0 Alpha — the report becomes a loop.** The eighteen features that turn a report
+generator into *research → decide → hold → review*, each stage writing a record the next
+stage reads. Specified in full in [`../V1.0_Alpha/`](../V1.0_Alpha/README.md); this entry is
+what makes them scope.
+
+**Why it is one item and not eighteen.** They are not independent: F9 (the thesis) is the
+load-bearing one and F2, F11, F13 and F14 cannot exist before it, while F1 must land first
+and alone because it touches the drafting prompts. Splitting them into eighteen roadmap
+numbers would invite them to be worked in an order the dependency graph forbids. The order is
+in [`../V1.0_Alpha/05-delivery-plan.md`](../V1.0_Alpha/05-delivery-plan.md) and it is the
+authority on sequencing within this item.
+
+| | Feature | Needs |
+|---|---|---|
+| F1 | Remove point-in-time | ADR 0113 |
+| F2 | The adversary argues the opposite case | ADR 0115, F13 |
+| F3 | The closing section reads the operator's own book | F12 |
+| F4 | The refresh | ADR 0116, F7 |
+| F5 | The model workbook | — |
+| F6 | Ask, in three tiers | F7 for tier 3 |
+| F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
+| F8 | Print what the run already computed | ADR 0118, F16 |
+| F9 | The thesis, as premises with tests | — |
+| F10 | Decisions | F9, F12 |
+| F11 | The monitor | F9, F15 |
+| F12 | Risk and the pre-trade check | — |
+| F13 | The stated view, in two halves | ADR 0117, F9 |
+| F14 | Post-trade review and decision analytics | F10 |
+| F15 | Scheduling | — |
+| F16 | The evidence boundary | ADR 0119 |
+| F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
+| F18 | Model portability | — |
+
+**What this item does not commit to.** Phase 5 of the delivery plan carries an abandonment
+criterion: if a measured round moves no verdict and changes no judge's stated reason, the
+work stops and the product's claim narrows to what the audit already scores as true — an
+evidence base and a checking instrument. That gate is real, it is pre-registered before the
+round, and it needs the operator's sign-off to be worth anything. **F17 is deferred** on the
+operator's decision of 14 September 2026, until a solicitor has read the
+consequences-not-instructions design; ADR 0120 is drafted anyway so that V1.0's schema does
+not foreclose it.
+
+**§3.17–§3.19 are deliberately unallocated.** The audit's remaining decisions and anything
+this phase turns up get numbers here rather than being folded into §3.16, so that work found
+during V1.0 is visible as work found rather than as scope that was always there.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
@@ -812,6 +899,13 @@ anything else. Grouped because they stand or fall together.
   supervision.
 
 Treat these as a single gate rather than three tickets. Shipping any one alone buys nothing.
+
+**This is F17, and it now has a design**: ADR 0120 — an account owns a book, and a share is a
+sealed, read-only evidence pack rather than a login. It is **deferred** out of V1.0 on the
+operator's decision, and the ADR names the three constraints it places on work happening now
+so that deferring it stays cheap: write `user_id` into new tables while one user exists, never
+add a service function whose only scope is a company or a request, and keep ADR 0073's
+attested-figure rule intact.
 
 ### Commercial and licence checks still outstanding
 
