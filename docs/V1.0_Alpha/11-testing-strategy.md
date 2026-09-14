@@ -119,7 +119,7 @@ the test.
 
 | Invariant | V1.0 change | What asserts it |
 |---|---|---|
-| **1** Every fact traces to a hashed artefact | Unchanged | `just verify-artefacts`, run in CI over the corpus |
+| **1** Every fact traces to a hashed artefact | Gains the **UK path**, where a fact is this platform's own parse rather than a registry's aggregation (F19) | `just verify-artefacts` over the corpus, plus a golden test that `extract_ixbrl` over a stored accounts document produces byte-identical facts twice. A parsing error is a wrong number with a perfect audit trail, so this is the boundary tested hardest |
 | **2** Code confirms a citation | Unchanged | `tests/test_citations.py`; the boundary scanner at `:74` |
 | **3** No figure without a fact, a calculation or an attestation | Gains **supersession**: a superseded report's figures must not reach a current surface | A partial unique index (migration M2) plus a service test that a second current report for one company raises, and a render test that a superseded report renders only at its own address |
 | **4** Point-in-time enforced at acquisition | **Removed** (F1, ADR 0113) | A structural absence test: a text scan over `src/` and `docs/` for `point.in.time`, `look_ahead`, `temporal_compliance` and `as_of`, allowing only the ADR that records the removal and the retrieval-timestamp code F11 depends on. A deletion nobody asserts is a deletion that grows back |
@@ -248,6 +248,7 @@ carries it.
 | F16 | The evidence boundary | The extended injection corpus (§3.2, invariant 8) |
 | F17 | Auth and sharing | Deferred for V1.0 (open question 5). When it lands: two accounts with separate books, and a shared pack that opens with no account and resolves every footnote |
 | F18 | Model portability | A full run on a second provider with the same gates and the same verification results; the cost table prices both |
+| F19 | The UK path | **The offline refusal test inverts.** `audit/smoke.py` proves today that a domestic LSE ticker is refused at `acquire`; it must prove that the same ticker resolves against Companies House, and the refusal case is rewritten around a company in neither registry. Plus: a UK bank's SIC 2007 code fires the sector gate; a sterling valuation with no confirmed gilt yield **refuses** rather than borrowing the US rate; and `fetch_facts` over a stored accounts document produces the same facts twice |
 
 ---
 
@@ -282,9 +283,10 @@ the only reason to run it.
 Said plainly, because an untested area that nobody has named is an untested area everybody
 assumes is covered.
 
-- **Filing diversity.** Three companies — one US large cap, one 20-F filer, one bank. A fourth
-  sector meets its first unmapped concepts in production. Mitigated by the unmapped-concept
-  gate being an operator surface rather than a failure, which is a design choice, not a test.
+- **Filing diversity.** Four companies once F19 lands — one US large cap, one 20-F filer, one
+  bank, one domestic UK filer. A fifth sector meets its first unmapped concepts in production.
+  Mitigated by the unmapped-concept gate being an operator surface rather than a failure, which
+  is a design choice, not a test.
 - **The real Excel.** The workbook is written by `openpyxl` and recalculated by LibreOffice.
   Microsoft Excel is never in the loop. The formulas are a documented subset for that reason,
   and the residual risk is a rendering difference, not an arithmetic one.

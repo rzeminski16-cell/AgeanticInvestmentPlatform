@@ -76,12 +76,16 @@ authority on sequence within §3.16. Everything the audit decided and everything
 conversation settled is written up in [`../V1.0_Alpha/`](../V1.0_Alpha/README.md), with eight
 ADRs (0113–0120) drafted ahead of the code.
 
-**Three things need the operator before code starts**, and they are listed as such in
-[`../V1.0_Alpha/06-open-questions.md`](../V1.0_Alpha/06-open-questions.md): what the price
-subscription permits in an exported file (question 2, blocks F8's multiples and the
-workbook's price-derived rows); whether the "UK or US" claim in the product documentation is
-narrowed or built (question 6); and sign-off on the abandonment criterion, without which no
-other gate in the plan can fail.
+**All three of those were settled on 14 September 2026**, and are recorded in
+[`../V1.0_Alpha/06-open-questions.md`](../V1.0_Alpha/06-open-questions.md):
+
+- **The price subscription** is treated as permitting publication of derived figures, which is
+  the permission `fetch/policy.py:192` already records. If the agreement turns out to restrict
+  it, the figure is withheld through ADR 0034's type — which has no field for a figure it may
+  not carry — rather than quietly printed or silently dropped.
+- **"UK or US" is built, not narrowed.** §3.17.
+- **The abandonment criterion is signed off**, which is what makes every other gate in the plan
+  able to fail.
 
 ---
 
@@ -874,6 +878,7 @@ authority on sequencing within this item.
 | F16 | The evidence boundary | ADR 0119 |
 | F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
 | F18 | Model portability | — |
+| F19 | The UK path | ADR 0121 — and it has its own number, **§3.17** |
 
 **What this item does not commit to.** Phase 5 of the delivery plan carries an abandonment
 criterion: if a measured round moves no verdict and changes no judge's stated reason, the
@@ -884,9 +889,38 @@ operator's decision of 14 September 2026, until a solicitor has read the
 consequences-not-instructions design; ADR 0120 is drafted anyway so that V1.0's schema does
 not foreclose it.
 
-**§3.17–§3.19 are deliberately unallocated.** The audit's remaining decisions and anything
-this phase turns up get numbers here rather than being folded into §3.16, so that work found
-during V1.0 is visible as work found rather than as scope that was always there.
+**3.17 A London listing can be researched.** The product documentation has said "UK or US"
+since the first plan, and a company listed in London that files only with Companies House
+cannot get past `acquire` — every subject is resolved against EDGAR's ticker list. **The
+operator decided on 14 September 2026 to build the path rather than narrow the claim.**
+Argued in **ADR 0121**, specified as **F19**, delivered as **Phase 4a** (8–11 sessions, £8
+live).
+
+Most of it exists and has never been called: a complete `CompaniesHouseClient` with 32 tests,
+both hosts allowlisted in the fetch policy, the rate limit verified on 2026-09-04 (§commercial
+check 2), the credential wired in `runtime.py`, an offline iXBRL extractor built for UK filings,
+and a `companies.company_number` column whose check constraint — `cik IS NOT NULL OR
+company_number IS NOT NULL` — was written for exactly a CIK-less UK company. Earlier plans said
+that constraint fails. It does not.
+
+Four things are genuinely missing, and only the second is large:
+
+1. `acquire` names `sec_client` directly rather than dispatching on the resolved registry.
+2. **`CompaniesHouseClient` has no `fetch_facts`, because Companies House publishes no
+   companyfacts equivalent.** A UK filer's numbers exist only inside its accounts, as inline
+   XBRL, one period at a time — so a UK acquisition is *n* fetches and *n* parses, and every UK
+   fact is this platform's own parse rather than a registry's aggregation.
+3. Every `SectorProfile.sic_prefixes` is a US SIC code. UK SIC 2007 is a different scheme, so a
+   UK bank matches nothing, the gate does not fire, and it takes the standard model — the ADR
+   0029 hole that produced §2.10's 172.1%. `companies.sic_scheme` is the one new column.
+4. No GBP risk-free series: `risk_free_series_for` refuses rather than defaulting, because the
+   Bank of England's `robots.txt` disallows the CSV handler it documents (ADR 0026's
+   Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is
+   commercial check 6 below.
+
+**§3.18–§3.19 are deliberately unallocated.** Anything this phase turns up gets a number here
+rather than being folded into §3.16 or §3.17, so that work found during V1.0 is visible as work
+found rather than as scope that was always there.
 
 ### Before this leaves one machine
 
@@ -945,6 +979,12 @@ not a design task, and each should be done **before** money or a dependency is c
    licence reason for preferring the fallback, not the reason for waiting.
 5. Validate **WeasyPrint's native dependencies** on the target Windows machine. It is the one
    tooling choice that can force late rework.
+6. Verify a **GBP risk-free series** — its identifier, its frequency and its terms — against the
+   primary source, before §3.17's sterling valuations depend on anything but an
+   operator-confirmed assumption. The named candidate is the OECD long-term UK government bond
+   yield republished by FRED, which is already a wired source with a cleared licence; it is
+   **not** adopted until verified, because this repository does not adopt a data series on a
+   recollection. Open question 19 in `../V1.0_Alpha/06-open-questions.md`.
 
 ---
 

@@ -100,7 +100,11 @@ Four standing rules, each adopted because a judge or a critic showed what goes w
 
 ## 4. Phase 0 — Ask before you build
 
-**2 sessions · ~£3 (judge tokens only) · nothing live**
+**3 sessions · ~£7 · one live run**
+
+**Approved by the operator on 14 September 2026.** 0.1 and 0.4 are approved as written; 0.3's
+three facts are all now settled (see [`06-open-questions.md`](06-open-questions.md)); and 0.5
+is added — the QUICK-mode run, which the operator agreed to on the same day.
 
 The cheapest thing in this plan is also the one that decides the rest of it. Eighteen expensive
 judge reads produced a pile of complaints and no ordering over them.
@@ -111,9 +115,15 @@ judge reads produced a pile of complaints and no ordering over them.
 | 0.2 | **Map both console notes source by source.** For each figure a judge called decisive, record the document it came from and whether that accession is already in the platform's submissions index | One sitting, £0. It is what established §2's finding 2, and it is what keeps the tier-ceiling decision out of this plan |
 | 0.3 | **Settle three facts in writing**: do the five audit run databases and the artefact store still exist (every £0 re-render in this plan depends on it); what does the executed EODHD agreement permit in an *exported* artefact; and what the pre-registered targets and the abandonment criterion are (§7) | Four plans costed their whole offline economy on stored rows nobody checked. If the answer is no, one seeding run is bought now and said so |
 | 0.4 | **The operator reads two documents blind, themselves** — audit §4.4 checks 1 and 2, files already committed | Three model judges are standing in for one real decision-maker who has not yet read them |
+| 0.5 | **Run `AnalysisMode.QUICK` once and read it** (~£4, one live run) | It exists, drops nine of the eighteen sections, scales budgets to 0.6, and **has never been run in the platform's life**. It answers the largest unasked question in this plan — whether eighteen sections is the right spine for one private investor — for the price of half a report. Open question 7, approved |
+
+**0.3 is already settled**, and its three answers are recorded rather than assumed: the run data
+exists (5 complete drafts, 3 approved reports, 832 artefacts); the price subscription is treated
+as permitting publication of derived figures, with ADR 0034's withheld type as the fallback if
+that turns out to be wrong; and the abandonment criterion in §9 is signed off.
 
 **Exit:** a ranked backlog, a source map, a committed pre-registration with targets and an
-abandonment criterion, and the operator's own read.
+abandonment criterion, the operator's own read, and a decision on the spine.
 
 ## 5. Phase 1 — The half that needs no judge and no money
 
@@ -143,6 +153,12 @@ that started red.
 ## 6. Phase 2 — A bank can be researched
 
 **ISSUE 1, blocking · 7–9 sessions · £8 live · 1 ADR**
+
+**F19, the UK path, lands in Phase 4a** — a new half-phase between Phases 4 and 5, added on the
+operator's decision of 14 September. It is not folded in here even though it touches the same
+sector-classification code, because this phase is *blocking* and that one is not: a bank cannot
+produce a report at all today, and a UK filer produces no report because it was never in scope.
+Mixing a blocking fix with a scope addition is how a blocking fix slips.
 
 All three judges flagged the same thing: the one blocking finding the audit left open must not
 be an optional branch. An entire subject class produces no report at all.
@@ -194,6 +210,36 @@ undecided accusations published.
 
 **Exit:** re-render MSFT #1 and AZN #2 from stored rows — multiples, a market capitalisation, an
 implied range, segment figures and resolvable footnotes, with no sentence denying any of them.
+
+## 8a. Phase 4a — A London listing can be researched
+
+**Scope addition · 8–11 sessions · £8 live · 1 ADR (0121) · added 14 September 2026**
+
+The product documentation has claimed "UK or US" since the first plan and a domestic London
+listing cannot be researched at all. The operator's decision is to build the path rather than
+narrow the sentence. Specified as **F19**; argued in **ADR 0121**.
+
+| # | What | Notes |
+|---|---|---|
+| 4a.1 | **Dispatch `acquire` on the resolved registry** rather than on `sec_client` by name; record which registry answered on the request | A subject resolving in both registries is refused with both choices named — ADR 0093's dual-listing rule, applied to research |
+| 4a.2 | **`CompaniesHouseClient.fetch_facts`** — accounts filings newest first, fetch and hash each, `extract_ixbrl` over each, union the facts, **four filings deep by default** | **The only piece that is not wiring.** Companies House publishes no companyfacts equivalent, so every UK fact is this platform's own parse of a document rather than a registry's aggregation |
+| 4a.3 | **Seed UK SIC 2007 into the sector profiles**, with `companies.sic_scheme` to say which scheme a code belongs to | Skipping this reproduces M&T's 172.1% on the first UK bank: the code would match nothing, the gate would not fire, and a bank would take the standard model |
+| 4a.4 | **The gilt yield as an operator-owned assumption**, sourced and confirmed at the gate; `risk_free_series_for` keeps refusing rather than substituting | An automated GBP series is open question 19 and a commercial check, not a design task |
+| 4a.5 | **Invert the offline refusal test** and correct the product documentation's claim in the same change | The claim may not run ahead of the code, in either direction |
+
+**Why it is affordable at all**: the Companies House client is complete with 32 tests, the fetch
+policy allowlists both hosts, the rate limit was verified on 2026-09-04, the credential is wired,
+the offline iXBRL extractor was built for UK filings, and `companies.company_number` already
+exists with a constraint written for a CIK-less company. **No migration on `companies` is
+needed for the identifier** — only `sic_scheme` is new.
+
+**Exit:** a domestic London filer reaches an approved, rendered report with every figure traced
+to its own accounts documents; a UK bank fires the sector gate; a sterling valuation carries a
+sourced gilt yield or refuses.
+
+**Risk, stated:** this is the first subject whose facts the platform extracted itself. A parsing
+error here is a wrong number with a perfect audit trail — which is the failure `plausibility.py`
+was written for after the last one. It gets the hardest tests in the plan.
 
 ## 9. Phase 5 — The first measured signal, and the kill gate
 
@@ -280,20 +326,24 @@ a repeat of it would be a different instrument wearing the same name.
 
 | Phase | Sessions | Live £ | Operator hours |
 |---|---|---|---|
-| 0 — ask first | 2 | ~3 | 3 (two documents read) |
+| 0 — ask first | 3 | ~7 | 4 (two documents read, one QUICK report) |
 | 1 — the journey | 12–16 | 0 | 2 |
 | 2 — the bank | 7–9 | 8 | 2 |
 | 3 — self-contradiction | 10–12 | 0 | 1 |
 | 4 — print what exists | 11–13 | 0 | 1 |
+| 4a — the UK path | 8–11 | 8 | 2 |
 | 5 — first signal | 2 | 21 | 8 |
 | 6 — view and argument | 14–18 | 0 | 2 |
 | 7 — verdict and roadmap | 4 | 31.50 | 16 |
-| **Total** | **62–76** | **~£64** | **~35** |
+| **Total** | **71–88** | **~£80** | **~38** |
 
-£36.68 of the audit's £100 remains, so the programme needs about £27 more, and Phase 5's gate
-stands between the operator and most of it. At four sessions a week this is three to four months;
+£36.68 of the audit's £100 remains, so the programme needs about £43 more, and Phase 5's gate
+stands between the operator and most of it. The rise from ~£64 is Phase 4a (the UK path, £8) and
+Phase 0's added QUICK run (£4). At four sessions a week this is three to four months;
 the stop points are Phase 2 (a bank works), Phase 4 (the document stops lying about itself) and
-Phase 5 (the evidence to continue or to narrow).
+Phase 5 (the evidence to continue or to narrow). **Phase 4a is the one phase that can be dropped
+without disturbing the sequence** — it adds a market rather than fixing a defect, and it sits
+before the gate precisely so that dropping it is cheap.
 
 **Decisions only the operator can take**, in the order they are needed:
 

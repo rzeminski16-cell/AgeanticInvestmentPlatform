@@ -1,7 +1,7 @@
 # Feature specifications
 
 *What each feature of V1.0 is, why it exists, how it works, what it touches, and how we will
-know it is done. Eighteen features. Compiled 14 September 2026 from the decisions taken across
+know it is done. Nineteen features. Compiled 14 September 2026 from the decisions taken across
 the design conversation, and normative where it and a page specification disagree about
 behaviour — the page specification wins on layout, this wins on mechanism.*
 
@@ -293,7 +293,7 @@ because the work is already done and thrown away.
 
 | What exists | Where it stops | The fix |
 |---|---|---|
-| The subject's own P/E of 27.43× and EV/EBITDA of 18.93×, computed every run | `assemble_document`'s comps parameter is typed so no multiple can pass — enforcing a licence position **the operator reversed on 2026-08-09** | Widen the type; the permission already exists in `fetch/policy.py` |
+| The subject's own P/E of 27.43× and EV/EBITDA of 18.93×, computed every run | `assemble_document`'s comps parameter is typed so no multiple can pass — enforcing a licence position **the operator reversed on 2026-08-09** | Widen the type; the permission already exists in `fetch/policy.py`. **Default: publish** (open question 2, answered 14 September) |
 | 626 dimensioned facts, mapped and stored — AstraZeneca's revenue by geography, Microsoft's by segment and by product | `visible_facts` bars every dimensioned row from every section's evidence pack | A carve-out for the section that is about segments |
 | The WACC, terminal value and value per share | They carry `period = None`, sort last under `ORDER BY period_end DESC NULLS LAST`, and fall off a forty-row cap before any writer sees them | Rank and pool by name, as `red_team.py` already does |
 | 259 verified excerpts | None is printed in the exported document | Print the excerpt, with F16's boundary decided first |
@@ -576,6 +576,60 @@ verification results, and the cost table prices both.
 
 ---
 
+## F19 · The UK path
+
+**What it is.** Acquisition, extraction and classification for a company listed in London that
+files only with Companies House — so that "UK or US" stops being a claim and becomes a fact.
+
+**Why.** The product documentation has said "UK or US" since the first plan. A domestic London
+listing cannot be researched at all: `acquire` resolves every subject against EDGAR's ticker
+list, so a company with no SEC filings is refused before anything else happens. The operator's
+decision on 14 September was to build the path rather than narrow the sentence.
+
+**How it works.** Four pieces, and the second is the one that is not a wiring job.
+
+1. **Dispatch on the resolved registry.** `acquire` stops naming `sec_client` and asks which
+   registry can identify the subject. A subject that resolves in both is refused with both
+   choices named — the dual-listing rule ADR 0093 already applies to the portfolio.
+2. **`CompaniesHouseClient.fetch_facts`, which does not exist**, because Companies House
+   publishes no equivalent of EDGAR's companyfacts. A UK filer's numbers live only inside its
+   accounts, as inline XBRL, one period at a time. So `fetch_facts` is: accounts filings newest
+   first, fetch and hash each, `extract_ixbrl` over each, union the facts. **Depth defaults to
+   four filings** — four years on an annual filer — so the cost is predictable.
+3. **A second classification scheme.** Every `SectorProfile`'s `sic_prefixes` are US SIC codes
+   (`602` banks, `6798` REITs, `737` software). UK SIC 2007 is a different scheme. Without
+   seeding it, a UK bank matches nothing, the gate does not fire, and it takes the standard
+   model — which is precisely the hole that produced M&T's 172.1% net margin.
+4. **A sterling risk-free rate, as an operator-owned assumption.** `RISK_FREE_SERIES` holds USD
+   only and `risk_free_series_for` refuses rather than defaulting, because the Bank of
+   England's `robots.txt` disallows the CSV handler it documents. The gilt yield is supplied,
+   sourced and confirmed at the assumption gate — the same mechanism the audit used for the US
+   rate. An automated series is a follow-up with a named candidate and an unverified one.
+
+**What is already done, and is why this is affordable.** The Companies House client is complete
+and has 32 tests; the fetch policy allowlists both hosts; the rate limit was verified against
+the developer specifications on 2026-09-04; the credential is wired in `runtime.py`; the
+offline iXBRL extractor was built for UK filings; and `companies.company_number` already
+exists with a check constraint (`cik IS NOT NULL OR company_number IS NOT NULL`) written for
+exactly this case. **This plan twice said that constraint fails for a UK company. It does not.**
+
+**Touches.** `aer.sources.uk.companies_house` (`fetch_facts`), `vertical_slice_v1`'s `acquire`,
+`aer.services.sectors` and the sector profiles, `aer.db.models.company` (`sic_scheme`),
+`aer.services.assumption_gate`, and the product documentation's claim.
+
+**Needs an ADR.** Yes — **ADR 0121**, drafted.
+
+**Done when.** A domestic London filer reaches an approved, rendered report with its figures
+traced to its own accounts documents; a UK bank fires the sector gate; a sterling valuation
+either carries a sourced gilt yield or refuses; and the offline test that proved the refusal is
+inverted to prove the resolution.
+
+**What it does not do.** No 10-Q and no 8-K stream exists for a UK filer, so a UK report is
+quieter on recent developments than a US one, and says so. UK peers cost a full acquisition
+each, so comparable multiples stay deferred.
+
+---
+
 ## The order these want to be built in
 
 Not a schedule — [`05-delivery-plan.md`](05-delivery-plan.md) holds that — but the dependency
@@ -598,4 +652,6 @@ F5  workbook                     ── independent
 F16 evidence boundary            ── before F8 prints excerpts
 F17 auth and sharing             ── independent, and a change of who the product is for
 F18 model portability            ── independent, any time
+F19 the UK path                  ── independent; follows F7, whose acquisition work it
+                                    would otherwise be done twice alongside
 ```

@@ -28,7 +28,7 @@ is the thing a chat session structurally cannot do, and it is the whole of the p
 | 1 | [`01-tools-and-success-criteria.md`](01-tools-and-success-criteria.md) | Every tool and sub-tool, what each must make possible, and the measurable bar it has to clear |
 | 2 | [`02-information-architecture.md`](02-information-architecture.md) | How nineteen surfaces become six destinations, and the three that deliberately have no menu item |
 | 3 | [`03-page-specifications.md`](03-page-specifications.md) | Every surface: layout, components, states, data contract, actions, constraints. **This is what you build from** |
-| 4 | [`04-feature-specifications.md`](04-feature-specifications.md) | Eighteen features: what, why, the mechanism, what it touches, the ADR it needs, and how we know it is done |
+| 4 | [`04-feature-specifications.md`](04-feature-specifications.md) | Nineteen features: what, why, the mechanism, what it touches, the ADR it needs, and how we know it is done |
 | 5 | [`05-delivery-plan.md`](05-delivery-plan.md) | Phases, sessions, pounds, operator hours, the targets stated before the work, and the result that would mean stopping |
 | 6 | [`06-open-questions.md`](06-open-questions.md) | What is not decided, who decides it, and what it blocks |
 | — | [`design/`](design/README.md) | The nineteen drawn screens, how to use them, and the intent behind each |
@@ -44,9 +44,9 @@ read back and found thin in eight places. These answer *how*, where the first si
 | 10 | [`10-migration.md`](10-migration.md) | Nine additive migrations, the one that can fail and how it is checked first, and what is deliberately **not** backfilled |
 | 11 | [`11-testing-strategy.md`](11-testing-strategy.md) | The journey harness, what asserts the invariants once three of them change, how the judgement layer is tested with no live run, and the nine things that must be green before a measurement round may spend |
 
-## The eight ADRs
+## The nine ADRs
 
-An ADR before the code, wherever a feature says it needs one. All eight are drafted and sit in
+An ADR before the code, wherever a feature says it needs one. All nine are drafted and sit in
 [`../adr/`](../adr/), marked **Proposed** until the change each argues lands.
 
 | ADR | Decides | For |
@@ -59,6 +59,7 @@ An ADR before the code, wherever a feature says it needs one. All eight are draf
 | [0118](../adr/0118-the-section-about-segments-may-read-segments.md) | The dimensioned-facts carve-out, for one section only | F8 |
 | [0119](../adr/0119-a-printed-excerpt-re-enters-as-data-and-the-prior-research-type-stays-narrow.md) | The evidence boundary, decided before an excerpt is printed | F16 |
 | [0120](../adr/0120-an-account-owns-a-book-and-a-share-is-a-sealed-pack.md) | Accounts and the sealed evidence pack — **deferred**, drafted so V1.0's schema does not foreclose it | F17 |
+| [0121](../adr/0121-a-uk-filer-is-acquired-from-its-own-accounts.md) | A UK filer is acquired from its own accounts — there is no companyfacts equivalent | F19 |
 
 ## The evidence underneath it
 
@@ -88,7 +89,7 @@ which block a feature and two of which need a solicitor rather than an engineer.
 2. **The screens are illustrations**, not a source of truth. No figure in them is real.
 3. **`../plan/ROADMAP.md` still outranks everything here**, and the ADRs outrank it. A feature in
    this folder does not exist as scope until it has a roadmap number.
-4. **An ADR before the code**, wherever a feature says it needs one. Eight do, and all eight
+4. **An ADR before the code**, wherever a feature says it needs one. Nine do, and all nine
    are drafted — see the table above. They are **Proposed**, not Accepted: an ADR becomes
    Accepted when the change it argues lands, and until then it can still be argued with.
 5. **A question leaves `06-open-questions.md` by being answered in a document**, not by being
@@ -100,8 +101,10 @@ which block a feature and two of which need a solicitor rather than an engineer.
 folder is built. The mechanisms, the data model, the migrations, the workbook and the testing
 strategy have all had a second pass, and the eight ADRs the features asked for are written.
 
-What remains before code: open question 2 (what the price subscription permits in an exported
-file) blocks F8's multiples and the workbook's price-derived rows; open question 6 (the "UK or
-US" claim) needs either a sentence changed or a source adapter built; and the operator's
-sign-off on the abandonment criterion in the delivery plan, which is what makes every other
-gate real.
+**All three blocking questions were answered on 14 September 2026.** The price subscription is
+treated as permitting publication of derived figures, with ADR 0034's withheld type as the
+fallback if that is wrong; "UK or US" is **built, not narrowed** — ADR 0121, F19, Phase 4a; and
+the abandonment criterion is signed off, which is what makes every other gate able to fail.
+
+What remains before code is Phase 0: the ranked judge backlog, the source map, the operator's
+own blind read of two documents, and one QUICK-mode run. Three sessions and about £7.

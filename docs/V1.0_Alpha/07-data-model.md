@@ -278,8 +278,34 @@ No new table. A workbook is a rendering of a report, exactly as the PDF is.
    goes; the record of when a document was fetched stays, because the review stage cannot tell a
    good decision from a lucky one without it.
 
+## Gap 7 — one column, for the UK path (F19, ADR 0121)
+
+```sql
+ALTER TABLE companies ADD COLUMN sic_scheme varchar(16);   -- 'us_sic' | 'uk_sic_2007'
+```
+
+**Needed by.** F19. Every `SectorProfile.sic_prefixes` is a US SIC code (`602` banks, `6798`
+REITs, `737` software); UK SIC 2007 is a different scheme with different codes. Without a column
+saying which scheme a code belongs to, a UK bank's code matches nothing, the sector gate does
+not fire, and it takes the standard model — which is how M&T published a 172.1% net margin.
+
+**Backfill.** Every existing row is `us_sic`, which is true of all three stored subjects. The
+column is nullable so a company whose code was never resolved stays honest about that.
+
+**And the identifier needs nothing.** `companies.company_number` already exists — `String(16)`,
+unique, reserved for the UK adapter — and the table's check constraint is:
+
+```sql
+CheckConstraint("cik IS NOT NULL OR company_number IS NOT NULL", name="has_a_registry_identifier")
+```
+
+**This plan twice said that constraint fails for a CIK-less UK company.** It does not; it was
+written for exactly this case. The correction is recorded here because it made the UK path look
+like a schema change when it is a column and some wiring.
+
 ## What a developer should not build
 
 A supersession mechanism · a premise predicate model · a pass action · a process-quality
 enum · a per-premise review verdict · a monitor findings table · a watchlist `why` column ·
-a rating column on reports. **All eight exist.** The gaps are the six above and nothing else.
+a rating column on reports · **a company-number column and a constraint that permits it**.
+**All nine exist.** The gaps are the seven above and nothing else.
