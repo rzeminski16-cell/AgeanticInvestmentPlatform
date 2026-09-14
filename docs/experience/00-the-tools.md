@@ -241,14 +241,30 @@ pre-trade check, and a pass is not modelled.
 
 ### 8. Monitor
 
-**What it is.** The thing that tests the operator's own premises against what has been filed
-since, and says which beliefs broke.
+**What it is.** The thing that watches on the operator's behalf. It tests their own premises
+against what has been filed since, and it watches the price for moves large enough to be worth
+knowing about.
 
-**Surfaces.** The verdict per thesis · the alert · the schedule.
+**Surfaces.** The verdict per thesis · the alert · the schedule and thresholds.
+
+**Two kinds of alert, and they are not the same thing.**
+
+| Kind | Cadence | What it says | What it means |
+|---|---|---|---|
+| **A premise broke** | Monthly or quarterly, on new filings | *"You believed revenue growth would stay above 15%. The FY2027 filing puts it at 11%."* | Your reasoning has a hole in it. Act |
+| **The price moved** | Daily, on the end-of-day close | *"Down 12% this week."* | Something happened. Go and look |
+
+**A price move is never reported alone.** It always arrives with what the record says about it:
+*"Down 12% this week. Nothing has been filed since your last check and all four premises still
+hold."* That sentence is the product in miniature — it is the difference between an alert that
+causes panic and one that prevents it, and no chat can produce it because no chat remembers
+what you believed last quarter.
 
 **What it must make possible.**
 - A monthly or quarterly pass that reads each premise carrying a predicate, resolves the metric,
   measures it against what has been filed since the premise was last read, and decides.
+- A daily pass over the end-of-day close that raises a move against a threshold the operator
+  set — never a default nobody chose.
 - Surfacing a break **on the front door**, not in a page the user must remember to visit.
 - Handling the untestable premise honestly — a review date, not a fabricated test.
 
@@ -256,13 +272,17 @@ since, and says which beliefs broke.
 | The bar | How it is measured |
 |---|---|
 | **Every broken premise surfaces within one filing cycle** of the filing that broke it | Asserted against stored history |
-| **Zero false alarms** across a quarter — an alert the user dismisses as noise is worse than none | Counted; a dismissal is recorded with a reason |
+| A price move above the operator's own threshold surfaces **the morning after the close** | Observed over a fortnight |
+| **Zero false alarms** across a quarter — an alert the user dismisses as noise is worse than none | Counted; a dismissal is recorded with a reason. This bar bites hardest on price: a threshold set too low teaches the operator to ignore the queue, which costs more than the alert was worth |
+| Every price alert carries **the state of the thesis beside it** | By construction; a bare price move is not shipped |
 | The user acts on or dismisses **every** alert; none is ignored | Queue depth returns to zero |
 | A check costs **nothing in model spend** where the predicate is a metric | It is arithmetic, not inference |
 
 **Today.** `thesis_monitor.py` is built — `resolve_metric`, `predicate_holds`, measurement from
 the fiscal years filed since a premise was last read. **It has no caller, no schedule and no
-screen.** This is the single largest piece of finished, unused value in the system.
+screen.** This is the single largest piece of finished, unused value in the system. The price
+half does not exist at all, though the daily end-of-day valuation the portfolio needs is the
+same feed and the same schedule, so the two ship together.
 
 ### 9. Risk
 

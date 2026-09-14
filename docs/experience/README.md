@@ -22,7 +22,7 @@ a journey organised around four stages.
 | Document | What it settles |
 |---|---|
 | [`00-the-tools.md`](00-the-tools.md) | Every tool and sub-tool, what each must make possible, and the measurable bar for each |
-| `01-information-architecture.md` | How the fourteen surfaces are grouped, named and reached *(next)* |
+| [`01-information-architecture.md`](01-information-architecture.md) | How the fourteen surfaces become six destinations, and the three that deliberately have no menu item |
 | `02-screens/` | The drawn designs, screen by screen *(next)* |
 
 ## The two ideas everything else follows from
