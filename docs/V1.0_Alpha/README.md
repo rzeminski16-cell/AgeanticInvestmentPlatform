@@ -1,5 +1,9 @@
 # V1.0 Alpha
 
+> **Starting work?** Read [`HANDOVER.md`](HANDOVER.md) first. It is what a session
+> that has never seen the design conversation needs: what is settled, what is left of Phase 0,
+> how to bring the environment up, and the three things this plan has already got wrong.
+
 *The next phase. Everything that says what the system becomes, why, how it looks and how it gets
 built. Opened 14 September 2026, after the readiness audit measured what exists today and the
 design conversation settled what it should be.*

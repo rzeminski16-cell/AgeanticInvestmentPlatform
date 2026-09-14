@@ -97,8 +97,13 @@ For the operator: the person who installs it, commissions research and approves 
 platform becomes a loop — research, decide, hold, review — in which each stage writes a record
 the next stage reads.
 
-- [`V1.0_Alpha/README.md`](V1.0_Alpha/README.md) — start here. What the phase is, what is
-  decided, what is not, and how to work in the folder.
+- [`V1.0_Alpha/HANDOVER.md`](V1.0_Alpha/HANDOVER.md) — **start here if you are about to do
+  the work.** What is settled, what is left of Phase 0, how to bring the environment up, and
+  the three things the plan has already got wrong.
+- [`V1.0_Alpha/README.md`](V1.0_Alpha/README.md) — what the phase is, what is decided, what is
+  not, and how to work in the folder.
+- [`V1.0_Alpha/12-the-ranked-backlog.md`](V1.0_Alpha/12-the-ranked-backlog.md) — the only
+  measured document in the folder: what eighteen judges said would have to be different.
 - [`V1.0_Alpha/03-page-specifications.md`](V1.0_Alpha/03-page-specifications.md) — every one of
   nineteen surfaces: layout, components, states, data contract, constraints. **What you build
   from.**
