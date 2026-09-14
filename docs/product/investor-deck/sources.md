@@ -1,6 +1,14 @@
 # Where every figure in the decks comes from
 
-Two decks live here.
+Three decks live here.
+
+**`whats-next-v1-alpha.pptx`** (14 slides) is the what-happens-next deck, for people who
+already know and like the system: how the product changes when V1.0 lands, what it stops
+refusing to do, what is new in the box, what we are deliberately not building, and the
+measured result that would make us stop. Drawn in the platform's own design system
+(`docs/design-system.md`) rather than the investor navy, because the audience recognises it.
+Every present-tense figure is from the audit; every forward claim carries a **PLANNED** tag.
+Built by `build_next_deck.js`.
 
 **`ageantic-investor-overview.pptx`** (15 slides) is the full investor overview: what the
 platform is, how a run works, what it can do, what the wider platform holds, the audited
@@ -19,7 +27,32 @@ from the run records committed beside it in
 [`readiness-audit-2026-09/`](../../plan/readiness-audit-2026-09/). This file is the map, so
 anybody in the room can be handed the source of any number within a minute.
 
-Rebuild the deck with `node build_deck.js why-a-research-record.pptx` (needs `pptxgenjs`).
+Rebuild a deck with `node <script> <output>.pptx` (needs `pptxgenjs`):
+
+```
+node build_deck.js          why-a-research-record.pptx
+node build_overview_deck.js ageantic-investor-overview.pptx
+node build_next_deck.js     whats-next-v1-alpha.pptx
+```
+
+## `whats-next-v1-alpha.pptx`, figure by figure
+
+| Slide | Figure | Source |
+|---|---|---|
+| 2 | 0 contradicted figures of 779 checkable | Readiness audit §accuracy |
+| 2 | 259 of 259 citations verified | Readiness audit §accuracy |
+| 2 | 3,335 calculation rows replayed, zero divergence | Readiness audit §reliability |
+| 2 | £7.19 a full report | Readiness audit §budget, `costs` table |
+| 2 | 9 of 9 comparisons preferred the console; 6 of 6 judges would not act | `readiness-audit-2026-09/judges/reads.json` |
+| 2 | 3 of 6 runs approved; £14.41 lost to two dead ends | Readiness audit §8, `05-delivery-plan.md` §5 |
+| 4 | Eighteen features | `V1.0_Alpha/04-feature-specifications.md` |
+| 5 | Nineteen surfaces drawn | `V1.0_Alpha/design/` |
+| 8 | Refresh under £2, under ten minutes | **Target**, not measured — `04-feature-specifications.md` F4 |
+| 12 | 3 of 6 / 2 of 6 bar; the abandonment criterion | `05-delivery-plan.md` §9, §12 |
+| 13 | 18 features · 7 phases · 8 ADRs · £64 live spend | `05-delivery-plan.md` §14; ADRs 0113–0120 |
+
+Every other statement on that deck is a design decision, not a measurement, and is tagged
+**PLANNED** on its slide.
 
 | Slide | Figure | Source |
 |---|---|---|
