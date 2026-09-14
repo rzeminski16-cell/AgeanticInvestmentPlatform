@@ -33,6 +33,33 @@ is the thing a chat session structurally cannot do, and it is the whole of the p
 | 6 | [`06-open-questions.md`](06-open-questions.md) | What is not decided, who decides it, and what it blocks |
 | — | [`design/`](design/README.md) | The nineteen drawn screens, how to use them, and the intent behind each |
 
+**Then the deep-design pass**, written 14 September 2026 after the first six documents were
+read back and found thin in eight places. These answer *how*, where the first six answer *what*.
+
+| # | Document | What it settles |
+|---|---|---|
+| 7 | [`07-data-model.md`](07-data-model.md) | The schema as it actually is, read from the live database — and the **six real gaps**, which is far fewer than any plan assumed. The judgement layer is already built and unused |
+| 8 | [`08-mechanisms.md`](08-mechanisms.md) | The four mechanisms nothing specified: what makes a change material in a refresh, how Ask resolves a tier, how the monitor resolves a premise to a number, and what the scheduler does each day |
+| 9 | [`09-the-workbook.md`](09-the-workbook.md) | The spreadsheet, sheet by sheet: named ranges, the blue-and-black convention, the provenance tab, and the recompute test that proves it is a model rather than a picture |
+| 10 | [`10-migration.md`](10-migration.md) | Nine additive migrations, the one that can fail and how it is checked first, and what is deliberately **not** backfilled |
+| 11 | [`11-testing-strategy.md`](11-testing-strategy.md) | The journey harness, what asserts the invariants once three of them change, how the judgement layer is tested with no live run, and the nine things that must be green before a measurement round may spend |
+
+## The eight ADRs
+
+An ADR before the code, wherever a feature says it needs one. All eight are drafted and sit in
+[`../adr/`](../adr/), marked **Proposed** until the change each argues lands.
+
+| ADR | Decides | For |
+|---|---|---|
+| [0113](../adr/0113-a-run-reads-the-filings-as-they-stand.md) | Point-in-time is retired; invariant 4 is removed | F1 |
+| [0114](../adr/0114-a-banks-revenue-is-derived-and-only-for-a-bank.md) | A bank's revenue is derived at the fact layer, and only for a confirmed bank | F7 |
+| [0115](../adr/0115-the-adversary-argues-the-other-side-and-every-challenge-is-resolved-before-the-document-freezes.md) | The adversary argues the opposing case, and no challenge reaches a report unresolved | F2 |
+| [0116](../adr/0116-a-report-is-superseded-never-replaced-and-exactly-one-is-current.md) | Supersession, with a reason, and exactly one current report per company | F4 |
+| [0117](../adr/0117-the-report-states-a-view-in-two-halves-and-the-model-writes-neither.md) | The stated view: composed and authored, shipped in that order | F13 |
+| [0118](../adr/0118-the-section-about-segments-may-read-segments.md) | The dimensioned-facts carve-out, for one section only | F8 |
+| [0119](../adr/0119-a-printed-excerpt-re-enters-as-data-and-the-prior-research-type-stays-narrow.md) | The evidence boundary, decided before an excerpt is printed | F16 |
+| [0120](../adr/0120-an-account-owns-a-book-and-a-share-is-a-sealed-pack.md) | Accounts and the sealed evidence pack — **deferred**, drafted so V1.0's schema does not foreclose it | F17 |
+
 ## The evidence underneath it
 
 Nothing in this folder is asserted where it could be measured. Two documents outside it carry
@@ -61,12 +88,20 @@ which block a feature and two of which need a solicitor rather than an engineer.
 2. **The screens are illustrations**, not a source of truth. No figure in them is real.
 3. **`../plan/ROADMAP.md` still outranks everything here**, and the ADRs outrank it. A feature in
    this folder does not exist as scope until it has a roadmap number.
-4. **An ADR before the code**, wherever a feature says it needs one. Eight do.
+4. **An ADR before the code**, wherever a feature says it needs one. Eight do, and all eight
+   are drafted — see the table above. They are **Proposed**, not Accepted: an ADR becomes
+   Accepted when the change it argues lands, and until then it can still be argued with.
 5. **A question leaves `06-open-questions.md` by being answered in a document**, not by being
    forgotten.
 
 ## Status
 
-**Design complete; not started.** Nothing in this folder is built. The next decision is whether
-this plan is ready to act on, or wants another pass — which is the conversation this folder
-exists to make possible.
+**Design complete, deep-design complete, eight ADRs drafted; not started.** Nothing in this
+folder is built. The mechanisms, the data model, the migrations, the workbook and the testing
+strategy have all had a second pass, and the eight ADRs the features asked for are written.
+
+What remains before code: open question 2 (what the price subscription permits in an exported
+file) blocks F8's multiples and the workbook's price-derived rows; open question 6 (the "UK or
+US" claim) needs either a sentence changed or a source adapter built; and the operator's
+sign-off on the abandonment criterion in the delivery plan, which is what makes every other
+gate real.

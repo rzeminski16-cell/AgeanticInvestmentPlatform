@@ -277,8 +277,9 @@ the research workers; the extraction path for narrative text; the concept map fo
 dimensioned facts.
 
 **Done when.** A Microsoft run cites a figure from an 8-K exhibit; an AstraZeneca run states
-product-level revenue from the 20-F's own note; and the checklist rows for segment revenue and
-guidance move from *absent* to *present-sourced* under three judges.
+revenue by geography from the 20-F's own note — the breakdown the platform already stores and
+no writer has ever seen; and the checklist rows for segment revenue and guidance move from
+*absent* to *present-sourced* under three judges.
 
 ---
 
@@ -293,7 +294,7 @@ because the work is already done and thrown away.
 | What exists | Where it stops | The fix |
 |---|---|---|
 | The subject's own P/E of 27.43× and EV/EBITDA of 18.93×, computed every run | `assemble_document`'s comps parameter is typed so no multiple can pass — enforcing a licence position **the operator reversed on 2026-08-09** | Widen the type; the permission already exists in `fetch/policy.py` |
-| 3,637 segment facts, mapped and stored | `visible_facts` bars every dimensioned row from every section's evidence pack | A carve-out for the section that is about segments |
+| 626 dimensioned facts, mapped and stored — AstraZeneca's revenue by geography, Microsoft's by segment and by product | `visible_facts` bars every dimensioned row from every section's evidence pack | A carve-out for the section that is about segments |
 | The WACC, terminal value and value per share | They carry `period = None`, sort last under `ORDER BY period_end DESC NULLS LAST`, and fall off a forty-row cap before any writer sees them | Rank and pool by name, as `red_team.py` already does |
 | 259 verified excerpts | None is printed in the exported document | Print the excerpt, with F16's boundary decided first |
 | A tested margin-decomposition bridge | Zero production callers | Wire it; it is what the console won on |

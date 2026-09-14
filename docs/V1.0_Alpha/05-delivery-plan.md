@@ -22,7 +22,7 @@ That is not a slogan; it is what the code says, in six places that were each ver
 | The platform already has | Where it stops |
 |---|---|
 | Microsoft's own P/E of **27.43×** and EV/EBITDA of **18.93×** — computed, traced and replayed on every run | `render/document.py:436` types the comps parameter `WithheldComps \| None`, so no multiple can pass through it. The docstring says why: a licence position the operator **reversed on 2026-08-09** (`fetch/policy.py:192`, `derived_figures_publishable=True`) |
-| **3,637 segment facts** on AstraZeneca's second run, mapped and stored | `services/facts.py:88` bars every dimensioned row from every section's evidence pack, so the Segment Analysis writer truthfully writes "no segment-level dollar figures were available to cite here" |
+| **626 dimensioned facts** across the three subjects, mapped and stored — including AstraZeneca's revenue by geography (US $23,970m, UK $4,359m, Germany $2,890m for FY2025) and Microsoft's 45 business-segment and 42 product-or-service rows | `services/facts.py:88` bars every dimensioned row from every section's evidence pack, so the Segment Analysis writer truthfully writes "no segment-level dollar figures were available to cite here" |
 | A WACC, a terminal value and a value per share on every valuing run | `sections/evidence.py:580` orders calculations `period_end DESC NULLS LAST` and takes 40; `calc/engine.py:165` records those three with `period = None`, so they sort last and are cut at the database. MSFT #1's Executive Summary says "no valuation output, no discount rate" eleven lines under a front page printing "WACC 9.3%, value per share $485.29" |
 | 259 verified excerpts, re-read by hash to confirm each citation | None is printed in the exported document — which is the file the judges scored, and the dimension the platform exists for |
 | A margin-decomposition bridge, unit- and mutation-tested (`calc/bridge.py`) | Zero production callers. Decomposition is the one thing the console won on, and the writers are correctly forbidden to derive it themselves |
@@ -74,8 +74,8 @@ Four things that plan changed, because the record contradicts the obvious readin
 **And a correction to something I said earlier in this session:** I told the operator the
 segment gap was an extraction failure — that SEC companyfacts carries no dimensional facts, so
 the filing's own iXBRL would have to be parsed. That is wrong. The platform already reads,
-maps and stores dimensioned iXBRL (3,637 rows on AZN #2, and MSFT #1's PDF carries a segment
-chart citing the 10-K). The failure is one `WHERE dimension_axis IS NULL` at
+maps and stores dimensioned iXBRL (AZN #2's sweep saw 3,637 dimensioned facts and wrote the
+224 single-axis ones; MSFT #1's PDF carries a segment chart citing the 10-K). The failure is one `WHERE dimension_axis IS NULL` at
 `services/facts.py:88`. The fix is a carve-out in the evidence selector, not a new parser —
 days of work smaller, and it changes the plan.
 
@@ -187,7 +187,7 @@ undecided accusations published.
 | 4.2 | **Prefer market equity in the WACC** | Today `calc/wacc.py:162` prints "Book equity was used as the equity weight because no market capitalisation was available", and Recorded Caveats tells the reader every valuation discounted at it is too high. The sceptic judge called it "an act of self-demolition" |
 | 4.3 | **Carry the subject's own multiples into the document** — §17 prints 27.4× and 18.9× with footnotes resolving to the recorded calculations | The licence determination already permits it (`fetch/policy.py:192`); only the render signature forbids it |
 | 4.4 | **An implied upside/downside** against the price, and the composed base-case range in the header instead of "no view reached" | One render branch. `assemble_document` already takes `rating: str \| None` |
-| 4.5 | **Segment revenue reaches the segment section**: carve dimensioned facts into the evidence pack (an ADR 0058 amendment), print values on the chart bars, stop the exhibit vanishing on a second run of the same company, and carry exhibits into the Markdown edition | The 3,637 stored rows finally reach a writer |
+| 4.5 | **Segment revenue reaches the segment section**: carve dimensioned facts into the evidence pack (an ADR 0058 amendment), print values on the chart bars, stop the exhibit vanishing on a second run of the same company, and carry exhibits into the Markdown edition | The 626 stored rows finally reach a writer |
 | 4.6 | **Name the eight operator-confirmed peers** in §17 and the industry section | An hour. It is the only change that moves "competitive position with named competitors" off *absent* |
 | 4.7 | **Acquire the exhibits inside accessions already opened** (EX-99 / 6-K press releases) | Where the console's winning material came from. An acquisition fix, not an evidence-policy fight |
 | 4.8 | **Print the verified excerpt** in the exported document — after deciding the boundary | Invariant 8: an excerpt leaving the trusted zone can re-enter the next run's planner prompt. Decide what an excerpt is outside the boundary *before* printing it |

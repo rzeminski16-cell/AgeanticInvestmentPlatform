@@ -5,20 +5,25 @@ leaves this page by being answered in a document, not by being forgotten.*
 
 ---
 
+## Answered on 14 September 2026
+
+| # | Question | The answer |
+|---|---|---|
+| 1 | Does the audit's run data still exist? | **Yes.** 6 jobs, 3 reports, 3,417 calculations, 46,744 financial facts, 85 source documents, and 139 MB of artefacts across 832 files. The delivery plan's £0 offline economy holds |
+| 3 | A bank's revenue | **Derive it** — `revenue = net interest income + non-interest income`, at the fact layer, for a filer the sector gate has confirmed as a bank. Six call sites and an ADR. M&T becomes $9,690m and a 29.4% net margin |
+| 4 | Whose view, and does the authored half ship in V1.0 | **Both halves at once.** The composed range and the operator's own judgement ship together. The attribution cost this creates is mitigated by judging one round with the authored half redacted — same runs, a few extra judge reads, no extra live spend |
+| 5 | Does the closing section survive a second user | **Single-user for V1.0.** Build every feature including the closing section; defer F17 (auth, sharing, the evidence pack) until a solicitor has read the consequences-not-instructions design |
+
 ## Blocking — a feature cannot be built until these are answered
 
 | # | Question | Who decides | Blocks | Recommendation |
 |---|---|---|---|---|
-| 1 | **Does the audit's run data still exist?** Five job databases and the artefact store. Every step costed at £0 assumes a report can be re-rendered from its own stored rows | Check, not a decision | Most of F8's acceptance, and the delivery plan's whole offline economy | Check before anything else. If it is gone, buy one seeding run and say so |
 | 2 | **What does the price subscription permit in an exported file?** `fetch/policy.py` records that derived figures may be published; `render/document.py` is typed as though they may not | Operator, by re-reading the agreement | F8's multiples, the workbook's price-derived rows | Name a default so work continues if the answer takes weeks |
-| 3 | **A bank's revenue** — derive it as net interest income plus non-interest income, withhold it, or leave the guard to refuse | Operator; it is a statement about what a bank's revenue *is* | Any bank producing an approvable report | Derive it, at the fact layer, with an ADR. A calc-layer fix clears four of eleven findings |
-| 4 | **Whose view does the report state, and does the authored half ship at all in V1.0?** | Operator | F13, and F2 downstream of it | Composed half first, judged alone. The operator's own view second |
 
 ## Legal — answer before anybody who is not the author uses this
 
 | # | Question | Notes |
 |---|---|---|
-| 5 | **Does the closing section (F3) survive contact with a second user?** A recommendation tailored to a specific person's portfolio, horizon and planned weight is much closer to a personal recommendation than a research note is, and advising a specific person on a specific investment is a regulated activity in the United Kingdom | Consequences-not-instructions is the design that keeps it on the right side of the line. **It is not a substitute for advice.** This is a solicitor's question, and it gates F17 rather than F3 |
 | 6 | **What does the platform claim in its own documents?** "UK or US" is written in the product documentation and a domestic London listing cannot be researched at all | Either narrow the claim or build the path. Narrowing is a sentence; building is a source adapter and an ADR |
 
 ## Product — these change what gets built, not whether

@@ -105,6 +105,14 @@ the next stage reads.
 - [`V1.0_Alpha/04-feature-specifications.md`](V1.0_Alpha/04-feature-specifications.md) —
   eighteen features: the mechanism, what each touches, the ADR it needs, and how we know it is
   done.
+- [`V1.0_Alpha/07-data-model.md`](V1.0_Alpha/07-data-model.md) — the schema as it actually is,
+  read from the live database, and the six real gaps. Read it before proposing a table.
+- [`V1.0_Alpha/08-mechanisms.md`](V1.0_Alpha/08-mechanisms.md) — the four mechanisms nothing
+  specified: materiality in a refresh, Ask's tier resolution, the monitor's metric resolution,
+  and the scheduler's daily pass.
+- [`V1.0_Alpha/11-testing-strategy.md`](V1.0_Alpha/11-testing-strategy.md) — the journey
+  harness, what asserts the invariants once three of them change, and the nine things that must
+  be green before a measurement round may spend.
 - [`V1.0_Alpha/design/`](V1.0_Alpha/design/README.md) — the nineteen drawn screens, how to use
   them, and the intent behind each.
 
@@ -130,9 +138,11 @@ The record of scope, and the evidence that shaped it.
 
 ## Reference
 
-- [`adr/`](adr/) — 100 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 120 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
-  `developers/knowledge-map.md` §6 indexes them by theme.
+  `developers/knowledge-map.md` §6 indexes them by theme. **0113–0120 are marked Proposed** —
+  the eight V1.0 features that change a recorded decision or an invariant, argued before the
+  code lands rather than after.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.
