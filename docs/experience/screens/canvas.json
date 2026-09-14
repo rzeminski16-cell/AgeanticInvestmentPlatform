@@ -1,26 +1,243 @@
 {
   "pages": [
-    { "id": "page-1", "name": "The daily loop" },
-    { "id": "page-2", "name": "Research and evidence" }
+    {
+      "id": "page-1",
+      "name": "The hub"
+    },
+    {
+      "id": "page-2",
+      "name": "1 \u00b7 Research"
+    },
+    {
+      "id": "page-3",
+      "name": "2 \u00b7 Decide"
+    },
+    {
+      "id": "page-4",
+      "name": "3 \u00b7 Hold"
+    },
+    {
+      "id": "page-5",
+      "name": "4 \u00b7 Review & platform"
+    }
   ],
   "artboards": [
-    { "file": "Main.dc.html",      "x": 0,    "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Today — landing, not an inbox" },
-    { "file": "Portfolio.dc.html", "x": 1560, "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Portfolio — the validity dashboard" },
-    { "file": "Company.dc.html",   "x": 3120, "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Company — a destination for a question" },
-    { "file": "Alert.dc.html",     "x": 0,    "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Monitor alert — a move, in context" },
-    { "file": "Thesis.dc.html",    "x": 1560, "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Thesis — premises and their tests" },
-    { "file": "Decision.dc.html",  "x": 3120, "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Decision — with the pre-trade check" },
-    { "file": "Run.dc.html",       "x": 0,    "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Research run — a gate waiting" },
-    { "file": "Report.dc.html",    "x": 1560, "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Report reader — the evidence drawer" },
-    { "file": "Ask.dc.html",       "x": 3120, "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Ask — three tiers, priced first" }
+    {
+      "file": "Main.dc.html",
+      "x": 780,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1",
+      "title": "Today \u2014 the hub"
+    },
+    {
+      "file": "Request.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.1 New request \u2014 you see the price first"
+    },
+    {
+      "file": "Run.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.2 Active run \u2014 a gate waiting"
+    },
+    {
+      "file": "Report.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.3 Report reader \u2014 the evidence drawer"
+    },
+    {
+      "file": "Ask.dc.html",
+      "x": 0,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.4 Ask \u2014 three tiers, priced before it runs"
+    },
+    {
+      "file": "Library.dc.html",
+      "x": 1560,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.5 Reports \u2014 nothing is ever deleted"
+    },
+    {
+      "file": "Methods.dc.html",
+      "x": 3120,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.6 Methods \u2014 additive only, and proved"
+    },
+    {
+      "file": "Knowledge.dc.html",
+      "x": 0,
+      "y": 2120,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2",
+      "title": "1.7 Knowledge \u2014 twenty rows, ranked"
+    },
+    {
+      "file": "Company.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3",
+      "title": "2.1 Company \u2014 a destination for a question"
+    },
+    {
+      "file": "Thesis.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3",
+      "title": "2.2 Thesis \u2014 a sentence, and its test"
+    },
+    {
+      "file": "Decision.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3",
+      "title": "2.3 Decision \u2014 with the pre-trade check"
+    },
+    {
+      "file": "Portfolio.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4",
+      "title": "3.1 Portfolio \u2014 the validity dashboard"
+    },
+    {
+      "file": "Position.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4",
+      "title": "3.2 Position \u2014 built from its transactions"
+    },
+    {
+      "file": "Risk.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4",
+      "title": "3.3 Risk \u2014 your shock, your ceilings"
+    },
+    {
+      "file": "Companies.dc.html",
+      "x": 0,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4",
+      "title": "3.4 Companies \u2014 the watchlist, in three populations"
+    },
+    {
+      "file": "Alert.dc.html",
+      "x": 1560,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4",
+      "title": "3.5 Monitor alert \u2014 a move, in context"
+    },
+    {
+      "file": "Review.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-5",
+      "title": "4.1 Post-trade review \u2014 process, not outcome"
+    },
+    {
+      "file": "Analytics.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-5",
+      "title": "4.2 Decision analytics \u2014 silent until the sample earns it"
+    },
+    {
+      "file": "Platform.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-5",
+      "title": "4.3 Platform \u2014 costs, limits, monitoring, backups"
+    }
   ],
   "annotations": [
-    { "id": "note-today", "x": 0, "y": -170, "w": 620, "page": "page-1",
-      "text": "TODAY IS A LANDING PAGE, NOT AN INBOX\n\nThree bands: what needs you, what is worth doing, and the state of things.\n\nEvery card in 'Worth doing' is earned by a condition in the record — a refresh nobody read, a holding with no thesis, a watchlist entry gone cold. If nothing qualifies, the band is absent. It never pads." },
-    { "id": "note-port", "x": 1560, "y": -170, "w": 620, "page": "page-1",
-      "text": "THE PORTFOLIO IS WHERE YOU LIVE\n\nAnd it is a validity dashboard, not a performance one. The first question is not 'am I up?' — a broker answers that for nothing — but 'are the reasons I bought still standing?'\n\nSorted by conviction risk. A position with nothing written down sorts above everything, because it is money committed for reasons nobody recorded." },
-    { "id": "note-ask", "x": 3120, "y": -170, "w": 620, "page": "page-2",
-      "text": "ASK HAS THREE TIERS\n\n1 Recompute — re-runs the stored model. Free.\n2 Re-read — a pass over what is already hashed. Pennies.\n3 Research — goes and fetches new material, priced and approved first.\n\nTier 3 is the one that matters: everything it fetches is hashed and joins the company's record, so asking a question leaves the asset larger than it found it. A chat's answers evaporate." }
+    {
+      "id": "hub",
+      "x": 780,
+      "y": -230,
+      "w": 1440,
+      "page": "page-1",
+      "text": "THE HUB \u2014 read in this order\n\n1  The verdict band. One sentence, then every position by weight, coloured by whether its reasoning still holds. This is the two-second read: 15.9% of the book has no standing reason behind it.\n\n2  Since Thursday. What the system did while you were away, as a briefing rather than an inbox \u2014 no buttons, no badges, just what changed.\n\n3  Needs you. Deliberately small and on the right: on most days it is short, and it must never dominate the page.\n\n4  Worth doing, and Start something. The page ends by pointing forward rather than back."
+    },
+    {
+      "id": "loop",
+      "x": 0,
+      "y": -230,
+      "w": 700,
+      "page": "page-2",
+      "text": "1 \u00b7 RESEARCH\n\nAn idea becomes a cited, immutable report. Every gate is a decision you make with the price in front of you, and nothing is spent while one waits.\n\nThe three surfaces that matter here: the request shows the cost before you buy, the run never dead-ends, and the reader walks any figure to the bytes it came from."
+    },
+    {
+      "id": "decide",
+      "x": 0,
+      "y": -230,
+      "w": 700,
+      "page": "page-3",
+      "text": "2 \u00b7 DECIDE\n\nA thesis is a sentence and its test. A decision names the thesis it expresses and the report it rests on \u2014 neither can be blank, because a decision resting on nothing recorded cannot be reviewed later.\n\nA pass is recorded exactly like a trade. It is the record nobody else keeps."
+    },
+    {
+      "id": "hold",
+      "x": 0,
+      "y": -230,
+      "w": 700,
+      "page": "page-4",
+      "text": "3 \u00b7 HOLD\n\nThe portfolio asks 'are the reasons still standing?' before it asks 'what is it worth?'. Sorted by conviction risk \u2014 a position with no thesis sorts above everything, because it is money committed for reasons nobody wrote down.\n\nThe monitor watches filings and the close. A price move never arrives alone."
+    },
+    {
+      "id": "review",
+      "x": 0,
+      "y": -230,
+      "w": 700,
+      "page": "page-5",
+      "text": "4 \u00b7 REVIEW\n\nThe loop closes. Was the reasoning sound at the time, and separately, did it work out? The form makes conflating them impossible, and names the four combinations \u2014 the middle two are the ones worth learning from.\n\nAnalytics stays silent until twenty reviews earn it."
+    }
   ],
-  "launch": { "view": "canvas", "page": "page-1" }
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
 }
