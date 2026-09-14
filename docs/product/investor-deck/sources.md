@@ -1,6 +1,15 @@
-# Where every figure in the deck comes from
+# Where every figure in the decks comes from
 
-`why-a-research-record.pptx` is an investor deck arguing one thing: the platform is not a
+Two decks live here.
+
+**`ageantic-investor-overview.pptx`** (15 slides) is the full investor overview: what the
+platform is, how a run works, what it can do, what the wider platform holds, the audited
+evidence, the weaknesses, the measured comparison against a Claude console session, the
+durable advantage, where the product goes next, and six further ideas. Present-tense claims
+come from the audit and the repository; forward-looking slides carry a **VISION** or **IDEAS**
+tag and make no measured claim. Built by `build_overview_deck.js`.
+
+**`why-a-research-record.pptx`** (12 slides) is the narrower, earlier argument: the platform is not a
 better chat, it is a different artefact — a research record that re-executes, resolves to
 hashed bytes and costs a number you can read off a ledger.
 
