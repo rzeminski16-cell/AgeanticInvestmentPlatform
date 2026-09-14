@@ -42,6 +42,13 @@ For anyone who needs to understand or explain the platform without reading code.
   [`sources.md`](product/investor-deck/sources.md) maps every one of them back to its
   section, including the six blind comparisons the platform lost.
 
+### `experience/` — the customer experience design
+
+- [`experience/`](experience/README.md) — the whole system as a journey rather than a toolbox:
+  every tool and sub-tool defined with a measurable bar, the information architecture, and the
+  drawn screens. Supersedes `design/00` and `design/02` for the end-state system; `design/`
+  remains what the shipped interface is answerable to.
+
 ### `users/` — how to run it
 
 For the operator: the person who installs it, commissions research and approves it.
@@ -142,6 +149,11 @@ page specifications, a production handoff and a twelve-screen prototype.
   with its number, a suitability matrix by use case, 23 findings with their reproductions,
   the spend ledger, and the decisions only the operator can take. Results in
   [`readiness-audit-2026-09/`](plan/readiness-audit-2026-09/).
+- [`end-state-2026-09.md`](plan/end-state-2026-09.md) — **what the whole system becomes.**
+  The loop — research, decide, hold, review — and the decisions that shape it: point-in-time
+  removed, an adversary that argues the opposite case, a recommendation that reads your own
+  book, a refresh that recomputes everything and re-drafts almost nothing, a live model
+  workbook, and depth in free primary sources instead of licensed commentary.
 - [`remediation-2026-09.md`](plan/remediation-2026-09.md) — **the plan that answers the
   audit.** The two gaps it found — not user-ready, and not better than a console note —
   treated as one problem: the platform computes far more than it prints. Seven phases with
