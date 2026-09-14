@@ -1,11 +1,11 @@
 # The remediation plan — closing the two gaps the readiness audit found
 
 *Written 2026-09-13, after the readiness audit of 2026-09-12
-([`readiness-audit-2026-09.md`](readiness-audit-2026-09.md)). The operator's question was
+([`readiness-audit-2026-09.md`](../plan/readiness-audit-2026-09.md)). The operator's question was
 direct: the system is not user-ready in many ways, and it is not better than the Claude
 console — what is the plan to fix both?*
 
-*This is a proposal, not scope. [`ROADMAP.md`](ROADMAP.md) remains the authority: nothing here
+*This is a proposal, not scope. [`ROADMAP.md`](../plan/ROADMAP.md) remains the authority: nothing here
 is real work until it carries a §2 or §3 number, and §9 below says which. Every claim traces
 to a file:line, an audit section or `judges/reads.json`; a diagnosis pass of fourteen
 subsystem readers, each adversarially refuted, produced 168 findings of which 165 survived,

@@ -1,13 +1,13 @@
 # The first full acceptance pass — what it found, and the work it names
 
-*The operator ran [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md) end to
+*The operator ran [`../developers/testing-by-hand.md`](../../developers/testing-by-hand.md) end to
 end on their own machine against commit `7c1a733`, including one live MSFT run — job
 `37e21a60-f469-419c-9609-775a8102c9e8`, £7.5023, twenty-nine steps, stepped through by hand.
 This is the reading of that pass: what it actually established, what it found broken, and the
 order the work falls into. Written 2026-09-08.*
 
 *It is a findings document, not the authority on scope. What survives review here moves into
-[`ROADMAP.md`](ROADMAP.md), which stays the authority.*
+[`ROADMAP.md`](../../plan/ROADMAP.md), which stays the authority.*
 
 ---
 
@@ -567,8 +567,8 @@ items touch the same surfaces and doing it first would mean doing them twice.
 
 ---
 
-**See also:** [ROADMAP](ROADMAP.md) · [the remaining work](remaining-work.md) ·
-[testing by hand](../developers/testing-by-hand.md) · [the knowledge map](../developers/knowledge-map.md)
+**See also:** [ROADMAP](../../plan/ROADMAP.md) · [the remaining work](remaining-work.md) ·
+[testing by hand](../../developers/testing-by-hand.md) · [the knowledge map](../../developers/knowledge-map.md)
 
 ---
 

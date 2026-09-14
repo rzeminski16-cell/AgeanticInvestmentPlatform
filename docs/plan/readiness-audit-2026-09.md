@@ -424,7 +424,7 @@ decisions rather than as defects.
 *Reliability of the record. Minor as a defect, major as a signal.*
 
 `ruff format --check .` fails on the Python snippets quoted in
-`docs/plan/acceptance-2026-09-08.md` (the formatter reformats fenced Python in Markdown).
+`docs/archive/superseded-2026-09/acceptance-2026-09-08.md` (the formatter reformats fenced Python in Markdown).
 The "Lint and types" job has failed on every CI run since, including the merge commit at
 HEAD (`82616f1`, run 432); the test and browser jobs pass. The acceptance pass's row 5 —
 "static gates clean" — was recorded as `pass` against a commit whose CI said otherwise.

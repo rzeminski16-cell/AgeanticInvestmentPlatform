@@ -2,20 +2,20 @@
 
 *Everything a designer needs to redesign this platform's screens, without reading the code.*
 
-> **The design came back on 2026-08-25.** It is in [`../redesign/`](../redesign/README.md),
-> reviewed in [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
-> and sequenced in [`../plan/interface-overhaul.md`](../plan/interface-overhaul.md). This folder
+> **The design came back on 2026-08-25.** It is in [`../redesign/`](../redesign-delivered/README.md),
+> reviewed in [`../redesign/05-review-and-corrections.md`](../redesign-delivered/05-review-and-corrections.md)
+> and sequenced in [`../plan/interface-overhaul.md`](../interface-overhaul.md). This folder
 > remains the **requirements** — the thing the design is answerable to — and stays the first
 > document in the authority order.
 >
 > **The overhaul shipped on 2026-08-30** — all ten tranches, closing roadmap §2.5 and §3.12;
 > the record is the status section of
-> [`../plan/interface-overhaul.md`](../plan/interface-overhaul.md). What runs is the design
+> [`../plan/interface-overhaul.md`](../interface-overhaul.md). What runs is the design
 > as corrected by the review, on the component set in `src/aer/web/templates/_ui/`; this
 > folder is now what the *shipped* interface is answerable to, and the first place a change
 > to a surface is argued.
 
-This folder is the input to roadmap [§3.12](../plan/ROADMAP.md), the interface overhaul. It
+This folder is the input to roadmap [§3.12](../../../plan/ROADMAP.md), the interface overhaul. It
 says what each surface is, who is on it, what it must make possible, what data it has, what
 it asks the reader for, every state it can be in, what is wrong with it today, and what a
 redesign must not break.
@@ -64,7 +64,7 @@ Four surfaces, from roadmap §3.12:
 ## What is deliberately out of scope
 
 - **The rendered report document.** The PDF and its print stylesheet have their own known
-  defects and their own roadmap entry ([§2.4](../plan/ROADMAP.md)). It is a document-layout
+  defects and their own roadmap entry ([§2.4](../../../plan/ROADMAP.md)). It is a document-layout
   problem, not a screen one, and mixing them would put page-break debugging in the middle of
   an interface design.
 - **A planned tool's own design.** The overhaul had one, Watchlist, and specified only its
@@ -128,7 +128,7 @@ reading, and each is in `01-constraints.md` with the reason attached.
 
 ---
 
-**See also:** [the roadmap](../plan/ROADMAP.md) · [ADR
-0006](../adr/0006-server-rendered-htmx-gui.md) · [ADR
-0077](../adr/0077-javascript-may-own-chrome-and-never-a-figure.md) · [how it is
-tested](../developers/testing.md)
+**See also:** [the roadmap](../../../plan/ROADMAP.md) · [ADR
+0006](../../../adr/0006-server-rendered-htmx-gui.md) · [ADR
+0077](../../../adr/0077-javascript-may-own-chrome-and-never-a-figure.md) · [how it is
+tested](../../../developers/testing.md)

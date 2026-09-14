@@ -1,10 +1,10 @@
 # The end state — what the whole system becomes
 
 *Agreed with the operator on 14 September 2026, from the notes discussion that followed the
-readiness audit and the [remediation plan](remediation-2026-09.md). This is the high-level
+readiness audit and the [remediation plan](05-delivery-plan.md). This is the high-level
 shape: the decisions taken, what each one changes, and what needs an ADR. It is deliberately
 not a work plan — the concrete sequencing comes after the experience design in
-[`../experience/`](../experience/README.md).*
+[`design/`](design/README.md).*
 
 ---
 
@@ -179,4 +179,4 @@ follow-up layer closes most of the flexibility gap cheaply and is kept for that 
    added. The tables already refuse to delete a premise, which is the right instinct; the
    surface has to make the revision legible.
 4. **Whether the grounded follow-up layer is a chat surface or a structured one** — the
-   design work in `../experience/` answers this.
+   design work in `design/` answers this.

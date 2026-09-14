@@ -170,5 +170,5 @@ dead worker, and it is a real design problem rather than a spinner.
 ---
 
 **Next:** [the constraints](01-constraints.md) · or, for more depth, the
-[users' guide](../users/running-a-report.md) and the [pipeline
-diagram](../product/anatomy-of-a-research-run.html) (open in a browser)
+[users' guide](../../../users/running-a-report.md) and the [pipeline
+diagram](../../../product/anatomy-of-a-research-run.html) (open in a browser)

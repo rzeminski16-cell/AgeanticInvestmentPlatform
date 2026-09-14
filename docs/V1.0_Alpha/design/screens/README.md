@@ -3,7 +3,7 @@
 **Nineteen artboards — every surface in the system.** Drawn in the platform's own **Tracework**
 design system: teal where something can be inspected, amber where a person must choose, every
 colour paired with a word. Every token is lifted from
-[`../../redesign/01-design-system.md`](../../redesign/01-design-system.md); nothing here invents
+[`../../../design-system.md`](../../../design-system.md); nothing here invents
 a colour, a size or a radius.
 
 **The canvas: https://claude.ai/code/artifact/4af01758-27d6-4c34-9f5c-d9283d6f44c7**
@@ -12,7 +12,7 @@ It is organised as five pages that follow the loop, so it can be evaluated a sta
 
 | Page | Artboards | Specified in |
 |---|---|---|
-| **The hub** | Today | [`../02-page-specifications.md`](../02-page-specifications.md) §1 |
+| **The hub** | Today | [`../../03-page-specifications.md`](../../03-page-specifications.md) §1 |
 | **1 · Research** | New request · Active run · Report reader · Ask · Reports · Methods · Knowledge | §6, §7, §8, §13, §9, §17, §18 |
 | **2 · Decide** | Company · Thesis · Decision | §5, §10, §11 |
 | **3 · Hold** | Portfolio · Position · Risk · Companies · Monitor alert | §2, §3, §14, §4, §12 |

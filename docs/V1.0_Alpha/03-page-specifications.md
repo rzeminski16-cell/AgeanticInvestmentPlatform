@@ -5,7 +5,7 @@ every state it can be in, the data it needs and the actions it offers. Written s
 developer can build a page without inventing anything.*
 
 **Normative references.** Colour, type, spacing, radii and control sizing come from
-[`../redesign/01-design-system.md`](../redesign/01-design-system.md) (Tracework) and are not
+[`../design-system.md`](../design-system.md) (Tracework) and are not
 restated here. Where this document names a token — `warning-ink`, `type-data`, `--space-5` — it
 means that token exactly. Where it names a width — 232, 304, 448 — it means the layout metric of
 that value in §5.1 of the design system.

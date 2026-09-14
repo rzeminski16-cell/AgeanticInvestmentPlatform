@@ -1,7 +1,7 @@
 # Review and corrections
 
 *A structural review of the Tracework deliverable against the original brief in
-[`../design/`](../design/README.md), the eight invariants in `CLAUDE.md`, and the code as it
+[`../design/`](../design-requirements/README.md), the eight invariants in `CLAUDE.md`, and the code as it
 actually stands. Written 2026-08-25.*
 
 **Where this document and `01-design-system.md` disagree, this one wins.** It is an addendum,
@@ -9,11 +9,11 @@ not a rewrite: everything not named here stands exactly as delivered.
 
 ---
 
-> **All nine corrections were resolved on 2026-08-25.** D1 → [ADR 0088](../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md).
-> D2 → [ADR 0087](../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md), which
+> **All nine corrections were resolved on 2026-08-25.** D1 → [ADR 0088](../../../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md).
+> D2 → [ADR 0087](../../../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md), which
 > takes the *model-authored* option and makes it work by splitting a verdict into a composed half
-> and an authored one. D4 → [ADR 0089](../adr/0089-the-run-you-are-watching-has-an-address.md).
-> D3, D5–D9 are settled in [the plan](../plan/interface-overhaul.md). The product is
+> and an authored one. D4 → [ADR 0089](../../../adr/0089-the-run-you-are-watching-has-an-address.md).
+> D3, D5–D9 are settled in [the plan](../interface-overhaul.md). The product is
 > **Tracework Invest**.
 
 ## Verdict
@@ -232,8 +232,8 @@ larger version of a mistake this repository already declined once.
 ## What is missing, and is being added
 
 The deliverable is a design specification and does not claim to be a delivery plan. Six things
-it could not know are supplied in [`../plan/interface-overhaul.md`](../plan/interface-overhaul.md)
-and [`../plan/interface-overhaul-testing.md`](../plan/interface-overhaul-testing.md):
+it could not know are supplied in [`../plan/interface-overhaul.md`](../interface-overhaul.md)
+and [`../plan/interface-overhaul-testing.md`](../interface-overhaul-testing.md):
 
 1. **How this interleaves with the rest of the roadmap.** §2.1 and §3.1 are in flight and both
    touch templates this overhaul rewrites.
@@ -272,5 +272,5 @@ Recorded so the build does not relitigate them:
 
 ---
 
-**Next:** [the implementation plan](../plan/interface-overhaul.md) · [the testing
-plan](../plan/interface-overhaul-testing.md)
+**Next:** [the implementation plan](../interface-overhaul.md) · [the testing
+plan](../interface-overhaul-testing.md)

@@ -270,7 +270,7 @@ ones — read the ADR before touching its territory:
   **Read 0006 and 0077 together before designing anything.** 0006 decides that the server is
   the only renderer; 0077 narrows the islands permission 0006 left open and draws the line
   the whole interface sits behind — chrome may be the client's, a figure never is. The
-  design brief in [`../design/`](../design/README.md) restates both as constraints a
+  design brief in [`../design/`](../archive/superseded-2026-09/design-requirements/README.md) restates both as constraints a
   designer can work against.
 - **Data sources and licensing** — 0020 (pdfplumber alone), 0022 (FCA NSM declined), 0030
   (EODHD route 2), 0045 (the euro is the pivot because the Bank of England is closed).

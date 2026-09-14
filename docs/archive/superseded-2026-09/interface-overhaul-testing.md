@@ -9,10 +9,10 @@ that does not exist yet, and the two rules that stop this suite lying to you.*
 > `tests/e2e/sweep.py`. This plan stays as the argument for why each piece has the shape it
 > has; the two rules below still hold on every run.
 
-**Read [`../developers/testing.md`](../developers/testing.md) §The interface first.** It names
+**Read [`../developers/testing.md`](../../developers/testing.md) §The interface first.** It names
 the four things the current suite structurally cannot say about a screen. This plan builds the
 machinery that closes them, and the handoff's own checklist
-([`../redesign/03-claude-implementation-handoff.md`](../redesign/03-claude-implementation-handoff.md)
+([`../redesign/03-claude-implementation-handoff.md`](redesign-delivered/03-claude-implementation-handoff.md)
 §11) is adopted wholesale as the per-page content. What follows is what that checklist needs in
 order to run here.
 
@@ -210,7 +210,7 @@ being read.
 
 ## By hand
 
-Extend [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md) §8.3, which
+Extend [`../developers/testing-by-hand.md`](../../developers/testing-by-hand.md) §8.3, which
 already carries the keyboard, narrow-window, contrast and zoom passes. Three additions this
 overhaul needs:
 
@@ -262,6 +262,6 @@ Stated so nobody reads a green build as more than it is.
 ---
 
 **See also:** [the implementation plan](interface-overhaul.md) · [the testing
-layers](../developers/testing.md) · [the by-hand
-sheet](../developers/testing-by-hand.md) · [the handoff
-checklist](../redesign/03-claude-implementation-handoff.md)
+layers](../../developers/testing.md) · [the by-hand
+sheet](../../developers/testing-by-hand.md) · [the handoff
+checklist](redesign-delivered/03-claude-implementation-handoff.md)

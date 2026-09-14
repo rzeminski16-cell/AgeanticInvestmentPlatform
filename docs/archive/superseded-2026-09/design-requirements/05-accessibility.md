@@ -84,7 +84,7 @@ nothing at all**. Redesign as visible inline content.
 
 There are 33 `aria-` attributes and 31 `role=` attributes across the templates and **no test
 checks a single one of them**. The drawer's keyboard behaviour is the honourable exception.
-See [`../developers/testing.md`](../developers/testing.md).
+See [`../developers/testing.md`](../../../developers/testing.md).
 
 ---
 
@@ -138,8 +138,8 @@ right-click-open-in-new-tab path all work without anybody designing them separat
 
 ## What to test, and how
 
-In [`../developers/testing.md`](../developers/testing.md) §The interface, with the by-hand
-passes in [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md) §8.3. In
+In [`../developers/testing.md`](../../../developers/testing.md) §The interface, with the by-hand
+passes in [`../developers/testing-by-hand.md`](../../../developers/testing-by-hand.md) §8.3. In
 short:
 
 - **Automated** — axe-core per surface, in both schemes, as a build failure rather than a

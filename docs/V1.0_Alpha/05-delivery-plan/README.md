@@ -1,6 +1,6 @@
 # The remediation diagnosis — the evidence behind the plan
 
-The plan is [`../remediation-2026-09.md`](../remediation-2026-09.md). This folder is what it
+The plan is [`../05-delivery-plan.md`](../05-delivery-plan.md). This folder is what it
 was written from, kept for the same reason the audit's results folder is kept: a plan whose
 reasoning cannot be re-read is an opinion.
 

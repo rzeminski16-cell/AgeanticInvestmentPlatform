@@ -1,12 +1,12 @@
 # The interface overhaul — implementation plan
 
-*Roadmap [§3.12](ROADMAP.md). How the Tracework design becomes the running application, in
+*Roadmap [§3.12](../../plan/ROADMAP.md). How the Tracework design becomes the running application, in
 what order, and what has to be decided before each step.*
 
 **Inputs, in authority order:** the invariants in `CLAUDE.md` and the ADRs · the requirements
-in [`../design/`](../design/README.md) · the corrections in
-[`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md) · the
-design in [`../redesign/`](../redesign/README.md). The prototype is a visual reference and
+in [`../design/`](design-requirements/README.md) · the corrections in
+[`../redesign/05-review-and-corrections.md`](redesign-delivered/05-review-and-corrections.md) · the
+design in [`../redesign/`](redesign-delivered/README.md). The prototype is a visual reference and
 never a source of domain truth.
 
 **Testing is in its own document**, [`interface-overhaul-testing.md`](interface-overhaul-testing.md),
@@ -110,7 +110,7 @@ Chromium's engine was available, so the Firefox half of D7 stays open below; 200
 approximated by the halved viewport, which is what browser zoom does to CSS layout but is
 not the browser's own control; and whether a page that technically reflows still *reads*
 is a judgement no instrument holds. Those parts belong to the operator's own pass,
-[`testing-by-hand.md`](../developers/testing-by-hand.md) §8.3. The drawer's focus trap and
+[`testing-by-hand.md`](../../developers/testing-by-hand.md) §8.3. The drawer's focus trap and
 Escape-return were already browser-proved in `test_evidence_surfaces.py` and were not
 repeated.
 
@@ -159,11 +159,11 @@ All cleared on the operator's direction. Nothing below is open.
 
 | # | Question | Decision | Record |
 |---|---|---|---|
-| A1 | Where verdict prose comes from | **Model-authored**, over a frozen subject, stored as a step output. Split into an authored half and a composed half | [ADR 0087](../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md) |
+| A1 | Where verdict prose comes from | **Model-authored**, over a frozen subject, stored as a step output. Split into an authored half and a composed half | [ADR 0087](../../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md) |
 | A2 | The product name | **Tracework Invest** | This document |
 | A3 | One badge or two | **One**, on Requests | This document |
-| B4 | The navigation rail's palette | **A fixed-scheme region declares its own family and is measured against it** | [ADR 0088](../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md) |
-| B5 | "Active run" in the navigation | **`GET /runs/active` redirects** | [ADR 0089](../adr/0089-the-run-you-are-watching-has-an-address.md) |
+| B4 | The navigation rail's palette | **A fixed-scheme region declares its own family and is measured against it** | [ADR 0088](../../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md) |
+| B5 | "Active run" in the navigation | **`GET /runs/active` redirects** | [ADR 0089](../../adr/0089-the-run-you-are-watching-has-an-address.md) |
 | B6 | The Components page | **Never a route.** A test fixture and the visual baseline | This document |
 | B7 | Navigation without scripting | **Ships `<details open>`**, closed by script at narrow widths | This document |
 | C | axe-core and the fonts | **Vendored during the build.** Both reachable | Tranches 0 and 2 |
@@ -693,5 +693,5 @@ tranche exits.
 ---
 
 **See also:** [the testing plan](interface-overhaul-testing.md) · [the
-corrections](../redesign/05-review-and-corrections.md) · [the
-requirements](../design/README.md) · [ROADMAP §3.12](ROADMAP.md)
+corrections](redesign-delivered/05-review-and-corrections.md) · [the
+requirements](design-requirements/README.md) · [ROADMAP §3.12](../../plan/ROADMAP.md)

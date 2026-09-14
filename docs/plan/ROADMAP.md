@@ -43,7 +43,7 @@ which is the operator's move rather than a session's.
 4. **§3.12 — the interface overhaul. Done 2026-08-30.** All ten tranches built and
    verified green — tranche 9, the removal-and-hardening pass, closed §2.5 and §3.12
    together; the record is the status section of
-   [`interface-overhaul.md`](interface-overhaul.md).
+   [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md).
 5. **§2.5 — the palette migration. Done 2026-08-30, inside §3.12.** The ramp ledger fell
    1,837 → 0 across tranches 2 and 4–9, the legacy aliases are gone from the stylesheet,
    and the ratchet is now the hard zero §2.5 asked for
@@ -64,7 +64,7 @@ number or no answer in front of somebody.
 
 Everything else sits in its bucket below. The running order across everything open — the
 phases, what gates each, and the moves only the operator can make — is
-[`remaining-work.md`](remaining-work.md); this list stays the authority on priority.
+[`remaining-work.md`](../archive/superseded-2026-09/remaining-work.md); this list stays the authority on priority.
 
 ---
 
@@ -327,7 +327,7 @@ themselves were removed in tranche 9 — ending with exactly the test asked for:
 fails when a template reintroduces a raw ramp.
 
 The measurements live in one place — **the ramp ledger in
-[`interface-overhaul.md`](interface-overhaul.md)**, with the census command and the standing
+[`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md)**, with the census command and the standing
 caveat that the method must be stated with the number. Opened at 1,837 over forty-one
 templates; closed at zero on 2026-08-30.
 
@@ -607,22 +607,22 @@ each kind.
 
 **3.12 The interface overhaul. Done 2026-08-30: specified, designed and planned 2026-08-25;
 all ten tranches built and verified green by 2026-08-30 — the record
-is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
+is the top section of [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md).** Four
 surfaces were in scope and the rest of the product deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 
-**Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
-came back as [`../redesign/`](../redesign/README.md) — a token system, page specifications, a
+**Where it stands.** The requirements are in [`../design/`](../archive/superseded-2026-09/design-requirements/README.md); the design
+came back as [`../redesign/`](../archive/superseded-2026-09/redesign-delivered/README.md) — a token system, page specifications, a
 production handoff and a twelve-screen prototype. It was reviewed against the invariants and
 the code, and **adopted with nine corrections**, one of which is a WCAG failure the design's own
 validation reported as passing: the navigation rail keeps dark colours on a light page, its
 tokens were never in the normative table, and the light-theme focus ring measures 2.04:1 on it.
-The review is [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
+The review is [`../redesign/05-review-and-corrections.md`](../archive/superseded-2026-09/redesign-delivered/05-review-and-corrections.md)
 and it wins where it and the design system disagree.
 
-**The work is sequenced in [`interface-overhaul.md`](interface-overhaul.md)** — ten tranches,
+**The work is sequenced in [`interface-overhaul.md`](../archive/superseded-2026-09/interface-overhaul.md)** — ten tranches,
 each independently releasable — with its testing in
-[`interface-overhaul-testing.md`](interface-overhaul-testing.md).
+[`interface-overhaul-testing.md`](../archive/superseded-2026-09/interface-overhaul-testing.md).
 
 **Every blocking decision was cleared on 2026-08-25** and three became records: **0087** (a
 verdict has two halves — a composed half that is live, and an authored half a model writes once
@@ -638,7 +638,7 @@ platform's interface grew a page at a time, each one correct in isolation, and t
 two designs sharing a shell — the boundary §2.5 measures. A palette migration alone would
 make the two halves the same colour without making them the same product.
 
-So the deliverable is [`../design/`](../design/README.md): every surface in scope with its
+So the deliverable is [`../design/`](../archive/superseded-2026-09/design-requirements/README.md): every surface in scope with its
 purpose, its reader, its data contract, every input and how it is collected, every state it
 can be in, what is wrong with it today, and what a redesign must not break. It is written for
 a designer rather than for a developer, and it is the input to the work rather than the work.

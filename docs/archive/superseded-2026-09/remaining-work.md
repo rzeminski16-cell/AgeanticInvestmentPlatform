@@ -2,7 +2,7 @@
 
 *Written 2026-08-28, and trimmed the same day to hold only what no other document holds: the
 order, the gating, and the moves only the operator can make. The items themselves live in
-[`ROADMAP.md`](ROADMAP.md) — the authority on scope, now carrying each open item's verified
+[`ROADMAP.md`](../../plan/ROADMAP.md) — the authority on scope, now carrying each open item's verified
 state — and the overhaul's live status is the top section of
 [`interface-overhaul.md`](interface-overhaul.md). Where this and either disagree, they win.*
 
@@ -134,7 +134,7 @@ three simplifications deferred because each spans services this pass did not ope
 open-and-close pass, an audit-record helper, and the form-helper trio. Then a design pass
 took the seven tool specifications in roadmap order and worked each one's *What to improve*
 list, rewriting the page to record what shipped and what is still open; the specifications
-in [`../design/pages/`](../design/pages/) are the record.
+in [`../design/pages/`](design-requirements/pages/) are the record.
 
 **Phase 6 stays unscheduled** until leaving one machine is intended, and then becomes the
 whole of the next phase — the three parts stand or fall together.
@@ -161,5 +161,5 @@ Nothing here reopens the decided-against list, and nothing needs to.
 
 ---
 
-**See also:** [ROADMAP](ROADMAP.md) · [the overhaul plan](interface-overhaul.md) ·
-[the testing plan](interface-overhaul-testing.md) · [the decision records](../adr/)
+**See also:** [ROADMAP](../../plan/ROADMAP.md) · [the overhaul plan](interface-overhaul.md) ·
+[the testing plan](interface-overhaul-testing.md) · [the decision records](../../adr/)

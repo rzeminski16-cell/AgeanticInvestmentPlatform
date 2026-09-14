@@ -139,7 +139,7 @@ company page, with a default in Platform.
 
 | Surface | Reached from | Specified in |
 |---|---|---|
-| Today | Menu · the default landing | [`02-page-specifications.md`](02-page-specifications.md) §1 |
+| Today | Menu · the default landing | [`02-page-specifications.md`](03-page-specifications.md) §1 |
 | Portfolio | Menu | §2 |
 | Position detail | A portfolio row | §3 |
 | Companies | Menu | §4 |

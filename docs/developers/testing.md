@@ -81,7 +81,7 @@ order, which is worse than a slower one.
 ## The interface
 
 *Written for roadmap §3.12, the interface overhaul. The design specification is in
-[`../design/`](../design/README.md); this is how the result gets checked.*
+[`../design/`](../archive/superseded-2026-09/design-requirements/README.md); this is how the result gets checked.*
 
 ### What is already covered, and what that is worth
 
@@ -189,4 +189,4 @@ widths and system colour preferences are all in that class.
 ---
 
 **See also:** [testing by hand](testing-by-hand.md) · [the design
-specification](../design/README.md) · [the roadmap](../plan/ROADMAP.md)
+specification](../archive/superseded-2026-09/design-requirements/README.md) · [the roadmap](../plan/ROADMAP.md)
