@@ -1,0 +1,26 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "The daily loop" },
+    { "id": "page-2", "name": "Research and evidence" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html",      "x": 0,    "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Today — landing, not an inbox" },
+    { "file": "Portfolio.dc.html", "x": 1560, "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Portfolio — the validity dashboard" },
+    { "file": "Company.dc.html",   "x": 3120, "y": 0,    "w": 1440, "h": 900, "page": "page-1", "title": "Company — a destination for a question" },
+    { "file": "Alert.dc.html",     "x": 0,    "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Monitor alert — a move, in context" },
+    { "file": "Thesis.dc.html",    "x": 1560, "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Thesis — premises and their tests" },
+    { "file": "Decision.dc.html",  "x": 3120, "y": 1060, "w": 1440, "h": 900, "page": "page-1", "title": "Decision — with the pre-trade check" },
+    { "file": "Run.dc.html",       "x": 0,    "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Research run — a gate waiting" },
+    { "file": "Report.dc.html",    "x": 1560, "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Report reader — the evidence drawer" },
+    { "file": "Ask.dc.html",       "x": 3120, "y": 0,    "w": 1440, "h": 900, "page": "page-2", "title": "Ask — three tiers, priced first" }
+  ],
+  "annotations": [
+    { "id": "note-today", "x": 0, "y": -170, "w": 620, "page": "page-1",
+      "text": "TODAY IS A LANDING PAGE, NOT AN INBOX\n\nThree bands: what needs you, what is worth doing, and the state of things.\n\nEvery card in 'Worth doing' is earned by a condition in the record — a refresh nobody read, a holding with no thesis, a watchlist entry gone cold. If nothing qualifies, the band is absent. It never pads." },
+    { "id": "note-port", "x": 1560, "y": -170, "w": 620, "page": "page-1",
+      "text": "THE PORTFOLIO IS WHERE YOU LIVE\n\nAnd it is a validity dashboard, not a performance one. The first question is not 'am I up?' — a broker answers that for nothing — but 'are the reasons I bought still standing?'\n\nSorted by conviction risk. A position with nothing written down sorts above everything, because it is money committed for reasons nobody recorded." },
+    { "id": "note-ask", "x": 3120, "y": -170, "w": 620, "page": "page-2",
+      "text": "ASK HAS THREE TIERS\n\n1 Recompute — re-runs the stored model. Free.\n2 Re-read — a pass over what is already hashed. Pennies.\n3 Research — goes and fetches new material, priced and approved first.\n\nTier 3 is the one that matters: everything it fetches is hashed and joins the company's record, so asking a question leaves the asset larger than it found it. A chat's answers evaporate." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

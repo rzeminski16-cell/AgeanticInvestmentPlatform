@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    :root{
+      --canvas:#F4F7F8; --surface:#FFFFFF; --sunken:#EAF0F1; --selected:#E2F3F4;
+      --ink:#15252E; --muted:#52656E; --subtle:#5B6D75;
+      --line:#CDD8DC; --line-strong:#9AAEB5; --boundary:#6D8189;
+      --verif:#0F6673; --verif-strong:#084D57; --verif-wash:#E2F3F4; --on-verif:#FFFFFF;
+      --warn:#7A4B00; --warn-wash:#FFF3D6; --on-warn:#FFFFFF;
+      --ok:#14613F; --ok-wash:#E3F4EA;
+      --fail:#9B293F; --fail-wash:#FBEAED;
+      --refuse:#6B3F60; --refuse-wash:#F6EAF2;
+      --mut-wash:#EAF0F1;
+      --bar:"Barlow Semi Condensed","Arial Narrow",sans-serif;
+      --ss:"Source Sans 3","Segoe UI",Arial,sans-serif;
+      --mono:"IBM Plex Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--ss);
+      font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased}
+    a{color:var(--verif);text-decoration:none} a:hover{color:var(--verif-strong)}
+    .app{display:flex;height:900px;overflow:hidden}
+    .nav{width:232px;flex:none;background:var(--surface);border-right:1px solid var(--line);
+      padding:20px 12px;display:flex;flex-direction:column;gap:2px}
+    .brand{font-family:var(--bar);font-size:24px;line-height:30px;font-weight:700;
+      letter-spacing:-.005em;color:var(--ink);padding:0 12px 20px}
+    .nl{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:4px;
+      font-size:16px;line-height:24px;color:var(--muted);font-weight:500}
+    .nl.on{background:var(--selected);color:var(--verif);font-weight:600}
+    .nl .c{width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center}
+    .nspace{flex:1}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .top{height:56px;flex:none;border-bottom:1px solid var(--line);background:var(--surface);
+      display:flex;align-items:center;gap:12px;padding:0 24px}
+    .cmd{flex:1;max-width:440px;height:32px;border:1px solid var(--boundary);border-radius:4px;
+      display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--subtle);
+      font-size:14px;line-height:20px;background:var(--surface)}
+    .kbd{margin-left:auto;font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;
+      color:var(--subtle);border:1px solid var(--line);border-radius:2px;padding:0 4px}
+    .body{flex:1;overflow:hidden;padding:32px}
+    .eyebrow{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:600;
+      letter-spacing:.055em;text-transform:uppercase;color:var(--subtle)}
+    h1{font-family:var(--bar);font-size:32px;line-height:36px;font-weight:700;
+      letter-spacing:-.01em;margin:0}
+    h2{font-family:var(--bar);font-size:20px;line-height:26px;font-weight:600;margin:0}
+    .lead{font-size:18px;line-height:28px;color:var(--muted);margin:6px 0 0}
+    .sheet{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+    .cap{font-size:12px;line-height:16px;font-weight:500;letter-spacing:.01em;color:var(--subtle)}
+    .data{font-family:var(--mono);font-size:14px;line-height:20px;font-weight:450;
+      font-variant-numeric:tabular-nums lining-nums}
+    .datasm{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;
+      letter-spacing:.015em;font-variant-numeric:tabular-nums lining-nums}
+    .dataxl{font-family:var(--mono);font-size:28px;line-height:34px;font-weight:600;
+      letter-spacing:-.02em;font-variant-numeric:tabular-nums lining-nums}
+    .btn{height:32px;border:1px solid var(--boundary);border-radius:4px;background:var(--surface);
+      color:var(--ink);font-family:var(--ss);font-size:14px;line-height:20px;font-weight:600;
+      display:inline-flex;align-items:center;padding:0 12px;gap:6px}
+    .btn.pri{background:var(--verif);border-color:var(--verif);color:var(--on-verif)}
+    .btn.dec{background:var(--warn);border-color:var(--warn);color:var(--on-warn)}
+    .tag{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 6px;border-radius:2px;
+      font-family:var(--mono);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.015em}
+    .foot{padding:12px 32px;border-top:1px solid var(--line);color:var(--subtle);
+      font-size:12px;line-height:16px;font-weight:500;letter-spacing:.01em;display:flex;gap:16px}
+
+  </style>
+</helmet>
+<div class="app">
+<div class="nav"><div class="brand">Ageantic</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11M3 10h7M3 14h9"/><path d="M13.5 13.5l2 2 3.5-4"/></svg></span>Today</div><div class="nl on"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--verif)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h14"/><rect x="4" y="9" width="3" height="7"/><rect x="8.5" y="5" width="3" height="11"/><rect x="13" y="11" width="3" height="5"/></svg></span>Portfolio</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h14M5 17V5l7-2v14M12 17V8l5 1.5V17"/><path d="M7.5 7.5h1.5M7.5 10.5h1.5"/></svg></span>Companies</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v3h3"/><circle cx="9" cy="11" r="2.5"/><path d="M11 13l2 2"/></svg></span>Research</div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a6 6 0 1 1 1.8 4.3"/><path d="M4 15v-4h4"/><path d="M10 7v3.5l2.5 1.5"/></svg></span>Review</div><div class="nspace"></div><div class="nl"><span class="c"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="8" cy="6" r="1.8"/><circle cx="13" cy="10" r="1.8"/><circle cx="7" cy="14" r="1.8"/></svg></span>Platform</div></div>
+<div class="main">
+<div class="top"><div class="cmd"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="var(--subtle)" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>Jump to a company, or start a request<span class="kbd">/</span></div></div>
+<div class="body" style="overflow:auto">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <h1>The book</h1>
+      <div style="margin-top:7px;font-size:18px;line-height:28px">
+        <strong>7 of 11</strong> positions have a thesis that currently holds.
+        <span style="color:var(--muted)">Two broke, one is under review, and one has nothing written down at all.</span>
+      </div>
+    </div>
+    <div style="text-align:right;flex:none;margin-left:24px">
+      <div class="dataxl">£412,908</div>
+      <div class="data" style="color:var(--muted)">&#9662; £1,204 · 0.29% today</div></div>
+  </div>
+
+  <div style="display:flex;gap:20px;margin-top:22px;align-items:flex-start">
+    <div class="sheet" style="flex:1;min-width:0;padding:4px 20px 8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:13px 0 4px">
+        <span class="eyebrow">Sorted by conviction risk</span>
+        <span class="cap">— not by profit. A position with nothing written down sorts to the top.</span>
+        <span class="btn" style="margin-left:auto;height:26px;font-size:13px">All ▾</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-top:6px">
+        <thead><tr style="border-bottom:1px solid var(--line-strong)">
+          <th style="padding:0 12px 8px 0;text-align:left" class="eyebrow">Company</th><th style="padding:0 12px 8px 0;text-align:left" class="eyebrow">Weight</th><th style="padding:0 12px 8px 0;text-align:left" class="eyebrow">Thesis</th><th style="padding:0 12px 8px 0;text-align:left" class="eyebrow">Checked</th><th style="padding:0 12px 8px 0;text-align:left" class="eyebrow">Risk</th>
+          <th style="padding:0 12px 8px;text-align:right" class="eyebrow">Value</th>
+          <th style="padding:0 0 8px 12px;text-align:right" class="eyebrow">Unrealised</th></tr></thead>
+        <tbody>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">M&amp;T Bank</div>
+    <div class="datasm" style="color:var(--subtle)">MTB · NYSE</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">4.0%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:40%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FFF3D6;color:#7A4B00">no thesis</span></td>
+  <td style="padding:11px 12px"><div class="datasm">Never checked</div>
+    <div class="cap" style="color:var(--subtle)">Nothing to check</div></td>
+  <td style="padding:11px 12px"><span class="cap">—</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£16,480</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#14613F">+2.1%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">AstraZeneca</div>
+    <div class="datasm" style="color:var(--subtle)">AZN · NYSE</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">6.8%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:68%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FBEAED;color:#9B293F">one premise broke</span></td>
+  <td style="padding:11px 12px"><div class="datasm">11 Sep</div>
+    <div class="cap" style="color:var(--subtle)">Next 1 Oct</div></td>
+  <td style="padding:11px 12px"><span class="cap">—</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£28,077</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#9B293F">&#8722;4.4%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">Shopify</div>
+    <div class="datasm" style="color:var(--subtle)">SHOP · NYSE</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">5.1%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:51%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FBEAED;color:#9B293F">one premise broke</span></td>
+  <td style="padding:11px 12px"><div class="datasm">2 Sep</div>
+    <div class="cap" style="color:var(--subtle)">Next 2 Dec</div></td>
+  <td style="padding:11px 12px"><span class="cap">—</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£21,058</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#9B293F">&#8722;11.8%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">Microsoft</div>
+    <div class="datasm" style="color:var(--subtle)">MSFT · NASDAQ</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">11.4%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:100%;height:100%;background:var(--warn)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FFF3D6;color:#7A4B00">under review</span></td>
+  <td style="padding:11px 12px"><div class="datasm">13 Sep</div>
+    <div class="cap" style="color:var(--subtle)">Next 1 Oct</div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FFF3D6;color:#7A4B00">concentration</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£47,071</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#14613F">+19.6%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">Novo Nordisk</div>
+    <div class="datasm" style="color:var(--subtle)">NVO · NYSE</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">7.2%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:72%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#E3F4EA;color:#14613F">holds</span></td>
+  <td style="padding:11px 12px"><div class="datasm">28 Aug</div>
+    <div class="cap" style="color:var(--subtle)">Next 28 Nov</div></td>
+  <td style="padding:11px 12px"><span class="cap">—</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£29,729</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#14613F">+7.3%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">ASML</div>
+    <div class="datasm" style="color:var(--subtle)">ASML · NASDAQ</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">9.6%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:96%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#E3F4EA;color:#14613F">holds</span></td>
+  <td style="padding:11px 12px"><div class="datasm">1 Sep</div>
+    <div class="cap" style="color:var(--subtle)">Next 1 Dec</div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#FFF3D6;color:#7A4B00">sector semis</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£39,639</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#14613F">+31.2%</span></td>
+</tr>
+<tr style="border-bottom:1px solid var(--line)">
+  <td style="padding:11px 12px 11px 0"><div style="font-size:14px;line-height:20px;font-weight:600">Visa</div>
+    <div class="datasm" style="color:var(--subtle)">V · NYSE</div></td>
+  <td style="padding:11px 12px;width:104px"><div class="data" style="text-align:right">6.0%</div>
+    <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden">
+      <div style="width:60%;height:100%;background:var(--verif)"></div></div></td>
+  <td style="padding:11px 12px"><span class="tag" style="background:#E3F4EA;color:#14613F">holds</span></td>
+  <td style="padding:11px 12px"><div class="datasm">5 Sep</div>
+    <div class="cap" style="color:var(--subtle)">Next 5 Dec</div></td>
+  <td style="padding:11px 12px"><span class="cap">—</span></td>
+  <td style="padding:11px 12px" class="data" align="right">£24,775</td>
+  <td style="padding:11px 0 11px 12px" class="data" align="right"><span style="color:#14613F">+12.0%</span></td>
+</tr>
+        </tbody></table>
+      <div class="cap" style="padding:11px 0 4px">Four more positions · 18.3% cash</div>
+    </div>
+
+    <div style="width:304px;flex:none">
+      <div class="sheet" style="padding:17px 19px">
+        <h2>Risk</h2>
+        <div style="margin-top:13px;display:flex;justify-content:space-between;align-items:baseline">
+          <span class="cap">Top five</span><span class="data">47.2% <span style="color:var(--warn)">/ 50%</span></span></div>
+        <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:baseline">
+          <span class="cap">Largest sector</span><span class="data">Semis 16.8%</span></div>
+        <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:baseline">
+          <span class="cap">Over ceiling</span><span class="data" style="color:var(--warn)">1 position</span></div>
+        <div style="margin-top:9px;display:flex;justify-content:space-between;align-items:baseline">
+          <span class="cap">Cash</span><span class="data">18.3%</span></div>
+        <div style="margin-top:13px;padding-top:12px;border-top:1px solid var(--line)">
+          <div class="eyebrow">Your stated shock</div>
+          <div style="font-size:14px;line-height:20px;margin-top:5px">A 20% fall in the largest three</div>
+          <div class="data" style="color:var(--fail);margin-top:4px;font-size:16px">&#8722;£22,486 · 5.4% of the book</div>
+        </div>
+        <span class="btn" style="margin-top:14px;width:100%;justify-content:center">Open Risk</span>
+      </div>
+      <div class="sheet" style="margin-top:14px;padding:15px 19px;border-color:var(--warn);background:var(--warn-wash)">
+        <div class="eyebrow" style="color:var(--warn)">Needs a decision</div>
+        <div style="font-size:14px;line-height:20px;margin-top:6px">
+          Two theses have a broken premise and one position has no thesis at all. Until those are
+          settled, the book&#39;s reasoning is not current.</div>
+        <span class="btn dec" style="margin-top:11px;width:100%;justify-content:center">Settle them</span>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span>This is not investment advice.</span><span style="margin-left:auto">Valued at the close of 13 September</span></div>
+</div>
+</div>
+</x-dc>
+</body>
+</html>

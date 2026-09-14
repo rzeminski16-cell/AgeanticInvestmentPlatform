@@ -23,7 +23,8 @@ a journey organised around four stages.
 |---|---|
 | [`00-the-tools.md`](00-the-tools.md) | Every tool and sub-tool, what each must make possible, and the measurable bar for each |
 | [`01-information-architecture.md`](01-information-architecture.md) | How the fourteen surfaces become six destinations, and the three that deliberately have no menu item |
-| `02-screens/` | The drawn designs, screen by screen *(next)* |
+| [`02-page-specifications.md`](02-page-specifications.md) | Every surface: purpose, layout, components, states, data contract, actions, and what it must not do |
+| [`screens/`](screens/README.md) | The drawn artboards, and the canvas they live on |
 
 ## The two ideas everything else follows from
 
