@@ -209,7 +209,7 @@ ADR-level decision, not a code change.
 | 5 | Units are carried through all arithmetic; mismatch raises | `calc/units.py` + `tests/test_units.py`, both operand orders |
 | 6 | Cost is metered and capped in code | `providers/costs.py`, `workflow/engine.py` BudgetGuard + `tests/test_budget.py` (ADRs 0051, 0052) |
 | 7 | Skill files are additive-only | `core/skill_policy.py`, the `core/skill_guidance.py` role table (ADR 0108) + the ADR 0040 corpus (`tests/skill_corpus.py`) |
-| 8 | Untrusted content is data, never instruction | `agents/untrusted` wrapping + tool authorisation in code (`tests/test_injection.py`, ADR 0036) |
+| 8 | Untrusted content is data, never instruction | `agents/untrusted` wrapping + tool authorisation in code (`tests/test_injection.py`, ADR 0036); the operator's `excluded_sources` enforced in code, not in a prompt — `core/exclusions.py` matches, `services/sources.py` quarantines at acquisition, `services/research.py` refuses the fetch and withholds the listing (`tests/test_exclusions.py`) |
 
 ## 6. Where the decisions live: the ADR index, by theme
 

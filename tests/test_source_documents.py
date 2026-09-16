@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import uuid
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select, text
@@ -32,10 +34,12 @@ from aer.services.acquisition import acquisition_root
 from aer.services.artefacts import store_artefact, store_artefact_stream, verify_artefact
 from aer.services.injection import record_findings
 from aer.services.sources import (
+    EXCLUDED_BY_OPERATOR,
     NO_PUBLICATION_DATE,
     NOT_CITABLE,
     PUBLISHED_AFTER_AS_OF,
     decide_quarantine,
+    excluded_domains_for,
     list_quarantined,
     record_source_document,
 )
@@ -412,6 +416,136 @@ class TestQuarantineRule:
             publication_date=date(2026, 1, 1), point_in_time=True, source_tier=tier
         )
         assert decision.quarantined is False
+
+
+class TestAnExcludedDomainIsRefused:
+    """Phase 1.7: the request's excluded sources, enforced where a document is admitted.
+
+    The list used to reach a line in the planner's prompt and nothing else. Here it is a
+    quarantine rule like the other three — decided in code, recorded in the audit trail —
+    and the service reads it off the mandate itself, so no acquisition path can forget it.
+    """
+
+    def test_a_document_from_an_excluded_domain_is_quarantined_for_that(self):
+        decision = decide_quarantine(
+            publication_date=date(2026, 1, 1),
+            point_in_time=True,
+            source_tier=SourceTier.T1_REGULATORY,
+            url="https://news.example.com/contoso",
+            excluded_domains=("example.com",),
+        )
+        assert decision.quarantined is True
+        assert decision.reason == EXCLUDED_BY_OPERATOR
+        assert decision.detail == "example.com"
+
+    def test_a_redirect_onto_an_excluded_domain_is_caught_at_the_destination(self):
+        # A permitted host that redirects onto an excluded one has delivered the excluded
+        # page; the URL that was asked for is not the one that answered.
+        decision = decide_quarantine(
+            publication_date=date(2026, 1, 1),
+            point_in_time=True,
+            source_tier=SourceTier.T1_REGULATORY,
+            url="https://short.invalid/x",
+            canonical_url="https://example.com/the-page",
+            excluded_domains=("example.com",),
+        )
+        assert decision.reason == EXCLUDED_BY_OPERATOR
+
+    def test_the_exclusion_is_reported_before_every_other_reason(self):
+        # Undated, uncitable and excluded at once: the operator's own decision is the
+        # reason named, because it is the one that is theirs.
+        decision = decide_quarantine(
+            publication_date=None,
+            point_in_time=True,
+            source_tier=SourceTier.T6_UNVERIFIED,
+            undated_sources_admissible=False,
+            url="https://example.com/x",
+            excluded_domains=("example.com",),
+        )
+        assert decision.reason == EXCLUDED_BY_OPERATOR
+
+    def test_a_domain_not_excluded_passes_as_before(self):
+        decision = decide_quarantine(
+            publication_date=date(2026, 1, 1),
+            point_in_time=True,
+            source_tier=SourceTier.T1_REGULATORY,
+            url="https://www.sec.gov/x",
+            excluded_domains=("example.com",),
+        )
+        assert decision.quarantined is False
+        assert decision.detail is None
+
+    async def test_the_record_reads_the_exclusions_from_the_mandate(
+        self, db_session, request_row, artefact
+    ):
+        """No caller passes the list. The service reads it off the row that shares the
+        work order's id, so a new acquisition path cannot forget it."""
+        request_row.excluded_sources = ["example.invalid"]
+        await db_session.flush()
+
+        document = await record_source_document(
+            db_session,
+            work_order=await acquisition_root(db_session, request_row),
+            artefact=artefact,
+            url="https://example.invalid/an-opinion-piece",
+            provider=Provider.WEB_SEARCH,
+            source_tier=SourceTier.T5_SECONDARY,
+            publication_date=date(2026, 5, 1),
+        )
+
+        assert document.quarantined is True
+        assert document.quarantine_reason == EXCLUDED_BY_OPERATOR
+        assert document.is_admissible is False
+
+        event = await db_session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "source.quarantined")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        assert event.payload["reason"] == EXCLUDED_BY_OPERATOR
+        assert event.payload["domain"] == "example.invalid"
+        assert event.request_id == request_row.id
+
+    async def test_a_mandate_with_no_exclusions_admits_the_same_document(
+        self, db_session, request_row, artefact
+    ):
+        document = await record_source_document(
+            db_session,
+            work_order=await acquisition_root(db_session, request_row),
+            artefact=artefact,
+            url="https://example.invalid/an-opinion-piece",
+            provider=Provider.WEB_SEARCH,
+            source_tier=SourceTier.T5_SECONDARY,
+            publication_date=date(2026, 5, 1),
+        )
+        assert document.quarantined is False
+
+    async def test_a_work_order_with_no_mandate_excludes_nothing(self, db_session):
+        """A book's data acquisition roots on a work order with no request row (ADR
+        0093). Nobody was asked, so nothing is excluded — an honest empty answer."""
+        orphan = SimpleNamespace(id=uuid.uuid4())
+        assert await excluded_domains_for(db_session, orphan) == ()
+
+    async def test_the_refused_document_is_listed_with_the_run_s_other_refusals(
+        self, db_session, request_row, artefact
+    ):
+        request_row.excluded_sources = ["example.invalid"]
+        await db_session.flush()
+        document = await record_source_document(
+            db_session,
+            work_order=await acquisition_root(db_session, request_row),
+            artefact=artefact,
+            url="https://example.invalid/an-opinion-piece",
+            provider=Provider.WEB_SEARCH,
+            source_tier=SourceTier.T5_SECONDARY,
+            publication_date=date(2026, 5, 1),
+        )
+
+        refused = await list_quarantined(db_session, request_id=request_row.id)
+
+        assert [row.id for row in refused] == [document.id]
 
 
 class TestSourceTierOrdering:

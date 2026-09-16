@@ -67,6 +67,7 @@ from aer.providers.fake import FakeProvider
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.services.research import _ID_FIELDS, build_executors, validate_report
+from aer.services.sources import EXCLUDED_BY_OPERATOR
 from aer.sources.sec.fulltext import FullTextHit, SearchResults
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.engine import StepContext
@@ -997,6 +998,29 @@ class TestFetchingAKnownUrl:
 
         assert outcome.executed is False
         assert fetcher.urls == []
+
+    async def test_a_page_on_a_domain_the_operator_excluded_is_refused_before_anything(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Phase 1.7. The host is established — the run holds an sec.gov document — and
+        the exclusion still wins: before the archive is consulted for a page the run
+        already holds, and before the fetch layer is reached for one it does not."""
+        fetch_scene["request"].excluded_sources = ["sec.gov"]
+        await fetch_scene["session"].flush()
+        fetcher = _RecordingFetcher()
+        executors = self._executors(fetch_scene, fetcher)
+
+        fresh = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+        held = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/Archives/edgar/contoso-10k.htm")
+        )
+
+        for outcome in (fresh, held):
+            assert outcome.executed is False
+            assert "the operator excluded sec.gov" in outcome.refusal
+        assert fetcher.urls == [], "an excluded host must never reach the fetch layer"
 
     async def test_the_tool_is_absent_when_no_fetcher_is_bound(
         self, fetch_scene: dict[str, Any]
@@ -1996,6 +2020,24 @@ class TestTheExecutors:
 
         assert outcome.internal_results == []
 
+    async def test_search_sources_never_lists_a_document_the_operator_excluded(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """Phase 1.7. Held and flagged at acquisition, and not offered to the worker: a
+        listing that named it would invite a citation the validator then refuses."""
+        document = evidence_scene["document"]
+        document.quarantined = True
+        document.quarantine_reason = EXCLUDED_BY_OPERATOR
+        await evidence_scene["session"].flush()
+
+        executors = build_executors(evidence_scene["session"], request=evidence_scene["request"])
+        outcome = await executors["search_sources"](
+            ToolRequest(tool="search_sources", query="Contoso", why="test")
+        )
+
+        assert outcome.internal_results == []
+        assert outcome.untrusted_evidence == []
+
 
 class TestTheValidator:
     async def test_ids_from_this_run_validate(self, evidence_scene: dict[str, Any]) -> None:
@@ -2087,6 +2129,24 @@ class TestTheValidator:
 
         [problem] = problems
         assert "source_document_id" in problem
+
+    async def test_an_excluded_document_is_named_as_a_problem_even_though_it_exists(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """Phase 1.7. Its id resolves inside the run, and resolving is not enough."""
+        document = evidence_scene["document"]
+        document.quarantined = True
+        document.quarantine_reason = EXCLUDED_BY_OPERATOR
+        await evidence_scene["session"].flush()
+
+        report = _report_turn(source_ids=[str(document.id)]).report
+        problems = await validate_report(
+            evidence_scene["session"], report, request=evidence_scene["request"]
+        )
+
+        assert len(problems) == 1
+        assert "the operator excluded" in problems[0]
+        assert str(document.id) in problems[0]
 
 
 class TestTheWorkerIsToldWhatAnIdIs:

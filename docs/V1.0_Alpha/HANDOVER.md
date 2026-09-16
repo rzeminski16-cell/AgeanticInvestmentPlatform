@@ -143,7 +143,10 @@ the macro stack: the risk-free rate is fetched at the run's own vintage, convert
 the traced calculation and proposed at the gate under *a published series*; the equity risk
 premium is a standing operator assumption (ADR 0124, Accepted the same day), set once in
 settings with its justification and proposed into every run for the operator to confirm.
-Next is 1.7, then 1.8.
+1.7 enforced `excluded_sources` in code: a document from an excluded domain is quarantined
+at acquisition with its own reason, a worker's fetch of one is refused before the archive
+or the network is reached, a listing withholds hits on one and says how many, and the
+validator refuses a finding citing one. Next is 1.8.
 
 ## 6. Standing constraints on any session doing this work
 

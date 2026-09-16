@@ -770,6 +770,7 @@ QUARANTINE_REASONS: Final[dict[str, str]] = {
     "no_publication_date": "nothing establishes when it was published",
     "published_after_as_of_date": "it was published after this run's as-of date",
     "tier_not_citable": "its tier may never be cited as evidence",
+    "excluded_by_operator": "its domain is one you excluded from this run's sources",
 }
 """Why a source was refused, in the words the sources page prints after "Quarantined:".
 

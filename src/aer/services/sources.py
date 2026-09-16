@@ -16,6 +16,13 @@ acquisition time:
    when rule 1 stopped sharing it, because the two questions are different: "can this be
    shown to predate the as-of date?" and "is this demonstrably newer than it?".
 3. **A source at a tier that may never be cited is quarantined**, whatever its date.
+4. **A source from a domain the operator excluded is quarantined**, whatever its date or
+   tier, and before either is looked at. The request's ``excluded_sources`` used to reach a
+   line in the planner's prompt and nothing else; a promise the operator makes on the one
+   page where they say what a run may not read is kept here, in code (invariant 8). The
+   domains are read from the mandate row the work order shares an id with, so no caller
+   has to remember to pass them, and the research executors ask the same question before
+   a page is fetched at all — see :mod:`aer.core.exclusions`.
 
 The date checked is the **latest** any evidence supports, not the best estimate. The question
 is not when a document was probably published but whether it can be shown to predate the as-of
@@ -34,6 +41,7 @@ who disagrees can record an override against it, which never clears the flag.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
@@ -44,18 +52,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
+from aer.core.exclusions import excluded_domain_for
 from aer.core.scope import EvidenceScope
-from aer.db.models import Artefact, AuditEvent, SourceDocument, User, WorkOrder
+from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User, WorkOrder
 from aer.db.models.source_document import NO_PUBLICATION_DATE
 from aer.errors import ConflictError, ValidationError
 from aer.extract.dates import PublicationDate
 
 __all__ = [
+    "EXCLUDED_BY_OPERATOR",
     "NOT_CITABLE",
     "NO_PUBLICATION_DATE",
     "PUBLISHED_AFTER_AS_OF",
     "QuarantineDecision",
     "decide_quarantine",
+    "excluded_domains_for",
     "override_admissibility",
     "record_source_document",
     "visible_sources",
@@ -97,13 +108,26 @@ The look-ahead rule proper. An undatable source is refused because it *might* be
 one is refused because it demonstrably is.
 """
 
+EXCLUDED_BY_OPERATOR = "excluded_by_operator"
+"""Quarantine reason for a source from a domain the request's operator excluded.
+
+The one refusal the operator asked for by name. Kept rather than dropped, like every other
+quarantine: "we fetched this and refused to use it because you said so" is the record that
+lets a reviewer see the exclusion was honoured.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class QuarantineDecision:
-    """Whether a source is admissible, and why not if it is not."""
+    """Whether a source is admissible, and why not if it is not.
+
+    ``detail`` is what the reason names where it names something — the excluded domain, as
+    the operator wrote it — so the audit event and the page can say which exclusion bit.
+    """
 
     quarantined: bool
     reason: str | None = None
+    detail: str | None = None
 
 
 def decide_quarantine(
@@ -113,6 +137,9 @@ def decide_quarantine(
     source_tier: SourceTier,
     as_of_date: date | None = None,
     undated_sources_admissible: bool = True,
+    url: str | None = None,
+    canonical_url: str | None = None,
+    excluded_domains: Collection[str] = (),
 ) -> QuarantineDecision:
     """Decide admissibility from the facts alone.
 
@@ -131,11 +158,24 @@ def decide_quarantine(
             work order carries; a caller that means the strict rule passes ``False``. This
             is deliberately **not** ``point_in_time``: the two used to share that flag, so
             reading an undated news page cost the look-ahead check as well.
+        url: The URL that was asked for, and ``canonical_url`` the one that answered after
+            redirects. Both are held to ``excluded_domains``: a permitted host that
+            redirects onto an excluded one has delivered the excluded page.
+        excluded_domains: The request's ``excluded_sources``, as bare domains. Empty for a
+            work order with no mandate, which excludes nothing because nobody was asked.
 
-    Order matters. An undatable source is quarantined for *that* reason first, because it
-    is the reason the operator can act on — supplying a date makes it admissible, whereas
-    a tier-6 source is inadmissible whatever its date.
+    Order matters. The operator's own exclusion is reported first, because it is the one
+    reason that is theirs: a document they said not to read is refused for that, whatever
+    its date. Then an undatable source is quarantined for *that* reason, because it is the
+    reason the operator can act on — supplying a date makes it admissible, whereas a tier-6
+    source is inadmissible whatever its date.
     """
+    for candidate in (url, canonical_url):
+        if candidate is None:
+            continue
+        domain = excluded_domain_for(candidate, excluded_domains)
+        if domain is not None:
+            return QuarantineDecision(quarantined=True, reason=EXCLUDED_BY_OPERATOR, detail=domain)
     if not undated_sources_admissible and publication_date is None:
         return QuarantineDecision(
             quarantined=True,
@@ -155,6 +195,20 @@ def decide_quarantine(
     if not source_tier.is_citable:
         return QuarantineDecision(quarantined=True, reason=NOT_CITABLE)
     return QuarantineDecision(quarantined=False)
+
+
+async def excluded_domains_for(session: AsyncSession, work_order: WorkOrder) -> tuple[str, ...]:
+    """The domains the operator excluded on the mandate this work order details.
+
+    The two rows share an id (ADR 0072), so a research run's exclusions are one identity-map
+    lookup on a warm session. A work order with no mandate row — a book's data acquisition —
+    excludes nothing, because nobody was asked; that is an honest empty answer rather than a
+    guard that shrugs, and the run's other admissibility rules still apply to it.
+    """
+    request = await session.get(ResearchRequest, work_order.id)
+    if request is None:
+        return ()
+    return tuple(request.excluded_sources or ())
 
 
 async def record_source_document(
@@ -230,6 +284,9 @@ async def record_source_document(
         source_tier=source_tier,
         as_of_date=work_order.as_of_date,
         undated_sources_admissible=work_order.undated_sources_admissible,
+        url=url,
+        canonical_url=canonical_url,
+        excluded_domains=await excluded_domains_for(session, work_order),
     )
 
     document = SourceDocument(
@@ -309,6 +366,8 @@ async def record_source_document(
                     "provider": provider.value,
                     "source_tier": source_tier.value,
                     "reason": decision.reason,
+                    # Which exclusion bit, as the operator wrote it — only where one did.
+                    **({"domain": decision.detail} if decision.detail is not None else {}),
                 },
                 previous=previous,
                 # The run root's id. `audit_events.request_id` is an unconstrained

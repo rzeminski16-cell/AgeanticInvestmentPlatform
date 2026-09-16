@@ -147,7 +147,12 @@ class TestNothingIsMissing:
         exemption for a `reason` was wrong, because these are identifiers rather than
         sentences the platform wrote.
         """
-        declared = {sources.NO_PUBLICATION_DATE, sources.PUBLISHED_AFTER_AS_OF, sources.NOT_CITABLE}
+        declared = {
+            sources.NO_PUBLICATION_DATE,
+            sources.PUBLISHED_AFTER_AS_OF,
+            sources.NOT_CITABLE,
+            sources.EXCLUDED_BY_OPERATOR,
+        }
         missing = sorted(declared - set(vocabulary.QUARANTINE_REASONS))
         assert not missing, f"quarantine reasons with no words: {missing}"
 

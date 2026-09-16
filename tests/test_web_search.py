@@ -191,6 +191,37 @@ class TestTheExecutor:
         assert "No model route" in refused.refusal
         assert scene["provider"].web_searches == []
 
+    async def test_hits_from_an_excluded_domain_are_withheld_and_counted(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Phase 1.7. The fake's two hits sit on example.com; excluding the domain leaves
+        the listing empty and says why, so "the search found nothing" and "the search
+        found things you may not read" stay distinguishable. The search is still billed:
+        the vendor ran it."""
+        scene["request"].excluded_sources = ["example.com"]
+        await scene["session"].flush()
+
+        outcome = await _executors(scene)["web_search"](_tool_request())
+
+        assert outcome.executed
+        assert outcome.internal_results[0]["results"] == 0
+        assert outcome.untrusted_evidence == []
+        [note] = [item["note"] for item in outcome.internal_results[1:]]
+        assert note.startswith("2 further hit(s)")
+        assert "excluded" in note
+        assert await _costs(scene["session"], scene["step"].id)
+
+    async def test_only_the_excluded_host_is_withheld(self, scene: dict[str, Any]) -> None:
+        scene["request"].excluded_sources = ["news.example.com"]
+        await scene["session"].flush()
+
+        outcome = await _executors(scene)["web_search"](_tool_request())
+
+        assert outcome.internal_results[0]["results"] == 1
+        [shown] = outcome.untrusted_evidence
+        assert "commentary.example.com" in shown["text"]
+        assert "news.example.com" not in shown["text"]
+
     async def test_without_an_agent_context_the_tool_is_simply_not_bound(
         self, scene: dict[str, Any]
     ) -> None:

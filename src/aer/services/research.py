@@ -37,6 +37,7 @@ from aer.agents.worker import (
 )
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
+from aer.core.exclusions import excluded_domain_for
 from aer.db.models import Artefact, Company, Cost, FinancialFact, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
@@ -45,7 +46,7 @@ from aer.providers.costs import price_usage, price_web_search
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request, with_subject
-from aer.services.sources import visible_sources
+from aer.services.sources import EXCLUDED_BY_OPERATOR, visible_sources
 from aer.services.subject import subject_name
 from aer.sources.tiering import DocumentKind, tier_for
 
@@ -181,6 +182,15 @@ def build_executors(
         rows = await session.scalars(
             visible_sources(await scope_for_request(session, request))
             .where(or_(SourceDocument.title.ilike(needle), SourceDocument.url.ilike(needle)))
+            # A document from a domain the operator excluded is held, flagged and never
+            # offered to a worker: a listing that named it would invite a citation the
+            # validator then refuses (Phase 1.7).
+            .where(
+                or_(
+                    SourceDocument.quarantine_reason.is_(None),
+                    SourceDocument.quarantine_reason != EXCLUDED_BY_OPERATOR,
+                )
+            )
             .order_by(SourceDocument.retrieved_at.desc())
             .limit(MAX_HITS)
         )
@@ -278,6 +288,12 @@ def build_executors(
         # excluded — an old filing can still be chosen — but the documents most able to
         # support a current claim lead the list the worker spends its budget from.
         usable = sorted(usable, key=lambda hit: hit.filed, reverse=True)
+        # The operator's exclusions reach the regulator's index like anywhere else: a
+        # filing on an excluded domain is withheld from the listing, and the count is
+        # said (Phase 1.7).
+        excluded_domains = request.excluded_sources or ()
+        withheld = sum(1 for hit in usable if excluded_domain_for(hit.url, excluded_domains))
+        usable = [hit for hit in usable if excluded_domain_for(hit.url, excluded_domains) is None]
         # Ids, forms, dates and URLs are the index's, which is ours to trust — the
         # documents' own words are not here, and reading one costs a fetch. Trusted is
         # also why each hit joins the registry: a later fetch of this URL enters at the
@@ -306,6 +322,8 @@ def build_executors(
                     )
                 }
             )
+        if withheld:
+            results.append({"note": _withheld_note(withheld)})
 
         return ExecutedTool(
             tool=tool_request.tool,
@@ -420,21 +438,32 @@ async def _web_search(
     searches_spent["count"] += 1
     await _meter_search(session, agent_context, outcome=outcome)
 
+    # A hit on a domain the operator excluded is withheld before the model sees its
+    # title — a listing is a small reading — and the count is said, so "the search found
+    # nothing" and "the search found things you may not read" stay distinguishable
+    # (Phase 1.7). The search is billed either way: the vendor ran it.
+    excluded_domains = request.excluded_sources or ()
+    shown = [hit for hit in outcome.hits if excluded_domain_for(hit.url, excluded_domains) is None]
+    withheld = len(outcome.hits) - len(shown)
+
     remaining = MAX_WEB_SEARCHES - searches_spent["count"]
+    results: list[dict[str, Any]] = [
+        {
+            "results": len(shown),
+            "searches_remaining": remaining,
+            "note": (
+                "A listing, not a reading: titles, URLs and the index's age notes. "
+                "Nothing here is citable evidence and no result carries an id."
+            ),
+        }
+    ]
+    if withheld:
+        results.append({"note": _withheld_note(withheld)})
     return ExecutedTool(
         tool=tool_request.tool,
         query=tool_request.query,
         executed=True,
-        internal_results=[
-            {
-                "results": len(outcome.hits),
-                "searches_remaining": remaining,
-                "note": (
-                    "A listing, not a reading: titles, URLs and the index's age notes. "
-                    "Nothing here is citable evidence and no result carries an id."
-                ),
-            }
-        ],
+        internal_results=results,
         # Titles, URLs and age notes are the search engine's text — external, so they
         # travel only in the wrapped channel, at the tier that says what they are:
         # hypothesis material, never evidence.
@@ -446,8 +475,16 @@ async def _web_search(
                 "text": f"{hit.title or '(untitled)'} — {hit.url}"
                 + (f" ({hit.page_age})" if hit.page_age else ""),
             }
-            for hit in outcome.hits
+            for hit in shown
         ],
+    )
+
+
+def _withheld_note(count: int) -> str:
+    """The one sentence a listing adds for the hits it did not show (Phase 1.7)."""
+    return (
+        f"{count} further hit(s) are from sources the operator excluded from this run "
+        "and were withheld."
     )
 
 
@@ -550,6 +587,20 @@ async def _fetch_known_url(
     where they establish one, and stays honestly undated where they do not.
     """
     url = tool_request.query.strip()
+    # Before anything at all, the archive included: a page on a domain the operator
+    # excluded is not read from a held copy either. The exclusion is theirs, it is
+    # enforced here rather than in a prompt, and the refusal names it (Phase 1.7).
+    excluded = excluded_domain_for(url, request.excluded_sources or ())
+    if excluded is not None:
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=url,
+            executed=False,
+            refusal=(
+                f"Refused: the operator excluded {excluded} from this run's sources, so "
+                "nothing on it may be read or cited. Work from what the run holds elsewhere."
+            ),
+        )
     # Before any network work (gap A56): a URL this run has already acquired is
     # answered from its own record and archive. `_already_held` can only dedupe
     # *after* a fetch, because it keys on the response's digest — so the live run
@@ -859,6 +910,17 @@ async def validate_report(
         column=SourceDocument.id,
         cited=cited_sources,
     )
+    # Held, flagged, and never a finding's evidence: an excluded document's id resolves,
+    # and resolving is not enough (Phase 1.7).
+    excluded_sources = await _existing(
+        session,
+        select(SourceDocument.id).where(
+            SourceDocument.work_order_id == request.id,
+            SourceDocument.quarantine_reason == EXCLUDED_BY_OPERATOR,
+        ),
+        column=SourceDocument.id,
+        cited=cited_sources,
+    )
     # The same reach the worker was given. A validator narrower than the search would
     # refuse the worker's own evidence back at it, which is a loop with no exit.
     valid_facts = await _existing(
@@ -875,7 +937,13 @@ async def validate_report(
 
     for index, finding in enumerate(report.findings):
         for identifier in finding.source_document_ids:
-            if identifier not in valid_sources:
+            if identifier in excluded_sources:
+                problems.append(
+                    f"Finding {index + 1} cites source document {identifier!r}, which is "
+                    "from a domain the operator excluded from this run; it may not support "
+                    "a finding. Drop the citation or the finding."
+                )
+            elif identifier not in valid_sources:
                 problems.append(_refusal(index, identifier, kind="source document"))
         for identifier in finding.fact_ids:
             if identifier not in valid_facts:
