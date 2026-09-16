@@ -280,8 +280,14 @@ async def _load(session: AsyncSession, *, job: Job, request: ResearchRequest) ->
     claims_by_id = {claim.id: claim for claim in rows.claims}
 
     if claim_ids:
+        # The id breaks the tie: two citations recorded in one transaction share a
+        # `created_at`, and without it the order was the heap's, which the previous
+        # evaluation's own updates had reshuffled — so the batch and sync paths listed the
+        # same two failures in different orders.
         citations = await session.scalars(
-            select(Citation).where(Citation.claim_id.in_(claim_ids)).order_by(Citation.created_at)
+            select(Citation)
+            .where(Citation.claim_id.in_(claim_ids))
+            .order_by(Citation.created_at, Citation.id)
         )
         rows.citations = [(c, claims_by_id[c.claim_id]) for c in citations]
 
