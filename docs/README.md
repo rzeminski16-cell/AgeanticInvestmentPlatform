@@ -144,11 +144,11 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
 
 ## Reference
 
-- [`adr/`](adr/) — 122 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 123 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
-  `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 are marked Proposed** —
-  the ten V1.0 features that change a recorded decision or an invariant, argued before the
-  code lands rather than after.
+  `developers/knowledge-map.md` §6 indexes them by theme. **0113–0123 are marked Proposed** —
+  the ten V1.0 features that change a recorded decision or an invariant, and Phase 1.2's
+  approvals model, argued before the code lands rather than after.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.
