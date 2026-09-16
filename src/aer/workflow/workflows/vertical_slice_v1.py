@@ -87,6 +87,7 @@ from aer.db.models import (
     RevisionNote,
     SectionStatus,
     SourceDocument,
+    User,
 )
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
@@ -107,6 +108,7 @@ from aer.sections.registry import create_report_sections, resolve_sections, sect
 from aer.sections.writing import execute_builtin_section
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
+from aer.services import reports as reports_service
 from aer.services import requests as request_service
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.analysis import analyse_company, annual_facts
@@ -3784,8 +3786,31 @@ async def _render(context: StepContext) -> StepResult:
     report.pdf_artefact_id = None
     report.approved_by = approval.actor_user_id if approval is not None else None
     report.approved_at = approval.decided_at if approval is not None else None
+    await context.session.flush()
+
     # Frozen only because a human approved it. The check constraint enforces the same
-    # rule, so an immutable report always has an approval behind it.
+    # rule, so an immutable report always has an approval behind it. Before it freezes,
+    # the company's current report — if there is one — is superseded by it (ADR 0116):
+    # approving a second report supersedes the first, at commit, and the partial unique
+    # index would refuse two current reports at the flush below otherwise.
+    if approval is not None and report.company_id is not None and not report.immutable:
+        previous = await reports_service.current_report(
+            context.session, company_id=report.company_id, excluding=report.id
+        )
+        if previous is not None:
+            actor = await context.session.get(User, approval.actor_user_id)
+            if actor is None:  # pragma: no cover -- an approval always names its actor
+                message = "The approval's actor is missing."
+                raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
+            await reports_service.supersede(
+                context.session,
+                previous=previous,
+                successor=report,
+                reason=(
+                    f"A new report on this company was approved on {approval.decided_at:%d %B %Y}."
+                ),
+                actor=actor,
+            )
     report.immutable = approval is not None
     await context.session.flush()
 

@@ -520,7 +520,10 @@ async def _report(session: Any, raw: str) -> Report | None:
     except ValueError:
         return None
     found: Report | None = await session.get(Report, identifier)
-    return found if found is not None and found.immutable else None
+    # Approved and not withdrawn. A superseded report may still be what the operator read
+    # and wrote the thesis against (page specification §13); a withdrawn one was wrong, and
+    # nothing is held on its basis (ADR 0116).
+    return found if found is not None and found.immutable and not found.is_withdrawn else None
 
 
 async def _submitted(request: Request) -> dict[str, str]:

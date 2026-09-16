@@ -45,6 +45,7 @@ from aer.services.theses import Predicate
 from aer.services.thesis_monitor import measurable_metrics
 from tests.api_fixtures import build_app, client_for
 from tests.portfolio_fixtures import trade
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
@@ -680,10 +681,11 @@ async def _approved_report(
         content={"markdown": "approved"},
         content_hash="a" * 64,
         approved_at=datetime(2026, 7, 1, 9, tzinfo=UTC) if approved else None,
-        immutable=approved,
     )
     session.add(report)
     await session.flush()
+    if approved:
+        await make_current(session, report)
     return report
 
 

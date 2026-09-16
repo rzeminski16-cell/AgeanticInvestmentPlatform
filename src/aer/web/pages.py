@@ -91,6 +91,7 @@ from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
 from aer.services import gates as gates_service
 from aer.services import history as history_service
+from aer.services import reports as reports_service
 from aer.services import requests as requests_service
 from aer.services import resume as resume_service
 from aer.services import runs as run_service
@@ -2743,6 +2744,7 @@ async def reports_index(
         group["reports"].append(
             {
                 "report": report,
+                "state": reports_service.report_state(report),
                 "request": req,
                 "spend_display": (
                     figures.pounds(spend_by_job[report.job_id])
@@ -3034,6 +3036,9 @@ async def report_detail(
             .order_by(ObsidianExport.exported_at.desc())
         )
     )
+    # What happened to the report after approval (ADR 0116): the successor to link to, or
+    # the withdrawal to name. A superseded report stays readable here for ever.
+    successor = await session.get(Report, report.superseded_by) if report.superseded_by else None
 
     token = new_csrf_token(settings)
     detail: Response = render(
@@ -3041,6 +3046,8 @@ async def report_detail(
         "reports/detail.html",
         {
             "report": report,
+            "report_state": reports_service.report_state(report),
+            "successor": successor,
             "research_request": research_request,
             "markdown": str(content.get("markdown", "")),
             "section_keys": list(content.get("sections", [])),
@@ -3052,6 +3059,48 @@ async def report_detail(
     )
     set_csrf_cookie(detail, token)
     return detail
+
+
+@router.post("/reports/{report_id}/withdraw", summary="Withdraw a report, with a reason")
+async def withdraw_report_page(
+    request: Request,
+    report_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Stop a report being current, with nothing to put in its place (ADR 0116).
+
+    The case the decision was written for: a report found wrong after approval. It stays
+    readable, immutable and cited; it stops answering "what does the platform think", and
+    the request may be run again. The reason is required, in the operator's words.
+    """
+    report = await session.scalar(
+        select(Report)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
+    )
+    if report is None:
+        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was withdrawn.",
+            status=HTTP_403_FORBIDDEN,
+        )
+    try:
+        await reports_service.withdraw(
+            session, report=report, reason=submitted.get("reason", ""), actor=user
+        )
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+    await session.commit()
+    return RedirectResponse(f"/reports/{report_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/reports/{report_id}/export-obsidian", summary="Export a report to the vault")

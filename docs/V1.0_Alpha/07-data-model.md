@@ -138,6 +138,10 @@ Everything else in V1.0 is code over the schema above. These six need a migratio
 
 ## Gap 1 — A report does not know it was superseded
 
+**Landed 16 September 2026** (Phase 1.3, migration 0075, ADR 0116 Accepted), exactly as below,
+with the withdraw path and with the render step superseding the company's current report when
+a new one is approved.
+
 **Needed by.** F4 (refresh), and the "which report is current" hole a critic found in every plan.
 
 ```sql

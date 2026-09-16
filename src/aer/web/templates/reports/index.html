@@ -68,7 +68,7 @@
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">Valuation range</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">As of</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">Produced</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Status</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">State</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">Spend</th>
             </tr>
           </thead>
@@ -95,9 +95,17 @@
                 </td>
                 <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.as_of_date.isoformat() }}</td>
                 <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.created_at.date().isoformat() }}</td>
-                <td class="px-4 py-3">
-                  {% if row.report.immutable %}
-                    {{ ui.status("success", "Approved") }}
+                <td class="px-4 py-3" data-report-state="{{ row.state }}">
+                  {#
+                    Three readings of two columns (ADR 0116): current, superseded, withdrawn
+                    — and a draft, which was never approved and is not part of the record.
+                  #}
+                  {% if row.state == "current" %}
+                    {{ ui.status("success", "Current") }}
+                  {% elif row.state == "superseded" %}
+                    {{ ui.status("muted", "Superseded") }}
+                  {% elif row.state == "withdrawn" %}
+                    {{ ui.status("warning", "Withdrawn") }}
                   {% else %}
                     {{ ui.status("muted", "Draft") }}
                   {% endif %}

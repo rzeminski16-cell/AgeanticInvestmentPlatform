@@ -1,6 +1,6 @@
 # ADR 0116 — A report is superseded, never replaced, and exactly one is current
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** Accepted — 16 September 2026, with the change (Phase 1.3, migration 0075). The `refreshed` reason arrives with F4; `rerun` and `withdrawn` are live.
 **Date.** 2026-09-14
 **Extends.** ADR 0102 (a thesis is premises) and ADR 0104 (a decision is written before the
 outcome), whose supersede-and-withdraw-with-a-reason shape this copies rather than invents.
@@ -110,7 +110,10 @@ deliberate pair.
 ## Consequences
 
 **The report library groups by company**, showing the current report with its history beneath
-it, rather than a flat list sorted by date where the reader infers precedence.
+it, rather than a flat list sorted by date where the reader infers precedence. As landed, each
+row carries its state — current, superseded, withdrawn, draft — from one function the report
+page and the API read too; collapsing the superseded rows under the current one is a
+presentation the library may still gain.
 
 **The migration is the one that can fail.** Creating the partial unique index on existing data
 fails if any company already has two approved reports. The stored corpus has three approved

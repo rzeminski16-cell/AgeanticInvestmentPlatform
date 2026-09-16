@@ -41,6 +41,7 @@ from aer.services import runs as run_service
 from aer.services.history import PriorDigest, prior_digest_for
 from aer.services.requests import mandate_read
 from aer.workflow.workflows.vertical_slice_v1 import _prior_research_note, plan_gate_payload
+from tests.report_fixtures import make_current
 from tests.workflow_fixtures import AS_OF_DATE, seed_job, seed_request, seed_user
 
 pytestmark = pytest.mark.anyio
@@ -110,7 +111,6 @@ async def _approved_report(
         valuation_low=Decimal("100"),
         valuation_high=Decimal("120"),
         valuation_currency="USD",
-        immutable=True,
         approved_by=user.id,
         approved_at=datetime.now(UTC),
         content=content,
@@ -118,7 +118,7 @@ async def _approved_report(
     )
     session.add(report)
     await session.flush()
-    return report
+    return await make_current(session, report)
 
 
 @pytest.fixture

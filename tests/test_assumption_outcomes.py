@@ -51,6 +51,7 @@ from aer.services.history import (
     prior_comparison_content,
 )
 from aer.services.knowledge import knowledge_stats
+from tests.report_fixtures import make_current
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
 pytestmark = pytest.mark.anyio
@@ -106,7 +107,6 @@ async def _prior_report(
         request_id=request.id,
         company_id=company.id,
         as_of_date=as_of,
-        immutable=True,
         approved_by=user.id,
         approved_at=datetime.now(UTC),
         content=content,
@@ -114,7 +114,7 @@ async def _prior_report(
     )
     session.add(report)
     await session.flush()
-    return report
+    return await make_current(session, report)
 
 
 async def _document(session: AsyncSession, *, request_id: Any, job_id: Any) -> SourceDocument:

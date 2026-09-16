@@ -166,13 +166,15 @@ async def _may_be_superseded(session: AsyncSession, *, job: Job) -> bool:
     """Whether starting again should replace this run rather than return it.
 
     Two conditions, and both are needed. Terminal, because a run that is queued, running or
-    waiting at a gate is the run — starting "again" means watching that one. And no report,
-    because a report is the thing there can only be one current version of.
+    waiting at a gate is the run — starting "again" means watching that one. And no
+    *current* report, because a report is the thing there can only be one current version
+    of: a report that was withdrawn or superseded (ADR 0116), or never approved, is not what
+    the platform asserts, and the request may be run again.
     """
     if not job.status.is_terminal:
         return False
-    report = await session.scalar(select(Report.id).where(Report.job_id == job.id).limit(1))
-    return report is None
+    report = await session.scalar(select(Report).where(Report.job_id == job.id).limit(1))
+    return report is None or not report.is_current
 
 
 async def execute(

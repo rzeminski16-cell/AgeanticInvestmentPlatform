@@ -39,6 +39,7 @@ from aer.services import comps as comps_service
 from aer.services.knowledge import knowledge_stats
 from aer.services.sectors import CLASSIFY_STEP
 from tests.api_fixtures import build_app, client_for
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
@@ -169,7 +170,6 @@ async def _run(
         request_id=request.id,
         company_id=company.id,
         as_of_date=as_of,
-        immutable=approved,
         approved_by=user.id if approved else None,
         approved_at=datetime.now(UTC) if approved else None,
         content=content,
@@ -177,6 +177,8 @@ async def _run(
     )
     session.add(report)
     await session.flush()
+    if approved:
+        await make_current(session, report)
     return report
 
 

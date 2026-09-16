@@ -37,6 +37,29 @@
     {% endif %}
   {% endcall %}
 
+  {% if report_state == "superseded" and successor %}
+    {#
+      The band the page specification asks for (§8): a superseded report stays readable at
+      its own address for ever, and says in one line that it was superseded — when, by
+      what, and why — with a link (ADR 0116).
+    #}
+    <section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5" role="status" id="superseded-band">
+      <p class="type-body text-ink">
+        This report was superseded on {{ report.superseded_at.strftime("%d %B %Y") }} by
+        <a href="/reports/{{ successor.id }}" class="underline underline-offset-[3px]" id="successor-link">the report as at {{ successor.as_of_date.isoformat() }}</a>.
+        {{ report.supersession_reason }}
+      </p>
+    </section>
+  {% elif report_state == "withdrawn" %}
+    <section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5" role="status" id="withdrawn-band">
+      <p class="type-body text-ink">
+        This report was withdrawn on {{ report.superseded_at.strftime("%d %B %Y") }} and is no
+        longer what the platform asserts about this company. It stays readable, unchanged.
+        Reason: {{ report.supersession_reason }}
+      </p>
+    </section>
+  {% endif %}
+
   {% if report.immutable %}
     {{ ui.verdict(
       "THE RECORD",
@@ -89,6 +112,29 @@
       </span>
     {% endif %}
   </nav>
+
+  {% if report_state == "current" %}
+    {#
+      Withdrawal: the operator's way to stop a wrong report being current with nothing to
+      put in its place (ADR 0116). A reason is required; the report itself is untouched.
+    #}
+    {% call ui.disclosure("Withdraw this report") %}
+      <form method="post" action="/reports/{{ report.id }}/withdraw" id="withdraw-form" class="mt-3 flex flex-col gap-3">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <p class="type-body-sm text-ink-muted">
+          Withdrawing stops this report being what the platform asserts about the company.
+          It stays readable, unchanged, at this address; the request may then be run again.
+        </p>
+        <label for="withdraw-reason" class="block type-label text-ink">Why (required, recorded in the audit trail)</label>
+        <input type="text" id="withdraw-reason" name="reason" maxlength="4000" required
+               class="min-h-11 w-full max-w-prose rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+        <div>
+          <button type="submit" id="withdraw-report"
+                  class="inline-flex min-h-11 items-center rounded-sm border border-danger-action px-3 type-label text-danger-action hover:bg-failure-wash">Withdraw this report</button>
+        </div>
+      </form>
+    {% endcall %}
+  {% endif %}
 
   {% call ui.sheet("The report", subtitle="The archived Markdown, exactly as stored — the hashed record of what was approved. The preview shows the same rows as a formatted page.") %}
     {# Text, not markup: see the note in the draft review page. #}

@@ -22,6 +22,7 @@ from starlette.status import HTTP_404_NOT_FOUND
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.db.models import Artefact, Report, User, WorkOrder
 from aer.errors import AerError
+from aer.services.reports import report_state
 from aer.storage.local import LocalArtefactStore
 
 __all__ = ["ReportRead", "router"]
@@ -49,6 +50,11 @@ class ReportRead(BaseModel):
     confidence: float | None
     content_hash: str
     immutable: bool
+    # ADR 0116: what happened to the report after approval, if anything.
+    state: str
+    superseded_by: uuid.UUID | None
+    superseded_at: str | None
+    supersession_reason: str | None
     sections: list[Any]
     markdown: str
 
@@ -66,6 +72,10 @@ async def read_report(report_id: uuid.UUID, session: DbSession, user: CurrentUse
         confidence=report.confidence,
         content_hash=report.content_hash,
         immutable=report.immutable,
+        state=report_state(report),
+        superseded_by=report.superseded_by,
+        superseded_at=(report.superseded_at.isoformat() if report.superseded_at else None),
+        supersession_reason=report.supersession_reason,
         sections=list(content.get("sections", [])),
         markdown=str(content.get("markdown", "")),
     )

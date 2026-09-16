@@ -38,6 +38,7 @@ from aer.services.history import (
     prior_risks_for,
     timing_deadline,
 )
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
@@ -138,11 +139,10 @@ async def _approved_report(
         content={"markdown": "prior"},
         content_hash="a" * 64,
         approved_at=APPROVED_AT,
-        immutable=True,
     )
     session.add(report)
     await session.flush()
-    return report
+    return await make_current(session, report)
 
 
 @pytest.fixture

@@ -2074,7 +2074,7 @@ class TestTheHistorySurfaces:
         page = await api.get("/reports")
         assert page.status_code == 200
         assert "Microsoft Corporation (MSFT)" in page.text
-        assert ">Approved<" in page.text
+        assert ">Current<" in page.text
         assert ">Draft<" in page.text  # the work list shows drafts, badged
         assert f"/companies/{company_id}" in page.text
 

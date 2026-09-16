@@ -7,7 +7,9 @@ human approves it.
 Once approved, its content must not change — not because editing is dishonest, but because
 an edited report and the original are two different documents and only one of them is what
 was approved. A revision is a new run producing a new report, which is also what keeps the
-history of a view over time honest.
+history of a view over time honest — and the new report *supersedes* the old one, with a
+reason, rather than replacing it (ADR 0116): the old stays readable at its own address,
+and exactly one report per company is current.
 
 **``rating`` is a non-binding personal view, and the schema says so nowhere.** It cannot:
 the disclaimer belongs on every rendered surface, which is a rendering concern. What this
@@ -24,11 +26,13 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import (
     CheckConstraint,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Index,
     Numeric,
     String,
+    Text,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -109,12 +113,54 @@ class Report(Base):
         nullable=False, default=False, server_default=text("false")
     )
 
+    # -- Supersession (ADR 0116) --------------------------------------------------------------
+    #
+    # A report is superseded, never replaced. ``superseded_by`` names the successor,
+    # ``superseded_at`` says when that was decided and ``supersession_reason`` says why; a
+    # withdrawal is a supersession with no successor. Current means approved, not superseded
+    # and not withdrawn, and the partial unique index below makes two current reports for
+    # one company unrepresentable.
+    superseded_by: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("reports.id", ondelete="RESTRICT")
+    )
+    superseded_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
+    supersession_reason: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[Timestamp] = created_at_column()
+
+    @property
+    def is_current(self) -> bool:
+        """Approved, and neither superseded nor withdrawn: what the platform asserts now."""
+        return self.immutable and self.superseded_by is None and self.superseded_at is None
+
+    @property
+    def is_withdrawn(self) -> bool:
+        return self.superseded_at is not None and self.superseded_by is None
+
+    @property
+    def is_superseded(self) -> bool:
+        return self.superseded_by is not None
 
     job: Mapped[Job] = relationship()
     request: Mapped[ResearchRequest] = relationship()
 
     __table_args__ = (
+        # Exactly one current report per company, enforced by the database (ADR 0116).
+        Index(
+            "reports_one_current_per_company",
+            "company_id",
+            unique=True,
+            postgresql_where=text("immutable AND superseded_by IS NULL AND superseded_at IS NULL"),
+        ),
+        CheckConstraint("id <> superseded_by", name="report_does_not_supersede_itself"),
+        CheckConstraint(
+            "(superseded_at IS NULL) = (supersession_reason IS NULL)",
+            name="report_supersession_is_dated_and_explained",
+        ),
+        CheckConstraint(
+            "superseded_by IS NULL OR superseded_at IS NOT NULL",
+            name="report_successor_implies_supersession",
+        ),
         CheckConstraint("char_length(content_hash) = 64", name="content_hash_is_sha256"),
         CheckConstraint(
             "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",

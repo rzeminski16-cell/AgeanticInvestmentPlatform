@@ -36,6 +36,7 @@ from aer.services.catalyst_resolutions import (
     resolutions_for,
 )
 from aer.services.knowledge import knowledge_stats
+from tests.report_fixtures import make_current
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
 pytestmark = pytest.mark.anyio
@@ -90,7 +91,6 @@ async def _approved_report_with_catalyst(
         request_id=request.id,
         company_id=company.id,
         as_of_date=AS_OF,
-        immutable=True,
         approved_by=user.id,
         approved_at=datetime.now(UTC),
         content=content,
@@ -98,7 +98,7 @@ async def _approved_report_with_catalyst(
     )
     session.add(report)
     await session.flush()
-    return report
+    return await make_current(session, report)
 
 
 @pytest.fixture

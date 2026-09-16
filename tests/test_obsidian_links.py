@@ -47,6 +47,7 @@ from aer.obsidian import (
 from aer.services import approvals as approval_service
 from aer.services.comps import PEER_SET_STEP, peer_set_payload
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
@@ -125,10 +126,11 @@ async def _report(
         content={"markdown": markdown},
         content_hash="e" * 64,
         approved_at=approved_at,
-        immutable=approved_at is not None,
     )
     session.add(report)
     await session.flush()
+    if approved_at is not None:
+        await make_current(session, report, approved_at=approved_at)
     return report
 
 
@@ -418,9 +420,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
 
 async def _approve_a2(db_session: AsyncSession, scene: dict[str, Any]) -> None:
-    scene["a2_report"].approved_at = A2_APPROVED
-    scene["a2_report"].immutable = True
-    await db_session.flush()
+    await make_current(db_session, scene["a2_report"], approved_at=A2_APPROVED)
 
 
 def _note(settings: Settings, relative: str) -> frontmatter.Post:
