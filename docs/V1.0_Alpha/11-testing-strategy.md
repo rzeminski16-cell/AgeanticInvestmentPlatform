@@ -53,7 +53,9 @@ any of the above:
   three latent hazards and the verification: a test-class filter in
   `test_contract_schema.py`, the unordered `select(User)` reads in the drivers, and a nightly
   shuffled CI job with a fresh seed on its summary line, which is what verifies the widened
-  runner from now on. All three are done.
+  runner from now on. All three are done, and the first fresh seed on the widened runner —
+  `just test-shuffled 937541`, 16 September — gave 6,982 passed, 2 deselected, 0 failed, in
+  26 min 31 s.
 - **CI was red on every run from 2026-09-09.** The cause recorded at the time was `ruff
   format --check` on Markdown snippets; that was never fixed by a commit and stopped failing
   by itself, because ruff formats Markdown only in preview mode. By 14 September the job was
@@ -119,6 +121,40 @@ passing as an expected failure. The harness is green when the inventory is empty
 transition — run against the fake scene, cost nothing and run on every commit. Anything
 needing a real filing (a gate page rendered over 496 unmapped concepts, a bank's sector gate)
 runs against a **stored run** restored from the corpus in §3.4. Neither half calls a model.
+
+**As built, 16 September 2026.** The inventory is `tests/journey_inventory.py`: 52 rows, read
+from code — the five non-terminal job statuses; the seven gates a run can raise, read from the
+web layer's step map (so BUDGET and THESIS, which no run opens, generate no row) in four
+dispositions, pending, rejected, stale because the page moved, stale because the seal drifted;
+the budget guard's two scopes; every `TriggerKind` at the final gate plus unverified citations;
+every error code the engine can record on a failed step; and the three error classes the runs
+pages catch on the problem page. Two product-side enums made that readable
+(`aer.workflow.pauses.PauseReason`, `BudgetScope`), and the same module names the three gates
+whose approval is verified against the live payload rather than a sealed hash
+(`LIVE_PAYLOAD_GATES`): for those, seal drift is a state the engine cannot produce, the
+inventory generates no row, and a test pins the set to the workflow's own calls. The builders
+and the three assertions are written once, in `tests/journey_harness.py`, against a
+`Surface` protocol; the browser half supplies a Playwright page (`tests/e2e/journey.py`,
+collected by `tests/e2e/test_journey.py`) and the shape half supplies the parsed HTML of the
+application running in-process (`audit/journey.py`, `python -m audit.smoke --journey`, a step
+of the CI test job). The vocabulary is read from code too: shell commands from the justfile
+and the CLI's registered commands, identifiers from the metric names, step keys, trigger
+kinds, error codes and status values.
+
+The first measurement, on every row the fake scene can construct: **32 red, 20 not yet
+constructible, 0 green.** The console prints the workflow's step keys on every run and tells
+the operator to type `just worker` on every unfinished one (`aer reseal` after seal drift), so
+the vocabulary assertion fails everywhere; the rows that also lack a way forward are the
+rejected gates (nothing offers to start again), the stale gates (nothing offers to decide
+again), both budget ceilings (named in a sentence whose only control is a bare *settings*
+link), the failed step with a remedy (stated, with nothing leading to the settings it names),
+the queued run and the problem page. The forward controls that exist do work: continuing a
+stranded, paused or failed run moves it, raising a per-run ceiling and continuing moves it,
+and every pending gate's link leads to a page whose approval moves it. `STILL_RED` records the
+32 with the measured defect, `UNCONSTRUCTED` the 20 with the reason; the browser half marks
+each `xfail(strict=True)` on the one exception it may raise, and the shape half exits non-zero
+when any row's verdict is not the recorded one — in either direction, so a fix that works has
+to move the record as well as the page.
 
 ### 3.2 The invariant assertions
 

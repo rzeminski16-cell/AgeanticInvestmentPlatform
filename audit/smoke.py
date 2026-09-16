@@ -1,6 +1,7 @@
 """The offline proof that the driver works, before any money moves.
 
     uv run python -m audit.smoke
+    uv run python -m audit.smoke --journey
 
 Two scenes on a scratch database the platform's own migrations build:
 
@@ -11,12 +12,17 @@ Two scenes on a scratch database the platform's own migrations build:
    EDGAR client: the plan is scripted, and acquisition must refuse because EDGAR's ticker
    list has no such company. Nothing is spent; the refusal is finding 1's proof.
 
+With ``--journey``, neither scene: the journey harness's shape half instead (`audit/journey.py`),
+every stopped state a run can be left in, rendered by the real handlers and asserted on in
+process, on the same scratch database.
+
 Reads ``.env`` for the model key only to satisfy settings validation; the fake provider
 answers every call. Writes to ``audit/out/smoke-*``.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -132,11 +138,56 @@ async def _scenes(url: str, artefacts: Path) -> dict[str, Any]:
     return results
 
 
-def main() -> int:
+def _journey(url: str, artefacts: Path, only: str | None) -> int:
+    """The journey harness's shape half, on the same scratch database. See `audit/journey.py`."""
+    os.environ["AER_DATABASE_URL"] = url
+    os.environ["AER_ARTEFACT_ROOT"] = str(artefacts)
+    # Fifty-odd applications start and stop here, one per row; their request logs would bury
+    # the verdicts. A signing key so that each does not announce it minted one of its own —
+    # the forms are posted back to the application that rendered them, on a scratch database.
+    os.environ.setdefault("AER_LOG_LEVEL", "WARNING")
+    os.environ.setdefault(
+        "AER_SECRET_KEY", "journey-shape-half-not-a-real-one"
+    )  # pragma: allowlist secret
+    sys.path.insert(0, str(Path.cwd()))
+
+    from audit.journey import run_journey  # noqa: PLC0415
+
+    verdicts = run_journey(url, out_dir=Path("audit/out/smoke-journey"), only=only)
+    wrong = [verdict for verdict in verdicts if not verdict.ok]
+    tally = {
+        "rows": len(verdicts),
+        "green": sum(verdict.measured == "green" for verdict in verdicts),
+        "red": sum(verdict.measured == "red" for verdict in verdicts),
+        "unconstructed": sum(verdict.measured == "unconstructed" for verdict in verdicts),
+        "errors": sum(verdict.measured == "error" for verdict in verdicts),
+        "not_as_recorded": [verdict.key for verdict in wrong],
+    }
+    print(json.dumps(tally, indent=2))
+    return 1 if wrong or not verdicts else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--journey",
+        action="store_true",
+        help="run the journey harness's shape half instead of the two scenes",
+    )
+    parser.add_argument(
+        "--only",
+        metavar="REGEX",
+        help="with --journey: only the rows whose key matches",
+    )
+    args = parser.parse_args(argv)
     url = _scratch_url()
     artefacts = Path(tempfile.mkdtemp(prefix="aer-audit-smoke-"))
     asyncio.run(_recreate(url))
     _prepare(url, artefacts)
+    if args.journey:
+        return _journey(url, artefacts, args.only)
     results = asyncio.run(_scenes(url, artefacts))
     verdict = {
         "fake_scene_status": results["fake_scene"].get("status"),

@@ -1,11 +1,11 @@
 """One test per stopped state: does the interface offer a way forward, and does it work?
 
 The rows come from `tests/journey_inventory.py`; the construction and the three assertions
-from `tests/e2e/journey.py`. A row in `STILL_RED` is expected to fail on a `DeadEndError`
-and on nothing else; a row in `UNCONSTRUCTED` is expected to fail with "no path constructed"
-and on nothing else; both are strict, so a fix that works flips a row and a fix that does
-not fails the build. Every other row must pass. The harness is green when `STILL_RED` is
-empty.
+from `tests/journey_harness.py`, driven here through a real browser. A row in `STILL_RED`
+is expected to fail on a `DeadEndError` and on nothing else; a row in `UNCONSTRUCTED` is
+expected to fail with "no path constructed" and on nothing else; both are strict, so a fix
+that works flips a row and a fix that does not fails the build. Every other row must pass.
+The harness is green when `STILL_RED` is empty.
 """
 
 from __future__ import annotations
@@ -13,8 +13,16 @@ from __future__ import annotations
 import pytest
 from playwright.sync_api import Page
 
-from tests.e2e.journey import DeadEndError, NoPathConstructedError, Scene, build, check
-from tests.journey_inventory import STILL_RED, UNCONSTRUCTED, Family, StoppedState, inventory
+from tests.e2e.journey import BrowserSurface
+from tests.journey_harness import (
+    DeadEndError,
+    NoPathConstructedError,
+    Scene,
+    build,
+    check,
+    environment_for,
+)
+from tests.journey_inventory import STILL_RED, UNCONSTRUCTED, StoppedState, inventory
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -36,12 +44,8 @@ def journey_env(
 ) -> pytest.MonkeyPatch:
     """The ceilings a budget row needs, set before the server and the worker read them."""
     state: StoppedState = request.node.callspec.params["state"]
-    if state.family is Family.BUDGET:
-        detail = state.detail or ""
-        if detail.endswith(":at_ceiling"):
-            settings_env.setenv("AER_PER_RUN_BUDGET_GBP", "2.00")
-        if detail == "monthly":
-            settings_env.setenv("AER_MONTHLY_BUDGET_GBP", "1.00")
+    for name, value in environment_for(state).items():
+        settings_env.setenv(name, value)
     return settings_env
 
 
@@ -56,6 +60,6 @@ def test_every_stopped_state_offers_a_way_forward(
     database_url: str,
 ) -> None:
     del journey_env  # ordered before the server on purpose; its work is done
-    scene = Scene(page=page, live_server=live_server, database_url=database_url)
+    scene = Scene(surface=BrowserSurface(page), live_server=live_server, database_url=database_url)
     job_id = build(state, scene)
     check(state, scene, job_id)

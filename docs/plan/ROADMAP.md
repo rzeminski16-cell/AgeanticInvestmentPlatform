@@ -967,6 +967,16 @@ found rather than as scope that was always there.
    is the run exports, the rendered documents and every gate payload — enough to read, not to
    replay. The corpus is re-seeded once (three runs, ~£23) in Phase 1½ and backed up at once,
    and Phase 1.8's backup-and-restore exercise is no longer optional hygiene.
+3. **The journey harness's first measurement, 16 September 2026.** Built red as §2.11 asks,
+   and the red is wider than §2.11 counted: the console prints the workflow's step keys on
+   every run, so every constructible stopped state fails the vocabulary assertion, not only
+   the gate pages with their 135 identifiers; the two budget ceilings name their remedy in a
+   sentence whose only control is a bare *settings* link; and the failed step's remedy is
+   stated with nothing leading to it. Phase 1.4's ratchet therefore starts at the console.
+   Narrower than expected in one place: the three gates whose approval is checked against the
+   live payload (assumptions, peers, themes) have no seal to drift, so F-16's seal-drift case
+   exists only at the plan and final gates, which is where Phase 1.2's re-seal control
+   belongs. The measured lists are the record (`tests/journey_inventory.py`).
 
 ### Before this leaves one machine
 

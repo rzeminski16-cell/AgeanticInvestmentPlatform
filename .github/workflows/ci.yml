@@ -91,6 +91,15 @@ jobs:
           uv run pytest tests/test_evaluation_gate.py tests/test_eval_metrics.py
           tests/test_eval_replay.py tests/test_calc_golden.py -q
 
+      # The journey harness's shape half (docs/V1.0_Alpha/11-testing-strategy.md §3.1): every
+      # state a run can stop in, rendered by the real handlers in this process and asserted
+      # on — a forward control, clean text, pressing it moves. The browser half runs in the
+      # browser job. Red on purpose until the dead ends are fixed: this step fails when a
+      # row's verdict is not the one `tests/journey_inventory.py` records, in either
+      # direction, so a fix that works must also update the record.
+      - name: Journey harness, shape half
+        run: uv run python -m audit.smoke --journey
+
   browser:
     name: Browser tests
     runs-on: ubuntu-latest

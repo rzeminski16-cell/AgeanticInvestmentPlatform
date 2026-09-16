@@ -102,7 +102,8 @@ Everything here is provable offline and costs nothing but sessions.
    win the walk; every unordered `select(User)` in a driver replaced by the run's owner or an
    assertion that exactly one user exists (`tests/workflow_fixtures.py`); and a nightly
    shuffled job (`.github/workflows/nightly-shuffled.yml`) with a fresh seed on its summary
-   line — which is the verification, every night, on the widened runner.
+   line — which is the verification, every night, on the widened runner. The first fresh
+   seed, `just test-shuffled 937541` on 16 September: 6,982 passed, 2 deselected, 0 failed.
 2. **Fix the red CI job and keep it green.** It was red for two reasons neither this page nor
    the testing strategy named: `ruff check` failed on one unsorted import
    (`tests/test_assumption_outcomes.py`), and `tests/test_type_scale.py` pinned
@@ -113,8 +114,20 @@ Everything here is provable offline and costs nothing but sessions.
    left scope by themselves. Both fixed 16 September, with `tests/test_pinned_paths.py` so a
    moved document fails one test rather than the whole suite.
 3. **Build the journey harness red**, from the inventory, *before* the first dead end is fixed —
-   so every fix afterwards has a number it moves.
-   [`11-testing-strategy.md`](11-testing-strategy.md) §3.1 specifies it.
+   so every fix afterwards has a number it moves. **Done 16 September**, and red:
+   [`11-testing-strategy.md`](11-testing-strategy.md) §3.1 records what was built and what it
+   measured — 52 rows generated from code, 32 red, 20 not yet constructible on the fake scene,
+   none green. Two lists in `tests/journey_inventory.py` are the record: `STILL_RED` names
+   each red row with its measured defect, `UNCONSTRUCTED` each unbuildable row with the
+   reason, and both halves (`just test-journey`) fail when a row's verdict moves in either
+   direction. So a fix in Phase 1.2–1.4 is done when it deletes its row from `STILL_RED` and
+   the harness stays green; a fix that leaves the row in place fails the build as an
+   unexpected pass. Two things the harness still owes, both harness backlog rather than
+   platform backlog: the `PauseReason` enum is defined but not yet written by the engine's
+   raise sites (the builders read the pause message for now), and the twenty unconstructed
+   rows each need a fixture — a scene that raises the sector or unmapped-concepts gate, a
+   section brain that plants an unverifiable citation, a fixture per escalation trigger, and
+   a forged stale form for the conflict page.
 
 Then the rest of Phase 1 in [`05-delivery-plan.md`](05-delivery-plan.md) §5.
 

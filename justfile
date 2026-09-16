@@ -264,6 +264,16 @@ test-e2e:
 test-live:
     uv run pytest -m live_llm
 
+# The journey harness (docs/V1.0_Alpha/11-testing-strategy.md §3.1): every state a run can
+# stop in offers a labelled way forward, in the interface, without the terminal. Two halves
+# over one inventory (`tests/journey_inventory.py`). The browser half is inside `test-e2e`;
+# the shape half renders the same pages in-process on the smoke's scratch database and is
+# inside `ci`. Both are red on purpose until the dead ends are fixed, and a fix that works
+# must move a row out of `STILL_RED` or the build fails the other way.
+test-journey:
+    uv run pytest tests/e2e/test_journey.py
+    uv run python -m audit.smoke --journey
+
 # Everything, including the browser tests.
 #
 # Two processes, not one. Playwright's synchronous API drives an asyncio loop on the main
@@ -303,6 +313,7 @@ eval:
 
 # Everything CI runs, in the same order.
 ci: lint typecheck test
+    uv run python -m audit.smoke --journey
 
 # Run every pre-commit hook against the whole tree.
 hooks:
