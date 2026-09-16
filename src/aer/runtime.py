@@ -34,6 +34,7 @@ from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
 from aer.sources.eodhd.budget import WeightedCallBudget
 from aer.sources.eodhd.client import EodhdClient
+from aer.sources.macro.client import MacroClient
 from aer.sources.sec.client import SecEdgarClient
 from aer.sources.uk.companies_house import basic_auth_header
 from aer.storage.local import LocalArtefactStore
@@ -61,6 +62,12 @@ class ServiceBundle:
     # that decision to a failure several layers down.
     eodhd_client: EodhdClient | None = None
 
+    # Always built: the client needs no credential to exist, and refuses a FRED series at
+    # the point of use when no key is set. Built here on every machine and, until Phase 1.6,
+    # constructed nowhere — the same omission that lost the price client, so every run
+    # asked the operator to type a government yield the platform could have fetched.
+    macro_client: MacroClient | None = None
+
     def for_execution(self) -> dict[str, Any]:
         """Everything :func:`aer.services.runs.execute` takes from this bundle, by name.
 
@@ -76,6 +83,7 @@ class ServiceBundle:
             "sec_client": self.sec_client,
             "fetcher": self.fetcher,
             "eodhd_client": self.eodhd_client,
+            "macro_client": self.macro_client,
         }
 
 
@@ -111,6 +119,7 @@ def build_services(
     )
     fetcher = build_fetcher(settings, store=artefact_store, redis=redis)
 
+    fred_key = settings.fred_api_key
     return ServiceBundle(
         settings=settings,
         provider=provider or build_provider(settings),
@@ -119,6 +128,13 @@ def build_services(
         sec_client=SecEdgarClient(fetcher, store=artefact_store),
         fetcher=fetcher,
         eodhd_client=_eodhd_client(settings, fetcher=fetcher, store=artefact_store, redis=redis),
+        # The key is optional here and required at the point of use: the client refuses a
+        # FRED series without one, in a sentence the macro step records rather than raises.
+        macro_client=MacroClient(
+            fetcher,
+            artefact_store,
+            fred_api_key=fred_key.get_secret_value() or None if fred_key is not None else None,
+        ),
     )
 
 

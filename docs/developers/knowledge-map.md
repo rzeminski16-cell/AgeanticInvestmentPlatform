@@ -54,7 +54,7 @@ prints each step's recorded readout without spending anything.
 ```mermaid
 flowchart TD
     plan --> critique_plan --> gate_plan{{gate_plan}}
-    gate_plan --> acquire --> classify
+    gate_plan --> acquire --> acquire_macro --> classify
     classify --> gate_sector_specialist{{gate_sector_specialist}}
     gate_sector_specialist --> propose_peers --> gate_peer_set{{gate_peer_set}}
     gate_peer_set --> propose_themes --> gate_theme_set{{gate_theme_set}}
@@ -80,6 +80,7 @@ What to know per step, beyond the diagram:
 | `critique_plan` | `agents/plan_critic` | yes (~£0.30 with a revision) | Attacks the plan before gate 1; one planner revision at severity ≥ 3 (ADR 0091) |
 | `gate_plan` | `services/approvals` | no | First of the two gates every run passes |
 | `acquire` | `services` + `sources/sec` or `sources/uk` | no | Filings fetched, hashed, stored |
+| `acquire_macro` | `services/macro_acquisition` + `sources/macro` | no (a statistics archive, no key needed to exist) | The risk-free series for the filings' currency at the run's own vintage, recorded and converted through the traced calculation; every way of having no rate is a sentence the assumptions gate shows, never a failure (Phase 1.6) |
 | `classify` | `services` | no | Filing types; may trigger the sector gate |
 | `propose_peers` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the EODHD subscription |
 | `acquire_prices` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the subscription, and **after `extract`**: it prefers the filed share count to the vendor's, and `extract` is the step that writes the facts it reads |

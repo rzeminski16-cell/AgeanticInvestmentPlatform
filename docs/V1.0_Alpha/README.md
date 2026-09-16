@@ -49,12 +49,13 @@ read back and found thin in eight places. These answer *how*, where the first si
 | 11 | [`11-testing-strategy.md`](11-testing-strategy.md) | The journey harness, what asserts the invariants once three of them change, how the judgement layer is tested with no live run, and the nine things that must be green before a measurement round may spend |
 | 12 | [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md) | **Measured, not planned.** Phase 0.1, run for £3.96: the eighteen judges asked what would have to be different. Self-contradiction outranks everything and is small work; "state a view" was not asked for once; and fixing everything they named still leaves eight of nine at *partly* |
 
-## The eleven ADRs
+## The twelve ADRs
 
 An ADR before the code, wherever a feature says it needs one. Ten were drafted with this
 folder; the eleventh (0123) was written on 16 September for Phase 1.2, which the delivery
-plan had called ADR-shaped without numbering. All sit in [`../adr/`](../adr/), marked
-**Proposed** until the change each argues lands.
+plan had called ADR-shaped without numbering, and the twelfth (0124) the same day for the
+second half of Phase 1.6, the standing equity risk premium. All sit in
+[`../adr/`](../adr/), marked **Proposed** until the change each argues lands.
 
 | ADR | Decides | For |
 |---|---|---|
@@ -69,6 +70,7 @@ plan had called ADR-shaped without numbering. All sit in [`../adr/`](../adr/), m
 | [0121](../adr/0121-a-uk-filer-is-acquired-from-its-own-accounts.md) | A UK filer is acquired from its own accounts — there is no companyfacts equivalent | F19 |
 | [0122](../adr/0122-the-knowledge-map-learns-what-you-decided.md) | The knowledge map learns what you decided, and still becomes evidence for nothing | F20 |
 | [0123](../adr/0123-a-decision-at-a-gate-is-superseded-and-a-rejection-ends-the-run.md) | A decision at a gate is superseded, never re-asserted; a rejection ends the run; re-seal and re-measure are controls | Phase 1.2 (F-16, F-22) |
+| [0124](../adr/0124-a-standing-operator-assumption-is-a-stored-proposal-confirmed-at-every-gate.md) | A standing operator assumption is a settings override, proposed into every run and confirmed at the gate — never a macro observation, never an attestation | Phase 1.6 (the equity risk premium) |
 
 ## The evidence underneath it
 

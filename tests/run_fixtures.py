@@ -49,6 +49,9 @@ class Driver:
         )
         self.provider: FakeProvider = make_provider()
         self.sec_client = StubSecClient(self._store)
+        # ``None`` unless a test supplies one: the ordinary offline scene, where the macro
+        # step records that nothing was fetched and the gate asks for the rate.
+        self.macro_client: Any = None
 
     async def advance(self, job_id: uuid.UUID) -> JobStatus:
         async with self._factory() as session:
@@ -61,6 +64,7 @@ class Driver:
                 provider=self.provider,
                 store=self._store,
                 sec_client=self.sec_client,
+                macro_client=self.macro_client,
                 session_factory=self._factory if self._parallel else None,
             )
             await session.commit()

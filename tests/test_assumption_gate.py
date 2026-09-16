@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -37,7 +37,7 @@ from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import profile_for
-from aer.db.models import Approval, Assumption, Job, JobStep, User
+from aer.db.models import Approval, Assumption, Calculation, Job, JobStep, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import approvals as approval_service
@@ -62,12 +62,14 @@ from aer.services.assumption_gate import (
 from aer.services.assumption_proposals import CASH_COST_OF_DEBT_NAME
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
 from aer.services.assumptions import assumptions_for_request
+from aer.services.macro_acquisition import PROPOSED_BY as MACRO_BY
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import (
     FORECAST_YEARS,
+    MACRO_STEP,
     assumptions_gate_payload,
     assumptions_gate_refreshed,
     assumptions_gate_required,
@@ -76,6 +78,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
 from tests.api_fixtures import build_app, client_for
 from tests.assumption_fixtures import a_year, analysed, seed_years
 from tests.db_cleanup import delete_all
+from tests.macro_fixtures import StubMacroClient
 from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run
 from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, owner_of, seed_job
@@ -1362,6 +1365,127 @@ class TestTheGateVerifiesTheRowsNotTheRecord:
         await driver.advance(job_id)
 
         assert await driver.waiting_at(job_id) != "gate_assumptions"
+
+
+class TestTheRiskFreeRateComesFromTheAcquiredSeries:
+    """Phase 1.6, on a real driven run.
+
+    The macro step fetches the ten-year Treasury at the run's own vintage, so the gate
+    proposes the rate — under a proposer that says what it is, with the instrument, date
+    and vintage in the justification — and names nothing outstanding for it. Without a
+    client the gate still asks, with the step's own sentence rather than the structural one
+    written before the step existed.
+    """
+
+    @pytest.fixture
+    async def committed(self, db_engine: Any) -> Any:
+        yield await _fresh_request(db_engine)
+        await delete_all(db_engine)
+
+    @pytest.fixture
+    def enqueued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def record(redis: Any, job_id: uuid.UUID) -> str:
+            return f"task-{job_id}"
+
+        monkeypatch.setattr("aer.api.routes.runs.enqueue_run", record)
+        monkeypatch.setattr("aer.web.pages.enqueue_run", record)
+
+    @pytest.fixture
+    async def run_api(
+        self,
+        api_settings: Settings,
+        db_engine: Any,
+        fake_redis: Any,
+        committed: dict[str, Any],
+        enqueued: None,
+    ) -> Any:
+        async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+            yield client
+
+    @pytest.fixture
+    def driver(self, db_engine: Any, api_settings: Settings) -> Driver:
+        return Driver(db_engine, api_settings)
+
+    @staticmethod
+    async def _recorded(engine: Any, job_id: uuid.UUID, request_id: Any) -> tuple[Any, Any, Any]:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            macro = await session.scalar(
+                select(JobStep.output_ref).where(
+                    JobStep.job_id == job_id, JobStep.step_key == MACRO_STEP
+                )
+            )
+            produced = await session.scalar(
+                select(JobStep.output_ref)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "propose_assumptions")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            rows = await assumptions_for_request(session, request_id)
+            return macro, produced, {row.name: row for row in rows}
+
+    async def test_an_acquired_series_is_proposed_rather_than_asked_for(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        driver.macro_client = StubMacroClient(
+            {AS_OF_DATE - timedelta(days=1): "3.01", AS_OF_DATE: "3.05"}, vintage=AS_OF_DATE
+        )
+
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+
+        macro, produced, rows = await self._recorded(db_engine, job_id, committed["request"].id)
+        # Asked at this run's as-of date, for the documented series, and recorded.
+        assert driver.macro_client.asked == [("us_treasury_10y", AS_OF_DATE)]
+        assert macro["reason"] == ""
+        assert Decimal(macro["rate"]) == Decimal("0.0305")
+        assert macro["observed_on"] == AS_OF_DATE.isoformat()
+        # Proposed, never confirmed, and the row says a series put it forward.
+        proposed = rows[RISK_FREE_ASSUMPTION]
+        assert proposed.value == Decimal("0.0305")
+        assert proposed.proposed_by == MACRO_BY
+        assert proposed.approved is False
+        assert "3.05%" in proposed.justification
+        assert AS_OF_DATE.isoformat() in proposed.justification
+        # Nothing outstanding for it; the other two cost-of-capital inputs still are.
+        outstanding = {item["name"]: item["reason"] for item in produced["outstanding"]}
+        assert RISK_FREE_ASSUMPTION not in outstanding
+        assert BETA_ASSUMPTION in outstanding
+        assert EQUITY_RISK_PREMIUM_ASSUMPTION in outstanding
+
+    async def test_the_conversion_is_a_calculation_the_report_can_walk(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        """ADR 0027: the published percentage becomes a fraction through a traced step,
+        persisted under the run, never through an inline division."""
+        driver.macro_client = StubMacroClient({AS_OF_DATE: "3.05"}, vintage=AS_OF_DATE)
+
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            conversion = await session.scalar(
+                select(Calculation).where(
+                    Calculation.job_id == job_id,
+                    Calculation.function_ref == "aer.calc.wacc:rate_from_percent",
+                )
+            )
+        assert conversion is not None
+        assert conversion.output_value == Decimal("0.0305")
+
+    async def test_without_a_client_the_gate_asks_with_the_steps_own_sentence(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        assert driver.macro_client is None
+
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+
+        macro, produced, rows = await self._recorded(db_engine, job_id, committed["request"].id)
+        assert macro["rate"] == ""
+        assert "No macro client" in macro["reason"]
+        assert RISK_FREE_ASSUMPTION not in rows
+        outstanding = {item["name"]: item["reason"] for item in produced["outstanding"]}
+        assert "No macro client" in outstanding[RISK_FREE_ASSUMPTION]
+        assert "say which instrument and date" in outstanding[RISK_FREE_ASSUMPTION]
 
 
 class TestConfirmingIsOneActNotTen:

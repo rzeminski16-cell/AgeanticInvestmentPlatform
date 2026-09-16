@@ -402,6 +402,8 @@ class TestTheRatchetsVocabulary:
         assert proposer_words("aer.agents.peers") == "the peers model"
         assert proposer_words("aer.agents.assumptions") == "the assumptions model"
         assert proposer_words("aer.services.assumption_proposals") == "the platform's own rules"
+        # The risk-free rate's proposer since Phase 1.6: a series, not a rule or an opinion.
+        assert proposer_words("aer.services.macro") == "a published series"
         assert proposer_words("operator:audit") == "you"
         assert proposer_words("you@example.invalid") == "you@example.invalid"
         assert proposer_words("") == "nobody yet"

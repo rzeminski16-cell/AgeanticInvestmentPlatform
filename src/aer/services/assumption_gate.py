@@ -47,6 +47,7 @@ from aer.calc.residual_income import DRIVER_NAMES as RI_DRIVER_NAMES
 from aer.calc.residual_income import MAX_FORECAST_YEARS as RI_MAX_FORECAST_YEARS
 from aer.core.sectors import ValuationModel, model_for
 from aer.db.models import Assumption, ResearchRequest
+from aer.errors import ValidationError
 from aer.services.analysis import AnalysisOutcome
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_PROPOSED_BY
 from aer.services.assumption_proposals import (
@@ -56,6 +57,8 @@ from aer.services.assumption_proposals import (
     propose_derived,
 )
 from aer.services.assumptions import assumptions_for_request, propose
+from aer.services.macro_acquisition import PROPOSED_BY as MACRO_PROPOSED_BY
+from aer.services.macro_acquisition import RiskFreeAcquisition
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.subject import subject_name
 from aer.services.valuation import SCALAR_NAMES
@@ -514,6 +517,7 @@ async def assemble(
     findings: Sequence[str] = (),
     years: int,
     job_id: uuid.UUID | None = None,
+    risk_free: RiskFreeAcquisition | None = None,
 ) -> AssumptionGateOutcome:
     """Propose everything this run can, and name everything it cannot.
 
@@ -524,6 +528,11 @@ async def assemble(
         sector_key: The confirmed classification, or ``""`` for an ordinary company. A run
             whose sector has no model this build implements proposes nothing at all: the
             assumptions would be for a forecast that is never going to be built.
+        risk_free: What the macro step acquired for the discount rate's first input, or
+            ``None`` for a run recorded before that step existed (Phase 1.6). Acquired, it
+            is proposed as a derived assumption — a published yield, with its date, vintage
+            and publisher in the justification; not acquired, its sentence is the reason
+            the gate gives for asking.
 
     **Which numbers are proposed follows from which model will run** (ADR 0070). A bank gets
     a residual-income valuation, so it is asked for a return on equity and a payout ratio
@@ -549,6 +558,13 @@ async def assemble(
             session, request=request, analysis=analysis, derived=derived, job_id=job_id
         )
 
+    # The risk-free rate, from the series the macro step acquired (Phase 1.6). Both models
+    # want it: the cost of equity is the same CAPM chain whether or not debt is blended in.
+    if risk_free is not None and risk_free.acquired:
+        derived = await _propose_risk_free(
+            session, request=request, derived=derived, risk_free=risk_free, job_id=job_id
+        )
+
     opinions: tuple[BoundedProposal, ...] = ()
     consulted = False
     if agent_context is not None:
@@ -567,10 +583,17 @@ async def assemble(
     conditional = (COST_OF_DEBT_ASSUMPTION,) if needs_cost_of_debt else ()
     missing = outstanding_for(rows, years=years, conditional=conditional, model=model)
 
+    def reason(name: str) -> str:
+        # The macro step's own sentence — no key, a stale reading, a currency with no
+        # documented series — beats the structural one written before the step existed.
+        if name == RISK_FREE_ASSUMPTION and risk_free is not None and risk_free.reason:
+            return risk_free.reason
+        return _reason_for(name, outcome=derived)
+
     outcome = AssumptionGateOutcome(
         derived=derived,
         opinions=opinions,
-        outstanding=tuple((name, _reason_for(name, outcome=derived)) for name in missing),
+        outstanding=tuple((name, reason(name)) for name in missing),
         model_consulted=consulted,
     )
 
@@ -620,6 +643,55 @@ async def _propose_cash_cost_of_debt(
         proposed_by=DERIVED_PROPOSED_BY,
         job_id=job_id,
     )
+    return ProposalOutcome(derived=(*derived.derived, proposal), skipped=derived.skipped)
+
+
+async def _propose_risk_free(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    derived: ProposalOutcome,
+    risk_free: RiskFreeAcquisition,
+    job_id: uuid.UUID | None,
+) -> ProposalOutcome:
+    """Write the acquired yield as a proposal, or record why the row was not written.
+
+    Proposed, never confirmed: the operator agrees to it at the gate like every other
+    number (ADR 0046), and the row says who put it forward — a published series — so the
+    page can distinguish it from the platform's own derivations and from an opinion. It
+    joins ``derived`` because that is what it is: a figure this run read from a record
+    with a date, a vintage and a publisher, waiting for somebody to agree to it.
+
+    A published yield outside the plausible band is a fact about the market, not a reason
+    to fail the step; the name goes to the gate outstanding with the refusal, as an
+    implausible derivation does.
+    """
+    if risk_free.rate is None:
+        return derived
+    proposal = DerivedAssumption(
+        name=RISK_FREE_ASSUMPTION,
+        value=risk_free.rate,
+        unit="pure",
+        justification=risk_free.justification,
+        periods=(risk_free.observed_on,) if risk_free.observed_on is not None else (),
+    )
+    try:
+        await propose(
+            session,
+            request_id=request.id,
+            name=proposal.name,
+            value=proposal.value,
+            unit=proposal.unit,
+            justification=proposal.justification,
+            proposed_by=MACRO_PROPOSED_BY,
+            job_id=job_id,
+        )
+    except ValidationError as implausible:
+        _log.info("assumptions.risk_free_implausible", value=str(risk_free.rate))
+        return ProposalOutcome(
+            derived=derived.derived,
+            skipped=(*derived.skipped, f"{RISK_FREE_ASSUMPTION}: {implausible.message}"),
+        )
     return ProposalOutcome(derived=(*derived.derived, proposal), skipped=derived.skipped)
 
 

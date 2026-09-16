@@ -192,6 +192,7 @@ STEP_WORDS: Final[dict[str, str]] = {
     "critique_plan": "Critiquing the plan",
     "gate_plan": "Your decision — the plan",
     "acquire": "Fetching the filings",
+    "acquire_macro": "Fetching the risk-free rate",
     "classify": "Deciding what kind of business this is",
     "gate_sector_specialist": "Your decision — the sector",
     "propose_peers": "Proposing comparable companies",
@@ -583,8 +584,14 @@ def proposer_words(value: object) -> str:
         role = lowered.rsplit(".", 1)[-1].replace("_", " ")
         return f"the {role} model"
     if lowered.startswith("aer."):
-        return "the platform's own rules"
+        return _PLATFORM_PROPOSERS.get(lowered, "the platform's own rules")
     return raw.replace("_", " ")
+
+
+# The platform modules whose proposals are not its own rules. The risk-free rate arrives from
+# a published series fetched at the run's as-of vintage (Phase 1.6): neither a rule nor an
+# opinion, and the row's justification names the instrument, the date and the publisher.
+_PLATFORM_PROPOSERS: Final[dict[str, str]] = {"aer.services.macro": "a published series"}
 
 
 def composes_into_phrase(roles: Iterable[str]) -> str:

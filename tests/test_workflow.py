@@ -382,6 +382,9 @@ class TestTheWholeRun:
             "critique_plan",
             "gate_plan",
             "acquire",
+            # The risk-free series at the run's own vintage (Phase 1.6). Free, and on this
+            # scene without a macro client, so it records that nothing was fetched.
+            "acquire_macro",
             # Classification runs before anything is computed, because what kind of business
             # this is decides which valuation models may run.
             "classify",
@@ -856,6 +859,8 @@ class TestEveryStepThatSpendsIsOneTheGuardCanSee:
     FREE_STEPS = frozenset(
         {
             "acquire",
+            # One fetch from a statistics archive, no model (Phase 1.6).
+            "acquire_macro",
             "classify",
             # `propose_peers` was here until ADR 0059 gave it a model call, and it moved out
             # by failing this test rather than by anybody remembering to look.

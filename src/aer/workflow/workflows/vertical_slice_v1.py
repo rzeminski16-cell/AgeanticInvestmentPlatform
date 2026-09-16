@@ -138,6 +138,7 @@ from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
 from aer.services.history import prior_digest_for
+from aer.services.macro_acquisition import RiskFreeAcquisition, acquire_risk_free
 from aer.services.mandate import mandate_of
 from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_with
 from aer.services.price_acquisition import acquire_prices
@@ -413,6 +414,13 @@ def build_steps() -> list[WorkflowStep]:
         ),
         WorkflowStep(key="gate_plan", run=_gate_plan, gate=GateKind.PLAN.value),
         WorkflowStep(key="acquire", run=_acquire),
+        # The risk-free rate for the discount rate (Phase 1.6): one series at the run's own
+        # as-of vintage, recorded and converted before anything downstream reads it, so the
+        # assumptions gate proposes a published yield rather than asking for a typed one.
+        # Conditional on a client and a key in the only way that matters — by saying so —
+        # and never a failure of the run: nothing here spends, and a fetch that failed is a
+        # sentence the gate can show.
+        WorkflowStep(key=MACRO_STEP, run=_acquire_macro),
         # Classification before extraction, because what kind of business this is decides
         # which valuation models may run, and a run that discovers that after computing a
         # discounted cash flow has already computed it.
@@ -1349,16 +1357,50 @@ def assumptions_gate_required(produced: Mapping[str, Any]) -> bool:
     return gate_required(dict(produced))
 
 
+MACRO_STEP: Final = "acquire_macro"
+
+
+async def _acquire_macro(context: StepContext) -> StepResult:
+    """Fetch the currency's risk-free series as it stood on the as-of date (Phase 1.6).
+
+    The first of the three cost-of-capital inputs, from a published yield rather than a
+    typed one. One series — the documented proxy for the filings' reporting currency,
+    because a discount rate must match what it discounts — at this run's own vintage,
+    recorded in the vintage store and converted to the fraction the arithmetic needs
+    through the one sanctioned conversion, which is persisted here as a calculation the
+    report can walk.
+
+    Conditional in the only way that matters: no client, no key, no documented series for
+    the currency, an archive with nothing at the vintage, a reading too old — each is a
+    sentence in this step's record, and the assumptions gate names the rate outstanding
+    with that sentence. Nothing here spends, and nothing here fails the run.
+    """
+    request = await _request_for(context)
+    ledger = calculation_service.new_context()
+    acquired = await acquire_risk_free(
+        context.session,
+        context.optional_service("macro_client"),
+        # The filings' currency, because a discount rate must match what it discounts; a
+        # request that names none falls back to the operator's base currency.
+        currency=request.reporting_currency or request.base_currency,
+        as_of=request.work_order.as_of_date,
+        context=ledger,
+    )
+    if ledger.records:
+        await calculation_service.persist_context(context.session, ledger, job_id=context.job.id)
+    return StepResult(output=acquired.as_dict())
+
+
 async def _propose_assumptions(context: StepContext) -> StepResult:
     """Put a number against every assumption this run can, and name the rest.
 
-    **Six from the filings, two from a model, three left for the operator.** The derived six
-    come from :mod:`aer.services.assumption_proposals`; the terminal growth rate and the exit
-    multiple from the ADR 0046 role, bounded in code; and the three the discount rate
-    decomposes into — a risk-free rate, a beta and an equity risk premium — are named as
-    outstanding with the reason, because this workflow acquires neither a macro series nor a
-    price history and a beta invented here would be indistinguishable in the output from one
-    somebody sourced.
+    **Six from the filings, one from a published series, two from a model, two left for
+    the operator.** The derived six come from :mod:`aer.services.assumption_proposals`; the
+    risk-free rate from the series `_acquire_macro` fetched, when it could; the terminal
+    growth rate and the exit multiple from the ADR 0046 role, bounded in code; and the beta
+    and the equity risk premium are named as outstanding with the reason, because a beta
+    invented here would be indistinguishable in the output from one somebody sourced, and
+    the premium is a judgement no series carries.
 
     The analysis is **recomputed rather than re-read**. `_calculate` holds the
     :class:`~aer.services.analysis.AnalysisOutcome` only for the length of its own step, and
@@ -1390,6 +1432,9 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
             job_step=context.step,
         )
 
+    # What the macro step recorded, or ``None`` for a run recorded before the step existed:
+    # the gate then falls back to the reason it gave before there was a step to ask.
+    macro = context.outputs.get(MACRO_STEP)
     outcome = await assemble_assumptions(
         context.session,
         agent_context,
@@ -1399,6 +1444,7 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         findings=_findings_for(context),
         years=FORECAST_YEARS,
         job_id=context.job.id,
+        risk_free=RiskFreeAcquisition.from_dict(macro) if macro is not None else None,
     )
 
     rows = await assumptions_for_request(context.session, request.id)
