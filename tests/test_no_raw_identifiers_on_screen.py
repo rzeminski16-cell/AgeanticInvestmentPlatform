@@ -64,23 +64,11 @@ LEDGER: dict[str, tuple[int, str]] = {
         "The dry run's status. Its own small vocabulary, unmapped — a candidate for "
         "`vocabulary.py` when the skills surface is next opened.",
     ),
-    "runs/console.html": (
-        1,
-        "The step's key beside its `STEP_WORDS` name, as muted secondary text. Deliberate "
-        "and documented there: it is what a log line and the worker terminal say, so an "
-        "operator reading either needs it reachable.",
-    ),
-    "runs/review.html": (
-        1,
-        "The section's key beside its title, on the same principle as the console's, and "
-        "for the same reason: `aer diagnose` and `aer rehearse-section` are addressed by "
-        "key.",
-    ),
-    "runs/themes.html": (
-        1,
-        "A theme's key. Machine-shaped today; it becomes the operator's own word when "
-        "operator-authored themes land, and this entry goes with it.",
-    ),
+    # The console's step keys, the review page's section keys and the themes page's theme
+    # keys left the ledger with Phase 1.4 (16 September 2026): the journey harness's
+    # vocabulary assertion, which reads the rendered page rather than the template, holds
+    # every one of those pages at zero. A key an operator needs for `aer diagnose` rides
+    # in a `title` attribute, which is not the words a person reads.
     "calculations/detail.html": (
         1,
         "The name of one input to a calculation, from the stored ledger row. Provenance: "

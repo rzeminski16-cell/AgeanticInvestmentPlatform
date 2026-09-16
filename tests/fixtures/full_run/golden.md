@@ -250,7 +250,7 @@ Scripted text with no figure in it.
 
 ### How These Figures Were Produced
 
-No discounted cash flow was produced, so there is no method to describe. The discount rate needs risk_free_rate, beta, equity_risk_premium, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
+No discounted cash flow was produced, so there is no method to describe. The discount rate needs the risk-free rate, the beta and the equity risk premium, and no confirmed assumption of those names exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
 
 ## Scenarios & Sensitivities
 
@@ -302,23 +302,23 @@ This is the first research run for MICROSOFT CORP (MSFT). No prior approved repo
 
 ### Summary
 
-The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
+The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
 
 ### Validation Metrics
 
 | Metric | Score | Threshold | Verdict |
 |---|---|---|---|
-| assumption_completeness | — | at least 1.00000000 | not exercised |
-| citation_accuracy | 1.00000000 | at least 0.98000000 | pass |
-| cited_figure_agreement | 0E-8 | at most 0E-8 | pass |
-| figure_plausibility | 0E-8 | at most 0E-8 | pass |
-| hallucinated_citation_rate | 0E-8 | at most 0E-8 | pass |
-| look_ahead_recall | 1.00000000 | at least 1.00000000 | pass |
-| numerical_consistency | 0E-8 | at most 0.00500000 | pass |
-| presentation_integrity | 0E-8 | at most 0E-8 | pass |
-| primary_source_ratio | 1.00000000 | at least 0.60000000 | pass |
-| source_coverage | 1.00000000 | at least 0.90000000 | pass |
-| temporal_compliance | 1.00000000 | at least 1.00000000 | pass |
+| assumption completeness | — | at least 1.00000000 | not exercised |
+| citation accuracy | 1.00000000 | at least 0.98000000 | pass |
+| cited figure agreement | 0E-8 | at most 0E-8 | pass |
+| figure plausibility | 0E-8 | at most 0E-8 | pass |
+| hallucinated citation rate | 0E-8 | at most 0E-8 | pass |
+| look-ahead recall | 1.00000000 | at least 1.00000000 | pass |
+| numerical consistency | 0E-8 | at most 0.00500000 | pass |
+| presentation integrity | 0E-8 | at most 0E-8 | pass |
+| primary source ratio | 1.00000000 | at least 0.60000000 | pass |
+| source coverage | 1.00000000 | at least 0.90000000 | pass |
+| temporal compliance | 1.00000000 | at least 1.00000000 | pass |
 
 ## Comparable companies
 
@@ -334,42 +334,42 @@ A comparable-company analysis was attempted as at 30 June 2022, but its single p
 [^1]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^2]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^3]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^4]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^4]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^5]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^6]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^6]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^7]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^8]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^8]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^9]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^10]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^10]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^11]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^12]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^12]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^13]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^14]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^14]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^15]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^16]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^16]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^17]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^18]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^18]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^19]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^20]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^21]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^22]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) for FY2020 (`aer.calc.ratios:net_margin`, code version `<code>`).
-[^23]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^22]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) for FY2020 (code version `<code>`).
+[^23]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^24]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^25]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^25]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^26]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^27]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^27]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^28]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^29]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^29]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^30]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^31]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^31]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^32]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^33]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^33]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^34]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^35]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^35]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^36]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^37]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^37]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^38]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^39]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (`aer.calc.ratios:net_margin`, code version `<code>`).
+[^39]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 
 
 ## Sources

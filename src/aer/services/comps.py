@@ -285,7 +285,7 @@ async def confirmed_peer_set(session: AsyncSession, job: Job) -> tuple[PeerPropo
             f"This run proposed {len(payload['peers'])} peer(s) and nobody has confirmed "
             "them. A badly chosen peer moves a median more than most modelling choices and "
             "does it invisibly, so the set is not applied on a model's say-so. Decide at the "
-            "PEER_SET gate."
+            "peer set gate."
         )
         raise PeerSetNotConfirmedError(
             message, context={"job_id": str(job.id), "gate": GateKind.PEER_SET.value}

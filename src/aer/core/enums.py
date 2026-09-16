@@ -160,6 +160,28 @@ class GateKind(StrEnum):
     FINAL = "FINAL"
     THESIS = "THESIS"
 
+    @property
+    def spoken(self) -> str:
+        """The gate in the operator's words, for a sentence: "the peer set gate".
+
+        A pause message that says ``PEER_SET`` is a page that speaks in code (roadmap
+        §2.11); the enum's own value stays the record's, and this is the sentence's.
+        """
+        return _SPOKEN_GATES[self]
+
+
+_SPOKEN_GATES: Final[dict[GateKind, str]] = {
+    GateKind.PLAN: "plan",
+    GateKind.UNMAPPED_CONCEPTS: "financials",
+    GateKind.SECTOR_SPECIALIST: "sector",
+    GateKind.PEER_SET: "peer set",
+    GateKind.THEME_SET: "themes",
+    GateKind.ASSUMPTIONS: "assumptions",
+    GateKind.BUDGET: "ceiling",
+    GateKind.FINAL: "report",
+    GateKind.THESIS: "premise",
+}
+
 
 class Decision(StrEnum):
     """The outcome recorded at an approval gate."""

@@ -16,8 +16,13 @@
     </div>
   </section>
 
-  <p class="mt-6">
-    <a href="/requests" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+  <p class="mt-6 flex flex-wrap gap-4">
+    {% if back is defined and back %}
+      <a href="{{ back }}" id="back-to-run" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">
+        Back to the run
+      </a>
+    {% endif %}
+    <a href="/requests" class="inline-flex min-h-11 items-center type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
       All requests
     </a>
   </p>

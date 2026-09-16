@@ -242,7 +242,11 @@ class TestTheConsole:
 
         # The step's human name, not its key: the vocabulary reached the liveness line.
         expect(page.locator("#run-progress")).to_contain_text("Working on planning the research")
-        expect(page.locator("#run-progress")).to_contain_text("just worker")
+        # Where to look is a link to the worker's status, never a command to type (§2.11).
+        worker = page.locator("#run-progress #worker-status")
+        expect(worker).to_have_text("check whether the worker is still running")
+        expect(worker).to_have_attribute("href", "/settings#worker")
+        expect(page.locator("#run-progress")).not_to_contain_text("just worker")
 
     def test_reaching_a_gate_reveals_the_banner_without_a_manual_refresh(
         self, page: Page, live_server: str, queued_run: RunFixture

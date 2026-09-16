@@ -209,7 +209,7 @@ async def confirmed_theme_set(session: AsyncSession, job: Job) -> tuple[dict[str
         message = (
             f"This run proposed {len(payload['themes'])} theme(s) and nobody has confirmed "
             "them. A theme shapes how every later reader weighs the company, so it is not "
-            "applied on a model's say-so. Decide at the THEME_SET gate."
+            "applied on a model's say-so. Decide at the themes gate."
         )
         raise ThemeSetNotConfirmedError(
             message, context={"job_id": str(job.id), "gate": GateKind.THEME_SET.value}

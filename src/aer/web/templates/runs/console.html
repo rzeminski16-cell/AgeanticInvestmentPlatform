@@ -199,9 +199,8 @@
           making the call rather than after paying for it.
           {% if budget_scope == "monthly" %}
             The cap it reached is the ceiling across every run this month, so raising this
-            request&rsquo;s own cap will not release it &mdash; change the monthly budget in
-            <a class="underline underline-offset-[3px]" href="/settings">settings</a>, or
-            wait for the month to turn.
+            request&rsquo;s own cap will not release it. Wait for the month to turn, or
+            <a class="underline underline-offset-[3px]" href="/settings" id="change-monthly-budget">change the monthly budget</a>.
           {% else %}
             Raise this run&rsquo;s ceiling below, then continue the run &mdash; it picks up
             from where it stopped, and the steps already paid for are not repeated.
@@ -222,19 +221,21 @@
         id="run-failed"
       >
         <h2 class="type-title-2 text-ink">{{ failed_step.label }} failed</h2>
-        <p class="mt-2 type-body text-ink">
+        <p class="mt-2 type-body text-ink" title="{{ (failed_step.error or {}).get('code') or '' }}">
           {{ (failed_step.error or {}).get("message") or "The step did not finish. The worker terminal holds the full record." }}
         </p>
-        {% if (failed_step.error or {}).get("code") %}
-          <p class="mt-1 type-data-sm text-ink-muted">{{ failed_step.error.get("code") }}</p>
-        {% endif %}
         {% set remedy = (failed_step.error or {}).get("context", {}).get("remedy") %}
         {% if remedy %}
           {# A refusal only the operator can clear. Offering to continue would be advice
-             that costs them a step and teaches them nothing. #}
+             that costs them a step and teaches them nothing — so the way forward is where
+             the remedy lives. #}
           <p class="mt-3 type-body-sm text-ink-muted">
             Continuing before that is put right asks the same question and gets the same
             answer. The completed steps are kept either way.
+          </p>
+          <p class="mt-3">
+            <a href="/settings" id="open-settings"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Put it right in settings</a>
           </p>
         {% else %}
           <p class="mt-3 type-body-sm text-ink-muted">
@@ -356,8 +357,9 @@
         {% if cap.at_ceiling %}
           <p class="mt-4 type-body-sm text-ink" id="cap-at-ceiling">
             This request is already at the platform&rsquo;s own per-run budget of
-            {{ cap.ceiling_display }}, which no request may exceed. Raise that in
-            <a class="underline underline-offset-[3px]" href="/settings">settings</a> first.
+            {{ cap.ceiling_display }}, which no request may exceed.
+            <a class="underline underline-offset-[3px]" href="/settings" id="raise-platform-budget">Raise the platform&rsquo;s per-run budget</a>
+            first, then raise this run&rsquo;s ceiling here.
           </p>
         {% else %}
           <form method="post" action="/runs/{{ job.id }}/cap" id="raise-cap-form"
@@ -430,7 +432,6 @@
               <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
               <span class="min-w-0">
                 <span class="type-body {{ 'text-ink-muted' if step.status == 'QUEUED' else 'text-ink' }}">{{ step.label }}</span>
-                <span class="ml-2 type-data-sm text-ink-subtle">{{ step.key }}</span>
               </span>
             </span>
             <span class="flex items-baseline gap-3">
@@ -441,14 +442,12 @@
             {% if step.error %}
               {# The message, not the dictionary: the most important sentence on the page
                  deserves better than an unpunctuated error payload. #}
-              <p class="w-full type-body-sm text-failure-ink" data-field="error">
+              {# The code rides in the title, for the worker terminal's vocabulary, never
+                 in the text the operator reads. #}
+              <p class="w-full type-body-sm text-failure-ink" data-field="error"
+                 title="{{ step.error.get('code') or '' }}">
                 {{ step.error.get("message") or step.error }}
               </p>
-              {% if step.error.get("code") %}
-                <p class="w-full type-data-sm text-failure-ink" data-field="error-code">
-                  {{ step.error.get("code") }}
-                </p>
-              {% endif %}
             {% endif %}
           </li>
         {% else %}
@@ -481,9 +480,10 @@
         <p class="mt-2 type-body-sm text-ink-muted">
           A step that calls a model routinely takes two to five minutes: the model reasons
           before it writes, and nothing is recorded until it has finished. Past about ten
-          minutes on one step, look at the terminal running
-          <span class="type-data-sm">just worker</span> &mdash; that is where this run is
-          actually happening, and where a failure appears first.
+          minutes on one step,
+          <a href="/settings#worker" id="worker-status" class="underline underline-offset-[3px]">check whether the worker is still running</a>
+          &mdash; that is where this run is actually happening, and where a failure appears
+          first.
         </p>
         <p class="mt-2 type-body-sm text-ink-muted" data-field="last-seen">
           {# Filled in by the event stream. Absent until the first heartbeat arrives. #}

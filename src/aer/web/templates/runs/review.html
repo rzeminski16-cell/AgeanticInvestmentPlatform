@@ -175,8 +175,7 @@
               <tr>
                 <td class="py-2.5 pr-4 text-ink">
                   <span class="type-body-sm">{{ words.label }}</span>
-                  <span class="block max-w-prose type-body-sm text-ink-muted">{{ words.detail }}</span>
-                  <span class="block type-data-sm text-ink-subtle">{{ row.metric }}</span>
+                  <span class="block max-w-prose type-body-sm text-ink-muted" data-metric="{{ row.metric }}">{{ words.detail }}</span>
                 </td>
                 <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">
                   {{ row.value | trimmed }}
@@ -233,7 +232,7 @@
         <tbody class="divide-y divide-line">
           {% for row in coverage %}
             <tr>
-              <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.name }}</td>
+              <td class="py-2.5 pr-4 type-data-sm text-ink">{{ section_titles.get(row.name) or row.name | concept_name }}</td>
               {% if not row.generated %}
                 {# A section that never ran has no coverage to report (gap R16): the row
                    says what actually happened rather than arithmetic over an absence. #}
@@ -485,7 +484,6 @@
             <tr data-section="{{ section.key }}">
               <td class="py-2.5 pr-4 text-ink">
                 <span class="type-body-sm">{{ section.title }}</span>
-                <span class="block type-data-sm text-ink-muted">{{ section.key }}</span>
               </td>
               <td class="py-2.5 pr-4">
                 {% if section.status == "generated" %}
@@ -580,7 +578,6 @@
               <tr>
                 <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Name</th>
                 <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Period</th>
-                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Formula</th>
                 <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Result</th>
                 <th scope="col" class="py-2 type-eyebrow text-ink-muted">Inputs</th>
               </tr>
@@ -588,10 +585,11 @@
             <tbody class="divide-y divide-line">
               {% for row in calculations %}
                 <tr data-search="{{ row.name }} {{ row.period }} {{ row.formula }}">
-                  <td class="py-2 pr-4 type-data-sm text-ink">{{ row.name }}</td>
+                  {# The formula rides in the title and in the filter's index: it is the
+                     calculation's provenance, and provenance is code by nature. #}
+                  <td class="py-2 pr-4 type-data-sm text-ink" title="{{ row.formula }}">{{ row.name | concept_name }}</td>
                   {# Which year the figure belongs to (gap R11). #}
                   <td class="py-2 pr-4 type-data-sm text-ink">{{ row.period }}</td>
-                  <td class="py-2 pr-4 type-data-sm text-ink-muted">{{ row.formula }}</td>
                   <td class="py-2 pr-4 type-body-sm tabular-nums text-ink">{{ row.shown }}</td>
                   <td class="py-2 type-data-sm text-ink-muted">{{ row.input_count }}</td>
                 </tr>

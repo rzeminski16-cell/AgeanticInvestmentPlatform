@@ -75,8 +75,7 @@
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               {% set figure = row.name | assumption_figure(row.value, row.unit) %}
               <p class="type-body text-ink">
-                <span class="type-body text-ink">{{ row.name | concept_name }}</span>
-                <span class="type-data-sm text-ink-muted">{{ row.name }}</span>
+                <span class="type-body text-ink" data-assumption="{{ row.name }}">{{ row.name | concept_name }}</span>
                 &mdash;
                 <span class="type-data text-ink tabular-nums">{{ figure.shown }}</span>
                 {% if figure.stored %}
@@ -90,7 +89,7 @@
               {% endif %}
             </div>
             <p class="mt-1 type-body-sm text-ink-muted">
-              Proposed by <span class="type-data-sm">{{ row.proposed_by }}</span>{% if row.confidence is not none %},
+              Proposed by {{ row.proposed_by | proposer_words }}{% if row.confidence is not none %},
               confidence {{ row.confidence | percent }}{% endif %}.
             </p>
             {% if row.justification %}
@@ -204,7 +203,7 @@
       <ul class="mt-3 flex flex-col divide-y divide-line" id="outstanding-assumptions">
         {% for row in payload.outstanding %}
           <li class="py-4">
-            <p class="type-data text-ink">{{ row.name }}</p>
+            <p class="type-body text-ink" data-assumption="{{ row.name }}">{{ row.name | concept_name }}</p>
             <p class="mt-1 max-w-prose type-body-sm text-ink">{{ row.reason }}</p>
 
             {% if not decided %}

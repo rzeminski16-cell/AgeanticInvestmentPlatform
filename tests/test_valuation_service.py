@@ -176,8 +176,12 @@ class TestInputsFromAssumptions:
             )
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
-        with pytest.raises(MissingAssumptionError, match="ebit_margin_y3"):
+        # Said in words — the message reaches the report — with the identifier in context.
+        with pytest.raises(
+            MissingAssumptionError, match=r"EBIT margin driver .* year 3 missing"
+        ) as hole:
             inputs_from(values, **facts())
+        assert hole.value.context["missing"] == "ebit_margin_y3"
 
     async def test_a_missing_driver_refuses_and_says_what_it_looked_for(self, db_session, scene):
         await confirm_all(db_session, scene)
@@ -192,8 +196,9 @@ class TestInputsFromAssumptions:
         values = dict(await assumption_service.confirmed_values(db_session, scene["request"].id))
         del values["terminal_growth"]
 
-        with pytest.raises(MissingAssumptionError, match="terminal_growth"):
+        with pytest.raises(MissingAssumptionError, match="needs the terminal growth,") as refusal:
             inputs_from(values, **facts())
+        assert refusal.value.context["missing"] == "terminal_growth"
 
     async def test_an_unconfirmed_driver_never_reaches_the_forecast(self, db_session, scene):
         """`confirmed_values` filters it out, so this refuses as a missing driver."""
@@ -210,7 +215,7 @@ class TestInputsFromAssumptions:
         assert not assumption.approved
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
-        with pytest.raises(MissingAssumptionError, match="ebit_margin"):
+        with pytest.raises(MissingAssumptionError, match="EBIT margin driver has no confirmed"):
             inputs_from(values, **facts())
 
     async def test_every_driver_carries_its_assumption_source(self, db_session, scene):

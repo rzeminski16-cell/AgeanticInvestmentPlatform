@@ -2153,7 +2153,7 @@ async def _require_approval(
 
     if approval is None:
         message = (
-            f"This run is waiting for the {gate.value} gate. Nothing further happens, and "
+            f"This run is waiting for the {gate.spoken} gate. Nothing further happens, and "
             "nothing further is spent, until somebody approves or rejects it."
         )
         raise StepPaused(
@@ -2165,7 +2165,7 @@ async def _require_approval(
 
     if approval.decision not in approval_service.PASSING_DECISIONS:
         message = (
-            f"The {gate.value} gate was {approval.decision.value.lower()}. The run stops here."
+            f"The {gate.spoken} gate was {approval.decision.value.lower()}. The run stops here."
         )
         raise StepPaused(
             message,
@@ -2200,7 +2200,7 @@ async def _require_approval(
                 "and decide on what it shows now."
             )
         message = (
-            f"The {gate.value} approval was recorded against different content from what "
+            f"The {gate.spoken} approval was recorded against different content from what "
             "this run produced. An approval of something else is not an approval of this, "
             f"so the run stops rather than proceeding on it. {detail}"
         )

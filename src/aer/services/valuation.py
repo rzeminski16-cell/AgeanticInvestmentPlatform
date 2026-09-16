@@ -58,6 +58,7 @@ from aer.calc.dcf import (
 )
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity
+from aer.core.assumption_scales import assumption_words
 from aer.core.sectors import ValuationMandate
 from aer.db.models import Scenario, Sensitivity
 from aer.errors import AerError
@@ -75,6 +76,8 @@ __all__ = [
     "run_scenarios",
     "run_sensitivity",
     "run_valuation",
+    "spoken_assumption",
+    "spoken_assumptions",
 ]
 
 _log = structlog.get_logger("aer.services.valuation")
@@ -126,10 +129,41 @@ class MissingAssumptionError(AerError):
     Its own class rather than a `ValidationError`, because what the caller does about it is
     different: a malformed request is fixed by correcting the request, and this is fixed by
     somebody proposing and confirming an assumption.
+
+    Its message reaches the report: a run that could not value the company prints the
+    refusal in its valuation section. So the message names assumptions in words, and the
+    identifiers a caller matches on ride in ``context``.
     """
 
     code = "missing_assumption"
     http_status = 409
+
+
+def _assumption_words(name: str) -> str:
+    """The name in words. One outside the forecast's vocabulary is spelled out from its own
+    words rather than refused; a refusal is the wrong place to fail."""
+    return assumption_words(name) or name.replace("_", " ")
+
+
+def spoken_assumption(name: str) -> str:
+    """An assumption as a refusal names it: "the risk-free rate", "the EBIT margin in year 3"."""
+    return f"the {_assumption_words(name)}"
+
+
+def spoken_assumptions(names: Sequence[str]) -> str:
+    """``the tax rate, the terminal growth and the exit multiple`` — a sentence's list."""
+    spoken = [spoken_assumption(name) for name in names]
+    if len(spoken) <= 1:
+        return "".join(spoken)
+    return f"{', '.join(spoken[:-1])} and {spoken[-1]}"
+
+
+def _years_named(per_year_keys: Sequence[str]) -> str:
+    """``year 3``, or ``years 2 and 4`` — the missing years of a driver path."""
+    years = [key.rsplit("_y", 1)[1] for key in per_year_keys]
+    if len(years) == 1:
+        return f"year {years[0]}"
+    return f"years {', '.join(years[:-1])} and {years[-1]}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,10 +210,10 @@ def inputs_from(
     missing = [name for name in SCALAR_NAMES if name not in values]
     if missing:
         message = (
-            f"The valuation needs {', '.join(missing)}, and no confirmed assumption of that "
-            "name exists on this request. There is no house value for any of them: a "
-            "terminal growth rate this platform chose would be its opinion presented as the "
-            "operator's."
+            f"The valuation needs {spoken_assumptions(missing)}, and no confirmed assumption "
+            f"{'of that name' if len(missing) == 1 else 'of those names'} exists on this "
+            "request. There is no house value for any of them: a terminal growth rate this "
+            "platform chose would be its opinion presented as the operator's."
         )
         raise MissingAssumptionError(message, context={"missing": ",".join(missing)})
 
@@ -226,9 +260,10 @@ def driver_values(values: Mapping[str, Quantity], name: str, *, years: int) -> t
     if present and len(present) != years:
         absent = [key for key in per_year if key not in values]
         message = (
-            f"The driver {name!r} is confirmed for some years and not others: "
-            f"{', '.join(absent)} missing. A path with a hole in it is a mistake somebody "
-            "made, and filling it from the flat value would produce a forecast nobody wrote."
+            f"The {_assumption_words(name)} driver is confirmed for some years and not "
+            f"others: {_years_named(absent)} missing. A path with a hole in it is a mistake "
+            "somebody made, and filling it from the flat value would produce a forecast "
+            "nobody wrote."
         )
         raise MissingAssumptionError(message, context={"driver": name, "missing": ",".join(absent)})
 
@@ -239,9 +274,10 @@ def driver_values(values: Mapping[str, Quantity], name: str, *, years: int) -> t
         return (values[name],) * years
 
     message = (
-        f"The driver {name!r} has no confirmed assumption. Confirm either {name!r} for every "
-        f"year, or {', '.join(per_year)} for a path that changes. Every driver is a number "
-        "somebody chose and justified; there is no default for any of them."
+        f"The {_assumption_words(name)} driver has no confirmed assumption. Confirm either "
+        f"one value for every year, or one for each of the {years} years for a path that "
+        "changes. Every driver is a number somebody chose and justified; there is no "
+        "default for any of them."
     )
     raise MissingAssumptionError(
         message, context={"driver": name, "looked_for": ",".join([name, *per_year])}

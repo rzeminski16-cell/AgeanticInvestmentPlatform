@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 
+from aer.core.assumption_scales import ASSUMPTION_WORDS, EXPECTED_UNIT, assumption_words
 from aer.core.enums import (
     AnalysisMode,
     Decision,
@@ -29,6 +30,7 @@ from aer.core.enums import (
     JobStatus,
     PremiseVerdict,
     ProcessQuality,
+    Provider,
     RequestStatus,
     ShockKind,
     SkillKind,
@@ -36,9 +38,16 @@ from aer.core.enums import (
 )
 from aer.core.escalation import TriggerKind
 from aer.db.models.report_section import SectionStatus
-from aer.eval.metrics import Metric
+from aer.eval.metrics import Metric, spoken_metric
+from aer.sections.valuation_method import (
+    _FORECAST_ASSUMPTIONS,
+    _RESIDUAL_INCOME_ASSUMPTIONS,
+    _WACC_ASSUMPTIONS,
+)
 from aer.services import sources
+from aer.services.valuation import spoken_assumption, spoken_assumptions
 from aer.web import vocabulary
+from aer.web.figures import concept_name
 from aer.web.overview.research import GATE_ASKS
 from aer.web.portfolio.pages import GRADE_LABELS
 from aer.web.vocabulary import (
@@ -60,6 +69,8 @@ from aer.web.vocabulary import (
     HumanState,
     Tone,
     metric_words,
+    proposer_words,
+    provider_words,
 )
 from aer.workflow.workflows.vertical_slice_v1 import build_steps
 
@@ -367,3 +378,83 @@ class TestEveryMetricHasWords:
         """A run recorded under a build that measured something this one does not must
         still render its history."""
         assert metric_words("a_metric_no_build_has").label == "a_metric_no_build_has"
+
+
+class TestTheRatchetsVocabulary:
+    """Phase 1.4: the words that replaced identifiers on the operator's pages."""
+
+    def test_every_gate_is_spoken_in_words(self) -> None:
+        for gate in GateKind:
+            spoken = gate.spoken
+            assert spoken == spoken.lower()
+            assert "_" not in spoken
+            assert spoken
+
+    def test_a_provider_is_named_not_keyed(self) -> None:
+        for provider in Provider:
+            words = provider_words(provider.value)
+            assert "_" not in words, provider
+        assert provider_words("sec_edgar") == "SEC EDGAR"
+        assert provider_words("") == "—"
+        assert provider_words("some_new_source") == "Some New Source"
+
+    def test_a_proposer_is_a_role_the_platform_or_you(self) -> None:
+        assert proposer_words("aer.agents.peers") == "the peers model"
+        assert proposer_words("aer.agents.assumptions") == "the assumptions model"
+        assert proposer_words("aer.services.assumption_proposals") == "the platform's own rules"
+        assert proposer_words("operator:audit") == "you"
+        assert proposer_words("you@example.invalid") == "you@example.invalid"
+        assert proposer_words("") == "nobody yet"
+
+    def test_every_metric_is_spoken_in_words(self) -> None:
+        """The report's validators table and its coverage notice print these; the page's
+        own labels (`METRIC_WORDS`) are a description beside them, not a third name."""
+        for metric in Metric:
+            spoken = metric.spoken
+            assert spoken == spoken.lower(), metric
+            assert "_" not in spoken, metric
+            assert spoken_metric(metric.value) == spoken
+        assert spoken_metric("citation_accuracy") == "citation accuracy"
+        # A row a later build no longer measures still renders, in its own words.
+        assert spoken_metric("a_metric_this_build_never_measured") == (
+            "a metric this build never measured"
+        )
+
+    def test_every_assumption_the_form_knows_is_spoken_in_words(self) -> None:
+        """One name per assumption across the gate page and the report's sentences."""
+        assert set(ASSUMPTION_WORDS) == set(EXPECTED_UNIT)
+        for name, words in ASSUMPTION_WORDS.items():
+            assert "_" not in words, name
+            assert assumption_words(name) == words
+            assert assumption_words(f"{name}_y3") == f"{words} in year 3"
+        assert assumption_words("risk_free_rate") == "risk-free rate"
+        assert assumption_words("ebit_margin") == "EBIT margin"
+        assert assumption_words("a_name_the_valuation_never_reads") is None
+        assert assumption_words("ebit_margin_y0") is None
+
+    def test_the_gate_page_and_the_method_block_name_an_assumption_the_same_way(self) -> None:
+        """`concept_name` labels the assumptions gate; the valuation section's own tuples
+        label the method block. Pinned to each other, so the risk-free rate is never
+        "Risk free rate" on one screen and "Risk-free rate" on the next."""
+        for name, label in (
+            *_WACC_ASSUMPTIONS,
+            *_FORECAST_ASSUMPTIONS,
+            *_RESIDUAL_INCOME_ASSUMPTIONS,
+        ):
+            assert concept_name(name) == label, name
+        assert concept_name("ebit_margin_y3") == "EBIT margin in year 3"
+        # A concept, not an assumption: the mechanical transform still applies.
+        assert concept_name("operating_income") == "Operating income"
+
+    def test_a_refusal_names_assumptions_as_a_sentence_does(self) -> None:
+        """The message reaches the report's valuation section, so it speaks."""
+        assert spoken_assumption("risk_free_rate") == "the risk-free rate"
+        assert spoken_assumption("ebit_margin_y3") == "the EBIT margin in year 3"
+        assert spoken_assumption("something_of_the_operators_own") == (
+            "the something of the operators own"
+        )
+        assert spoken_assumptions(["risk_free_rate", "beta", "equity_risk_premium"]) == (
+            "the risk-free rate, the beta and the equity risk premium"
+        )
+        assert spoken_assumptions(["beta"]) == "the beta"
+        assert spoken_assumptions([]) == ""

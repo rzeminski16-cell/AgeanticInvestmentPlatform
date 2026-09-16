@@ -50,6 +50,7 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.errors import ValidationError
+from aer.eval.metrics import spoken_metric
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
@@ -264,7 +265,8 @@ class CoverageNote:
                 f"not be generated ({named})"
             )
         if self.checks_failed:
-            checks = ", ".join(self.checks_failed)
+            # The record keeps the metric names; the sentence says them (roadmap §2.11).
+            checks = ", ".join(spoken_metric(name) for name in self.checks_failed)
             plural = "checks" if len(self.checks_failed) > 1 else "check"
             parts.append(f"the {checks} validation {plural} failed")
         if self.sections_shortened:

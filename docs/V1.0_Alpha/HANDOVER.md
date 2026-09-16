@@ -136,7 +136,9 @@ is done (16 September, [ADR 0123](../adr/0123-a-decision-at-a-gate-is-superseded
 the twelve rejected and stale gate rows lost their `control` assertion from the record the
 same day, which is the harness doing what §3 above says it is for. 1.3 is done too (ADR
 0116, migration 0075: a report is superseded, never replaced, and exactly one is current).
-1.4 — the vocabulary ratchet the harness holds red on every constructible row — is next.
+1.4, the vocabulary ratchet, emptied `STILL_RED` the same day: 33 rows green on all three
+assertions, 19 still unconstructed, both halves agreeing. Next is 1.5 (the gate pages cut
+to twenty ranked rows), then 1.6, 1.7 and 1.8 in order.
 
 ## 6. Standing constraints on any session doing this work
 

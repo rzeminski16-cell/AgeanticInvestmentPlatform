@@ -69,7 +69,7 @@
         recorded, rather than compared across different twelve months.
       </p>
       <p class="mt-2 type-body-sm text-ink-muted">
-        Proposed by <span class="type-data-sm">{{ payload.proposed_by }}</span>.
+        Proposed by {{ payload.proposed_by | proposer_words }}.
         {% if not_asked %}<span id="model-not-asked">{{ not_asked }}</span>{% endif %}
       </p>
     {% else %}

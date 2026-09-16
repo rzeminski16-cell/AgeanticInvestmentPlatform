@@ -63,6 +63,7 @@ __all__ = [
     "PREMISE_STATES",
     "PREMISE_VERDICTS",
     "PROCESS_QUALITIES",
+    "PROVIDERS",
     "QUARANTINE_REASONS",
     "REQUEST_STATES",
     "SECTION_STATES",
@@ -80,6 +81,8 @@ __all__ = [
     "in_words",
     "job_state",
     "metric_words",
+    "proposer_words",
+    "provider_words",
     "request_state",
     "section_state",
     "step_label",
@@ -539,6 +542,49 @@ ROLE_WORDS: Final[dict[str, str]] = {
 }
 """The roles a skill composes into, as a reader names them (ADR 0108). One mapping for the
 gate page, the editor and the vocabulary, so the table in core has one spelling here."""
+
+
+# Where a source came from, in words. The enum's values are keys; a page that prints
+# ``sec_edgar`` beside a filing is a page that speaks in code.
+PROVIDERS: Final[dict[str, str]] = {
+    "sec_edgar": "SEC EDGAR",
+    "companies_house": "Companies House",
+    "fca_nsm": "FCA National Storage Mechanism",
+    "eodhd": "EODHD",
+    "fred": "FRED",
+    "yahoo": "Yahoo Finance",
+    "internal_prior_run": "an earlier run",
+    "web": "the web",
+}
+
+
+def provider_words(value: object) -> str:
+    key = str(value or "").strip()
+    if not key:
+        return "—"
+    return PROVIDERS.get(key) or key.replace("_", " ").replace("-", " ").title()
+
+
+def proposer_words(value: object) -> str:
+    """Who put a row forward, in words: a model role, the platform's own rules, or you.
+
+    A proposer is recorded as the module that proposed it (``aer.agents.peers``) or as an
+    operator marker; neither is a sentence, and the gate pages print one.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return "nobody yet"
+    lowered = raw.lower()
+    if lowered.startswith("operator") or lowered in {"you", "human", "operator"}:
+        return "you"
+    if "@" in raw:
+        return raw
+    if lowered.startswith("aer.agents."):
+        role = lowered.rsplit(".", 1)[-1].replace("_", " ")
+        return f"the {role} model"
+    if lowered.startswith("aer."):
+        return "the platform's own rules"
+    return raw.replace("_", " ")
 
 
 def composes_into_phrase(roles: Iterable[str]) -> str:

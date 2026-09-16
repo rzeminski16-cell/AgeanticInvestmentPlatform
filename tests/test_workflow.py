@@ -637,7 +637,9 @@ class TestTheWholeRun:
             for call in finished["provider"].calls
             if call["schema"].endswith("SectionDraft")
         ]
-        assert any("What the filed history shows for executive_summary." in body for body in drafts)
+        assert any(
+            "What the filed history shows for the executive summary." in body for body in drafts
+        )
 
     async def test_the_extract_step_recorded_citable_excerpts(self, finished: dict) -> None:
         """One extraction per located fact value, into the archived document (task 45).

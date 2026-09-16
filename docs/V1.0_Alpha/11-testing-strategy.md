@@ -168,6 +168,23 @@ the conflict problem page constructible: 33 red rows and 19 not yet constructibl
 *control* red on six (the queued run, the two budget ceilings, the failed step's remedy and
 the two problem pages) and *press* measured on 27 and red on none.
 
+Phase 1.4 emptied it, the same day. The vocabulary ratchet was made at the console (steps
+and errors in words, a link to the worker's status in settings, a labelled control beside
+each budget ceiling and each remedy), at every pause message (`GateKind.spoken`), on the gate
+pages (section titles, provider names, proposer roles, assumption names), on the problem page
+(*Back to the run*) — and in the report, because the review page prints the draft and the
+harness read the draft: the validators table and the coverage notice in metric words
+(`Metric.spoken`), the calculation footnote without its function reference, the valuation
+refusal naming assumptions in words. The measurement after it: 33 rows green on all three
+assertions, 19 unconstructed, `STILL_RED` empty, both halves agreeing. Two things the
+instrument decided that a reading would not have: the plan-gate rows were red on a *test
+fixture's* prose (the fake planner's focus text named sections by key), which is the harness
+reading the page as an operator does rather than reading the code; and the final-gate rows
+were red on the document's own content, so the document's vocabulary moved in Phase 1.4
+rather than waiting for Phase 3.3. What the harness does not yet assert is the vocabulary of
+pages it cannot construct — the sector and unmapped-concepts gates, a fired trigger's
+evidence lines — and those are asserted the day their rows are.
+
 ### 3.2 The invariant assertions
 
 Three of the eight invariants change in V1.0 and two gain new obligations. An invariant that

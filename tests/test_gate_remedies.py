@@ -273,7 +273,7 @@ class TestASupersedingDecision:
             assert current is not None
             plan = await approval_service.current_decision(session, job_id, GateKind.PLAN)
             assert plan is not None
-            with pytest.raises(ConflictError, match="not the THEME_SET gate's current one"):
+            with pytest.raises(ConflictError, match="not the themes gate's current one"):
                 await approval_service.record_decision(
                     session,
                     job=job,

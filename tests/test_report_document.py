@@ -493,7 +493,9 @@ class TestTheReportFacesTheReader:
         assert "Golden Failed" in document.coverage.sections_failed
         assert "Golden Pending" in document.coverage.sections_failed
         assert document.coverage.checks_failed == ("source_coverage",)
-        assert "source_coverage" in document.coverage.sentence
+        # The record keeps the metric's name; the sentence says it (§2.11).
+        assert "the source coverage validation check failed" in document.coverage.sentence
+        assert "source_coverage" not in document.coverage.sentence
 
     async def test_a_failed_sections_diagnostics_stay_out_of_the_document(
         self, scene: dict[str, Any]

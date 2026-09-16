@@ -32,6 +32,7 @@ from aer.db.models import (
     SectionDefinition,
     SectionStatus,
 )
+from aer.eval.metrics import spoken_metric
 from aer.sections import deterministic as deterministic_sections
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.render import render_section
@@ -495,11 +496,13 @@ class TestTheDeterministicSections:
         )
         assert rows, "the validate step wrote no evaluation rows"
 
+        # Named in words, as a reader meets them: the identifier is the evaluation row's.
         shown = {entry["metric"]: entry for entry in section.content["validations"]}
-        assert set(shown) == {row.metric for row in rows}
+        assert set(shown) == {spoken_metric(row.metric) for row in rows}
+        assert not any("_" in name for name in shown)
         for row in rows:
             expected = {True: "pass", False: "fail", None: "not exercised"}[row.passed]
-            assert shown[row.metric]["verdict"] == expected
+            assert shown[spoken_metric(row.metric)]["verdict"] == expected
 
         summary = section.content["summary"]
         assert f"{len(rows)} metric(s)" in summary
@@ -577,13 +580,15 @@ class TestTheDeterministicSections:
         they can see are covered by the CI evaluation gate."""
         summary = deterministic_sections._summary([], [])
 
+        # Named in words: the summary is a sentence of the report, not a list of keys.
         for name in (
-            "custom_section_contract_conformance",
-            "injection_resistance",
-            "skill_privilege_containment",
-            "unit_integrity",
+            "custom section contract conformance",
+            "injection resistance",
+            "skill privilege containment",
+            "unit integrity",
         ):
             assert name in summary
+        assert "_" not in summary
         assert "CI evaluation gate" in summary
 
     def test_a_metric_this_code_does_not_know_still_renders_its_threshold(self) -> None:
@@ -886,9 +891,9 @@ class TestAFailedCheckNamesItsFindings:
         )
 
         assert rows == [
-            {"metric": "presentation_integrity", "finding": "`raw UUID 'ef2bd367…'`"},
+            {"metric": "presentation integrity", "finding": "`raw UUID 'ef2bd367…'`"},
             {
-                "metric": "presentation_integrity",
+                "metric": "presentation integrity",
                 "finding": "`unformatted integer '46822502000'`",
             },
         ]
@@ -962,5 +967,5 @@ class TestAFailedCheckNamesItsFindings:
         content = await deterministic_sections._validation_disagreements(db_session, job, request)
 
         assert content["failed_check_findings"] == [
-            {"metric": "presentation_integrity", "finding": "`raw UUID 'ef2bd367…'`"}
+            {"metric": "presentation integrity", "finding": "`raw UUID 'ef2bd367…'`"}
         ]

@@ -42,7 +42,7 @@ from aer.services.prices import BETA_ASSUMPTION
 from aer.services.residual_income_run import BankValuationOutcome, value_the_bank
 from aer.services.scenarios import create_scenario, set_override
 from aer.services.sectors import CLASSIFY_STEP
-from aer.services.valuation import SENSITIVITY_POINTS
+from aer.services.valuation import SENSITIVITY_POINTS, spoken_assumption
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.engine import StepContext
 from aer.workflow.workflows.vertical_slice_v1 import ASSUMPTIONS_STEP
@@ -304,7 +304,9 @@ class TestWhatItRefuses:
         outcome = await _value(scene)
 
         assert not outcome.ran
-        assert missing in outcome.reason
+        # In words: the reason is printed in the report's valuation section (§2.11).
+        assert spoken_assumption(missing) in outcome.reason
+        assert "_" not in outcome.reason
 
     async def test_an_unconfirmed_driver_is_named(self, scene: dict[str, Any]) -> None:
         await seed_years(scene, _YEARS)
@@ -313,7 +315,7 @@ class TestWhatItRefuses:
         outcome = await _value(scene)
 
         assert not outcome.ran
-        assert "return_on_equity" in outcome.reason
+        assert "The return on equity driver has no confirmed assumption" in outcome.reason
 
     async def test_an_unconfirmed_terminal_growth_is_named(self, scene: dict[str, Any]) -> None:
         """There is no default. A terminal growth rate this platform picked would be its
@@ -324,7 +326,7 @@ class TestWhatItRefuses:
         outcome = await _value(scene)
 
         assert not outcome.ran
-        assert "terminal_growth" in outcome.reason
+        assert "needs the terminal growth confirmed" in outcome.reason
 
     async def test_a_filer_with_no_assembled_period_is_told_so(self, scene: dict[str, Any]) -> None:
         await _confirm_all(scene)

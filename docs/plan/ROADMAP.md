@@ -430,8 +430,13 @@ commands, and pressing the control moves the job. **Moved on 16 September 2026:*
 harness landed red and Phase 1.2 (ADR 0123) put a way forward on the three gate dead ends
 and on a refused check the same day — a decision the page moved under is decided again and
 superseded, a rejection ends the run and the console offers a new one, re-seal and re-measure
-are controls. What the harness still holds red is the vocabulary: the console's step keys,
-the budget ceilings' bare *settings* link, the failed step's remedy, the problem page.
+are controls. Phase 1.4 emptied the record the same day: the console, every pause message,
+the gate pages, the problem page and the report's own validators table, footnotes and
+valuation refusal speak in words, and the harness measures 33 constructible rows green on
+all three assertions. What it still cannot say is anything about the 19 rows it cannot yet
+construct on the fake scene — the sector and unmapped-concepts gates, the nine escalation
+triggers, an unverifiable citation, a bare `AerError` — which are harness backlog, not
+platform backlog.
 
 ---
 

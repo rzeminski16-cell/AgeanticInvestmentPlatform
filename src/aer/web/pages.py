@@ -401,7 +401,7 @@ async def _queued_words(redis: Redis) -> str | None:
     if health is None:
         return (
             f"Queued, but no worker has reported in the last {window} seconds. Nothing "
-            "runs until one is started: `just worker`."
+            "runs until one is started; the worker's status is in settings."
         )
     if health.ongoing:
         return (
@@ -558,6 +558,7 @@ async def resume_run_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was resumed.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -572,7 +573,9 @@ async def resume_run_page(
         )
     except ConflictError as exc:
         why = f" {stranding.reason}" if stranding is not None else ""
-        return _problem(request, exc.message + why, status=HTTP_409_CONFLICT)
+        return _problem(
+            request, exc.message + why, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT
+        )
 
     await session.commit()
     await enqueue_run(redis, job.id)
@@ -606,6 +609,7 @@ async def reseal_run_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was re-sealed.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -622,9 +626,11 @@ async def reseal_run_page(
             session, job=job, actor=user, reason="re-sealed from the console"
         )
     except ConflictError as exc:
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
     except ValidationError as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return _problem(
+            request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
+        )
 
     await session.commit()
     await enqueue_run(redis, job.id)
@@ -657,6 +663,7 @@ async def remeasure_run_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was re-measured.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -665,9 +672,11 @@ async def remeasure_run_page(
         await gates_service.remeasure_checks(session, job=job, actor=user, reason=reason)
         await resume_service.resume_run(session, job=job, actor=user, reason=reason)
     except ConflictError as exc:
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
     except ValidationError as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return _problem(
+            request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
+        )
 
     await session.commit()
     await enqueue_run(redis, job.id)
@@ -705,6 +714,7 @@ async def raise_run_cap(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was changed.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -719,6 +729,7 @@ async def raise_run_cap(
         return _problem(
             request,
             f"{raw!r} is not an amount. Give the new ceiling in pounds, as a number.",
+            back=f"/runs/{job_id}",
             status=HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
@@ -731,7 +742,9 @@ async def raise_run_cap(
             ceiling_gbp=settings.per_run_budget_gbp,
         )
     except ValidationError as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return _problem(
+            request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
+        )
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
@@ -762,6 +775,7 @@ async def cancel_run_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was cancelled.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -772,7 +786,7 @@ async def cancel_run_page(
     except ConflictError as exc:
         # The run finished between the page rendering and the button being pressed. Nothing
         # went wrong; there is simply nothing left to stop, and the page says so.
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
@@ -1320,6 +1334,9 @@ async def draft_review(
             ],
             "evaluations": evaluations,
             "coverage": coverage,
+            # The coverage rows carry the section key, which is the metric's identity; the
+            # table prints the section's title, as the draft table below it does.
+            "section_titles": section_titles,
             "disagreements": [
                 row for row in recorded if row.kind is not DisagreementKind.THESIS_CONFLICT
             ],
@@ -1604,6 +1621,7 @@ async def replay_run_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was replayed.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -1924,6 +1942,7 @@ async def decide_gate_page(
         return _problem(
             request,
             "This form's security token was missing or had expired. Nothing was decided.",
+            back=f"/runs/{job_id}",
             status=HTTP_403_FORBIDDEN,
         )
 
@@ -1945,6 +1964,7 @@ async def decide_gate_page(
             request,
             "The proposal changed after this page was opened. Nothing was approved. "
             "Review the current version and decide again.",
+            back=f"/runs/{job_id}",
             status=HTTP_409_CONFLICT,
         )
 
@@ -1973,9 +1993,11 @@ async def decide_gate_page(
         # Shown rather than swallowed. Every refusal from the approval service names a
         # rule the operator can act on -- already decided, or out of order -- and hiding
         # that behind a generic error would make the gates feel arbitrary.
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return _problem(
+            request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
+        )
     except ConflictError as exc:
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
 
     await session.commit()
 
@@ -2579,13 +2601,20 @@ async def settings_page(
     request: Request,
     session: DbSession,
     settings: SettingsDep,
+    redis: RedisClient,
     user: CurrentUser,
 ) -> Response:
-    """Cost and method, editable. Credentials, shown as present or absent and nothing more."""
+    """Cost and method, editable. Credentials, shown as present or absent and nothing more.
+
+    And the worker: whether one is running, from its health record. The console sends an
+    operator here when a run is queued with nothing to run it, rather than telling them
+    which command to type (§2.11).
+    """
     del user
     token = new_csrf_token(settings)
     context = await _settings_context(session, settings, token=token)
     context["saved"] = request.query_params.get("saved") == "1"
+    context["worker"] = await _worker_words(redis)
     page: Response = render(request, "settings/index.html", context)
     set_csrf_cookie(page, token)
     return page
@@ -2596,6 +2625,7 @@ async def save_settings(
     request: Request,
     session: DbSession,
     settings: SettingsDep,
+    redis: RedisClient,
     user: CurrentUser,
 ) -> Response:
     """Store one override, or re-render saying why it was refused.
@@ -2623,6 +2653,7 @@ async def save_settings(
         token = new_csrf_token(settings)
         context = await _settings_context(session, settings, token=token)
         context["error"] = refused.message
+        context["worker"] = await _worker_words(redis)
         rejected: Response = render(request, "settings/index.html", context)
         rejected.status_code = HTTP_400_BAD_REQUEST
         set_csrf_cookie(rejected, token)
@@ -2630,6 +2661,37 @@ async def save_settings(
 
     await session.commit()
     return RedirectResponse("/settings?saved=1", status_code=HTTP_303_SEE_OTHER)
+
+
+async def _worker_words(redis: Redis) -> dict[str, Any]:
+    """The worker's status in words, from the record it keeps in Redis (`aer.queue`)."""
+    try:
+        health = await worker_health(redis)
+    except (RedisError, OSError):
+        return {
+            "running": None,
+            "label": "Unknown",
+            "detail": "The worker's health record could not be read, so nothing can be said.",
+        }
+    window = HEALTH_CHECK_INTERVAL_SECONDS + 1
+    if health is None:
+        return {
+            "running": False,
+            "label": "Not running",
+            "detail": (
+                f"No worker has reported in the last {window} seconds. Nothing runs until one "
+                "is started from the terminal where the platform runs; a queued run begins "
+                "within a few seconds once it reports."
+            ),
+        }
+    return {
+        "running": True,
+        "label": "Running",
+        "detail": (
+            f"Reported {health.reported_seconds_ago} seconds ago with {health.ongoing} run(s) "
+            "in flight. It takes one at a time."
+        ),
+    }
 
 
 async def _settings_context(
@@ -3293,8 +3355,10 @@ async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> di
     return dict(await builder(session, job=job, gate=gate.value))
 
 
-def _problem(request: Request, message: str, *, status: int) -> Response:
+def _problem(request: Request, message: str, *, status: int, back: str | None = None) -> Response:
+    """The refusal page. ``back`` is where the operator was: a refusal that leaves them at
+    a page whose only control is the request list is a dead end of its own (§2.11)."""
     response: Response = render(
-        request, "runs/problem.html", {"message": message}, status_code=status
+        request, "runs/problem.html", {"message": message, "back": back}, status_code=status
     )
     return response

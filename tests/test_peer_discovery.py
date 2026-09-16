@@ -224,7 +224,7 @@ async def _seed_gate(engine: Any, *, peers: list[dict[str, str]] | None, refused
                     error={
                         "code": "step_paused",
                         "message": (
-                            "This run is waiting for the PEER_SET gate. Nothing further "
+                            "This run is waiting for the peer set gate. Nothing further "
                             "happens, and nothing further is spent, until somebody approves "
                             "or rejects it."
                         ),

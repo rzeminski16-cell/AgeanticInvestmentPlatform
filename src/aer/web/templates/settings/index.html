@@ -26,6 +26,24 @@
     </div>
   {% endif %}
 
+  {#
+    Whether a worker is running. The console links here when a run is queued with nothing
+    to run it, or has been on one step for too long: the answer to "is anything happening?"
+    lives with the platform, not in a command the operator is told to type.
+  #}
+  {% call ui.sheet("The worker", id="worker") %}
+    <p class="type-body text-ink">
+      {% if worker.running %}
+        {{ ui.status("success", worker.label) }}
+      {% elif worker.running is false %}
+        {{ ui.status("failure", worker.label) }}
+      {% else %}
+        {{ ui.status("muted", worker.label) }}
+      {% endif %}
+      <span class="ml-2 type-body-sm text-ink-muted" id="worker-detail">{{ worker.detail }}</span>
+    </p>
+  {% endcall %}
+
   {% call ui.sheet("Cost and method") %}
     <div class="flex flex-col divide-y divide-line">
       {% for item in overridable %}

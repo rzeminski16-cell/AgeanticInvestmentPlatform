@@ -83,6 +83,7 @@ from aer.services.valuation import (
     run_scenarios,
     run_sensitivity,
     run_valuation,
+    spoken_assumptions,
 )
 
 __all__ = [
@@ -266,10 +267,12 @@ def _cost_of_capital(
         if name not in values
     ]
     if missing:
+        # In words: the refusal is printed in the report's valuation section (§2.11).
         message = (
-            f"The discount rate needs {', '.join(missing)}, and no confirmed assumption of "
-            "that name exists on this request. The rate is decomposed rather than taken as "
-            "one number, so each part has to be agreed on its own terms."
+            f"The discount rate needs {spoken_assumptions(missing)}, and no confirmed "
+            f"assumption {'of that name' if len(missing) == 1 else 'of those names'} exists "
+            "on this request. The rate is decomposed rather than taken as one number, so "
+            "each part has to be agreed on its own terms."
         )
         raise MissingAssumptionError(message, context={"missing": ",".join(missing)})
 

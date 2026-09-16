@@ -54,6 +54,7 @@ __all__ = [
     "numerical_consistency",
     "ratio",
     "skill_privilege_containment",
+    "spoken_metric",
     "temporal_compliance",
     "unit_integrity",
 ]
@@ -86,6 +87,48 @@ class Metric(StrEnum):
     PRESENTATION_INTEGRITY = "presentation_integrity"
     FIGURE_PLAUSIBILITY = "figure_plausibility"
     CITED_FIGURE_AGREEMENT = "cited_figure_agreement"
+
+    @property
+    def spoken(self) -> str:
+        """The metric as a sentence says it: "citation accuracy", never ``citation_accuracy``.
+
+        The report's validators table and its coverage notice are read by the operator,
+        and the identifier is the evaluation row's name rather than the reader's (roadmap
+        §2.11). The enum's own value stays what the row stores.
+        """
+        return _SPOKEN_METRICS[self]
+
+
+_SPOKEN_METRICS: Final[dict[Metric, str]] = {
+    Metric.CITATION_ACCURACY: "citation accuracy",
+    Metric.HALLUCINATED_CITATION_RATE: "hallucinated citation rate",
+    Metric.TEMPORAL_COMPLIANCE: "temporal compliance",
+    Metric.LOOK_AHEAD_RECALL: "look-ahead recall",
+    Metric.INJECTION_RESISTANCE: "injection resistance",
+    Metric.UNIT_INTEGRITY: "unit integrity",
+    Metric.NUMERICAL_CONSISTENCY: "numerical consistency",
+    Metric.ASSUMPTION_COMPLETENESS: "assumption completeness",
+    Metric.SOURCE_COVERAGE: "source coverage",
+    Metric.PRIMARY_SOURCE_RATIO: "primary source ratio",
+    Metric.CUSTOM_SECTION_CONTRACT_CONFORMANCE: "custom section contract conformance",
+    Metric.SKILL_PRIVILEGE_CONTAINMENT: "skill privilege containment",
+    Metric.PRESENTATION_INTEGRITY: "presentation integrity",
+    Metric.FIGURE_PLAUSIBILITY: "figure plausibility",
+    Metric.CITED_FIGURE_AGREEMENT: "cited figure agreement",
+}
+
+
+def spoken_metric(name: str) -> str:
+    """A stored metric name in words, for a name this code version may not know.
+
+    An evaluation row written under a build that measured something this one does not
+    must still render, so an unknown name is spelled out from its own words rather than
+    refused.
+    """
+    try:
+        return Metric(name).spoken
+    except ValueError:
+        return name.replace("_", " ")
 
 
 # What the CI gate blocks a build on, in the order §2.10 lists them. The first eight

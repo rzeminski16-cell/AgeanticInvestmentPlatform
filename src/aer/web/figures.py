@@ -30,6 +30,7 @@ from decimal import Decimal
 from typing import Any, Final
 
 from aer.config import HouseStyle
+from aer.core.assumption_scales import assumption_words
 from aer.render import display
 from aer.services.overview import TypicalCost
 from aer.web.shell.provenance import Provenance, ProvenanceRef
@@ -370,11 +371,13 @@ def concept_name(concept: str) -> str:
 
     Derived rather than listed, for the reason the numeral rule's denylist is: a map of
     every concept is a map somebody maintains for ever and which is wrong the first time
-    the vocabulary grows. `_CONCEPT_NAMES` holds only the ones the transform gets wrong.
+    the vocabulary grows. `_CONCEPT_NAMES` holds only the ones the transform gets wrong,
+    and an assumption's name is said the way the report's own sentences say it, so the
+    gate page and the valuation section call the risk-free rate one thing.
     """
     if concept in _CONCEPT_NAMES:
         return _CONCEPT_NAMES[concept]
-    words = concept.replace("_", " ").strip()
+    words = assumption_words(concept) or concept.replace("_", " ").strip()
     return words[:1].upper() + words[1:] if words else concept
 
 

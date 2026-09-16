@@ -73,7 +73,13 @@ from aer.services.assumptions import confirmed_values
 from aer.services.calculations import new_context, persist_context
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.scenarios import CellInput, record_sensitivity, resolve, scenarios_for_request
-from aer.services.valuation import MissingAssumptionError, axis_around, driver_values
+from aer.services.valuation import (
+    MissingAssumptionError,
+    axis_around,
+    driver_values,
+    spoken_assumption,
+    spoken_assumptions,
+)
 from aer.services.valuation_run import (
     ValuationNotPossibleError,
     latest_period,
@@ -548,9 +554,10 @@ def _cost_of_equity(ledger: CalculationContext, values: dict[str, Quantity]) -> 
     ]
     if missing:
         message = (
-            f"The cost of equity needs {', '.join(missing)}, and no confirmed assumption of "
-            "that name exists on this request. The rate is decomposed rather than taken as "
-            "one number, so each part has to be agreed on its own terms."
+            f"The cost of equity needs {spoken_assumptions(missing)}, and no confirmed "
+            f"assumption {'of that name' if len(missing) == 1 else 'of those names'} exists "
+            "on this request. The rate is decomposed rather than taken as one number, so "
+            "each part has to be agreed on its own terms."
         )
         raise MissingAssumptionError(message, context={"missing": ",".join(missing)})
 
@@ -610,9 +617,9 @@ def _scalar(values: dict[str, Quantity], name: str) -> Quantity:
     found = values.get(name)
     if found is None:
         message = (
-            f"The valuation needs a confirmed {name!r}, and no such assumption exists on "
-            "this request. It is a judgement somebody has to make and justify; there is no "
-            "default for it."
+            f"The valuation needs {spoken_assumption(name)} confirmed, and no such "
+            "assumption exists on this request. It is a judgement somebody has to make and "
+            "justify; there is no default for it."
         )
         raise MissingAssumptionError(message, context={"missing": name})
     return found

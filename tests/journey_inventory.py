@@ -399,87 +399,24 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
     "problem.aer_error": "no route on the run's pages catches a bare AerError on the fake scene",
 }
 
-# Rows that fail today, and on which of the three assertions, and why. Measured on 16
-# September 2026 by running the harness on every row it can construct, not predicted:
-# `tests/e2e/test_journey.py` marks exactly these rows `xfail(strict=True)`, and both halves
-# fail a row whose measured red set differs from the recorded one in either direction, so a
-# fix that works has to move this record as well as the page, and a fix that does not fails
-# the build. The harness is green when this is empty.
+# Rows that fail today, by which of the three assertions fails and why — measured by running
+# the harness on every row it can construct, never predicted. `tests/e2e/test_journey.py`
+# marks exactly these rows `xfail(strict=True)`, and both halves fail a row whose measured
+# red set differs from the recorded one in either direction, so a fix that works has to move
+# this record as well as the page, and a fix that does not fails the build. Recorded per
+# assertion rather than per row because fixes land in that order: a control can arrive on a
+# page that still speaks in step keys, and a record that could only say "red" would not
+# register it.
 #
-# Recorded per assertion rather than per row because the fixes land in that order: Phase
-# 1.2 puts the missing controls on the rejected and stale gates while the console still
-# speaks in step keys, and a record that could only say "red" would not register it.
-#
-# What the measurement found, in one sentence: the console prints the workflow's step keys
-# on every run and tells the operator to type a shell command on every unfinished one, so
-# `text` is red on every constructible row but the problem page; `control` is red on the
-# rejected and stale gates, the two budget ceilings, the failed step with a remedy, the
-# queued run and the problem page; `press` was measured wherever a control was found, and
-# every one of them moved the run.
-_CONSOLE: Final = "the console prints the step keys and says to type `just worker`"
-_CONSOLE_FAILED: Final = "the console prints the step keys and the error's code"
-_GATE_PAGE: Final[dict[GateKind, str]] = {
-    GateKind.PLAN: "the plan page prints section keys and the source's identifier",
-    GateKind.PEER_SET: "the peers page prints a module path",
-    GateKind.THEME_SET: "the themes page prints a module path",
-    GateKind.ASSUMPTIONS: "the assumptions page prints module paths and the assumptions' keys",
-    GateKind.FINAL: "the review page prints module paths, metric names and section keys",
-}
-
-
-def _measured() -> dict[str, dict[str, str]]:
-    red: dict[str, dict[str, str]] = {
-        "queued": {
-            "text": _CONSOLE,
-            "control": "§2.11: nothing leads to the worker's health",
-        },
-        "stranded": {"text": _CONSOLE},
-        "step_mode": {"text": _CONSOLE},
-        f"budget.{BudgetScope.PER_RUN.value}.{CapState.RAISABLE.value}": {
-            "text": f"{_CONSOLE} and the budget code",
-        },
-        f"budget.{BudgetScope.PER_RUN.value}.{CapState.AT_CEILING.value}": {
-            "text": f"{_CONSOLE} and the budget code",
-            "control": (
-                "§2.11: the platform ceiling is named in a sentence whose only control is a "
-                "bare 'settings' link"
-            ),
-        },
-        f"budget.{BudgetScope.MONTHLY.value}": {
-            "text": f"{_CONSOLE} and the budget code",
-            "control": (
-                "§2.11: the monthly budget is named in a sentence whose only control is a "
-                "bare 'settings' link"
-            ),
-        },
-        "failed.external_service_error.remedy": {
-            "text": _CONSOLE_FAILED,
-            "control": "§2.11: the remedy is stated and nothing leads to the settings it names",
-        },
-        "problem.validation_error": {
-            "control": "§2.11: the problem page's only control is 'All requests'",
-        },
-        "problem.conflict": {
-            "control": "§2.11: the problem page's only control is 'All requests'",
-        },
-    }
-    for code in failed_step_codes():
-        red[f"failed.{code}"] = {"text": _CONSOLE_FAILED}
-    for gate in run_gates():
-        if f"gate.{gate.value}.{Disposition.PENDING.value}" in UNCONSTRUCTED:
-            continue
-        page = _GATE_PAGE[gate]
-        red[f"gate.{gate.value}.{Disposition.PENDING.value}"] = {"text": f"{_CONSOLE}; {page}"}
-        # ADR 0123 put the controls on these three; the vocabulary is Phase 1.4's.
-        red[f"gate.{gate.value}.{Disposition.REJECTED.value}"] = {"text": f"{_CONSOLE}; {page}"}
-        red[f"gate.{gate.value}.{Disposition.STALE_PAGE_MOVED.value}"] = {
-            "text": f"{_CONSOLE}; {page}"
-        }
-        if gate not in LIVE_PAYLOAD_GATES:
-            red[f"gate.{gate.value}.{Disposition.STALE_SEAL_DRIFT.value}"] = {
-                "text": f"{_CONSOLE}; {page}"
-            }
-    return red
-
-
-STILL_RED: Final[dict[str, dict[str, str]]] = _measured()
+# Empty since 16 September 2026. The first measurement, on the day the harness landed, found
+# `text` red on every constructible row but the problem page — the console printed the
+# workflow's step keys and told the operator to type `just worker`, and the gate pages
+# printed section keys, module paths, metric names and the assumptions' keys — and `control`
+# red on the rejected and stale gates, the two budget ceilings, the failed step with a
+# remedy, the queued run and the problem page. Phase 1.2 (ADR 0123) cleared `control` on the
+# twelve rejected and stale gate rows, and Phase 1.4, the vocabulary ratchet, cleared the
+# rest: 33 rows green on all three assertions, 19 still unconstructed. A regression records
+# itself here keyed by row and then by assertion, with the reason written as a sentence —
+# the queued run's entry once read, under `control`, "nothing leads to the worker's health"
+# — so the next reader knows what was found rather than only that something was.
+STILL_RED: Final[dict[str, dict[str, str]]] = {}

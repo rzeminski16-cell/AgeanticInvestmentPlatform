@@ -226,7 +226,11 @@ def planner_response(*, section_keys: list[str] | None = None) -> ResearchPlanDr
             "at the as-of date, and compute reported revenue growth over them."
         ),
         sections=[
-            PlannedSection(key=key, focus=f"What the filed history shows for {key}.")
+            # In words, as a planner writes: a focus that names a section by its key would
+            # be the fake scene leaking an identifier the product never prints.
+            PlannedSection(
+                key=key, focus=f"What the filed history shows for the {key.replace('_', ' ')}."
+            )
             for key in keys
         ],
         planned_sources=[

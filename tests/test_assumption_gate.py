@@ -1025,7 +1025,7 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
                     error={
                         "code": "step_paused",
                         "message": (
-                            "This run is waiting for the ASSUMPTIONS gate. Nothing further "
+                            "This run is waiting for the assumptions gate. Nothing further "
                             "happens, and nothing further is spent, until somebody approves "
                             "or rejects it."
                         ),

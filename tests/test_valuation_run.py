@@ -337,7 +337,9 @@ class TestWhatStopsAValuation:
         outcome = await _value(scene)
 
         assert outcome.ran is False
-        assert "terminal_growth" in outcome.reason
+        # In words: the reason is printed in the report's valuation section (§2.11).
+        assert "needs the terminal growth," in outcome.reason
+        assert "terminal_growth" not in outcome.reason
 
     async def test_a_missing_cost_of_capital_input_names_itself(
         self, scene: dict[str, Any]
@@ -372,7 +374,7 @@ class TestWhatStopsAValuation:
         outcome = await _value(scene)
 
         assert outcome.ran is False
-        assert "exit_multiple" in outcome.reason
+        assert "needs the exit multiple," in outcome.reason
 
     async def test_no_annual_period_stops_it(self, scene: dict[str, Any]) -> None:
         await _confirm_all(scene)

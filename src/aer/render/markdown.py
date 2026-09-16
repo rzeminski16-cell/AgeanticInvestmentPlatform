@@ -305,13 +305,16 @@ def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
             # The unit is blank for a dimensionless ratio; joining the present pieces
             # keeps "= 0.4376 (…)" from carrying a stray double space. The period, when
             # the row carries one, is part of what the figure *is* (gap A54): the live
-            # report set FY2021 ratios beside FY2025 ones and no note dated either.
+            # report set FY2021 ratios beside FY2025 ones and no note dated either. The
+            # function reference stays on the calculation row and its drill-down: printed,
+            # `aer.calc.ratios:net_margin` is a module path in a reader's footnote (§2.11),
+            # and the formula and the code version are what make the figure checkable.
             shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             period = f" for {footnote.period_label}" if footnote.period_label else ""
             return (
                 f"Calculated: `{footnote.formula}` "
                 f"= {shown}{period} "
-                f"(`{footnote.function_ref}`, code version `{footnote.code_version_prefix}`)."
+                f"(code version `{footnote.code_version_prefix}`)."
             )
         case SourceFootnote():
             parts = [footnote.title]

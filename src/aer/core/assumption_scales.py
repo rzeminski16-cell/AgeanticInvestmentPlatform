@@ -34,13 +34,16 @@ by test, which is this repository's usual answer to a vocabulary that would othe
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 from typing import Final
 
 __all__ = [
+    "ASSUMPTION_WORDS",
     "EXPECTED_UNIT",
     "PLAUSIBLE_RANGE",
     "UNIT_CHOICES",
+    "assumption_words",
     "expected_unit",
     "scale_complaint",
     "unit_complaint",
@@ -85,6 +88,47 @@ EXPECTED_UNIT: Final[dict[str, str]] = {
 }
 """The unit each assumption is measured in. All of them dimensionless, which is why the
 form can default the field rather than asking."""
+
+ASSUMPTION_WORDS: Final[dict[str, str]] = {
+    "revenue_growth": "revenue growth",
+    "ebit_margin": "EBIT margin",
+    "capex_intensity": "capex intensity",
+    "depreciation_intensity": "depreciation intensity",
+    "working_capital_intensity": "working capital intensity",
+    "tax_rate": "tax rate",
+    "terminal_growth": "terminal growth",
+    "exit_multiple": "exit multiple",
+    "risk_free_rate": "risk-free rate",
+    "beta": "beta",
+    "equity_risk_premium": "equity risk premium",
+    "cost_of_debt": "cost of debt",
+    "return_on_equity": "return on equity",
+    "payout_ratio": "payout ratio",
+}
+"""Each assumption as a sentence names it.
+
+A refusal that said ``risk_free_rate, beta, equity_risk_premium`` reached the report's
+valuation section verbatim (roadmap §2.11); the name is the row's identity and the words
+are what a reader meets. Keyed exactly as :data:`EXPECTED_UNIT` is, and pinned to it by
+test, so a name the form learns is a name a sentence can say."""
+
+# A per-year driver path — ``ebit_margin_y3`` — is its flat name and a year.
+_PER_YEAR: Final = re.compile(r"^(?P<name>[a-z][a-z0-9_]*?)_y(?P<year>[1-9][0-9]*)$")
+
+
+def assumption_words(name: str) -> str | None:
+    """An assumption's name as a person reads it, or ``None`` for one this module does not know.
+
+    ``risk_free_rate`` is "risk-free rate" and ``ebit_margin_y3`` is "EBIT margin in year
+    3". ``None`` rather than a guess, so a caller with its own transform for the names an
+    operator adds beyond the forecast's vocabulary can apply it.
+    """
+    per_year = _PER_YEAR.match(name)
+    if per_year is not None:
+        base = ASSUMPTION_WORDS.get(per_year["name"])
+        return None if base is None else f"{base} in year {per_year['year']}"
+    return ASSUMPTION_WORDS.get(name)
+
 
 # Generous on purpose. These are not house views on what a good assumption looks like —
 # ADR 0046's bounds are that, for the two the model proposes — but a floor and a ceiling

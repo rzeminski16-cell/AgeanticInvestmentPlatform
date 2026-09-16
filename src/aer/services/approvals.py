@@ -148,7 +148,7 @@ async def record_decision(
         # a monitor pass may open it more than once, and the order below is a research
         # run's — so the monitor service writes its own row, and this refuses to.
         message = (
-            f"The {gate.value} gate is not part of a run's gate order. It is decided on a "
+            f"The {gate.spoken} gate is not part of a run's gate order. It is decided on a "
             "monitor finding, through the monitor service, and never here."
         )
         raise ValidationError(message, context={"gate": gate.value})
@@ -216,8 +216,7 @@ async def record_decision(
     # waiting terminal at once and lets a moving one stop at its next boundary; a run that
     # has already ended is left as it ended, because the decision changes nothing about it.
     if recorded is Decision.REJECTED and job.status not in cancellation_service.TERMINAL_STATUSES:
-        gate_name = gate.value.lower().replace("_", " ")
-        reason = f"Rejected at the {gate_name} gate."
+        reason = f"Rejected at the {gate.spoken} gate."
         if notes:
             reason = f"{reason} {notes}"
         await cancellation_service.request_cancellation(
@@ -231,7 +230,7 @@ def _refuse_if_already_decided(existing: Approval | None, *, gate: GateKind) -> 
         return
 
     message = (
-        f"The {gate.value} gate was already {existing.decision.value.lower()} at "
+        f"The {gate.spoken} gate was already {existing.decision.value.lower()} at "
         f"{existing.decided_at.isoformat()}. An approval is a decision, not a state to be "
         "re-asserted. If the page has moved since, decide again on what it shows now and "
         "the new decision supersedes this one; if it has not, there is nothing to decide."
@@ -258,13 +257,13 @@ def _refuse_unless_superseding_a_stale_decision(
     """
     if current is None or current.id != supersedes.id or supersedes.gate is not gate:
         message = (
-            f"The decision named as superseded is not the {gate.value} gate's current one. "
+            f"The decision named as superseded is not the {gate.spoken} gate's current one. "
             "Open the gate again and decide on what it shows now."
         )
         raise ConflictError(message, context={"gate": gate.value, "supersedes": str(supersedes.id)})
     if supersedes.payload_hash == payload_hash:
         message = (
-            f"The {gate.value} gate was already {supersedes.decision.value.lower()} over "
+            f"The {gate.spoken} gate was already {supersedes.decision.value.lower()} over "
             "exactly this content. A decision is not a state to be re-asserted; superseding "
             "one is for when the page has moved under it, and it has not."
         )
@@ -293,7 +292,7 @@ async def _refuse_if_out_of_order(session: AsyncSession, *, job: Job, gate: Gate
         if approval is None or approval.decision not in PASSING_DECISIONS:
             state = "not been reached" if approval is None else approval.decision.value.lower()
             message = (
-                f"The {gate.value} gate cannot be decided while the {earlier.value} gate has "
+                f"The {gate.spoken} gate cannot be decided while the {earlier.spoken} gate has "
                 f"{state}. Gates are passed in order, so that nothing is approved on the "
                 "strength of a step nobody agreed to."
             )

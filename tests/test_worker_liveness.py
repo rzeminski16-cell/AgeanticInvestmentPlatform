@@ -197,7 +197,11 @@ class TestTheConsoleWhileQueued:
         html = (await client.get(f"/runs/{job_id}")).text
 
         assert "no worker has reported" in html
-        assert "just worker" in html
+        # The way to the worker is its status in settings, never a command to type. (The
+        # possessive's apostrophe is escaped in the HTML, so the match starts after it.)
+        assert "s status is in settings" in html
+        assert 'href="/settings#worker"' in html
+        assert "just worker" not in html
         assert "normally begins within a few seconds" not in html
 
     async def test_with_an_idle_worker_it_says_when_it_reported(

@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.core.disagreement import challenge_heading
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
+from aer.eval.metrics import spoken_metric
 from aer.sections.registry import sections_for_job
 from aer.sections.valuation_method import (
     commentary_problems,
@@ -205,14 +206,14 @@ def _failed_check_findings(evaluations: list[Evaluation]) -> list[dict[str, str]
         # its own output, forever. Code spans are the scan's own carve-out for deliberate
         # literals, and they are also the honest presentation: these are machine strings
         # reproduced verbatim, not sentences of the note.
-        rows.extend(
-            {"metric": evaluation.metric, "finding": f"`{item}`"}
-            for item in found[:_FINDINGS_SHOWN]
-        )
+        # The metric in words, here and in the table above: the row's identifier is the
+        # record's name, and a reader met `presentation_integrity` in a report (§2.11).
+        metric = spoken_metric(evaluation.metric)
+        rows.extend({"metric": metric, "finding": f"`{item}`"} for item in found[:_FINDINGS_SHOWN])
         if len(found) > _FINDINGS_SHOWN:
             rows.append(
                 {
-                    "metric": evaluation.metric,
+                    "metric": metric,
                     "finding": f"… and {len(found) - _FINDINGS_SHOWN} more of the same kind, "
                     "recorded on the run's evaluation row.",
                 }
@@ -222,7 +223,7 @@ def _failed_check_findings(evaluations: list[Evaluation]) -> list[dict[str, str]
             # silent row here would recreate the very gap this table closes.
             rows.append(
                 {
-                    "metric": evaluation.metric,
+                    "metric": metric,
                     "finding": "the check failed but recorded no individual findings; "
                     "its score and threshold are in the table above.",
                 }
@@ -240,12 +241,12 @@ def _summary(evaluations: list[Evaluation], disagreements: list[Disagreement]) -
     # not contain, and four guarantees a reader cannot account for is worse than four
     # they can see are covered elsewhere. Derived from the metric sets, so a metric that
     # moves between the CI gate and the runtime moves here without an edit.
-    ci_only = sorted(metric.value for metric in set(BLOCKING) - set(RUN_TIME))
+    ci_only = sorted(metric.spoken for metric in set(BLOCKING) - set(RUN_TIME))
     parts = [
         f"The run's validators measured {len(evaluations)} metric(s): "
         f"{passed} passed, {failed} failed, {unexercised} not exercised. "
-        f"{_spoken_list(ci_only)} are corpus metrics, measured by the CI evaluation "
-        "gate against adversarial fixtures rather than against any one run."
+        f"The corpus metrics — {_spoken_list(ci_only)} — are measured by the CI "
+        "evaluation gate against adversarial fixtures rather than against any one run."
     ]
     if disagreements:
         escalated = sum(1 for row in disagreements if row.resolution == "escalated")
@@ -298,7 +299,7 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
         score = str(row.value)
 
     return {
-        "metric": row.metric,
+        "metric": spoken_metric(row.metric),
         "score": score,
         "threshold": threshold,
         "verdict": verdict,

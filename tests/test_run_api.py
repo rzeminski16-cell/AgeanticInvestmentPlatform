@@ -1080,8 +1080,10 @@ class TestTheWebPages:
         page = await api.get(f"/runs/{job_id}")
         assert 'id="run-progress"' in page.text
         # Where to look when the clock passes ten minutes. The console cannot see the
-        # worker, so pointing at it is the most it can honestly offer.
-        assert "just worker" in page.text
+        # worker, so pointing at its status is the most it can honestly offer — as a link,
+        # never as a command to type (roadmap §2.11).
+        assert 'id="worker-status"' in page.text
+        assert "just worker" not in page.text
 
         await driver.advance(job_id)
         page = await api.get(f"/runs/{job_id}")
@@ -1190,8 +1192,9 @@ class TestTheWebPages:
         page = await api.get(f"/runs/{job_id}")
         assert 'id="run-failed"' not in page.text
         # The step list keeps it, and should: that row *is* the record of the last
-        # attempt. What goes is the alert claiming the run is failed right now.
-        assert 'data-field="error-code"' in page.text
+        # attempt. What goes is the alert claiming the run is failed right now. The code
+        # rides in the row's title rather than its text (Phase 1.4).
+        assert 'data-field="error"' in page.text
 
     async def test_a_refusal_the_operator_must_clear_does_not_offer_to_continue(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any

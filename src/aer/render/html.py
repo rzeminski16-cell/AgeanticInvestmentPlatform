@@ -360,11 +360,11 @@ def _footnote(
             # the row carries one, dates the figure where the reader resolves it (A54).
             shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             period = f" for {escape(footnote.period_label)}" if footnote.period_label else ""
+            # The function reference is the drill-down's to show, as the Markdown note says.
             text = Markup(
                 f"Calculated: <code>{escape(footnote.formula)}</code> = "
                 f"{escape(shown)}{period} "
-                f"(<code>{escape(footnote.function_ref)}</code>, code version "
-                f"<code>{escape(footnote.code_version_prefix)}</code>)."
+                f"(code version <code>{escape(footnote.code_version_prefix)}</code>)."
             )
         case SourceFootnote():
             pieces = [Markup(escape(footnote.title))]
