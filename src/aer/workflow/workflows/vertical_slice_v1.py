@@ -1124,7 +1124,7 @@ async def _revised_plan(
 # What an unmapped line is measured against, in order of preference. Revenue first because
 # it is the figure a reader has in mind; total assets for a filer whose revenue line is
 # itself an extension, which is rarer and exactly the case where the question matters most.
-_SCALE_CONCEPTS: Final = ("revenue", "assets")
+SCALE_CONCEPTS: Final = ("revenue", "assets")
 
 
 def _unmapped_rows(
@@ -1212,13 +1212,20 @@ def _mapped_rows(chosen: Sequence[RawFact]) -> list[dict[str, Any]]:
     return rows
 
 
-def _reference_figure(chosen: Sequence[RawFact]) -> Decimal | None:
+def _reference_concept(chosen: Sequence[RawFact]) -> str | None:
     """The mapped line an unmapped one is sized against, or ``None`` if none mapped."""
-    for concept in _SCALE_CONCEPTS:
-        values = [abs(fact.value) for fact in chosen if fact.concept == concept]
-        if values:
-            return max(values)
+    for concept in SCALE_CONCEPTS:
+        if any(fact.concept == concept for fact in chosen):
+            return concept
     return None
+
+
+def _reference_figure(chosen: Sequence[RawFact]) -> Decimal | None:
+    """The largest figure of that line, or ``None`` if none mapped."""
+    concept = _reference_concept(chosen)
+    if concept is None:
+        return None
+    return max(abs(fact.value) for fact in chosen if fact.concept == concept)
 
 
 def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
@@ -1227,7 +1234,7 @@ def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
     Built from the extract step's own output, so the tags an operator is shown are the tags
     the extractor actually could not place — not a re-derivation that might differ.
     """
-    return {
+    payload: dict[str, Any] = {
         "exchange": str(produced.get("exchange", "")),
         "unmapped_tags": list(produced.get("unmapped_tags", [])),
         # Empty for a run recorded before 2026-08-25. The gate falls back to the tag list,
@@ -1242,6 +1249,13 @@ def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
         "facts_written": produced.get("facts_written", 0),
         "load_errors": list(produced.get("load_errors", [])),
     }
+    # Which mapped line the shares are against, recorded since Phase 1.5 so the page can
+    # name it. Carried only when the step recorded it: adding the key to every payload
+    # would move the sealed hash of every run recorded before, and a gate that reads as
+    # drifted on a run nothing touched is the failure the seal exists to catch.
+    if "reference_concept" in produced:
+        payload["reference_concept"] = str(produced["reference_concept"] or "")
+    return payload
 
 
 def unmapped_gate_required(produced: Mapping[str, Any]) -> bool:
@@ -2885,6 +2899,9 @@ async def _extract(context: StepContext) -> StepResult:
         "refused_tags": list(refused),
         "refused_concepts": refused_detail,
         "mapped_concepts": _mapped_rows(selection.chosen),
+        # Which mapped line the shares above are against, so the gate can name it (page
+        # spec §18: "the reference line it would affect"). Empty when nothing mapped.
+        "reference_concept": _reference_concept(selection.chosen) or "",
         "load_errors": [],
         **segments.as_dict(),
     }

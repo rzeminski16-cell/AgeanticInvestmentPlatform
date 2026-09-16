@@ -367,3 +367,87 @@ class TestTheFinancialsGateReadsAsStatementLines:
             style=HouseStyle(),
         )
         assert captured[0].latest.period == "FY2025"
+
+
+class TestTheUnmappedGateIsCutForAPerson:
+    """Page spec §7.2 and §18 (Phase 1.5): at most twenty rows on the first screen, ranked
+    by materiality, the rest behind one collapsed row, and both sides of the floor named.
+    The operator's own runs put 496, 312 and 852 rows on this page."""
+
+    @staticmethod
+    def _rows(shares: list[str]) -> list[dict[str, str]]:
+        return [
+            {
+                "tag": f"exmpl:Tag{index:03d}",
+                "label": "",
+                "share": share,
+                "value": "1",
+                "unit": "USD",
+                "observations": "1",
+                "period_end": "2025-06-30",
+            }
+            for index, share in enumerate(shares)
+        ]
+
+    def test_the_first_screen_is_twenty_rows_in_the_payloads_order(self) -> None:
+        shares = [str(Decimal("0.50") - Decimal("0.01") * index) for index in range(30)]
+
+        queue = figures.unmapped_queue(self._rows(shares), reference_concept="revenue")
+
+        assert len(queue.shown) == figures.UNMAPPED_FIRST_SCREEN == 20
+        assert len(queue.folded) == 10
+        assert queue.total == 30
+        # The payload's order, untouched: the ranking is the extract step's and the hash
+        # covers it.
+        assert [row["tag"] for row in (*queue.shown, *queue.folded)] == [
+            f"exmpl:Tag{index:03d}" for index in range(30)
+        ]
+
+    def test_both_sides_of_the_floor_are_counted_for_the_whole_filing(self) -> None:
+        shares = ["0.40", "0.05", "0.049999", "0.001", "", "0"]
+
+        queue = figures.unmapped_queue(self._rows(shares), reference_concept="revenue")
+
+        assert (queue.material, queue.below, queue.unsized) == (2, 3, 1)
+        assert queue.reference == "revenue"
+        assert queue.floor_text == "5%"
+        assert "2 at or above 5% of the largest revenue figure" in queue.sentence
+        assert "3 below it" in queue.sentence
+        assert "1 with no figure in this selection" in queue.sentence
+        assert "All 6 are on this screen" in queue.sentence
+
+    def test_a_short_list_has_no_fold(self) -> None:
+        queue = figures.unmapped_queue(self._rows(["0.2", "0.1"]), reference_concept="assets")
+
+        assert queue.folded == ()
+        assert queue.fold_summary == ""
+        assert queue.reference == "assets"
+
+    def test_the_fold_says_what_it_holds(self) -> None:
+        shares = ["0.5"] * 22 + ["0.01"] * 5 + ["", ""]
+
+        queue = figures.unmapped_queue(self._rows(shares), reference_concept="revenue")
+
+        assert queue.fold_summary.startswith("9 more tags past the first screen: ")
+        assert "2 at or above 5%" in queue.fold_summary
+        assert "5 below 5%" in queue.fold_summary
+        assert "2 with no figure to size" in queue.fold_summary
+        assert "approve the extraction to leave them unmapped" in queue.fold_summary
+        assert "The 20 largest are on this screen; the other 9 sit behind one row" in (
+            queue.sentence
+        )
+
+    def test_nothing_to_size_against_is_said_rather_than_ranked_as_zero(self) -> None:
+        queue = figures.unmapped_queue(self._rows(["", ""] * 11), reference_concept=None)
+
+        assert queue.reference == ""
+        assert (queue.material, queue.below, queue.unsized) == (0, 0, 22)
+        assert "Nothing this filing mapped is large enough" in queue.sentence
+        assert queue.fold_summary.startswith("2 more tags past the first screen, largest")
+
+    def test_an_empty_payload_says_nothing(self) -> None:
+        queue = figures.unmapped_queue([], reference_concept="revenue")
+
+        assert queue.total == 0
+        assert queue.sentence == ""
+        assert queue.fold_summary == ""

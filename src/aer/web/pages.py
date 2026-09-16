@@ -134,6 +134,7 @@ from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
     COMPS_STEP,
+    SCALE_CONCEPTS,
     assumptions_gate_required,
     comps_note_for,
     sector_note_for,
@@ -852,6 +853,20 @@ async def plan_review(
     return response
 
 
+def _reference_concept(payload: Mapping[str, Any]) -> str | None:
+    """The mapped line the extract step sized the unmapped tags against.
+
+    Recorded by the step since Phase 1.5; for a run recorded before, derived the way the
+    step derives it — the first of `SCALE_CONCEPTS` that mapped — from the payload's own
+    mapped rows, so the page names a line the hash covers.
+    """
+    recorded = str(payload.get("reference_concept") or "")
+    if recorded:
+        return recorded
+    present = {str(row.get("concept", "")) for row in payload.get("mapped_concepts", [])}
+    return next((concept for concept in SCALE_CONCEPTS if concept in present), None)
+
+
 @router.get(
     "/runs/{job_id}/financials",
     response_class=HTMLResponse,
@@ -897,6 +912,15 @@ async def financials_review(
         {
             "job": job,
             "payload": payload,
+            # The unmapped rows cut for a person (page spec §7.2, §18): at most twenty on
+            # the first screen in the payload's own ranking, the rest behind one fold, and
+            # both sides of the materiality floor counted for the verdict. The operator's
+            # own runs put 496, 312 and 852 rows on this page. Presentation only — the
+            # rows and their order are the payload's, and the hash covers all of them.
+            "queue": figures.unmapped_queue(
+                list(payload.get("unmapped_concepts", [])),
+                reference_concept=_reference_concept(payload),
+            ),
             # The same rows the payload carries and the hash covers, grouped by concept and
             # rendered in the house style. The operator's own run showed 4,754 of them —
             # one per concept per period, which is what the filing genuinely holds — under

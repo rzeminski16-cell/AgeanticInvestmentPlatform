@@ -59,6 +59,18 @@
             ? ""
             : shown + " of " + rows.length + (shown === 1 ? " row matches" : " rows match");
       }
+
+      // A match inside a collapsed fold is a match the operator cannot see: the unmapped
+      // gate keeps everything past its first screen behind one disclosure. While a needle
+      // is typed, every fold holding a visible match opens; with the box cleared the folds
+      // are left as the operator had them.
+      if (needle !== "") {
+        Array.prototype.forEach.call(table.querySelectorAll("details"), function (fold) {
+          if (fold.querySelector("tr[data-search]:not([hidden])")) {
+            fold.open = true;
+          }
+        });
+      }
     };
 
     input.addEventListener("input", apply);

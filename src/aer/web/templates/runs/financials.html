@@ -16,13 +16,47 @@
   <script src="{{ url_for('static', path='/js/tables.js') }}" defer></script>
 {% endblock %}
 
+{#
+  One row per unmapped tag. Rendered twice — the first screen, then the fold — from one
+  macro, so the two can never drift apart.
+#}
+{% macro unmapped_rows(rows) %}
+  {% for row in rows %}
+    <tr data-search="{{ row.tag }} {{ row.label }}">
+      <td class="py-2.5 pr-4">
+        <span class="break-all type-data-sm text-ink">{{ row.tag }}</span>
+        {% if row.label %}
+          <span class="mt-0.5 block type-body-sm text-ink-muted">{{ row.label }}</span>
+        {% endif %}
+      </td>
+      <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
+        {% if row.value %}
+          {{ row.value }} {{ row.unit }}
+          <span class="mt-0.5 block text-ink-muted">at {{ row.period_end }}</span>
+        {% else %}
+          {# A tag that produced no fact this run kept. Not nothing: it is why the
+             element is on this list at all, and a blank would read as zero. #}
+          <span class="text-ink-muted">no figure in this selection</span>
+        {% endif %}
+      </td>
+      <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
+        {% if row.share %}{{ row.share | percent }}{% else %}&mdash;{% endif %}
+      </td>
+      <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
+        {{ row.observations }}
+      </td>
+    </tr>
+  {% endfor %}
+{% endmacro %}
+
 {% block gate_verdict %}
   {{ ui.verdict(
     "WHAT THIS ASKS",
     "This filing used " ~ (payload.unmapped_tags | length)
       ~ (" tag" if payload.unmapped_tags | length == 1 else " tags")
       ~ " the concept map does not know. The facts behind them were kept, not discarded, but no statement line carries them.",
-    detail="The question is whether that matters here. One extension element carrying the company's headline profit measure matters a great deal; forty carrying segment breakdowns nobody asked for do not. Only you can tell which this is.",
+    detail=((queue.sentence ~ " ") if queue.sentence else "")
+      ~ "One extension element carrying the company's headline profit measure matters a great deal; forty carrying segment breakdowns nobody asked for do not. Only you can tell which this is.",
     tone="warning" if not decided else "muted",
   ) }}
 {% endblock %}
@@ -32,7 +66,7 @@
     {% if payload.unmapped_concepts %}
       <div hidden id="unmapped-filter-shell">
         {# Revealed by tables.js: with scripting off the complete table stands and no dead
-           search box does. #}
+           search box does. The filter reaches into the fold below and opens it on a match. #}
         <label for="unmapped-filter" class="block type-label text-ink-muted">
           Filter by element name or label
         </label>
@@ -51,43 +85,40 @@
         <table class="w-full text-left" id="unmapped-tags">
           <caption class="sr-only">
             Unmapped tags, largest figure first. The figure is the largest this tag held in
-            this filing, not the latest.
+            this filing, not the latest. The first {{ queue.shown | length }} are on this
+            screen; any past them sit behind the row beneath.
           </caption>
           <thead>
             <tr>
               <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Taxonomy and element</th>
               <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Largest figure</th>
-              <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Of the biggest mapped line</th>
+              <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">{% if queue.reference %}Share of {{ queue.reference }}{% else %}Of the biggest mapped line{% endif %}</th>
               <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Observations</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
-            {% for row in payload.unmapped_concepts %}
-              <tr data-search="{{ row.tag }} {{ row.label }}">
-                <td class="py-2.5 pr-4">
-                  <span class="break-all type-data-sm text-ink">{{ row.tag }}</span>
-                  {% if row.label %}
-                    <span class="mt-0.5 block type-body-sm text-ink-muted">{{ row.label }}</span>
-                  {% endif %}
-                </td>
-                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
-                  {% if row.value %}
-                    {{ row.value }} {{ row.unit }}
-                    <span class="mt-0.5 block text-ink-muted">at {{ row.period_end }}</span>
-                  {% else %}
-                    {# A tag that produced no fact this run kept. Not nothing: it is why
-                       the element is on this list at all, and a blank would read as zero. #}
-                    <span class="text-ink-muted">no figure in this selection</span>
-                  {% endif %}
-                </td>
-                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
-                  {% if row.share %}{{ row.share | percent }}{% else %}&mdash;{% endif %}
-                </td>
-                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
-                  {{ row.observations }}
+            {{ unmapped_rows(queue.shown) }}
+            {% if queue.folded %}
+              {#
+                The fold (page spec §7.2, §18): at most twenty rows on the first screen,
+                and everything past it behind one collapsed row that says what it holds.
+                A disclosure and never a filter — every row is still on the page, inside
+                the payload the decision form hashes, and the search box above reaches
+                into it. "Skip them" is the gate's own approval: nothing here maps a tag.
+              #}
+              <tr id="unmapped-fold">
+                <td colspan="4" class="pt-3">
+                  {% call ui.disclosure(queue.fold_summary) %}
+                    <table class="mt-2 w-full text-left">
+                      <caption class="sr-only">The tags past the first screen, in the same order.</caption>
+                      <tbody class="divide-y divide-line">
+                        {{ unmapped_rows(queue.folded) }}
+                      </tbody>
+                    </table>
+                  {% endcall %}
                 </td>
               </tr>
-            {% endfor %}
+            {% endif %}
           </tbody>
         </table>
       </div>

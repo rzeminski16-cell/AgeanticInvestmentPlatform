@@ -16,6 +16,7 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -390,7 +391,8 @@ class TestThePageShowsWhatItHashes:
         assert page.status_code == 200
         assert UNMAPPED_TAG in page.text
         assert "Largest figure" in page.text
-        assert "Of the biggest mapped line" in page.text
+        # The line the share is against, named (page spec §18); the fixture maps revenue.
+        assert "Share of revenue" in page.text
         # And the comparison: what the run did capture, beside what it could not place.
         assert 'id="mapped-concepts"' in page.text
 
@@ -474,6 +476,77 @@ class TestThePageShowsWhatItHashes:
 
         assert (await api.get(f"/api/runs/{job_id}/financials")).status_code == 404
         assert (await api.get(f"/runs/{job_id}/financials")).status_code == 404
+
+
+class TestTheFirstScreenIsTwentyRows:
+    """Page spec §7.2 and §18 (Phase 1.5). The unmapped gate showed 496, 312 and 852 rows
+    on the operator's own runs; it now shows the twenty most material and folds the rest
+    behind one row that says what it holds, with both sides of the floor named up front.
+    """
+
+    async def test_a_short_filing_names_both_counts_and_needs_no_fold(
+        self, api: Any, committed: dict, unmapped_runner: Runner
+    ) -> None:
+        job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert page.status_code == 200
+        assert "Sized against what did map:" in page.text
+        assert "at or above 5% of the largest revenue figure" in page.text
+        assert "Share of revenue" in page.text
+        assert 'id="unmapped-fold"' not in page.text
+
+    async def test_a_long_filing_folds_everything_past_the_twentieth_row(
+        self, api: Any, committed: dict, unmapped_runner: Runner, db_engine: Any
+    ) -> None:
+        """The rows are the payload's; the fold is presentation. Written straight onto the
+        extract step's record, the way a filing with thirty extensions would leave it."""
+        job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
+        rows = [
+            {
+                "tag": f"exmpl:Extension{index:02d}",
+                "label": f"Extension {index}",
+                "observations": 1,
+                "units": ["USD"],
+                "value": str(1000 - index),
+                "unit": "USD",
+                "period_end": "2023-12-31",
+                "share": str(Decimal("0.30") - Decimal("0.01") * index),
+                "refusal": "",
+            }
+            for index in range(30)
+        ]
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            step = await session.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "extract")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            assert step is not None
+            step.output_ref = {
+                **(step.output_ref or {}),
+                "unmapped_tags": [row["tag"] for row in rows],
+                "unmapped_concepts": rows,
+            }
+            await session.commit()
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert page.status_code == 200, page.text[:500]
+        assert 'id="unmapped-fold"' in page.text
+        first_screen, fold = page.text.split('id="unmapped-fold"', 1)
+        assert "exmpl:Extension19" in first_screen
+        assert "exmpl:Extension20" not in first_screen
+        assert "exmpl:Extension20" in fold
+        assert "exmpl:Extension29" in fold
+        assert "10 more tags past the first screen" in page.text
+        assert "The 20 largest are on this screen; the other 10 sit behind one row" in page.text
+        # The counts are the whole filing's: twenty-six at or above the floor, four below.
+        assert "26 at or above 5% of the largest revenue figure" in page.text
+        assert "4 below it" in page.text
 
 
 class TestThePayloadItself:

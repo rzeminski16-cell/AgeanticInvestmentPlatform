@@ -24,9 +24,10 @@ They are not interchangeable and merging them would be a fourth. A report that p
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.config import HouseStyle
@@ -37,12 +38,15 @@ from aer.web.shell.provenance import Provenance, ProvenanceRef
 from aer.web.vocabulary import Tone
 
 __all__ = [
+    "MATERIALITY_FLOOR",
     "NOT_AVAILABLE",
+    "UNMAPPED_FIRST_SCREEN",
     "AssumptionFigure",
     "CapturedConcept",
     "CapturedPeriod",
     "CostContext",
     "RenderedFigure",
+    "UnmappedQueue",
     "assumption_figure",
     "captured_concepts",
     "concept_name",
@@ -51,6 +55,7 @@ __all__ = [
     "lineage_figure",
     "pounds",
     "trimmed",
+    "unmapped_queue",
     "waited_for",
 ]
 
@@ -476,6 +481,151 @@ def captured_concepts(rows: list[dict[str, Any]], *, style: HouseStyle) -> list[
         )
     captured.sort(key=lambda item: item.label)
     return captured
+
+
+# The unmapped gate's first screen (page spec §7.2): at most twenty rows at a time, ranked
+# by materiality. The operator's own runs put 496, 312 and 852 rows on this page, which the
+# specification calls the single worst moment in the product.
+UNMAPPED_FIRST_SCREEN: Final = 20
+
+# Under this share of the largest mapped line a tag sits below the fold (page spec §18). A
+# filer extension worth a twentieth of revenue is a decision; one worth a thousandth is
+# not, and the page says which is which rather than leaving the operator to work it out.
+MATERIALITY_FLOOR: Final = Decimal("0.05")
+
+
+@dataclass(frozen=True, slots=True)
+class UnmappedQueue:
+    """The gate's unmapped rows cut for a person: a first screen, then one fold.
+
+    ``shown`` is the first screen in the payload's own order — largest share first, so the
+    row that decides the gate is the first row — and ``folded`` is every row after it, in
+    the same order, behind a single collapsed row. **Nothing is dropped**: together they
+    are the rows the decision form hashes, and the fold is a disclosure, never a filter.
+    The counts describe the whole filing, so the verdict names both sides of the floor
+    before the operator has scrolled anywhere.
+    """
+
+    shown: tuple[dict[str, Any], ...]
+    folded: tuple[dict[str, Any], ...]
+    # Three answers to "does this gap matter?": at or above the floor, under it, and with
+    # no figure in the selection to size against a mapped line.
+    material: int
+    below: int
+    unsized: int
+    # The mapped line the shares are against, as a reader names it — "revenue" — or ""
+    # when nothing mapped to size against.
+    reference: str
+    floor: Decimal
+
+    @property
+    def total(self) -> int:
+        return len(self.shown) + len(self.folded)
+
+    @property
+    def floor_text(self) -> str:
+        return f"{(self.floor * 100).normalize():f}%"
+
+    @property
+    def sentence(self) -> str:
+        """Both sides of the floor, named before the operator scrolls (page spec §7.2)."""
+        if not self.total:
+            return ""
+        if not self.reference:
+            return (
+                "Nothing this filing mapped is large enough to size them against, so they "
+                "are listed largest figure first."
+            )
+        counted = [
+            f"{self.material} at or above {self.floor_text} of the largest {self.reference} "
+            "figure this filing reported",
+            f"{self.below} below it",
+        ]
+        if self.unsized:
+            counted.append(f"{self.unsized} with no figure in this selection to size")
+        listed = f"{', '.join(counted[:-1])} and {counted[-1]}"
+        screen = (
+            f"All {self.total} are on this screen, largest first."
+            if not self.folded
+            else (
+                f"The {len(self.shown)} largest are on this screen; the other "
+                f"{len(self.folded)} sit behind one row beneath them."
+            )
+        )
+        return f"Sized against what did map: {listed}. {screen}"
+
+    @property
+    def fold_summary(self) -> str:
+        """What the collapsed row holds, so opening it is a choice rather than a gamble."""
+        if not self.folded:
+            return ""
+        lead = f"{len(self.folded)} more tags past the first screen"
+        remedy = "review them here, or approve the extraction to leave them unmapped"
+        if not self.reference:
+            return f"{lead}, largest figure first — {remedy}."
+        material = sum(1 for row in self.folded if _is_material(row, self.floor))
+        unsized = sum(1 for row in self.folded if _share_of(row) is None)
+        below = len(self.folded) - material - unsized
+        held = [
+            f"{count} {words}"
+            for count, words in (
+                (material, f"at or above {self.floor_text}"),
+                (below, f"below {self.floor_text}"),
+                (unsized, "with no figure to size"),
+            )
+            if count
+        ]
+        return f"{lead}: {', '.join(held)} — {remedy}."
+
+
+def _share_of(row: Mapping[str, Any]) -> Decimal | None:
+    """The row's share of the reference line, or ``None`` where nothing sized it."""
+    raw = str(row.get("share") or "").strip()
+    if not raw:
+        return None
+    try:
+        return Decimal(raw)
+    except InvalidOperation:
+        return None
+
+
+def _is_material(row: Mapping[str, Any], floor: Decimal) -> bool:
+    share = _share_of(row)
+    return share is not None and share >= floor
+
+
+def unmapped_queue(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    reference_concept: str | None,
+    first_screen: int = UNMAPPED_FIRST_SCREEN,
+    floor: Decimal = MATERIALITY_FLOOR,
+) -> UnmappedQueue:
+    """Cut the gate's ranked rows into a first screen and a fold, counting both sides.
+
+    Reads the payload's rows in the payload's order and nothing else: the ranking is the
+    extract step's — largest share first, then the unsized, then alphabetical — and a
+    re-sort here would be the page showing an order its hash does not cover.
+    """
+    material = below = unsized = 0
+    for row in rows:
+        share = _share_of(row)
+        if share is None:
+            unsized += 1
+        elif share >= floor:
+            material += 1
+        else:
+            below += 1
+    ordered = tuple(dict(row) for row in rows)
+    return UnmappedQueue(
+        shown=ordered[:first_screen],
+        folded=ordered[first_screen:],
+        material=material,
+        below=below,
+        unsized=unsized,
+        reference=concept_name(reference_concept).lower() if reference_concept else "",
+        floor=floor,
+    )
 
 
 # The assumptions stored as a fraction, where "0.025" means 2.5%. Named rather than
