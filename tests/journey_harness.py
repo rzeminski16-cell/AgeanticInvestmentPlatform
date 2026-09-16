@@ -52,6 +52,7 @@ from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.workflow.engine import WorkflowDefinitionError
+from aer.workflow.pauses import PauseReason
 from aer.workflow.workflows.vertical_slice_v1 import build_steps, gate_payload, seal_step_for
 from tests.db_cleanup import delete_all
 from tests.db_fixtures import run_async
@@ -323,7 +324,8 @@ async def _budget_scope(url: str, job_id: uuid.UUID) -> str | None:
         await engine.dispose()
 
 
-async def _paused_message(url: str, job_id: uuid.UUID) -> str:
+async def _pause_reason(url: str, job_id: uuid.UUID) -> str | None:
+    """Why the run is paused, read from the paused step's own record (`PauseReason`)."""
     engine = _engine(url)
     try:
         factory = async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -334,7 +336,9 @@ async def _paused_message(url: str, job_id: uuid.UUID) -> str:
                 .order_by(JobStep.sequence.desc(), JobStep.attempt.desc())
                 .limit(1)
             )
-            return str(((row.error or {}) if row else {}).get("message", ""))
+            error = (row.error or {}) if row else {}
+            reason = error.get("context", {}).get("reason")
+            return str(reason) if reason else None
     finally:
         await engine.dispose()
 
@@ -554,14 +558,14 @@ def _build_gate(state: StoppedState, scene: Scene) -> uuid.UUID:
     run_async(_approve_by_service(url, job_id, gate))
     if state.disposition is Disposition.STALE_PAGE_MOVED:
         run_async(_move_the_page(url, job_id, gate))
-        expected = "moved"
+        expected = PauseReason.GATE_STALE_PAGE_MOVED
     else:
         run_async(_drift_the_seal(url, job_id, gate))
-        expected = "drifted"
+        expected = PauseReason.GATE_STALE_SEAL_DRIFT
     status = worker.advance(job_id)
-    paused: str = run_async(_paused_message(url, job_id))
-    if status is not JobStatus.AWAITING_APPROVAL or expected not in paused.lower():
-        detail = f"after the stale approval the run is {status.value}: {paused[:160]!r}"
+    reason: str | None = run_async(_pause_reason(url, job_id))
+    if status is not JobStatus.AWAITING_APPROVAL or reason != expected.value:
+        detail = f"after the stale approval the run is {status.value}, paused for {reason!r}"
         raise NoPathConstructedError(detail)
     return job_id
 

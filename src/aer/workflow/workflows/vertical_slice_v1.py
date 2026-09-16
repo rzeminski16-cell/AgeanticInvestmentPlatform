@@ -176,6 +176,7 @@ from aer.sources.sec.companyfacts import UnmappedConcept, parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
+from aer.workflow.pauses import PauseReason
 
 __all__ = [
     "ASSUMPTIONS_STEP",
@@ -914,7 +915,7 @@ async def _critique_plan(context: StepContext) -> StepResult:
     plan = await context.session.get(ResearchPlan, context.job.plan_id)
     if plan is None:  # pragma: no cover -- written by the prior step
         message = "The plan step's row is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
     body = dict(plan.plan or {})
     agent_context = AgentContext(
@@ -2078,6 +2079,7 @@ async def _pause_naming_triggers(context: StepContext) -> None:
     raise StepPaused(
         message,
         gate=GateKind.FINAL.value,
+        reason=PauseReason.FINAL_TRIGGERS_FIRED,
         context={
             "job_id": str(context.job.id),
             "triggers": [trigger.kind.value for trigger in fired],
@@ -2112,6 +2114,7 @@ async def _refuse_unsupported_evidence(context: StepContext) -> None:
     raise StepPaused(
         review.as_message(),
         gate=GateKind.FINAL.value,
+        reason=PauseReason.FINAL_UNVERIFIED_CITATIONS,
         context={
             "job_id": str(context.job.id),
             "claims": review.claims,
@@ -2154,13 +2157,23 @@ async def _require_approval(
             f"This run is waiting for the {gate.value} gate. Nothing further happens, and "
             "nothing further is spent, until somebody approves or rejects it."
         )
-        raise StepPaused(message, gate=gate.value, context={"job_id": str(context.job.id)})
+        raise StepPaused(
+            message,
+            gate=gate.value,
+            reason=PauseReason.GATE_WAITING,
+            context={"job_id": str(context.job.id)},
+        )
 
     if approval.decision is not Decision.APPROVED:
         message = (
             f"The {gate.value} gate was {approval.decision.value.lower()}. The run stops here."
         )
-        raise StepPaused(message, gate=gate.value, context={"decision": approval.decision.value})
+        raise StepPaused(
+            message,
+            gate=gate.value,
+            reason=PauseReason.GATE_REJECTED,
+            context={"decision": approval.decision.value},
+        )
 
     if expected_hash and approval.payload_hash != expected_hash:
         # Three hashes, and which two agree is the whole diagnosis. The operator's
@@ -2173,6 +2186,7 @@ async def _require_approval(
             canonical_json(await gate_payload(context.session, job=context.job, gate=gate.value))
         )
         if live == approval.payload_hash:
+            reason = PauseReason.GATE_STALE_SEAL_DRIFT
             detail = (
                 "What this run sealed and what the review page shows have drifted apart, "
                 "so no approval taken from that page can match. Nothing you decide will "
@@ -2181,6 +2195,7 @@ async def _require_approval(
                 "shows, continuing the run then proceeds on it."
             )
         else:
+            reason = PauseReason.GATE_STALE_PAGE_MOVED
             detail = (
                 "The page it was taken from has moved since. Open the review page again "
                 "and decide on what it shows now."
@@ -2193,6 +2208,7 @@ async def _require_approval(
         raise StepPaused(
             message,
             gate=gate.value,
+            reason=reason,
             context={
                 "approved_hash": approval.payload_hash,
                 "actual_hash": expected_hash,
@@ -2333,7 +2349,7 @@ async def _classify(context: StepContext) -> StepResult:
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     if company is None:  # pragma: no cover -- written by the prior step
         message = "The acquire step's company row is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
     proposal = propose_from_sic(company.sic or "")
     profile = proposal.profile
@@ -2401,7 +2417,7 @@ async def _propose_peers(context: StepContext) -> StepResult:
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     if company is None:  # pragma: no cover -- written by the prior step
         message = "The acquire step's company row is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
     request = await _request_for(context)
     floor = await propose_peers_from_sic(
@@ -2584,7 +2600,7 @@ async def _propose_themes(context: StepContext) -> StepResult:
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     if company is None:  # pragma: no cover -- written by the prior step
         message = "The acquire step's company row is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
     request = await _request_for(context)
 
     agent_context = AgentContext(
@@ -2710,7 +2726,7 @@ async def _acquire_prices(context: StepContext) -> StepResult:
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     if company is None:  # pragma: no cover -- written by the prior step
         message = "The acquire step's company row is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
     ledger = calculation_service.new_context()
     outcome = await acquire_prices(
@@ -2799,7 +2815,7 @@ async def _extract(context: StepContext) -> StepResult:
     document = await context.session.get(SourceDocument, _uuid(acquired["source_document_id"]))
     if company is None or document is None:  # pragma: no cover -- written by the prior step
         message = "The acquire step's rows are missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
     written = await persist_facts(
         context.session,
@@ -3836,7 +3852,7 @@ async def _request_for(context: StepContext) -> ResearchRequest:
     request = await context.session.get(ResearchRequest, context.job.work_order_id)
     if request is None:  # pragma: no cover -- a job cannot exist without its request
         message = "The job's research request is missing."
-        raise StepPaused(message, gate=None)
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
     return request
 
 

@@ -67,6 +67,7 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import Cost, Job, JobCancellation, JobStep, WorkOrder
 from aer.errors import AerError, BudgetExceededError
 from aer.tracing import span
+from aer.workflow.pauses import BudgetScope, PauseReason
 
 __all__ = [
     "MAX_PARALLEL_NODES",
@@ -112,11 +113,24 @@ class StepPaused(AerError):  # noqa: N818 -- a control-flow signal, not an error
     http_status = 202
 
     def __init__(
-        self, message: str, *, gate: str | None = None, context: dict[str, Any] | None = None
+        self,
+        message: str,
+        *,
+        gate: str | None = None,
+        reason: PauseReason | None = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
-        merged = {"gate": gate, **(context or {})}
+        # The reason is written beside the gate so that what stopped the run is readable
+        # from its record, not only from the message: the journey harness generates its
+        # inventory of stopped states from `PauseReason` and reads this key back.
+        merged = {
+            "gate": gate,
+            "reason": reason.value if reason is not None else None,
+            **(context or {}),
+        }
         super().__init__(message, context=merged)
         self.gate = gate
+        self.reason = reason
 
 
 @dataclass(slots=True)
@@ -253,7 +267,7 @@ class BudgetGuard:
         already = await spend_so_far(session, job_id=job.id)
         per_run = await self._per_run_cap(session, job=job)
         self._refuse_if_over(
-            scope="per_run",
+            scope=BudgetScope.PER_RUN,
             noun="run",
             spent=already,
             projected_gbp=projected_gbp,
@@ -265,7 +279,7 @@ class BudgetGuard:
         # `this_month + projected` — the run's spend is not added a second time.
         this_month = await spend_this_month(session, now=now or datetime.now(UTC))
         self._refuse_if_over(
-            scope="monthly",
+            scope=BudgetScope.MONTHLY,
             noun="month",
             spent=this_month,
             projected_gbp=projected_gbp,
@@ -276,8 +290,10 @@ class BudgetGuard:
             ),
         )
 
-        self._warn_if_near(job, scope="per_run", spent=already, cap=per_run)
-        self._warn_if_near(job, scope="monthly", spent=this_month, cap=self.monthly_cap_gbp)
+        self._warn_if_near(job, scope=BudgetScope.PER_RUN, spent=already, cap=per_run)
+        self._warn_if_near(
+            job, scope=BudgetScope.MONTHLY, spent=this_month, cap=self.monthly_cap_gbp
+        )
 
     async def _per_run_cap(self, session: AsyncSession, *, job: Job) -> Decimal:
         """This run's ceiling as it stands now, not as it stood when the guard was built.
@@ -297,7 +313,7 @@ class BudgetGuard:
     def _refuse_if_over(
         self,
         *,
-        scope: str,
+        scope: BudgetScope,
         noun: str,
         spent: Decimal,
         projected_gbp: Decimal,
@@ -318,15 +334,15 @@ class BudgetGuard:
                 "spent_gbp": str(spent),
                 "projected_gbp": str(projected_gbp),
                 "cap_gbp": str(cap),
-                "scope": scope,
+                "scope": scope.value,
             },
         )
 
-    def _warn_if_near(self, job: Job, *, scope: str, spent: Decimal, cap: Decimal) -> None:
+    def _warn_if_near(self, job: Job, *, scope: BudgetScope, spent: Decimal, cap: Decimal) -> None:
         if spent >= cap * Decimal(str(self.warn_ratio)):
             _log.warning(
                 "budget.approaching_cap",
-                scope=scope,
+                scope=scope.value,
                 job_id=str(job.id),
                 spent_gbp=str(spent),
                 cap_gbp=str(cap),
