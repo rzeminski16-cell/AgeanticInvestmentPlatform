@@ -26,7 +26,7 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.core.enums import Decision, GateKind, JobStatus
-from aer.db.models import Job, JobStep, User
+from aer.db.models import Job, JobStep
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
@@ -35,12 +35,15 @@ from tests.workflow_fixtures import (
     StubSecClient,
     gate_for,
     make_provider,
+    owner_of,
     paused_at,
     with_price_feed,
 )
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from aer.providers.fake import FakeProvider
 
 __all__ = ["Worker"]
 
@@ -64,7 +67,13 @@ class Worker:
     filing client hold state a second run would inherit.
     """
 
-    def __init__(self, database_url: str, *, subscribed: bool = False) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        subscribed: bool = False,
+        provider: FakeProvider | None = None,
+    ) -> None:
         self._database_url = database_url
         # Subscribed: the peer step asks the model for a slate only when a price feed is
         # configured (ADR 0059, second amendment); a scenario that expects the model's
@@ -73,7 +82,9 @@ class Worker:
         self._store = LocalArtefactStore(
             self._settings.artefact_root, max_bytes=self._settings.max_artefact_bytes
         )
-        self._provider = make_provider()
+        # A scripted provider of the caller's own — the journey harness hands in one wired to
+        # fail, to put a run into the state a dead model call leaves behind.
+        self._provider = provider or make_provider()
         self._sec_client = StubSecClient(self._store)
 
     def advance(self, job_id: uuid.UUID) -> JobStatus:
@@ -199,7 +210,7 @@ class Worker:
             select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == step)
         )
         assert produced is not None, f"the {step} step has not run"
-        user = await session.scalar(select(User))
+        user = await owner_of(session, job)
         assert user is not None
         await approval_service.record_decision(
             session,
