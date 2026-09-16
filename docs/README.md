@@ -148,9 +148,9 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 were drafted Proposed** —
   the ten V1.0 features that change a recorded decision or an invariant, argued before the
-  code lands rather than after; 0116 (report supersession) and 0123 (Phase 1.2's approvals
-  model) are Accepted, each with its code, on 16 September 2026; 0124 (a standing operator
-  assumption, Phase 1.6) is Proposed, written the same day before its code.
+  code lands rather than after; 0116 (report supersession), 0123 (Phase 1.2's approvals
+  model) and 0124 (a standing operator assumption, Phase 1.6) are Accepted, each with its
+  code, on 16 September 2026.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.

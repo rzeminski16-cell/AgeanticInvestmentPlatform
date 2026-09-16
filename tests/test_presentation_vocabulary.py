@@ -405,6 +405,8 @@ class TestTheRatchetsVocabulary:
         # The risk-free rate's proposer since Phase 1.6: a series, not a rule or an opinion.
         assert proposer_words("aer.services.macro") == "a published series"
         assert proposer_words("operator:audit") == "you"
+        # A standing value (ADR 0124) is the operator's own, set once in settings.
+        assert proposer_words("operator:standing") == "you"
         assert proposer_words("you@example.invalid") == "you@example.invalid"
         assert proposer_words("") == "nobody yet"
 

@@ -50,6 +50,7 @@ from aer.services.assumption_gate import (
     PROPOSABLE_NAMES,
     REQUIRED_NAMES,
     RISK_FREE_ASSUMPTION,
+    STANDING_PROPOSED_BY,
     AssumptionGateOutcome,
     assemble,
     cost_of_debt_required,
@@ -62,6 +63,7 @@ from aer.services.assumption_gate import (
 from aer.services.assumption_proposals import CASH_COST_OF_DEBT_NAME
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
 from aer.services.assumptions import assumptions_for_request
+from aer.services.configuration import StandingAssumption, save_standing_assumption
 from aer.services.macro_acquisition import PROPOSED_BY as MACRO_BY
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
@@ -1486,6 +1488,164 @@ class TestTheRiskFreeRateComesFromTheAcquiredSeries:
         outstanding = {item["name"]: item["reason"] for item in produced["outstanding"]}
         assert "No macro client" in outstanding[RISK_FREE_ASSUMPTION]
         assert "say which instrument and date" in outstanding[RISK_FREE_ASSUMPTION]
+
+
+class TestAStandingPremiumIsProposedIntoEveryRun:
+    """ADR 0124, on a real driven run and on the service.
+
+    The equity risk premium set once in settings is proposed into the run under the
+    operator's own name, with the stored justification and the date it was set, and is
+    still confirmed at the gate; without one the gate asks, and says where a standing
+    value can be set.
+    """
+
+    @pytest.fixture
+    async def committed(self, db_engine: Any) -> Any:
+        yield await _fresh_request(db_engine)
+        await delete_all(db_engine)
+
+    @pytest.fixture
+    def enqueued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def record(redis: Any, job_id: uuid.UUID) -> str:
+            return f"task-{job_id}"
+
+        monkeypatch.setattr("aer.api.routes.runs.enqueue_run", record)
+        monkeypatch.setattr("aer.web.pages.enqueue_run", record)
+
+    @pytest.fixture
+    async def run_api(
+        self,
+        api_settings: Settings,
+        db_engine: Any,
+        fake_redis: Any,
+        committed: dict[str, Any],
+        enqueued: None,
+    ) -> Any:
+        async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+            yield client
+
+    @pytest.fixture
+    def driver(self, db_engine: Any, api_settings: Settings) -> Driver:
+        return Driver(db_engine, api_settings)
+
+    async def test_the_service_proposes_it_under_the_operators_name(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        session: AsyncSession = scene["session"]
+        held = StandingAssumption(
+            name=EQUITY_RISK_PREMIUM_ASSUMPTION,
+            value=Decimal("0.055"),
+            justification="Damodaran's implied premium, January 2026.",
+            set_by="ops@example.invalid",
+            set_on=date(2026, 9, 16),
+        )
+
+        outcome = await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+            standing=[held],
+        )
+
+        rows = {
+            row.name: row for row in await assumptions_for_request(session, scene["request"].id)
+        }
+        proposed = rows[EQUITY_RISK_PREMIUM_ASSUMPTION]
+        assert proposed.value == Decimal("0.055")
+        assert proposed.proposed_by == STANDING_PROPOSED_BY
+        assert proposed.approved is False
+        assert proposed.justification == (
+            "Damodaran's implied premium, January 2026. Standing value set in settings by "
+            "ops@example.invalid on 2026-09-16."
+        )
+        assert EQUITY_RISK_PREMIUM_ASSUMPTION not in {name for name, _ in outcome.outstanding}
+        # A standing value is not a derivation from the filings, and is not listed as one.
+        assert EQUITY_RISK_PREMIUM_ASSUMPTION not in {item.name for item in outcome.derived.derived}
+
+    async def test_a_name_the_model_does_not_read_is_left_alone(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A REIT has no model and is proposed nothing — a standing value included."""
+        await seed_years(scene, _YEARS)
+        session: AsyncSession = scene["session"]
+        held = StandingAssumption(
+            name=EQUITY_RISK_PREMIUM_ASSUMPTION,
+            value=Decimal("0.055"),
+            justification="A survey.",
+            set_by="ops@example.invalid",
+            set_on=None,
+        )
+
+        outcome = await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            sector_key="reits",
+            years=5,
+            standing=[held],
+        )
+
+        assert outcome == AssumptionGateOutcome()
+        assert list((await session.scalars(select(Assumption))).all()) == []
+
+    async def test_a_driven_run_proposes_the_standing_premium_and_asks_for_nothing_else(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            await save_standing_assumption(
+                session,
+                name=EQUITY_RISK_PREMIUM_ASSUMPTION,
+                value="0.055",
+                justification="Damodaran's implied premium, January 2026.",
+                actor=committed["user"],
+            )
+            await session.commit()
+        driver.macro_client = StubMacroClient({AS_OF_DATE: "3.05"}, vintage=AS_OF_DATE)
+
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+
+        async with factory() as session:
+            produced = await session.scalar(
+                select(JobStep.output_ref)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "propose_assumptions")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            rows = {
+                row.name: row
+                for row in await assumptions_for_request(session, committed["request"].id)
+            }
+        premium = rows[EQUITY_RISK_PREMIUM_ASSUMPTION]
+        assert premium.value == Decimal("0.055")
+        assert premium.proposed_by == STANDING_PROPOSED_BY
+        assert premium.approved is False
+        assert "Standing value set in settings by" in premium.justification
+        outstanding = {item["name"] for item in produced["outstanding"]}
+        assert EQUITY_RISK_PREMIUM_ASSUMPTION not in outstanding
+        assert RISK_FREE_ASSUMPTION not in outstanding
+        # The one cost-of-capital input still asked for is the one with no source here.
+        assert outstanding & set(COST_OF_CAPITAL_NAMES) == {BETA_ASSUMPTION}
+
+    async def test_without_a_standing_value_the_gate_says_where_to_set_one(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            produced = await session.scalar(
+                select(JobStep.output_ref)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "propose_assumptions")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+        reasons = {item["name"]: item["reason"] for item in produced["outstanding"]}
+        assert "set a standing premium in settings" in reasons[EQUITY_RISK_PREMIUM_ASSUMPTION]
 
 
 class TestConfirmingIsOneActNotTen:

@@ -2687,6 +2687,51 @@ async def save_settings(
     return RedirectResponse("/settings?saved=1", status_code=HTTP_303_SEE_OTHER)
 
 
+@router.post("/settings/standing", summary="Save one standing assumption with its justification")
+async def save_standing_settings(
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Store a standing value and its reason together, or re-render saying why not.
+
+    One form for the pair (ADR 0124): the value and its justification are one decision,
+    and a form that could save a number without its reason would store exactly the
+    unexplained figure the record refuses.
+    """
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was changed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await configuration.save_standing_assumption(
+            session,
+            name=submitted.get("name", ""),
+            value=submitted.get("value", ""),
+            justification=submitted.get("justification", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        token = new_csrf_token(settings)
+        context = await _settings_context(session, settings, token=token)
+        context["error"] = refused.message
+        context["worker"] = await _worker_words(redis)
+        rejected: Response = render(request, "settings/index.html", context)
+        rejected.status_code = HTTP_400_BAD_REQUEST
+        set_csrf_cookie(rejected, token)
+        return rejected
+
+    await session.commit()
+    return RedirectResponse("/settings?saved=1#standing", status_code=HTTP_303_SEE_OTHER)
+
+
 async def _worker_words(redis: Redis) -> dict[str, Any]:
     """The worker's status in words, from the record it keeps in Redis (`aer.queue`)."""
     try:
@@ -2740,12 +2785,44 @@ async def _settings_context(
                 effective.house_style.model_dump(mode="json"), indent=2, sort_keys=True
             ),
         },
+        # The operator's standing values (ADR 0124), each with who set it and when, so the
+        # form shows what every run will be proposed rather than only a box to type in.
+        "standing": _standing_rows(
+            {
+                item.name: item
+                for item in await configuration.standing_assumptions(session, settings)
+            }
+        ),
         "secrets": configuration.secret_presence(effective),
         "saved": False,
         "error": None,
         "csrf_field": CSRF_FIELD_NAME,
         "csrf_token": token,
     }
+
+
+def _standing_rows(held: Mapping[str, configuration.StandingAssumption]) -> list[dict[str, str]]:
+    """One row per standing name the platform knows, filled in where a value is set."""
+    style = HouseStyle()
+    rows: list[dict[str, str]] = []
+    for spec in configuration.STANDING:
+        current = held.get(spec.name)
+        rows.append(
+            {
+                "name": spec.name,
+                "label": spec.label,
+                "help_text": spec.help_text,
+                "value": format(current.value.normalize(), "f") if current is not None else "",
+                "justification": current.justification if current is not None else "",
+                "set_by": current.set_by if current is not None else "",
+                "set_on": (
+                    display.date_text(current.set_on, style=style)
+                    if current is not None and current.set_on is not None
+                    else ""
+                ),
+            }
+        )
+    return rows
 
 
 @router.get("/costs", response_class=HTMLResponse, summary="What the platform has spent")

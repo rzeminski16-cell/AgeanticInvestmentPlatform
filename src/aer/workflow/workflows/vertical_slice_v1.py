@@ -129,6 +129,7 @@ from aer.services.comps import (
 )
 from aer.services.comps import payload_for_job as peer_payload_for_job
 from aer.services.comps_run import build_comps_table
+from aer.services.configuration import standing_assumptions
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
 from aer.services.escalation import cost_scene_for_job, triggers_for_job
@@ -1445,6 +1446,10 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         years=FORECAST_YEARS,
         job_id=context.job.id,
         risk_free=RiskFreeAcquisition.from_dict(macro) if macro is not None else None,
+        # The operator's standing values, read from the settings this run started with
+        # (ADR 0124): proposed like any other number, and agreed to at the gate like any
+        # other number.
+        standing=await standing_assumptions(context.session, context.service("settings")),
     )
 
     rows = await assumptions_for_request(context.session, request.id)

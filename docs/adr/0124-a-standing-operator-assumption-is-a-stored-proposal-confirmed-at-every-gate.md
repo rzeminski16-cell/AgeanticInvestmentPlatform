@@ -1,7 +1,7 @@
 # ADR 0124 — A standing operator assumption is a stored proposal, re-proposed into every run and confirmed at the gate
 
-**Status.** Proposed — 16 September 2026, for the second half of Phase 1.6. Written before
-the code; Accepted when the change lands.
+**Status.** Accepted — 16 September 2026, with the code, as the second half of Phase 1.6.
+Written Proposed earlier the same day, before the code.
 **Date.** 2026-09-16
 **Extends.** ADR 0046 (a role proposes only what no filing can answer, every proposal states
 its value, unit, proposer and justification, and a person confirms it at the gate) and ADR

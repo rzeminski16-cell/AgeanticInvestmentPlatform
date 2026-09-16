@@ -24,27 +24,36 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 import structlog
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import HouseStyle, ModelRoute, Settings
+from aer.core.assumption_scales import PLAUSIBLE_RANGE, assumption_words
 from aer.db.models import AuditEvent, SettingsOverride, User
 from aer.errors import ValidationError
 
 __all__ = [
     "OVERRIDABLE",
+    "STANDING",
+    "STANDING_NAMES",
+    "StandingAssumption",
+    "StandingName",
     "current_overrides",
     "effective_settings",
     "save_override",
+    "save_standing_assumption",
     "secret_presence",
+    "standing_assumptions",
+    "standing_justification_key",
+    "standing_value_key",
 ]
 
 _log = structlog.get_logger("aer.services.configuration")
@@ -96,7 +105,191 @@ OVERRIDABLE: Final[tuple[Overridable, ...]] = (
     ),
 )
 
-_KEYS: Final[frozenset[str]] = frozenset(item.key for item in OVERRIDABLE)
+# -- Standing operator assumptions (ADR 0124) ----------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class StandingName:
+    """A name that may have a standing value, and how the settings page asks for it."""
+
+    name: str
+    label: str
+    help_text: str
+
+
+STANDING: Final[tuple[StandingName, ...]] = (
+    StandingName(
+        name="equity_risk_premium",
+        label="Equity risk premium",
+        help_text=(
+            "The premium over the risk-free rate the market demands for holding equities, "
+            "as a decimal fraction — 5.5% is 0.055. A judgement no series publishes: say "
+            "whose estimate it is and where it comes from."
+        ),
+    ),
+)
+"""Every name that may stand. Short on purpose: a judgement about the market, never a
+company's own figure (the same number for every company is the wrong number for most of
+them) and never one a source could supply (that would be the typed rate ADR 0082 calls an
+attestation). A candidate joins by amending ADR 0124, not by adding a row here."""
+
+STANDING_NAMES: Final[tuple[str, ...]] = tuple(item.name for item in STANDING)
+
+
+def standing_value_key(name: str) -> str:
+    """The settings key holding a standing value — also its `Settings` field."""
+    return f"standing_{name}"
+
+
+def standing_justification_key(name: str) -> str:
+    """The settings key holding the justification beside it."""
+    return f"standing_{name}_justification"
+
+
+_STANDING_VALUE_KEYS: Final[frozenset[str]] = frozenset(
+    standing_value_key(name) for name in STANDING_NAMES
+)
+_STANDING_JUSTIFICATION_KEYS: Final[frozenset[str]] = frozenset(
+    standing_justification_key(name) for name in STANDING_NAMES
+)
+
+_KEYS: Final[frozenset[str]] = (
+    frozenset(item.key for item in OVERRIDABLE)
+    | _STANDING_VALUE_KEYS
+    | _STANDING_JUSTIFICATION_KEYS
+)
+
+
+def _standing_name_of(key: str) -> str:
+    return key.removeprefix("standing_").removesuffix("_justification")
+
+
+def _standing_complaint(name: str, value: Decimal) -> str | None:
+    """Why the value looks like a typing mistake, in the settings form's own words.
+
+    The same band the assumptions service holds a proposal to at the gate, so a standing
+    value cannot be one the gate would then refuse.
+    """
+    bounds = PLAUSIBLE_RANGE.get(name)
+    if bounds is None:
+        return None
+    low, high = bounds
+    if low <= value <= high:
+        return None
+    return (
+        f"{value} is outside the plausible range for the {assumption_words(name) or name} "
+        f"({low} to {high}). Rates and ratios are decimal fractions here: 5.5% is 0.055."
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class StandingAssumption:
+    """A standing value as a run receives it: the number, the reason, who set it and when."""
+
+    name: str
+    value: Decimal
+    justification: str
+    # From the settings table where the value came from it; "the environment" and no date
+    # for one that came from `.env`, which nobody recorded setting.
+    set_by: str
+    set_on: date | None
+
+    @property
+    def proposal_justification(self) -> str:
+        """The row's justification: the operator's reason, then the value's provenance."""
+        when = f" on {self.set_on.isoformat()}" if self.set_on is not None else ""
+        return f"{self.justification} Standing value set in settings by {self.set_by}{when}."
+
+
+async def save_standing_assumption(
+    session: AsyncSession, *, name: str, value: str, justification: str, actor: User
+) -> StandingAssumption | None:
+    """Store a standing value with its justification, or clear both — never one alone.
+
+    Both boxes empty clears the value, and the clearing is recorded. Returns what now
+    stands, or ``None`` once cleared.
+
+    Raises:
+        ValidationError: If the name may not stand, the value does not parse or is outside
+            the plausible band, or a value arrives with no justification. A premium set
+            with no reason would be a number nobody explained (ADR 0124).
+    """
+    if name not in STANDING_NAMES:
+        message = (
+            f"{name!r} is not an assumption that may have a standing value. Only a judgement "
+            f"about the market may: {', '.join(STANDING_NAMES)}."
+        )
+        raise ValidationError(message, context={"name": name})
+    value_key = standing_value_key(name)
+    why_key = standing_justification_key(name)
+    words = assumption_words(name) or name
+
+    if not value.strip() and not justification.strip():
+        await session.execute(
+            delete(SettingsOverride).where(SettingsOverride.key.in_([value_key, why_key]))
+        )
+        previous = await session.scalar(select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1))
+        session.add(
+            AuditEvent.create_linked(
+                actor=actor.email,
+                event_type="settings.changed",
+                payload={"key": value_key, "value": None},
+                previous=previous,
+            )
+        )
+        _log.info("configuration.standing_cleared", name=name, actor=actor.email)
+        return None
+    if not justification.strip():
+        message = (
+            f"Say why this is the {words} you are using. A standing value is proposed into "
+            "every run with its justification, and a blank one would be a number nobody "
+            "explained."
+        )
+        raise ValidationError(message, context={"name": name})
+    if not value.strip():
+        message = f"A justification with no {words} beside it stands for nothing; enter both."
+        raise ValidationError(message, context={"name": name})
+
+    stored = await save_override(session, key=value_key, raw=value, actor=actor)
+    await save_override(session, key=why_key, raw=justification, actor=actor)
+    return StandingAssumption(
+        name=name,
+        value=Decimal(str(stored)),
+        justification=justification.strip(),
+        set_by=actor.email,
+        set_on=datetime.now(UTC).date(),
+    )
+
+
+async def standing_assumptions(
+    session: AsyncSession, settings: Settings
+) -> tuple[StandingAssumption, ...]:
+    """The standing values in force for a run starting now, with who set each and when.
+
+    Read from the effective settings, so a value from ``.env`` counts as much as one saved on
+    the page; a value with no justification beside it does not count at all, because the
+    gate would refuse to propose it. The provenance comes from the settings table where the
+    value came from there.
+    """
+    effective = await effective_settings(session, settings)
+    rows = {row.key: row for row in await session.scalars(select(SettingsOverride))}
+    held: list[StandingAssumption] = []
+    for name in STANDING_NAMES:
+        value = getattr(effective, standing_value_key(name), None)
+        justification = str(getattr(effective, standing_justification_key(name), "") or "")
+        if value is None or not justification.strip():
+            continue
+        row = rows.get(standing_value_key(name))
+        held.append(
+            StandingAssumption(
+                name=name,
+                value=Decimal(str(value)),
+                justification=justification.strip(),
+                set_by=row.updated_by if row is not None else "the environment",
+                set_on=row.updated_at.date() if row is not None else None,
+            )
+        )
+    return tuple(held)
 
 
 async def current_overrides(session: AsyncSession) -> dict[str, Any]:
@@ -263,12 +456,40 @@ def _coerce(key: str, raw: Any) -> Any:
             message = f"The warning ratio must be above 0 and at most 1; got {ratio}."
             raise ValidationError(message, context={"key": key})
         return ratio
+    if key in _STANDING_VALUE_KEYS:
+        return _standing_value(key, raw)
+    if key in _STANDING_JUSTIFICATION_KEYS:
+        return "" if raw is None else str(raw).strip()
 
     amount = Decimal(str(raw))
     if amount <= 0:
         message = f"{key} must be above zero; got {amount}."
         raise ValidationError(message, context={"key": key})
     return amount
+
+
+def _standing_value(key: str, raw: Any) -> Decimal | None:
+    """A standing assumption's value (ADR 0124): blank means unset.
+
+    A value is held to the same plausible band the assumptions service applies at the gate,
+    so nothing can stand that every run would then refuse.
+    """
+    text = "" if raw is None else str(raw).strip()
+    if not text:
+        return None
+    name = _standing_name_of(key)
+    try:
+        value = Decimal(text)
+    except InvalidOperation as exc:
+        message = (
+            f"The {assumption_words(name) or name} must be a decimal fraction — 5.5% is "
+            f"0.055 — and {text!r} is not one."
+        )
+        raise ValidationError(message, context={"key": key}) from exc
+    complaint = _standing_complaint(name, value)
+    if complaint is not None:
+        raise ValidationError(complaint, context={"key": key})
+    return value
 
 
 def _storable(value: Any) -> Any:

@@ -30,7 +30,9 @@ from aer.services.configuration import (
     current_overrides,
     effective_settings,
     save_override,
+    save_standing_assumption,
     secret_presence,
+    standing_assumptions,
 )
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
@@ -287,6 +289,198 @@ class TestThePage:
 
         assert rejected.status_code == 400
         assert 'id="error"' in rejected.text
+
+
+@pytest.mark.integration
+class TestAStandingAssumption:
+    """ADR 0124. A standing value is a settings override with its justification beside it,
+    saved and cleared together, held to the gate's own band, and read back with who set
+    it and when — so every run can propose it and say where it came from."""
+
+    async def test_a_value_and_its_reason_are_saved_together(
+        self, db_session: AsyncSession
+    ) -> None:
+        actor = await _actor(db_session)
+
+        held = await save_standing_assumption(
+            db_session,
+            name="equity_risk_premium",
+            value="0.055",
+            justification="Damodaran's implied premium, January 2026.",
+            actor=actor,
+        )
+
+        assert held is not None
+        assert held.value == Decimal("0.055")
+        assert held.set_by == actor.email
+        assert held.set_on is not None
+        standing = await standing_assumptions(db_session, _settings())
+        assert [item.name for item in standing] == ["equity_risk_premium"]
+        assert standing[0].justification == "Damodaran's implied premium, January 2026."
+        assert standing[0].set_by == actor.email
+        assert "Standing value set in settings by ops@example.invalid on" in (
+            standing[0].proposal_justification
+        )
+        # And the effective settings carry both halves, like any other override.
+        effective = await effective_settings(db_session, _settings())
+        assert effective.standing_equity_risk_premium == Decimal("0.055")
+        assert effective.standing_equity_risk_premium_justification.startswith("Damodaran")
+
+    async def test_a_value_with_no_reason_is_refused(self, db_session: AsyncSession) -> None:
+        actor = await _actor(db_session)
+
+        with pytest.raises(ValidationError, match="Say why"):
+            await save_standing_assumption(
+                db_session,
+                name="equity_risk_premium",
+                value="0.055",
+                justification="  ",
+                actor=actor,
+            )
+        assert await standing_assumptions(db_session, _settings()) == ()
+
+    async def test_a_reason_with_no_value_is_refused(self, db_session: AsyncSession) -> None:
+        actor = await _actor(db_session)
+
+        with pytest.raises(ValidationError, match="stands for nothing"):
+            await save_standing_assumption(
+                db_session,
+                name="equity_risk_premium",
+                value="",
+                justification="Because.",
+                actor=actor,
+            )
+
+    async def test_the_gates_own_band_applies_at_entry(self, db_session: AsyncSession) -> None:
+        """5.5 for 5.5% is the mistake the band exists to catch, and it is caught here rather
+        than refused at every gate afterwards."""
+        actor = await _actor(db_session)
+
+        with pytest.raises(ValidationError, match="plausible range"):
+            await save_standing_assumption(
+                db_session,
+                name="equity_risk_premium",
+                value="5.5",
+                justification="A survey.",
+                actor=actor,
+            )
+        with pytest.raises(ValidationError, match="decimal fraction"):
+            await save_standing_assumption(
+                db_session,
+                name="equity_risk_premium",
+                value="five",
+                justification="A survey.",
+                actor=actor,
+            )
+
+    async def test_only_a_market_judgement_may_stand(self, db_session: AsyncSession) -> None:
+        actor = await _actor(db_session)
+
+        with pytest.raises(ValidationError, match="not an assumption that may have a standing"):
+            await save_standing_assumption(
+                db_session, name="beta", value="1.1", justification="Regressed.", actor=actor
+            )
+
+    async def test_both_boxes_empty_clears_it_on_the_record(self, db_session: AsyncSession) -> None:
+        from sqlalchemy import select  # noqa: PLC0415
+
+        from aer.db.models import AuditEvent, SettingsOverride  # noqa: PLC0415
+
+        actor = await _actor(db_session)
+        await save_standing_assumption(
+            db_session,
+            name="equity_risk_premium",
+            value="0.05",
+            justification="A survey.",
+            actor=actor,
+        )
+
+        cleared = await save_standing_assumption(
+            db_session, name="equity_risk_premium", value="", justification="", actor=actor
+        )
+
+        assert cleared is None
+        assert await standing_assumptions(db_session, _settings()) == ()
+        keys = {row.key for row in await db_session.scalars(select(SettingsOverride))}
+        assert "standing_equity_risk_premium" not in keys
+        latest = await db_session.scalar(select(AuditEvent).order_by(AuditEvent.id.desc()))
+        assert latest is not None
+        assert latest.event_type == "settings.changed"
+        assert latest.payload == {"key": "standing_equity_risk_premium", "value": None}
+
+    async def test_a_value_from_the_environment_counts_and_says_so(
+        self, db_session: AsyncSession
+    ) -> None:
+        base = Settings(
+            http_user_agent="Tracework Test test@example.invalid",
+            standing_equity_risk_premium=Decimal("0.05"),
+            standing_equity_risk_premium_justification="The house view.",
+        )
+
+        standing = await standing_assumptions(db_session, base)
+
+        assert len(standing) == 1
+        assert standing[0].value == Decimal("0.05")
+        assert standing[0].set_by == "the environment"
+        assert standing[0].set_on is None
+        assert standing[0].proposal_justification == (
+            "The house view. Standing value set in settings by the environment."
+        )
+
+    def test_the_environment_may_not_set_a_value_without_a_reason(self) -> None:
+        from pydantic import ValidationError as PydanticValidationError  # noqa: PLC0415
+
+        with pytest.raises(PydanticValidationError, match="JUSTIFICATION"):
+            Settings(
+                http_user_agent="Tracework Test test@example.invalid",
+                standing_equity_risk_premium=Decimal("0.05"),
+            )
+        with pytest.raises(PydanticValidationError, match="plausible range"):
+            Settings(
+                http_user_agent="Tracework Test test@example.invalid",
+                standing_equity_risk_premium=Decimal("5.5"),
+                standing_equity_risk_premium_justification="A survey.",
+            )
+
+    async def test_the_page_offers_the_form_and_saves_the_pair(self, api: Any) -> None:
+        page = await api.get("/settings")
+        assert 'id="form-standing-equity_risk_premium"' in page.text
+        assert "Not set. The assumptions gate asks for it on every run." in page.text
+        token = _hidden(page.text)
+
+        saved = await api.post(
+            "/settings/standing",
+            data={
+                CSRF_FIELD_NAME: token,
+                "name": "equity_risk_premium",
+                "value": "0.055",
+                "justification": "Damodaran's implied premium, January 2026.",
+            },
+        )
+
+        assert saved.status_code == 303
+        again = await api.get("/settings")
+        assert 'value="0.055"' in again.text
+        assert "Damodaran" in again.text
+        assert "Set by settings@example.invalid on" in again.text
+
+    async def test_the_page_refuses_a_value_without_a_reason(self, api: Any) -> None:
+        page = await api.get("/settings")
+        token = _hidden(page.text)
+
+        rejected = await api.post(
+            "/settings/standing",
+            data={
+                CSRF_FIELD_NAME: token,
+                "name": "equity_risk_premium",
+                "value": "0.055",
+                "justification": "",
+            },
+        )
+
+        assert rejected.status_code == 400
+        assert 'id="error"' in rejected.text
+        assert "Say why" in rejected.text
 
 
 def _hidden(html: str) -> str:

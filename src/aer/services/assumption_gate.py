@@ -57,6 +57,7 @@ from aer.services.assumption_proposals import (
     propose_derived,
 )
 from aer.services.assumptions import assumptions_for_request, propose
+from aer.services.configuration import StandingAssumption
 from aer.services.macro_acquisition import PROPOSED_BY as MACRO_PROPOSED_BY
 from aer.services.macro_acquisition import RiskFreeAcquisition
 from aer.services.prices import BETA_ASSUMPTION
@@ -223,7 +224,8 @@ _NO_SOURCE_WIRED: Final[dict[str, str]] = {
     EQUITY_RISK_PREMIUM_ASSUMPTION: (
         "The equity risk premium is a judgement with no series behind it, and no role in "
         "this platform proposes one. Enter the premium you are using and cite where it "
-        "comes from."
+        "comes from — or set a standing premium in settings, and every run will propose it "
+        "for you to confirm."
     ),
 }
 
@@ -518,6 +520,7 @@ async def assemble(
     years: int,
     job_id: uuid.UUID | None = None,
     risk_free: RiskFreeAcquisition | None = None,
+    standing: Sequence[StandingAssumption] = (),
 ) -> AssumptionGateOutcome:
     """Propose everything this run can, and name everything it cannot.
 
@@ -533,6 +536,10 @@ async def assemble(
             is proposed as a derived assumption — a published yield, with its date, vintage
             and publisher in the justification; not acquired, its sentence is the reason
             the gate gives for asking.
+        standing: The operator's standing values from settings (ADR 0124) — today the
+            equity risk premium. Each is proposed into this run under the operator's own
+            name with the stored justification and the date it was set, and confirmed at
+            the gate like any other number; none is ever confirmed in advance.
 
     **Which numbers are proposed follows from which model will run** (ADR 0070). A bank gets
     a residual-income valuation, so it is asked for a return on equity and a payout ratio
@@ -564,6 +571,15 @@ async def assemble(
         derived = await _propose_risk_free(
             session, request=request, derived=derived, risk_free=risk_free, job_id=job_id
         )
+
+    # The operator's standing values (ADR 0124): proposed into this run under their own
+    # name, never confirmed in advance, and only for names this model reads.
+    wanted = set(required_names(model))
+    for held in standing:
+        if held.name in wanted:
+            derived = await _propose_standing(
+                session, request=request, derived=derived, held=held, job_id=job_id
+            )
 
     opinions: tuple[BoundedProposal, ...] = ()
     consulted = False
@@ -693,6 +709,47 @@ async def _propose_risk_free(
             skipped=(*derived.skipped, f"{RISK_FREE_ASSUMPTION}: {implausible.message}"),
         )
     return ProposalOutcome(derived=(*derived.derived, proposal), skipped=derived.skipped)
+
+
+# How a standing value's row says who put it forward: the operator, through settings. The
+# `operator` prefix is what the gate pages read as *you* (ADR 0124).
+STANDING_PROPOSED_BY: Final = "operator:standing"
+
+
+async def _propose_standing(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    derived: ProposalOutcome,
+    held: StandingAssumption,
+    job_id: uuid.UUID | None,
+) -> ProposalOutcome:
+    """Propose the operator's standing value into this run (ADR 0124).
+
+    Under the operator's own name, with the stored justification and the date it was set,
+    so the gate and the report's assumptions table say what the number is and where it came
+    from. Through the same door as every other number — unconfirmed until somebody agrees
+    to it here. A value the service refuses is skipped with the reason, the way an
+    implausible derivation is; it never fails the step.
+    """
+    try:
+        await propose(
+            session,
+            request_id=request.id,
+            name=held.name,
+            value=held.value,
+            unit="pure",
+            justification=held.proposal_justification,
+            proposed_by=STANDING_PROPOSED_BY,
+            by_human=True,
+            job_id=job_id,
+        )
+    except ValidationError as refused:
+        _log.info("assumptions.standing_refused", name=held.name, value=str(held.value))
+        return ProposalOutcome(
+            derived=derived.derived, skipped=(*derived.skipped, f"{held.name}: {refused.message}")
+        )
+    return derived
 
 
 async def _propose_opinions(

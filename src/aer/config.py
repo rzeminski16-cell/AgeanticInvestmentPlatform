@@ -32,6 +32,7 @@ from typing import Annotated, Any, Final, Literal
 from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from aer.core.assumption_scales import PLAUSIBLE_RANGE
 from aer.core.dates import format_date
 from aer.errors import ConfigError
 
@@ -368,6 +369,16 @@ class Settings(BaseSettings):
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 
+    # -- Standing operator assumptions (ADR 0124) -----------------------------------------
+
+    # A judgement about the market that no series carries and every valuation needs. Set
+    # once — here or on the settings page — it is proposed into every run with this
+    # justification and still confirmed at the gate each time; blank means the gate asks,
+    # as it always did. A decimal fraction: 5.5% is 0.055. Never a company's own number,
+    # and never one a source could supply.
+    standing_equity_risk_premium: Decimal | None = None
+    standing_equity_risk_premium_justification: str = ""
+
     # The per-custom-section token ceiling the additive-only composer clamps requests to
     # (docs/archive/PLAN.md §2.12, §1.8: "12k each (cap)"). Config rather than code because it is
     # a cost decision; the *floor* rules a skill cannot relax are code, in
@@ -395,6 +406,7 @@ class Settings(BaseSettings):
         "secret_key",
         "obsidian_vault_root",
         "obsidian_personal_root",
+        "standing_equity_risk_premium",
         mode="before",
     )
     @classmethod
@@ -428,6 +440,34 @@ class Settings(BaseSettings):
             message = "must not be blank; identify yourself, e.g. 'Jane Smith jane@example.com'"
             raise ValueError(message)
         return stripped
+
+    @model_validator(mode="after")
+    def _standing_value_is_explained(self) -> Settings:
+        """A standing value carries its justification and sits in the band, or does not exist.
+
+        ADR 0124: a premium proposed into every run with a blank reason would be a number
+        nobody explained, and one outside the band the gate accepts would be refused there
+        on every run. Both are refused at startup instead, naming the variable.
+        """
+        premium = self.standing_equity_risk_premium
+        if premium is None:
+            return self
+        if not self.standing_equity_risk_premium_justification.strip():
+            message = (
+                "AER_STANDING_EQUITY_RISK_PREMIUM needs "
+                "AER_STANDING_EQUITY_RISK_PREMIUM_JUSTIFICATION beside it: a standing value "
+                "is proposed into every run with its reason, and a blank one would be a "
+                "number nobody explained."
+            )
+            raise ValueError(message)
+        low, high = PLAUSIBLE_RANGE["equity_risk_premium"]
+        if not low <= premium <= high:
+            message = (
+                f"AER_STANDING_EQUITY_RISK_PREMIUM is {premium}, outside the plausible range "
+                f"({low} to {high}). Rates are decimal fractions here: 5.5% is 0.055."
+            )
+            raise ValueError(message)
+        return self
 
     @field_validator("model_routes", mode="before")
     @classmethod

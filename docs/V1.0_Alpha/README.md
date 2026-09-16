@@ -55,7 +55,8 @@ An ADR before the code, wherever a feature says it needs one. Ten were drafted w
 folder; the eleventh (0123) was written on 16 September for Phase 1.2, which the delivery
 plan had called ADR-shaped without numbering, and the twelfth (0124) the same day for the
 second half of Phase 1.6, the standing equity risk premium. All sit in
-[`../adr/`](../adr/), marked **Proposed** until the change each argues lands.
+[`../adr/`](../adr/), marked **Proposed** until the change each argues lands — which 0116,
+0123 and 0124 have, each Accepted with its code on 16 September.
 
 | ADR | Decides | For |
 |---|---|---|

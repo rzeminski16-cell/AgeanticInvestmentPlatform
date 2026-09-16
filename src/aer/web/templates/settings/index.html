@@ -88,6 +88,55 @@
     </div>
   {% endcall %}
 
+  {#
+    The operator's standing values (ADR 0124): a judgement about the market that no series
+    carries, set once here and proposed into every run — and still confirmed at the gate
+    each time. Its own form rather than a row of the list above, because the value and
+    its justification are one decision and are saved together.
+  #}
+  {% call ui.sheet("Standing assumptions", subtitle="Set once, proposed into every run with this justification, and confirmed at the gate each time like any other number. Never a company's own figure, and never one a source could supply.", id="standing") %}
+    <div class="flex flex-col divide-y divide-line">
+      {% for item in standing %}
+        <form method="post" action="/settings/standing" class="flex flex-col gap-2 py-5 first:pt-0 last:pb-0" id="form-standing-{{ item.name }}">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="name" value="{{ item.name }}" />
+          <label for="standing-value-{{ item.name }}" class="block type-label text-ink">{{ item.label }}</label>
+          <p class="max-w-prose type-body-sm text-ink-muted">{{ item.help_text }}</p>
+          <input
+            type="text"
+            id="standing-value-{{ item.name }}"
+            name="value"
+            value="{{ item.value }}"
+            class="min-h-11 w-48 rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+          />
+          <label for="standing-justification-{{ item.name }}" class="block type-label text-ink">Why this figure</label>
+          <textarea
+            id="standing-justification-{{ item.name }}"
+            name="justification"
+            rows="3"
+            class="w-full rounded-sm border border-control-boundary bg-surface p-3 type-body-sm text-ink"
+          >{{ item.justification }}</textarea>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+            >
+              Save {{ item.label }}
+            </button>
+            {% if item.set_by %}
+              <span class="type-body-sm text-ink-muted" data-field="standing-provenance">
+                Set by {{ item.set_by }}{% if item.set_on %} on {{ item.set_on }}{% endif %}.
+                Every run proposes it. Leave both boxes empty and save to clear it.
+              </span>
+            {% else %}
+              <span class="type-body-sm text-ink-subtle">Not set. The assumptions gate asks for it on every run.</span>
+            {% endif %}
+          </div>
+        </form>
+      {% endfor %}
+    </div>
+  {% endcall %}
+
   {% call ui.sheet("Credentials", subtitle="Kept in .env and not editable here. This table stores what it holds in the database, and the database goes into every backup aer backup writes — a key put here would be copied to wherever those go. Shown as present or absent only. See ADR 0050.") %}
     <ul class="flex flex-col divide-y divide-line" id="secrets">
       {% for name, present in secrets.items() %}
