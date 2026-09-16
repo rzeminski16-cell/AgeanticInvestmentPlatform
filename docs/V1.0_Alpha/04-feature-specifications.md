@@ -38,7 +38,8 @@ provenance, not point-in-time; it already exists; and F11 cannot work without it
 this a good decision or a lucky one"* is unanswerable without knowing what was in front of the
 operator at the time.
 
-**Touches.** 189 files. Principally `aer.workflow.workflows.vertical_slice_v1`,
+**Touches.** 143 files under `src/` and 137 test modules (counted 16 September 2026; an
+earlier draft said 189 without saying how). Principally `aer.workflow.workflows.vertical_slice_v1`,
 `aer.services.requests`, `aer.services.evaluations`, `aer.eval.metrics`, `aer.agents.planner`,
 `aer.agents.section_writer`, `aer.agents.plan_critic`, and the report renderers' header block.
 
@@ -46,9 +47,10 @@ operator at the time.
 ADR 0111. The ADR must say what was given up: the ability to reconstruct a research position as
 it stood on a past date, which nothing else in the system now provides.
 
-**Done when.** A full run produces a report with no as-of concept anywhere on it; `grep -ri
-"point.in.time\|look_ahead\|temporal_compliance" src/ docs/` returns only the ADR; every
-archived run still replays.
+**Done when.** A full run produces a report with no as-of concept anywhere on it; the
+structural-absence scan in ADR 0113 — the enforcement's own names, with the surviving
+`as_of_date` readers allowlisted by name — returns only the ADR and the records that cite it;
+the blocking metric set is nine; every archived run still replays.
 
 **Risk.** This is the largest purely-deletion change in the plan and it touches the drafting
 prompts. Do it early, on its own, with the full suite green before anything else lands.

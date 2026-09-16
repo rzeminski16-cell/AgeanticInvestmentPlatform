@@ -44,17 +44,26 @@ As measured on 11 September 2026, during the readiness audit:
 And two things the audit found wrong with it, both of which V1.0 must fix before it can trust
 any of the above:
 
-- **The suite is order-dependent, and more widely than was recorded.** `just test-shuffled
-  20260811` gave 28 failed and 7 errors against 6,830 passed. The recorded pair
-  (`test_gates.py` before `test_every_page_renders.py`) is one instance of a class:
-  `test_db_schema.py`, `test_decisions.py` and `test_thesis_monitor.py` all leak state. A
-  suite whose result depends on its order cannot certify a change.
-- **CI was red on every run from 2026-09-09** on `ruff format --check`, while the acceptance
-  document's row 5 said the static gates were clean. Fixed on this branch; recorded here
-  because the lesson is the general one — **the suite is only evidence if somebody reads its
-  output**, and a permanently red job teaches everyone to stop reading.
+- **The suite was order-dependent, and the audit fixed it in the same pass.** `just
+  test-shuffled 20260811` gave 28 failed and 7 errors against 6,830 passed, across
+  `test_db_schema.py`, `test_decisions.py` and `test_thesis_monitor.py` — which were the
+  *victims*: the leak was rows committed by earlier modules, and the fix (F-03) empties every
+  table at fixture setup rather than teardown. The shuffle is over file order, so a seed only
+  reproduces an ordering at the commit it was recorded on. What remained on 16 September was
+  three latent hazards and the verification: a test-class filter in
+  `test_contract_schema.py`, the unordered `select(User)` reads in the drivers, and a nightly
+  shuffled CI job with a fresh seed on its summary line, which is what verifies the widened
+  runner from now on. All three are done.
+- **CI was red on every run from 2026-09-09.** The cause recorded at the time was `ruff
+  format --check` on Markdown snippets; that was never fixed by a commit and stopped failing
+  by itself, because ruff formats Markdown only in preview mode. By 14 September the job was
+  red for two other reasons nobody had read: an unsorted import (`ruff check`, I001) and a
+  test pinning a document the folder tidy had moved, which aborted collection of the whole
+  default suite. **The suite is only evidence if somebody reads its output**, and a
+  permanently red job teaches everyone to stop reading. Fixed 16 September, with a guard test
+  (`tests/test_pinned_paths.py`) for every documentation path a test pins.
 
-**Both are Phase 1 work, and both come before the journey harness**, because the harness is
+**Both were Phase 1 work, and both came before the journey harness**, because the harness is
 an instrument and an instrument that reports differently depending on the order it ran in
 measures nothing.
 

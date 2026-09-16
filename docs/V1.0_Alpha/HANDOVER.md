@@ -55,9 +55,13 @@ assumptions from `audit/subjects.py` with their sources, and writes every readou
 `docs/plan/readiness-audit-2026-09/`** — `audit/out/` is git-ignored, and this container is
 ephemeral.
 
-Also outstanding from Phase 0: **0.2** (map both console notes source by source, one sitting,
-£0) and **0.4** (the operator reads two documents blind, themselves — three hours, no session
-can do it for them).
+**0.2 is done** — 16 September, £0, from committed records only:
+[`../plan/readiness-audit-2026-09/source-map.md`](../plan/readiness-audit-2026-09/source-map.md).
+Every decisive figure the console read from a primary source sits inside an accession the
+platform opened, a filing type it fetches, or its own fact store; the gap is exhibits, the
+five-most-recent rule for current reports, and the unconstructed issuer adapter — not evidence
+policy. Still outstanding: **0.4** (the operator reads two documents blind, themselves — three
+hours, no session can do it for them).
 
 ## 4. Bringing the environment up
 
@@ -88,11 +92,26 @@ Then the worker, in its own process: `uv run arq aer.worker.WorkerSettings`.
 
 Everything here is provable offline and costs nothing but sessions.
 
-1. **Fix the order dependence.** `just test-shuffled 20260811` gave 28 failed and 7 errors
-   against 6,830 passed. Until this is fixed, no other test result means anything.
-2. **Fix the red CI job and keep it green.** It was red on `ruff format --check` from
-   2026-09-09 while the acceptance document said the static gates were clean. A build nobody
-   reads is a build that is not run.
+1. **Verify the order dependence is fixed, and keep it fixed.** The audit's own fix landed
+   with the audit (F-03: every table emptied at fixture setup through `tests/db_cleanup.py`;
+   the shuffled runner widened to every directory), and the three modules the first draft of
+   this page named as leaking were victims, not leakers. The shuffle is over *file* order, so
+   `just test-shuffled 20260811` reproduces nothing at a later commit. What was left, done 16
+   September: a test-class filter in
+   `tests/test_contract_schema.py`, where a test agent claiming the real `validator` role could
+   win the walk; every unordered `select(User)` in a driver replaced by the run's owner or an
+   assertion that exactly one user exists (`tests/workflow_fixtures.py`); and a nightly
+   shuffled job (`.github/workflows/nightly-shuffled.yml`) with a fresh seed on its summary
+   line — which is the verification, every night, on the widened runner.
+2. **Fix the red CI job and keep it green.** It was red for two reasons neither this page nor
+   the testing strategy named: `ruff check` failed on one unsorted import
+   (`tests/test_assumption_outcomes.py`), and `tests/test_type_scale.py` pinned
+   `docs/redesign/01-design-system.md` after the 14 September tidy moved it to
+   `docs/design-system.md`, which aborted collection of the whole default suite — so the suite
+   had not run in CI since run 453. The `ruff format --check` failure recorded on 2026-09-09
+   was never fixed by a commit; ruff's Markdown formatting is preview-gated, so the snippets
+   left scope by themselves. Both fixed 16 September, with `tests/test_pinned_paths.py` so a
+   moved document fails one test rather than the whole suite.
 3. **Build the journey harness red**, from the inventory, *before* the first dead end is fixed —
    so every fix afterwards has a number it moves.
    [`11-testing-strategy.md`](11-testing-strategy.md) §3.1 specifies it.

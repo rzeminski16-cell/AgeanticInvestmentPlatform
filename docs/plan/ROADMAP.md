@@ -881,6 +881,18 @@ authority on sequencing within this item.
 | F19 | The UK path | ADR 0121 — and it has its own number, **§3.17** |
 | F20 | The knowledge map learns what you decided | ADR 0122 — **§3.18** |
 
+**Sequencing decided on 16 September 2026**, where the delivery plan left two things
+unplaced. **F1 is Phase 1½**: after Phase 1's instruments (CI green, the order dependence
+verified, the journey harness red) and before Phase 2, alone, with the suite green before
+anything else lands — and beside it the corpus, which the delivery plan costed at £0 on stored
+runs that no longer exist (§3.19, item 2). **The loop — F3, F4, F5, F6, F9–F15 and the nineteen
+surfaces of `03-page-specifications.md` — is Phase 6a**, estimated at 25–35 sessions and £0
+live, after Phase 6 and before Phase 6b (which has nothing to record until F9, F10 and F14
+exist), in the dependency order of `04-feature-specifications.md`: risk and the pre-trade
+check, the thesis editor, decisions, the scheduler, the monitor, review and analytics, the six
+destinations, the closing section, Ask, the refresh. Conditional on Phase 5 like everything
+after it; movable after Phase 7 with 6b if the verdict is wanted sooner.
+
 **What this item does not commit to.** Phase 5 of the delivery plan carries an abandonment
 criterion: if a measured round moves no verdict and changes no judge's stated reason, the
 work stops and the product's claim narrows to what the audit already scores as true — an
@@ -942,6 +954,19 @@ exists, because a vault note is a file anything can edit. Argued in **ADR 0122**
 **§3.19 is deliberately unallocated.** Anything this phase turns up gets a number here rather
 than being folded into §3.16, §3.17 or §3.18, so that work found during V1.0 is visible as work
 found rather than as scope that was always there.
+
+1. **CI was red on a collection error nobody had read, 14–16 September 2026.** A test pinned
+   a document the folder tidy moved (`docs/redesign/01-design-system.md` →
+   `docs/design-system.md`), the whole default suite stopped collecting, and the browser job's
+   green kept the summary line looking half right. Fixed with the path and with
+   `tests/test_pinned_paths.py`, which asserts every documentation path a test pins exists.
+   The lesson is §2.11's: a build nobody reads is a build that is not run.
+2. **The audit's run corpus does not survive a container.** The 6 jobs, 3,417 calculations
+   and 832 artefacts every "£0 re-render" proof in the delivery plan rests on lived in the
+   audit session's container, which was reclaimed; no `aer backup` was taken. What is committed
+   is the run exports, the rendered documents and every gate payload — enough to read, not to
+   replay. The corpus is re-seeded once (three runs, ~£23) in Phase 1½ and backed up at once,
+   and Phase 1.8's backup-and-restore exercise is no longer optional hygiene.
 
 ### Before this leaves one machine
 

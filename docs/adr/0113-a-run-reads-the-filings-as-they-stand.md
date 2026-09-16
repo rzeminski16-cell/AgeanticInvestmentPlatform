@@ -31,7 +31,10 @@ if the capability were ever wanted back it should return "as a deliberate mode w
 name and its own warnings, not as a date field that is wrong by default". This ADR takes the
 scaffolding down.
 
-The cost of keeping it is not abstract. `as_of_date` appears 527 times across 86 source files.
+The cost of keeping it is not abstract. `as_of_date` appears 227 times across 72 files under
+`src/`, and the enforcement as a whole — the selection, the quarantine branch, the per-adapter
+bounding, the claim-time check and the prompts — touches 143 of them (counted on 16 September
+2026; an earlier draft of this record said 527 across 86, and did not say how).
 It is a clause in the planner's prompt, in the section writer's prompt and in the plan
 critic's prompt — three places where a frontier model is told to reason about a constraint
 that cannot bind. It is a required field on the request form that ADR 0110 already turned
@@ -108,10 +111,17 @@ removed silently is an invariant that grows back as folklore. The table in `CLAU
 row 4 and gains a pointer here.
 
 **A structural absence test replaces the invariant.** A deletion nobody asserts is a deletion
-that returns: a text scan over `src/` and `docs/` for `point.in.time`, `look_ahead`,
-`temporal_compliance` and `as_of` must return only this ADR, the surviving
-`reports.as_of_date` reader, and the retrieval-timestamp code. It is the first thing F1 lands
-and it is how F1 is known to be done.
+that returns: a text scan over `src/` and `docs/` for the enforcement's own names —
+`select_point_in_time`, `PUBLISHED_AFTER_AS_OF`, `work_orders.point_in_time`,
+`temporal_compliance`, `look_ahead_recall`, `POTENTIAL_LOOK_AHEAD`, the three prompt clauses and
+the renderer's point-in-time lines — must return only this ADR and the records that cite it.
+A bare `as_of` is not on that list, because it legitimately survives: `reports.as_of_date` (the
+date a finished run was made as at), `watchlist_commissions.as_of_date`, the post-trade
+reviewer's own as-of date (ADR 0075), and the "as at" lookups in the fx, price and macro
+stores. An earlier draft of this consequence asked the scan to return nothing for `as_of`
+anywhere, which no tree that keeps those readers could satisfy. The test carries the allowlist
+by name so that a new `as_of` reader is a deliberate addition, not a silent one. It is the
+first thing F1 lands and it is how F1 is known to be done.
 
 **Every archived run still replays.** That is the acceptance condition, not a hope: the five
 stored runs re-derive from their own records with the new code, and the replay reads each
