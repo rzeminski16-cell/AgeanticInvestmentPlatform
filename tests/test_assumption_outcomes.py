@@ -43,9 +43,9 @@ from aer.services.calculations import new_context
 from aer.services.history import (
     MEASURED,
     NOT_MEASURABLE,
-    UNMEASURABLE_JUDGEMENTS,
     NOT_YET_OBSERVABLE,
     SKIPPED,
+    UNMEASURABLE_JUDGEMENTS,
     assumption_outcomes_for,
     driver_accuracy_for,
     prior_comparison_content,

@@ -5,7 +5,7 @@ seventy-five chances to type 550 where the design says 500 — and every one of 
 page that looks deliberate, because a weight is only wrong next to the weight it should have
 been.
 
-So the design system's own table is the fixture. `docs/redesign/01-design-system.md` §3.2 is
+So the design system's own table is the fixture. `docs/design-system.md` §3.2 is
 parsed and compared to the utilities in `web/styles/app.css`, which makes the document and the
 stylesheet one answer instead of two. If the table changes, this fails and names the row.
 
@@ -25,7 +25,7 @@ import pytest
 
 from aer.web.templating import STYLES_DIR
 
-SPEC = Path("docs/redesign/01-design-system.md")
+SPEC = Path("docs/design-system.md")
 
 # The design system's family column, in the words it uses, mapped to the token the stylesheet
 # resolves. Three roles and no fourth: a template that wants a fourth is a template making a
