@@ -1,0 +1,68 @@
+# The suite in a different order, every night.
+#
+# `just test` runs the files in the same order for ever, so a test that only passes because
+# of what ran before it passes for ever too — until something moves. The readiness audit of
+# September 2026 found twenty-eight such failures under one seed (F-03); the fixtures now
+# empty the database on the way into every test, and this job is what keeps it that way.
+#
+# Nightly rather than on every push: a shuffled run costs the whole suite again, about
+# thirty-five minutes, and its job is to catch a class of defect that a single ordering
+# cannot, not to gate a commit. The seed is fresh each night and printed on the summary
+# line, so a red night is reproducible: `just test-shuffled <seed>`.
+#
+# No network and no model spend, as the main CI job.
+
+name: Nightly shuffled suite
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+env:
+  AER_HTTP_USER_AGENT: "Ageiantic Research CI ci@example.invalid"
+  AER_SECRET_KEY: "ci-signing-key-not-a-real-one"  # pragma: allowlist secret
+  AER_TEST_DATABASE_URL: "postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/aer_test"  # pragma: allowlist secret
+
+jobs:
+  shuffled:
+    name: Every test file in a fresh random order
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aer
+          POSTGRES_PASSWORD: aer_local_dev  # pragma: allowlist secret
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aer -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+
+      # The seed is the first line the runner prints; it goes on the job summary so a red
+      # night can be repeated without opening the log.
+      - name: Shuffled suite
+        run: |
+          set -o pipefail
+          uv run python -m tests.shuffled 2>&1 | tee shuffled.log
+          echo "### $(grep -m1 'test-shuffled seed' shuffled.log)" >> "$GITHUB_STEP_SUMMARY"
+          tail -n 3 shuffled.log >> "$GITHUB_STEP_SUMMARY"

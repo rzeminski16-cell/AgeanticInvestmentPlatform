@@ -16,7 +16,6 @@ from decimal import Decimal
 
 import pytest
 from playwright.sync_api import Page, expect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -27,11 +26,12 @@ from aer.core.enums import (
     PremiseStatus,
     RequestStatus,
 )
-from aer.db.models import Company, Finding, Job, User, WorkOrder
+from aer.db.models import Company, Finding, Job, WorkOrder
 from aer.services import theses as thesis_service
 from aer.services import thesis_monitor
 from aer.services.theses import Predicate
 from tests.db_fixtures import run_async
+from tests.workflow_fixtures import the_only_user
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -42,7 +42,7 @@ async def _seed_a_contradicted_premise(database_url: str) -> None:
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as session:
-            user = await session.scalar(select(User).limit(1))
+            user = await the_only_user(session)
             assert user is not None, "the reset seeds a user"
             company = Company(
                 name="Contoso plc", ticker="CTSO", exchange="LSE", company_number="01234567"

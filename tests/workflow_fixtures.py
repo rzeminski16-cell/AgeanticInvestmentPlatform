@@ -34,7 +34,7 @@ from aer.agents.section_writer import SectionDraft
 from aer.agents.worker import WorkerLead, WorkerReport, WorkerTurn
 from aer.config import Settings
 from aer.core.enums import GateKind, JobStatus, UserRole
-from aer.db.models import Job, JobStep, ResearchRequest, SectionDefinition, User
+from aer.db.models import Job, JobStep, ResearchRequest, SectionDefinition, User, WorkOrder
 from aer.fetch.client import FetchResult
 from aer.providers.fake import FakeProvider
 from aer.sources.base import ResolvedEntity
@@ -860,3 +860,38 @@ def gate_for(step_key: str | None) -> tuple[GateKind, str] | None:
     intermediate stops and leaves the ones its test is about.
     """
     return CONDITIONAL_GATES.get(step_key or "")
+
+
+async def the_only_user(session: AsyncSession) -> User:
+    """The one user the scene seeded — and a loud failure when there is not exactly one.
+
+    ``select(User)`` with no ordering answers "whichever row the planner returns first".
+    That is right only while exactly one user exists, which is the assumption every driver
+    in this tree made and none of them stated: a user leaked by an earlier module once
+    became the actor of a later module's approvals, and the failure surfaced two modules
+    away as an ownership check answering 404 (gap analysis, and readiness audit F-03). Two
+    rows *is* the defect, so it fails here, naming both, rather than wherever it happens to
+    be noticed.
+    """
+    rows = list((await session.scalars(select(User).order_by(User.created_at).limit(2))).all())
+    assert rows, "no user has been seeded"
+    assert len(rows) == 1, (
+        f"expected exactly one user and found {[row.email for row in rows]}: an earlier "
+        "test's user survived into this one, or this scene seeded two and must say which"
+    )
+    return rows[0]
+
+
+async def owner_of(session: AsyncSession, job: Job | None) -> User:
+    """The user whose work order this run belongs to — the operator who would approve it.
+
+    A driver approving a gate as "any user in the table" is a driver whose actor changes
+    with the row order; the run's own owner is the actor an operator's approval would carry,
+    and it is unambiguous however many users a scene holds.
+    """
+    assert job is not None, "the run does not exist"
+    order = await session.get(WorkOrder, job.work_order_id)
+    assert order is not None, "the run has no work order"
+    owner = await session.get(User, order.user_id)
+    assert owner is not None, "the work order's owner does not exist"
+    return owner

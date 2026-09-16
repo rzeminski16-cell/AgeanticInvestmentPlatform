@@ -51,6 +51,7 @@ from aer.services import calculations as calculation_service
 from aer.services import fx as fx_service
 from aer.sources.macro import ecb
 from aer.sources.macro.client import ReferenceRateResponse
+from tests.workflow_fixtures import the_only_user
 
 pytestmark = pytest.mark.integration
 
@@ -538,7 +539,7 @@ class TestTheRateIsALeafSomebodyCanWalkTo:
     async def test_a_converted_figure_traces_to_the_pair_and_the_day(
         self, db_session, stored, context
     ) -> None:
-        user = await db_session.scalar(select(User))
+        user = await the_only_user(db_session)
         order = await db_session.scalar(select(WorkOrder))
         job = Job(
             work_order_id=order.id,

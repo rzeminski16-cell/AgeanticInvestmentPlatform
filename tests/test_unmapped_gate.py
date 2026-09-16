@@ -41,6 +41,7 @@ from tests.workflow_fixtures import (
     StubSecClient,
     gate_for,
     make_provider,
+    owner_of,
     paused_at,
 )
 
@@ -143,7 +144,7 @@ class Runner:
     async def approve(self, job_id: uuid.UUID, *, gate: GateKind, payload_hash: str) -> None:
         async with self._factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             await approval_service.record_decision(

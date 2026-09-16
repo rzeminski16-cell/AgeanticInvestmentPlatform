@@ -19,14 +19,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus
-from aer.db.models import Job, JobStep, User
+from aer.db.models import Job, JobStep
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import gate_payload
-from tests.workflow_fixtures import CONDITIONAL_GATES, StubSecClient, make_provider
+from tests.workflow_fixtures import CONDITIONAL_GATES, StubSecClient, make_provider, owner_of
 
 __all__ = ["Driver", "start_run", "to_final_gate"]
 
@@ -84,7 +84,7 @@ class Driver:
         """
         async with self._factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             assert await self.has_run(job_id, step), f"the {step} step has not run"

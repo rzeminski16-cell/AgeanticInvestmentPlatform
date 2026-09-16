@@ -78,7 +78,7 @@ from tests.assumption_fixtures import a_year, analysed, seed_years
 from tests.db_cleanup import delete_all
 from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run
-from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, seed_job
+from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, owner_of, seed_job
 
 pytestmark = pytest.mark.integration
 
@@ -1346,7 +1346,7 @@ class TestTheGateVerifiesTheRowsNotTheRecord:
             rows = await assumptions_for_request(session, committed["request"].id)
             expected = sha256_hex(canonical_json(assumptions_gate_refreshed(rows, dict(produced))))
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             await approval_service.record_decision(

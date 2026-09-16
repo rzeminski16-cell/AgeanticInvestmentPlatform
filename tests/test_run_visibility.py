@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus
-from aer.db.models import Job, JobStep, User
+from aer.db.models import Job, JobStep
 from aer.errors import ExternalServiceError
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
@@ -46,6 +46,7 @@ from tests.workflow_fixtures import (
     StubSecClient,
     gate_for,
     make_provider,
+    owner_of,
     paused_at,
     seed_job,
     seed_request,
@@ -178,7 +179,7 @@ class Worker:
         """Approve a gate, so the next call runs the following leg."""
         async with self._factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             row = await session.scalar(
                 select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == step)
             )

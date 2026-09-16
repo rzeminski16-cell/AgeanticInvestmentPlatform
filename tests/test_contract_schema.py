@@ -55,11 +55,21 @@ _EXECUTIVE_SUMMARY: dict[str, Any] = {
 
 
 def _agents_by_role() -> dict[str, type[Agent[Any, Any]]]:
+    """Every agent class the *platform* defines, by role.
+
+    Classes declared inside a test are skipped, for the reason ``test_injection`` gives at
+    length: a throwaway subclass stays in ``Agent.__subclasses__()`` for the rest of the
+    process, and ``test_run_evaluations`` defines one that claims the real ``validator``
+    role. Without the filter, which class answers for ``validator`` here depends on whether
+    that module ran first — a green suite and a red one from the same code.
+    """
     found: dict[str, type[Agent[Any, Any]]] = {}
     pending: list[type[Agent[Any, Any]]] = list(Agent.__subclasses__())
     while pending:
         cls = pending.pop()
         pending.extend(cls.__subclasses__())
+        if cls.__module__.startswith("tests."):
+            continue
         role = getattr(cls, "role", None)
         if isinstance(role, str):
             found[role] = cls

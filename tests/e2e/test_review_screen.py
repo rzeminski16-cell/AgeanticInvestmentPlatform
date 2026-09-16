@@ -24,7 +24,7 @@ from sqlalchemy.pool import NullPool
 from aer.agents.post_trade_reviewer import PremiseVerdictDraft, ReviewDraft
 from aer.config import Settings
 from aer.core.enums import DecisionAction, PremiseVerdict, ProcessQuality, TransactionKind
-from aer.db.models import Company, Portfolio, Security, Transaction, User
+from aer.db.models import Company, Portfolio, Security, Transaction
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import decisions as decision_service
@@ -34,6 +34,7 @@ from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
 from tests.portfolio_fixtures import trade
 from tests.schema_guard import refuse_unanswerable_schema
+from tests.workflow_fixtures import the_only_user
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -44,7 +45,7 @@ async def _seed(database_url: str, tmp_path: Path) -> None:
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as session:
-            user = await session.scalar(select(User).limit(1))
+            user = await the_only_user(session)
             assert user is not None, "the reset seeds a user"
             company = Company(
                 name="Contoso plc", ticker="CTSO", exchange="LSE", company_number="01234567"

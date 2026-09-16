@@ -17,14 +17,13 @@ from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page, expect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.agents.risk_analyst import RiskCommentary
 from aer.config import Settings
 from aer.core.enums import TransactionKind
-from aer.db.models import Portfolio, PriceBar, Security, User
+from aer.db.models import Portfolio, PriceBar, Security
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import risk as risk_service
@@ -32,6 +31,7 @@ from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
 from tests.portfolio_fixtures import AS_OF, daily_bars, funded, trade
 from tests.schema_guard import refuse_unanswerable_schema
+from tests.workflow_fixtures import the_only_user
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -42,7 +42,7 @@ async def _seed(database_url: str, tmp_path: Path) -> None:
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as session:
-            user = await session.scalar(select(User).limit(1))
+            user = await the_only_user(session)
             assert user is not None, "the reset seeds a user"
             book = Portfolio(user_id=user.id, name="My book", base_currency="GBP")
             barc = Security(

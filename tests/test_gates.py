@@ -43,7 +43,12 @@ from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.test_run_api import _hidden_value, _planted_challenge
-from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, DEFAULT_PER_RUN_BUDGET_GBP
+from tests.workflow_fixtures import (
+    AS_OF_DATE,
+    CONDITIONAL_GATES,
+    DEFAULT_PER_RUN_BUDGET_GBP,
+    owner_of,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -251,7 +256,7 @@ class TestResealingAStuckRun:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             found = await session.scalar(select(Disagreement).where(Disagreement.job_id == job_id))
             assert job is not None
             assert user is not None
@@ -286,7 +291,7 @@ class TestResealingAStuckRun:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             outcome = await reseal_final_gate(
@@ -307,7 +312,7 @@ class TestResealingAStuckRun:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             outcome = await reseal_final_gate(session, job=job, actor=user, reason="a look")
@@ -330,7 +335,7 @@ class TestResealingAStuckRun:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             with pytest.raises(ValidationError, match="not sealed"):
@@ -346,7 +351,7 @@ class TestResealingAStuckRun:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             with pytest.raises(ConflictError, match="already succeeded"):

@@ -19,15 +19,14 @@ from typing import Any
 
 import pytest
 from playwright.sync_api import Page, expect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from aer.agents.custom_section import CustomSectionDraft
-from aer.db.models import User
 from aer.providers.fake import FakeProvider
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
 from tests.test_skills_surface import SKILL_SOURCE, _draft_from, _seed_finished_run
+from tests.workflow_fixtures import the_only_user
 
 pytestmark = pytest.mark.e2e
 
@@ -72,7 +71,7 @@ def seeded_run(live_server: str, database_url: str, tmp_path: Any) -> str:
         try:
             factory = async_sessionmaker(bind=engine, expire_on_commit=False)
             async with factory() as session:
-                user = await session.scalar(select(User).limit(1))
+                user = await the_only_user(session)
                 assert user is not None, "the live server seeds one user"
                 store = LocalArtefactStore(tmp_path / "artefacts", max_bytes=10_000_000)
                 scene = await _seed_finished_run(session, store=store, email=user.email)

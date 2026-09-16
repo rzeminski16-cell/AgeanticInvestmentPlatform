@@ -76,6 +76,7 @@ from tests.workflow_fixtures import (
     AS_OF_DATE,
     DEFAULT_PER_RUN_BUDGET_GBP,
     SPINE_KEYS,
+    owner_of,
     seed_starved_section,
 )
 
@@ -1718,7 +1719,7 @@ class TestTheWebPages:
         async with factory() as session:
             row = await session.get(Disagreement, planted.id)
             assert row is not None
-            actor = await session.scalar(select(User).limit(1))
+            actor = await owner_of(session, await session.get(Job, job_id))
             assert actor is not None
             with pytest.raises(ValidationError, match="needs a reason"):
                 await settle_by_hand(

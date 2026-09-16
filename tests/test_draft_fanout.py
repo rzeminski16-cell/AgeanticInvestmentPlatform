@@ -52,6 +52,7 @@ from tests.workflow_fixtures import (
     DEFAULT_PER_RUN_BUDGET_GBP,
     ScriptedSectionBrain,
     declared_schema_name,
+    owner_of,
 )
 
 pytestmark = pytest.mark.integration
@@ -387,7 +388,7 @@ class TestAResumedDraftKeepsWhatWasPaidFor:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             await resume_run(session, job=job, actor=user, reason="the outage is over")
@@ -424,7 +425,7 @@ class TestAResumedDraftKeepsWhatWasPaidFor:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
+            user = await owner_of(session, job)
             assert job is not None
             assert user is not None
             await resume_run(session, job=job, actor=user, reason="the outage is over")

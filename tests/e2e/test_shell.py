@@ -17,18 +17,17 @@ from typing import Any
 
 import pytest
 from playwright.sync_api import Browser, Page, expect
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.core.enums import JobStatus
-from aer.db.models import Job, User
+from aer.db.models import Job
 from aer.services.runs import awaiting_approval_count
 from aer.web.shell import GUIDANCE_COOKIE
 from aer.web.tools.registry import ToolStatus, installed_tools
 from tests.db_fixtures import run_async
 from tests.request_fixtures import research_request
-from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
+from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP, the_only_user
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -55,7 +54,7 @@ class StoppedRuns:
         try:
             factory = async_sessionmaker(bind=engine, expire_on_commit=False)
             async with factory() as session:
-                user = await session.scalar(select(User))
+                user = await the_only_user(session)
                 assert user is not None, "the live_server fixture seeds one"
 
                 for index in range(self.count):
@@ -109,7 +108,7 @@ class FinishedRun:
         try:
             factory = async_sessionmaker(bind=engine, expire_on_commit=False)
             async with factory() as session:
-                user = await session.scalar(select(User))
+                user = await the_only_user(session)
                 assert user is not None, "the live_server fixture seeds one"
 
                 request = research_request(
@@ -781,7 +780,7 @@ def test_the_badge_is_scoped_to_the_operator(live_server: str, database_url: str
         try:
             factory = async_sessionmaker(bind=engine, expire_on_commit=False)
             async with factory() as session:
-                user = await session.scalar(select(User))
+                user = await the_only_user(session)
                 assert user is not None
                 return (
                     await awaiting_approval_count(session, user_id=user.id),

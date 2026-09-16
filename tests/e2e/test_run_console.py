@@ -25,7 +25,7 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.core.enums import GateKind, JobStatus
-from aer.db.models import Job, JobStep, Report, User
+from aer.db.models import Job, JobStep, Report
 from aer.services import runs as run_service
 from aer.web.vocabulary import JOB_STATES
 from tests.db_fixtures import run_async
@@ -34,6 +34,7 @@ from tests.request_fixtures import research_request
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     DEFAULT_PER_RUN_BUDGET_GBP,
+    the_only_user,
 )
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
@@ -75,7 +76,7 @@ class RunFixture:
         try:
             factory = async_sessionmaker(bind=engine, expire_on_commit=False)
             async with factory() as session:
-                user = await session.scalar(select(User))
+                user = await the_only_user(session)
                 assert user is not None, "the live_server fixture seeds one"
 
                 request = research_request(
