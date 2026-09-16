@@ -1432,7 +1432,11 @@ account, your authored skills and the audit log survive.
 
 ## 17. Backup, restore and integrity  **[A]**
 
-The one nobody tests until they need it.
+The one nobody tests until they need it — so it is tested for you:
+`tests/test_backup.py::TestARunSurvivesTheRoundTrip` drives a full fake-scene run through
+exactly this section on every CI run (backup, verify, restore into a second database and
+store, then the three checks below), and Phase 1.8 of the V1.0 delivery plan records the
+first time it was done by hand, on 16 September 2026.
 
 > **This section needs `pg_dump` and `pg_restore` on your host `PATH`** — see §0. If
 > `pg_dump --version` is not recognised, **skip to §18**; nothing else depends on this

@@ -249,8 +249,12 @@ and assert the change"* criterion depends on it. It is therefore treated as an a
 own obligations:
 
 - **It is backed up before any migration**, and the backup is verified by
-  `just verify-backup` rather than assumed. Invariant 1's guarantee currently rests on a
-  restore path that has never been exercised; Phase 1 exercises it once and records it.
+  `just verify-backup` rather than assumed. Invariant 1's guarantee rested on a restore path
+  that had never been exercised; Phase 1.8 exercised it on 16 September 2026 — a full
+  fake-scene run backed up, restored into a second database and store, and then
+  `verify-artefacts`, `verify-audit` and `replay-run` giving the restored side the source's
+  own answers — and `tests/test_backup.py::TestARunSurvivesTheRoundTrip` keeps it exercised
+  on every CI run. The delivery plan's row 1.8 carries the readout.
 - **Every document-affecting change ships with a replay proof.** `aer replay-draft` reads the
   archived replies back under today's rules; `aer replay-run` re-derives what the run
   produced from what the run wrote down. Both spend nothing. A prompt change that cannot be

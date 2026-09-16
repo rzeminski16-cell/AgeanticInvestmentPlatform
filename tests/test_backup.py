@@ -12,14 +12,21 @@ from __future__ import annotations
 import hashlib
 import shutil
 import subprocess
+import uuid
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
+from aer.config import Settings
+from aer.core.enums import GateKind, JobStatus, UserRole
+from aer.db.models import Report, User
 from aer.services import backup as backup_module
+from aer.services.audit_verify import verify_audit_chain
 from aer.services.backup import (
     ARTEFACT_INDEX_NAME,
     DATABASE_DUMP_NAME,
@@ -30,7 +37,14 @@ from aer.services.backup import (
     restore_backup,
     verify_backup,
 )
+from aer.services.retention import verify_store
+from aer.services.run_replay import replay_run
+from aer.storage.local import LocalArtefactStore
+from tests.api_fixtures import build_app, client_for
 from tests.db_fixtures import TEST_DATABASE_URL, run_async
+from tests.request_fixtures import research_request
+from tests.run_fixtures import Driver, to_final_gate
+from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = pytest.mark.skipif(
     shutil.which("pg_dump") is None,
@@ -343,3 +357,150 @@ class TestRestoring:
                 database_url=scratch_database,
                 artefact_root=tmp_path / "restored-store",
             )
+
+
+@pytest.mark.integration
+class TestARunSurvivesTheRoundTrip:
+    """Phase 1.8. The recovery path, exercised on a run rather than on an empty schema.
+
+    Everything above proves the copy is faithful to the bytes. Invariant 1's guarantee is
+    about more than bytes: a restored database beside a restored store has to *work* — the
+    artefacts still hash to their names, the audit chain still links, and a finished run
+    still reproduces from its own record. This drives a real fake-scene run to an approved
+    report, backs both halves up, restores them into a different database and a different
+    store, and asks the restored side the three questions the by-hand procedure asks
+    (`docs/developers/testing-by-hand.md` §17). The delivery plan records the first time
+    it was run by hand; this keeps it run.
+    """
+
+    @pytest.fixture
+    async def restored_database(self) -> AsyncIterator[str]:
+        """A second, empty database on the same server: the restore's target.
+
+        Created and dropped here rather than through the module's sync helper, because
+        this test is itself async and cannot spin a second loop on the same thread.
+        """
+        base, _, _ = TEST_DATABASE_URL.rpartition("/")
+        name = "aer_restore_roundtrip"
+        admin = create_async_engine(
+            f"{base}/postgres", isolation_level="AUTOCOMMIT", poolclass=NullPool
+        )
+        try:
+            async with admin.connect() as connection:
+                await connection.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+                await connection.execute(text(f'CREATE DATABASE "{name}"'))
+            yield f"{base}/{name}"
+            async with admin.connect() as connection:
+                await connection.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        finally:
+            await admin.dispose()
+
+    @pytest.fixture
+    def enqueued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def record(redis: Any, job_id: uuid.UUID) -> str:
+            return f"task-{job_id}"
+
+        monkeypatch.setattr("aer.api.routes.runs.enqueue_run", record)
+        monkeypatch.setattr("aer.web.pages.enqueue_run", record)
+
+    @pytest.fixture
+    async def committed(self, db_engine: Any) -> dict[str, Any]:
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            user = User(
+                email="roundtrip@example.invalid", display_name="Round trip", role=UserRole.OWNER
+            )
+            session.add(user)
+            await session.flush()
+            request = research_request(
+                user_id=user.id,
+                company_name="Microsoft Corporation",
+                ticker="MSFT",
+                exchange="NASDAQ",
+                as_of_date=AS_OF_DATE,
+                point_in_time=True,
+                base_currency="USD",
+                reporting_currency="USD",
+                investment_horizon_months=12,
+                max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
+            )
+            session.add(request)
+            await session.commit()
+            return {"user": user, "request": request}
+
+    @pytest.fixture
+    async def api(
+        self,
+        api_settings: Settings,
+        db_engine: Any,
+        fake_redis: Any,
+        committed: dict[str, Any],
+        enqueued: None,
+    ) -> Any:
+        async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+            yield client
+
+    async def test_a_finished_run_reproduces_from_the_restored_copy(
+        self,
+        api: Any,
+        db_engine: Any,
+        api_settings: Settings,
+        committed: dict[str, Any],
+        tmp_path: Path,
+        restored_database: str,
+    ) -> None:
+        driver = Driver(db_engine, api_settings)
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
+        assert await driver.advance(job_id) is JobStatus.SUCCEEDED
+
+        # What the source holds, so the restored side is compared against a number rather
+        # than against "something".
+        async with db_engine.connect() as connection:
+            revision = str(await connection.scalar(text("SELECT version_num FROM alembic_version")))
+            calculations = int(await connection.scalar(text("SELECT count(*) FROM calculations")))
+            audit_rows = int(await connection.scalar(text("SELECT count(*) FROM audit_events")))
+        assert calculations > 0, "the driven run recorded calculations"
+
+        destination = tmp_path / "backup"
+        manifest = create_backup(
+            database_url=TEST_DATABASE_URL,
+            artefact_root=api_settings.artefact_root,
+            destination=destination,
+            schema_revision=revision,
+        )
+        assert manifest.artefact_count > 0, "the driven run archived artefacts"
+        assert verify_backup(destination).is_sound
+
+        restored_root = tmp_path / "restored-artefacts"
+        assert restore_backup(
+            directory=destination, database_url=restored_database, artefact_root=restored_root
+        ).is_sound
+
+        engine = create_async_engine(restored_database, poolclass=NullPool)
+        try:
+            store = LocalArtefactStore(restored_root, max_bytes=api_settings.max_artefact_bytes)
+            factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+            async with factory() as session:
+                integrity = await verify_store(session, store)
+                chain = await verify_audit_chain(session)
+                replay = await replay_run(session, store, job_id=job_id, settings=api_settings)
+                restored_calculations = int(
+                    await session.scalar(text("SELECT count(*) FROM calculations"))
+                )
+                report = await session.scalar(select(Report).where(Report.job_id == job_id))
+        finally:
+            await engine.dispose()
+
+        # The three questions §17 asks of a restored run, answered from the restored side
+        # alone: the store it was handed, the database it was pointed at.
+        assert integrity.is_sound, (integrity.corrupt, integrity.missing)
+        assert 0 < integrity.checked <= manifest.artefact_count
+        assert chain.is_sound, chain.reason
+        assert chain.checked == chain.total == audit_rows
+        assert replay.reproduces, replay.problems()
+        assert replay.calculations_checked == calculations
+        assert replay.model_calls_checked > 0
+        assert restored_calculations == calculations
+        assert report is not None
+        assert report.immutable

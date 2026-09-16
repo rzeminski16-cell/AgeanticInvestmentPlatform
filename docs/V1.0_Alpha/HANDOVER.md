@@ -146,7 +146,14 @@ settings with its justification and proposed into every run for the operator to 
 1.7 enforced `excluded_sources` in code: a document from an excluded domain is quarantined
 at acquisition with its own reason, a worker's fetch of one is refused before the archive
 or the network is reached, a listing withholds hits on one and says how many, and the
-validator refuses a finding citing one. Next is 1.8.
+validator refuses a finding citing one. 1.8 exercised the recovery path on a full fake-scene
+run — backup, verify, restore into a second database and store, then the artefacts, the
+audit chain and the run's replay all holding on the restored side — and a test now keeps it
+exercised. That closes Phase 1's list. Its exit criterion holds on every row the harness can
+construct (33 of 52); the 19 unconstructed rows are the harness's own backlog, named in
+`tests/journey_inventory.py`, and each becomes a proof the day its fixture exists. Next is
+Phase 1½: F1 under ADR 0113 (the structural-absence scan first), and the corpus the day the
+keys arrive.
 
 ## 6. Standing constraints on any session doing this work
 
