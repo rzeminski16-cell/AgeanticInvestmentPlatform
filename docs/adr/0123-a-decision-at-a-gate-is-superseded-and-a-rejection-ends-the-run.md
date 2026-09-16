@@ -1,6 +1,6 @@
 # ADR 0123 — A decision at a gate is superseded, never re-asserted; a rejection ends the run; the remedies for a stale gate are controls
 
-**Status.** Proposed — V1.0_Alpha, Phase 1.2. Accepted when the change it argues lands.
+**Status.** Accepted — 16 September 2026, with the change (Phase 1.2). Written the same day, before the code.
 **Date.** 2026-09-16
 **Extends.** ADR 0090 (a resumed run is the same job, and the audit trail says so): `status`
 is where the run is now, history lives where history already lives, and continuing is a
@@ -107,12 +107,16 @@ never be reached from the product.
 
 ### 3. Re-seal is a control
 
-`POST /runs/{job_id}/reseal` calls `reseal_final_gate` — the same function the terminal
-command calls, with the same audit event — and then does what the command tells the operator
-to do next: when the recorded approval matches the moved seal, the same request records a
-resume (ADR 0090) and re-enqueues the run; when it does not, the console says the approval was
-of older content and offers to decide again, which is now possible under part 1. The pause
-message stops naming the command. The command stays, for a terminal.
+`POST /runs/{job_id}/reseal` re-seals the gate the run is waiting at — the same function the
+terminal command calls for the final gate, with the same audit event, generalised to every
+gate a step seals, because the engine names the drift case for each of them and the plan
+gate's seal can drift the same way — and then does what the command tells the operator to do
+next: it records a resume (ADR 0090) and re-enqueues the run. The run then either continues,
+on a recorded approval that matches the moved seal, or stops again at the gate saying the
+approval was of older content, and offers to decide again, which is now possible under
+part 1. A gate decided on the live page (the assumptions, peers and themes) has no seal and
+is refused with that answer. The pause message stops naming the command. The command stays,
+for a terminal.
 
 ### 4. Re-measure is a control
 
@@ -156,8 +160,10 @@ this decision's; the harness records them separately.
 
 - The three dead ends the audit named at the gates have a way forward that is not the
   terminal, and the fourth — a refused check — has one for the first time. The harness's
-  `gate.*.rejected`, `gate.*.stale_page_moved` and `gate.*.stale_seal_drift` rows move their
-  `control` assertion out of the record; their `text` assertion stays until Phase 1.4.
+  `gate.*.rejected`, `gate.*.stale_page_moved` and `gate.*.stale_seal_drift` rows moved their
+  `control` assertion out of the record on landing (twelve rows, both halves agreeing); their
+  `text` assertion stays until Phase 1.4. The same landing made the conflict problem page
+  constructible, so the harness now builds 33 rows and cannot yet build 19.
 - `Decision.AMENDED` is written for the first time, with one meaning. `approval.amended`
   joins `approval.approved` and `approval.rejected` in the audit chain, and the event names
   the decision it supersedes.

@@ -354,6 +354,20 @@ class RunState:
         return None
 
     @property
+    def pause_reason(self) -> str | None:
+        """Why the run is waiting, as the paused step recorded it (`PauseReason`), or ``None``.
+
+        Read off the newest step waiting for a decision rather than inferred from the
+        message, so the console can name the case — waiting, stale because the page moved,
+        stale because the seal drifted — and offer the control for it (ADR 0123).
+        """
+        for step in reversed(self.steps):
+            if step.status is JobStatus.AWAITING_APPROVAL:
+                reason = (step.error or {}).get("context", {}).get("reason")
+                return str(reason) if reason else None
+        return None
+
+    @property
     def is_terminal(self) -> bool:
         return self.job.status in {
             JobStatus.SUCCEEDED,

@@ -21,6 +21,9 @@ Two rules follow, and a recovery for a run already caught:
 * **`reseal_final_gate` re-derives the seal from the record**, for a run stopped on the
   drift. It adds nothing: the payload is what the run's own rows say, and the audit chain
   records the move. Whether the recorded approval then matches is reported, not assumed.
+* **`remeasure_checks` runs the checks again** (ADR 0123): the `validate` step and every
+  step after it are put back to be executed, as attempt *n+1* on the same rows, so a
+  corrected figure is re-checked for the cost of those steps rather than the whole run.
 """
 
 from __future__ import annotations
@@ -34,15 +37,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.core.enums import GateKind, JobStatus
 from aer.db.models import Approval, AuditEvent, Job, JobStep, User
 from aer.errors import ConflictError, ValidationError
+from aer.services import approvals as approval_service
 from aer.services.approvals import payload_hash_for
+from aer.workflow.pauses import LIVE_PAYLOAD_GATES
 from aer.workflow.registry import resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import seal_step_for
 
-__all__ = ["Reseal", "refuse_settling_after_decision", "reseal_final_gate"]
+__all__ = [
+    "MEASURE_STEP",
+    "Remeasure",
+    "Reseal",
+    "refuse_settling_after_decision",
+    "remeasure_checks",
+    "reseal_final_gate",
+    "reseal_gate",
+]
 
 _log = structlog.get_logger("aer.services.gates")
 
 RESEALED_EVENT = "gate.resealed"
+REMEASURE_EVENT = "run.remeasure_requested"
+
+# The step that writes the run's evaluation rows. Re-measuring starts here and takes every
+# step after it with it; `tests/test_gate_remedies.py` pins it to the workflow's own order.
+MEASURE_STEP = "validate"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,14 +98,21 @@ async def refuse_settling_after_decision(session: AsyncSession, *, job: Job) -> 
     raise ValidationError(message, context={"job_id": str(job.id), "gate": GateKind.FINAL.value})
 
 
-async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, reason: str) -> Reseal:
-    """Move the final gate's seal to the payload as the run's record now stands.
+async def reseal_gate(
+    session: AsyncSession, *, job: Job, actor: User, reason: str, gate: GateKind = GateKind.FINAL
+) -> Reseal:
+    """Move a gate's seal to the payload as the run's record now stands.
+
+    The final gate is the one whose seal moves in practice — settling a disagreement is the
+    operator action that moves it — but every gate sealed by a step can drift the same way,
+    and the engine names the case for each; so the console's control re-seals whichever
+    gate the run is waiting at (ADR 0123 part 3).
 
     Raises:
         ConflictError: The run is executing, or has finished. A worker mid-step may be
             about to write the seal itself; a finished run has nothing left to gate.
-        ValidationError: The run has not sealed its final gate yet — there is nothing to
-            move.
+        ValidationError: The run has not sealed this gate yet — there is nothing to move —
+            or the gate's approval is verified against the live payload, so it has no seal.
     """
     if job.status is JobStatus.RUNNING:
         message = "This run is executing now; wait for it to stop before re-sealing."
@@ -95,8 +120,14 @@ async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, rea
     if job.status.is_terminal:
         message = f"This run has already {job.status.value.lower()}; there is no gate to re-seal."
         raise ConflictError(message, context={"job_id": str(job.id)})
+    if gate in LIVE_PAYLOAD_GATES:
+        message = (
+            f"The {gate.value} gate is decided on the page as it renders now, not on a seal, "
+            "so there is nothing to re-seal; open it and decide again."
+        )
+        raise ValidationError(message, context={"job_id": str(job.id), "gate": gate.value})
 
-    step_key = seal_step_for(GateKind.FINAL.value)
+    step_key = seal_step_for(gate.value)
     row = await session.scalar(
         select(JobStep)
         .where(JobStep.job_id == job.id, JobStep.step_key == step_key)
@@ -104,21 +135,19 @@ async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, rea
         .limit(1)
     )
     if row is None or row.status is not JobStatus.SUCCEEDED:
-        message = "This run has not sealed its final gate yet, so there is nothing to re-seal."
+        which = "its final gate" if gate is GateKind.FINAL else f"the {gate.value} gate"
+        message = f"This run has not sealed {which} yet, so there is nothing to re-seal."
         raise ValidationError(message, context={"job_id": str(job.id), "step": step_key})
 
     builder = resolve_workflow(job.workflow_version).gate_payload()
-    current = payload_hash_for(await builder(session, job=job, gate=GateKind.FINAL.value))
+    current = payload_hash_for(await builder(session, job=job, gate=gate.value))
     previous = str((row.output_ref or {}).get("payload_hash", ""))
-    approval = await _final_approval(session, job)
+    approval = await approval_service.current_decision(session, job.id, gate)
     matches = None if approval is None else approval.payload_hash == current
 
     if previous == current:
         return Reseal(
-            gate=GateKind.FINAL,
-            previous_hash=previous,
-            current_hash=current,
-            approval_matches=matches,
+            gate=gate, previous_hash=previous, current_hash=current, approval_matches=matches
         )
 
     # Reassigned rather than mutated in place: the column is JSON, and SQLAlchemy sees a
@@ -128,9 +157,10 @@ async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, rea
         session,
         actor=actor,
         job=job,
+        event_type=RESEALED_EVENT,
         payload={
             "job_id": str(job.id),
-            "gate": GateKind.FINAL.value,
+            "gate": gate.value,
             "from": previous,
             "to": current,
             "reason": reason,
@@ -139,34 +169,102 @@ async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, rea
     _log.info(
         "gate.resealed",
         job_id=str(job.id),
-        gate=GateKind.FINAL.value,
+        gate=gate.value,
         previous=previous[:12],
         current=current[:12],
         actor=actor.email,
     )
-    return Reseal(
-        gate=GateKind.FINAL,
-        previous_hash=previous,
-        current_hash=current,
-        approval_matches=matches,
+    return Reseal(gate=gate, previous_hash=previous, current_hash=current, approval_matches=matches)
+
+
+async def reseal_final_gate(session: AsyncSession, *, job: Job, actor: User, reason: str) -> Reseal:
+    """:func:`reseal_gate` for the final gate — the terminal command's and the driver's call."""
+    return await reseal_gate(session, job=job, actor=actor, reason=reason, gate=GateKind.FINAL)
+
+
+@dataclass(frozen=True, slots=True)
+class Remeasure:
+    """Which steps re-measuring put back to be executed, in workflow order."""
+
+    invalidated: tuple[str, ...]
+
+
+async def remeasure_checks(
+    session: AsyncSession, *, job: Job, actor: User, reason: str
+) -> Remeasure:
+    """Put the checks — and everything sealed over them — back to be executed (ADR 0123).
+
+    The rows stay; their status stops being ``SUCCEEDED``, so the engine runs each as
+    attempt *n+1* the next time the run executes. The caller records the resume and
+    re-enqueues; this function owns the record of what was invalidated and why.
+
+    Raises:
+        ConflictError: The run is executing, or has finished. A worker mid-step may be
+            about to write the very rows; a finished report is superseded (ADR 0116), not
+            re-measured.
+        ValidationError: The run has not measured its checks yet.
+    """
+    if job.status is JobStatus.RUNNING:
+        message = "This run is executing now; wait for it to stop before re-measuring."
+        raise ConflictError(message, context={"job_id": str(job.id)})
+    if job.status.is_terminal:
+        message = (
+            f"This run has already {job.status.value.lower()}. A finished report is not "
+            "re-measured; it is superseded, with the reason recorded."
+        )
+        raise ConflictError(message, context={"job_id": str(job.id)})
+
+    rows = list(
+        await session.scalars(
+            select(JobStep).where(JobStep.job_id == job.id).order_by(JobStep.sequence)
+        )
     )
+    measured = next((row for row in rows if row.step_key == MEASURE_STEP), None)
+    if measured is None or measured.status is not JobStatus.SUCCEEDED:
+        message = "This run has not measured its checks yet, so there is nothing to re-measure."
+        raise ValidationError(message, context={"job_id": str(job.id), "step": MEASURE_STEP})
+
+    invalidated: list[str] = []
+    for row in rows:
+        if row.sequence >= measured.sequence and row.status is not JobStatus.QUEUED:
+            row.status = JobStatus.QUEUED
+            row.finished_at = None
+            row.error = None
+            invalidated.append(row.step_key)
+
+    await _append_event(
+        session,
+        actor=actor,
+        job=job,
+        event_type=REMEASURE_EVENT,
+        payload={"job_id": str(job.id), "reason": reason, "invalidated": ", ".join(invalidated)},
+    )
+    _log.info(
+        "run.remeasure_requested",
+        job_id=str(job.id),
+        invalidated=invalidated,
+        actor=actor.email,
+    )
+    return Remeasure(invalidated=tuple(invalidated))
 
 
 async def _final_approval(session: AsyncSession, job: Job) -> Approval | None:
-    approval: Approval | None = await session.scalar(
-        select(Approval).where(Approval.job_id == job.id, Approval.gate == GateKind.FINAL)
-    )
-    return approval
+    return await approval_service.current_decision(session, job.id, GateKind.FINAL)
 
 
 async def _append_event(
-    session: AsyncSession, *, actor: User, job: Job, payload: dict[str, str]
+    session: AsyncSession,
+    *,
+    actor: User,
+    job: Job,
+    event_type: str,
+    payload: dict[str, str],
 ) -> None:
     previous = await session.scalar(select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1))
     session.add(
         AuditEvent.create_linked(
             actor=actor.email,
-            event_type=RESEALED_EVENT,
+            event_type=event_type,
             payload=dict(payload),
             previous=previous,
             request_id=job.work_order_id,

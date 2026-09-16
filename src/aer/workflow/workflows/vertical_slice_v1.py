@@ -52,7 +52,6 @@ from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.disagreement import DisagreementKind
 from aer.core.enums import (
-    Decision,
     FactBasis,
     GateKind,
     JobStatus,
@@ -106,6 +105,7 @@ from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
+from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import requests as request_service
 from aer.services.acquisition import acquisition_root, record_acquisition
@@ -2144,13 +2144,10 @@ async def _require_approval(
     if expected_hash is None:
         expected_hash = str(produced.get("payload_hash", ""))
 
-    approval = await context.session.scalar(
-        select(Approval).where(
-            Approval.work_order_id == context.job.work_order_id,
-            Approval.gate == gate,
-            Approval.job_id == context.job.id,
-        )
-    )
+    # The decision that stands: the newest row nothing supersedes (ADR 0123). An approval
+    # taken over content that then moved is superseded by the one taken over what the page
+    # showed next, and that is the one this run continues on.
+    approval = await approval_service.current_decision(context.session, context.job.id, gate)
 
     if approval is None:
         message = (
@@ -2164,7 +2161,7 @@ async def _require_approval(
             context={"job_id": str(context.job.id)},
         )
 
-    if approval.decision is not Decision.APPROVED:
+    if approval.decision not in approval_service.PASSING_DECISIONS:
         message = (
             f"The {gate.value} gate was {approval.decision.value.lower()}. The run stops here."
         )
@@ -2190,9 +2187,9 @@ async def _require_approval(
             detail = (
                 "What this run sealed and what the review page shows have drifted apart, "
                 "so no approval taken from that page can match. Nothing you decide will "
-                "release it. The seal is re-derived from the run's own record by "
-                "`aer reseal <job-id>`; when the recorded approval matches what the page "
-                "shows, continuing the run then proceeds on it."
+                "release it. Re-sealing re-derives the seal from the run's own record; "
+                "when the recorded approval matches what the page shows, the run continues "
+                "on it."
             )
         else:
             reason = PauseReason.GATE_STALE_PAGE_MOVED

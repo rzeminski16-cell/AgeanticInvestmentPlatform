@@ -45,6 +45,7 @@ from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.cancellation import cancellation_for
 from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -1136,7 +1137,9 @@ class TestTheApprovalGates:
         report = await session.scalar(select(Report).where(Report.job_id == job.id))
         assert report is None
 
-    async def test_a_rejection_stops_the_run(self, scenario: dict) -> None:
+    async def test_a_rejection_ends_the_run(self, scenario: dict) -> None:
+        """ADR 0123: rejecting a gate stops the run for good, with the rejection as the
+        recorded reason, so the request can be started again rather than left waiting."""
         session = scenario["session"]
         job = scenario["job"]
         await run_to_next_stop(**_args(scenario))
@@ -1152,10 +1155,15 @@ class TestTheApprovalGates:
             decision=Decision.REJECTED,
             actor=scenario["user"],
             payload_hash=str((row.output_ref or {})["payload_hash"]),
+            notes="Wrong as-of date.",
         )
+        assert job.status is JobStatus.CANCELLED
+        cancellation = await cancellation_for(session, job_id=job.id)
+        assert cancellation is not None
+        assert cancellation.reason == "Rejected at the plan gate. Wrong as-of date."
 
         outcome = await run_to_next_stop(**_args(scenario))
-        assert outcome.status is JobStatus.AWAITING_APPROVAL
+        assert outcome.status is JobStatus.CANCELLED
         assert scenario["sec_client"].facts_calls == []
 
 

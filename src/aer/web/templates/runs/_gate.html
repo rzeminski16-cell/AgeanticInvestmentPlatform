@@ -11,8 +11,10 @@
   the decision column sits sticky beside the evidence; the grid places it there, the markup
   never does. A keyboard user reaches the submit button after everything it commits.
 
-  **A decided gate renders no form.** A decision is not a state to re-assert, and a button
-  the service would refuse is worse than none.
+  **A decided gate renders no form** — unless the page has moved under the decision, in
+  which case the form renders with the earlier decision named above it and the next one
+  supersedes it (ADR 0123). A decision is not a state to re-assert, and a button the
+  service would refuse is worse than none.
 
   The context is `web/gates.frame_for`'s, identical on all seven: `gate_words`,
   `gate_consequence`, `journey`, `gate_cost`, `decided`, `decided_note`, `run_identity` —
@@ -92,6 +94,14 @@
               not an approval of this.
             #}
             <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+
+            {% if stale_decision %}
+              {#
+                A decision the page moved under (ADR 0123). Said before the buttons, because
+                pressing one is not a first decision here: it supersedes the earlier one.
+              #}
+              <p class="type-body-sm text-warning-ink" id="stale-decision">{{ stale_decision }}</p>
+            {% endif %}
 
             <p class="type-body-sm text-ink-muted">
               <span class="type-data text-ink">{{ gate_cost.summary }}</span> spent so far.

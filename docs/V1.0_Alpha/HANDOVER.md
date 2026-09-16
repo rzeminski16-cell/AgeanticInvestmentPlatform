@@ -131,7 +131,10 @@ Everything here is provable offline and costs nothing but sessions.
    raises the sector or unmapped-concepts gate, a section brain that plants an unverifiable
    citation, a fixture per escalation trigger, and a forged stale form for the conflict page.
 
-Then the rest of Phase 1 in [`05-delivery-plan.md`](05-delivery-plan.md) §5.
+Then the rest of Phase 1 in [`05-delivery-plan.md`](05-delivery-plan.md) §5 — of which 1.2
+is done (16 September, [ADR 0123](../adr/0123-a-decision-at-a-gate-is-superseded-and-a-rejection-ends-the-run.md)):
+the twelve rejected and stale gate rows lost their `control` assertion from the record the
+same day, which is the harness doing what §3 above says it is for. 1.3 is next.
 
 ## 6. Standing constraints on any session doing this work
 

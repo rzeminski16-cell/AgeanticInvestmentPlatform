@@ -652,16 +652,29 @@ def _build_failed(state: StoppedState, scene: Scene) -> uuid.UUID:
 
 
 def _build_problem(state: StoppedState, scene: Scene) -> uuid.UUID:
-    """A stale hash posted to a live gate: the one problem page the fake scene reaches."""
+    """The problem page, reached the way an operator reaches it.
+
+    A *conflict* is a decision posted from a page that moved under it — the stale hash the
+    route refuses before recording anything. A *validation error* is a rule the approval
+    service refused: here, a decision posted from a page left open after the gate was
+    decided from elsewhere, over content that has not changed, which is re-assertion. Both
+    land on the same page; what it offers is what the row measures.
+    """
     url = scene.database_url
     job_id: uuid.UUID = run_async(_commission(url))
     if Worker(url).advance(job_id) is not JobStatus.AWAITING_APPROVAL:
         raise NoPathConstructedError("the run did not reach the plan gate")
     scene.surface.goto(_gate_url(scene, job_id, GateKind.PLAN))
-    scene.surface.set_hidden("payload_hash", "a" * 64)
+    if state.detail == errors.ConflictError.code:
+        scene.surface.set_hidden("payload_hash", "a" * 64)
+    elif state.detail == errors.ValidationError.code:
+        run_async(_approve_by_service(url, job_id, GateKind.PLAN))
+    else:
+        message = f"no path constructed: no route reaches the problem page with {state.detail}"
+        raise NoPathConstructedError(message)
     scene.surface.press_by_id("approve")
     if not scene.surface.has("problem"):
-        raise NoPathConstructedError("the stale post did not land on the problem page")
+        raise NoPathConstructedError("the post did not land on the problem page")
     return job_id
 
 
@@ -757,7 +770,12 @@ def _assert_pressing_moves(
 
     before = run_async(_fingerprint(scene.database_url, job_id))
     try:
-        if state.family is Family.GATE and state.disposition is Disposition.PENDING:
+        if state.family is Family.GATE and state.disposition in (
+            Disposition.PENDING,
+            Disposition.STALE_PAGE_MOVED,
+        ):
+            # The control leads to the gate's page; the decision there is what moves the
+            # run — a first decision, or one that supersedes a stale one (ADR 0123).
             surface.press(control, expect_url=GATE_PAGE_URL)
             surface.press_by_id("approve", expect_url=CONSOLE_URL)
         elif state.family is Family.BUDGET:

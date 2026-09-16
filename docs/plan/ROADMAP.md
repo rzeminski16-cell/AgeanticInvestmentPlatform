@@ -426,7 +426,12 @@ distinct code identifiers reach gate pages, and the console tells the operator t
 `just worker`. This is the whole of ISSUE 1 in the V1.0 delivery plan and is measured by the
 journey harness in [`../V1.0_Alpha/11-testing-strategy.md`](../V1.0_Alpha/11-testing-strategy.md)
 §3.1 — every stopped state carries a labelled forward control, zero UUIDs, zero shell
-commands, and pressing the control moves the job.
+commands, and pressing the control moves the job. **Moved on 16 September 2026:** the
+harness landed red and Phase 1.2 (ADR 0123) put a way forward on the three gate dead ends
+and on a refused check the same day — a decision the page moved under is decided again and
+superseded, a rejection ends the run and the console offers a new one, re-seal and re-measure
+are controls. What the harness still holds red is the vocabulary: the console's step keys,
+the budget ceilings' bare *settings* link, the failed step's remedy, the problem page.
 
 ---
 

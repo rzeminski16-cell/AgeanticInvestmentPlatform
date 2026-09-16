@@ -42,10 +42,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.calc import comps as calc
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity
-from aer.core.enums import Decision, GateKind, Provider
+from aer.core.enums import GateKind, Provider
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
-    Approval,
     Company,
     FinancialFact,
     Job,
@@ -55,6 +54,7 @@ from aer.db.models import (
 )
 from aer.errors import AerError, ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES
+from aer.services import approvals as approval_service
 
 __all__ = [
     "ADDABLE_LIMIT",
@@ -275,16 +275,11 @@ async def confirmed_peer_set(session: AsyncSession, job: Job) -> tuple[PeerPropo
     if not payload["peers"]:
         return ()
 
-    approval = await session.scalar(
-        select(Approval)
-        .where(
-            Approval.job_id == job.id,
-            Approval.gate == GateKind.PEER_SET,
-            Approval.decision == Decision.APPROVED,
-        )
-        .order_by(Approval.decided_at.desc())
-        .limit(1)
-    )
+    # The decision that stands at the gate, and only if it passes: a rejection that
+    # superseded an earlier approval is not an approval (ADR 0123).
+    approval = await approval_service.current_decision(session, job.id, GateKind.PEER_SET)
+    if approval is not None and approval.decision not in approval_service.PASSING_DECISIONS:
+        approval = None
     if approval is None:
         message = (
             f"This run proposed {len(payload['peers'])} peer(s) and nobody has confirmed "
@@ -675,16 +670,11 @@ def specialist_multiples_for(sector_key: str) -> tuple[str, ...]:
 
 async def confirmed_by(session: AsyncSession, job: Job) -> str:
     """Who approved the peer set, for the table's provenance line."""
-    approval = await session.scalar(
-        select(Approval)
-        .where(
-            Approval.job_id == job.id,
-            Approval.gate == GateKind.PEER_SET,
-            Approval.decision == Decision.APPROVED,
-        )
-        .order_by(Approval.decided_at.desc())
-        .limit(1)
-    )
+    # The decision that stands at the gate, and only if it passes: a rejection that
+    # superseded an earlier approval is not an approval (ADR 0123).
+    approval = await approval_service.current_decision(session, job.id, GateKind.PEER_SET)
+    if approval is not None and approval.decision not in approval_service.PASSING_DECISIONS:
+        approval = None
     if approval is None:
         return ""
     actor = await session.get(User, approval.actor_user_id)

@@ -161,6 +161,13 @@ exception it may raise, and both halves fail a row whose measured red set differ
 recorded one in either direction, so a fix that works has to move the record as well as the
 page, and a regression on an assertion the record calls green fails the build at once.
 
+The first fix moved it the same day. Phase 1.2 (ADR 0123) put a control on the rejected and
+stale gates, and the `control` assertion left the record on all twelve of those rows in both
+halves — *text* still red on each, as the ratchet is Phase 1.4's — while the same change made
+the conflict problem page constructible: 33 red rows and 19 not yet constructible, with
+*control* red on six (the queued run, the two budget ceilings, the failed step's remedy and
+the two problem pages) and *press* measured on 27 and red on none.
+
 ### 3.2 The invariant assertions
 
 Three of the eight invariants change in V1.0 and two gain new obligations. An invariant that

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "CONSEQUENCES",
+    "GATE_PAGES",
     "GATE_STEPS",
     "Journey",
     "JourneyEntry",
@@ -49,6 +50,19 @@ __all__ = [
     "frame_for",
     "journey",
 ]
+
+# Where each gate is decided: the page under the run's console. One mapping, read by the
+# console's controls and by the journey harness, so a gate cannot be linked to a page it is
+# not decided on.
+GATE_PAGES: Final[dict[GateKind, str]] = {
+    GateKind.PLAN: "plan",
+    GateKind.UNMAPPED_CONCEPTS: "financials",
+    GateKind.SECTOR_SPECIALIST: "sector",
+    GateKind.PEER_SET: "peers",
+    GateKind.THEME_SET: "themes",
+    GateKind.ASSUMPTIONS: "assumptions",
+    GateKind.FINAL: "review",
+}
 
 # The workflow's gate steps, in declared order, and the gate each one raises. Asserted
 # against `build_steps()` by `tests/test_web_gates.py`, so a workflow that renames a gate
@@ -207,30 +221,45 @@ def journey(
     return Journey(entries=tuple(entries), remaining_certain=certain, remaining_possible=possible)
 
 
-async def frame_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[str, Any]:
+async def frame_for(
+    session: AsyncSession, *, job: Job, gate: GateKind, live_hash: str | None = None
+) -> dict[str, Any]:
     """Everything the shared gate frame renders, identical on all seven gates.
 
     One assembler rather than seven, because "cost appears differently on each gate" and
     "nothing says where you are in the sequence" were findings about drift, and drift is
     prevented structurally or not at all.
+
+    ``live_hash`` is the hash of the payload the page is rendering. With it, a decision the
+    page has moved under is reported as stale rather than as decided, and the form renders
+    so the operator can decide again — the new decision supersedes the old (ADR 0123).
     """
     state = await run_service.run_state(session, job_id=job.id)
-    approvals = await approval_service.approvals_for_job(session, job.id)
+    current = await approval_service.current_decisions(session, job.id)
     pending = await approval_service.pending_gate(session, job)
     request = await mandate_of(session, job)
 
-    decided = next((row for row in approvals if row.gate is gate), None)
+    decided = current.get(gate)
     decided_note = ""
     decided_label = ""
+    stale_decision = ""
     if decided is not None:
         actor = await session.get(User, decided.actor_user_id)
         who = actor.display_name if actor is not None else "the operator"
         words = DECISIONS[decided.decision]
-        decided_label = words.label
-        decided_note = (
-            f"{words.label} by {who} on {decided.decided_at.strftime('%d %B %Y')}. A "
-            "decision is not a state to re-assert; changing it needs a new run."
-        )
+        taken = f"{words.label} by {who} on {decided.decided_at.strftime('%d %B %Y')}"
+        if live_hash is not None and decided.payload_hash != live_hash:
+            stale_decision = (
+                f"{taken}, over an earlier version of this page. The page has moved since, "
+                "so that decision does not apply to what it shows now. Deciding again "
+                "supersedes it; both decisions stay on the record."
+            )
+        else:
+            decided_label = words.label
+            decided_note = (
+                f"{taken}. A decision is not a state to re-assert; if this page moves, "
+                "deciding again will supersede it."
+            )
 
     return {
         "gate": gate.value,
@@ -238,7 +267,7 @@ async def frame_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[
         "gate_consequence": CONSEQUENCES[gate],
         "journey": journey(
             state.as_dict()["steps"],
-            decisions={row.gate: row.decision for row in approvals},
+            decisions={gate_kind: row.decision for gate_kind, row in current.items()},
             pending=pending,
         ),
         "gate_cost": figures.cost_context(
@@ -247,6 +276,7 @@ async def frame_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[
         ),
         "decided": decided_label or None,
         "decided_note": decided_note,
+        "stale_decision": stale_decision,
         "run_identity": (
             f"{request.company_name} · {request.ticker} · "
             f"as at {request.work_order.as_of_date.isoformat()}"

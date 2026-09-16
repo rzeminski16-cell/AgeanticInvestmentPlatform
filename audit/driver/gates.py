@@ -76,10 +76,9 @@ async def _paused_step(session: AsyncSession, job_id: uuid.UUID) -> JobStep | No
 async def _already_decided(
     session: AsyncSession, job_id: uuid.UUID, gate: GateKind
 ) -> Approval | None:
-    row: Approval | None = await session.scalar(
-        select(Approval).where(Approval.job_id == job_id, Approval.gate == gate)
-    )
-    return row
+    # The decision that stands, not the first row by gate: a superseded decision (ADR 0123)
+    # is history, and the driver's policy is about what the run is waiting on now.
+    return await approval_service.current_decision(session, job_id, gate)
 
 
 async def clear_pending_gate(

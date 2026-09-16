@@ -6,7 +6,9 @@ only the decision would leave "approved" meaning nothing in particular six month
 because the underlying rows may have been superseded. Storing the hash makes the claim
 "this is what you saw" verifiable rather than asserted.
 
-Rows here are never updated or deleted. Changing your mind creates a new decision.
+Rows here are never updated or deleted. Changing your mind creates a new decision — one that
+names the decision it supersedes (``supersedes_id``, ADR 0123), so the chain reads *approved,
+then amended* rather than *approved* twice, and the superseded row stays exactly as it was.
 """
 
 from __future__ import annotations
@@ -14,14 +16,14 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
 from sqlalchemy import Enum as SaEnum
-from sqlalchemy import ForeignKey, Index, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import Decision, GateKind
 from aer.db.base import Base, created_at_column
-from aer.db.types import Sha256, Timestamp, UuidFk, UuidPk
+from aer.db.types import Sha256, Timestamp, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.user import User
@@ -65,10 +67,19 @@ class Approval(Base):
 
     decided_at: Mapped[Timestamp] = created_at_column()
 
+    # The decision this one replaces, when the page moved under it (ADR 0123). RESTRICT, so
+    # the superseded row cannot vanish from under the one that points at it; unique, so a
+    # decision is superseded once; and never itself.
+    supersedes_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("approvals.id", ondelete="RESTRICT")
+    )
+
     work_order: Mapped[WorkOrder] = relationship(back_populates="approvals")
     actor: Mapped[User] = relationship(back_populates="approvals")
 
     __table_args__ = (
         Index("ix_approvals_work_order_id_gate", "work_order_id", "gate"),
         Index("ix_approvals_job_id", "job_id"),
+        CheckConstraint("id <> supersedes_id", name="approval_does_not_supersede_itself"),
+        UniqueConstraint("supersedes_id", name="uq_approvals_supersedes_once"),
     )

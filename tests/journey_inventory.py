@@ -170,9 +170,11 @@ def _gate_rows() -> list[StoppedState]:
         )
         rows.append(
             StoppedState(
+                # A rejection ends the run (ADR 0123): the state is a cancelled run whose
+                # cancellation names the gate, and the way forward is a new run.
                 key=f"gate.{gate.value}.{Disposition.REJECTED.value}",
                 family=Family.GATE,
-                status=JobStatus.AWAITING_APPROVAL,
+                status=JobStatus.CANCELLED,
                 gate=gate,
                 disposition=Disposition.REJECTED,
                 finding=S_2_11,
@@ -302,6 +304,13 @@ def _final_rows() -> list[StoppedState]:
 
 
 def _problem_rows() -> list[StoppedState]:
+    """One row per error class the runs pages catch onto the problem page.
+
+    A conflict is a page that moved under a form (the stale hash a decision was posted
+    with); a validation error is a rule the approval service refused (a decision out of
+    gate order, a second decision over unchanged content); a bare `AerError` is whatever
+    else a route catches. The page is the same; what it offers is what the row measures.
+    """
     return [
         StoppedState(
             key=f"problem.{cls.code}",
@@ -387,10 +396,6 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
         "the scripted section brain cites only real excerpts; a brain that plants an "
         "unverifiable one is not written yet"
     ),
-    "problem.conflict": (
-        "a second decision on a decided gate needs a stale form re-posted with a live CSRF "
-        "token, which the harness does not forge yet"
-    ),
     "problem.aer_error": "no route on the run's pages catches a bare AerError on the fake scene",
 }
 
@@ -412,7 +417,6 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
 # queued run and the problem page; `press` was measured wherever a control was found, and
 # every one of them moved the run.
 _CONSOLE: Final = "the console prints the step keys and says to type `just worker`"
-_CONSOLE_RESEAL: Final = "the console prints the step keys and says to type `aer reseal`"
 _CONSOLE_FAILED: Final = "the console prints the step keys and the error's code"
 _GATE_PAGE: Final[dict[GateKind, str]] = {
     GateKind.PLAN: "the plan page prints section keys and the source's identifier",
@@ -455,6 +459,9 @@ def _measured() -> dict[str, dict[str, str]]:
         "problem.validation_error": {
             "control": "§2.11: the problem page's only control is 'All requests'",
         },
+        "problem.conflict": {
+            "control": "§2.11: the problem page's only control is 'All requests'",
+        },
     }
     for code in failed_step_codes():
         red[f"failed.{code}"] = {"text": _CONSOLE_FAILED}
@@ -463,18 +470,14 @@ def _measured() -> dict[str, dict[str, str]]:
             continue
         page = _GATE_PAGE[gate]
         red[f"gate.{gate.value}.{Disposition.PENDING.value}"] = {"text": f"{_CONSOLE}; {page}"}
-        red[f"gate.{gate.value}.{Disposition.REJECTED.value}"] = {
-            "text": f"{_CONSOLE}; {page}",
-            "control": "§2.11: after a rejection nothing offers to start again",
-        }
+        # ADR 0123 put the controls on these three; the vocabulary is Phase 1.4's.
+        red[f"gate.{gate.value}.{Disposition.REJECTED.value}"] = {"text": f"{_CONSOLE}; {page}"}
         red[f"gate.{gate.value}.{Disposition.STALE_PAGE_MOVED.value}"] = {
-            "text": f"{_CONSOLE}; {page}",
-            "control": "F-16: nothing offers to decide again on what the page shows now",
+            "text": f"{_CONSOLE}; {page}"
         }
         if gate not in LIVE_PAYLOAD_GATES:
             red[f"gate.{gate.value}.{Disposition.STALE_SEAL_DRIFT.value}"] = {
-                "text": f"{_CONSOLE_RESEAL}; {page}",
-                "control": "F-16: the only remedy offered is a shell command",
+                "text": f"{_CONSOLE}; {page}"
             }
     return red
 

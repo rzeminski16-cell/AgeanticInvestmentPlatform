@@ -127,7 +127,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
-from aer.web.gates import frame_for, journey
+from aer.web.gates import GATE_PAGES, frame_for, journey
 from aer.web.templating import render
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -233,10 +233,22 @@ async def run_console(
     research_request = await mandate_of(session, job)
     report = await session.scalar(select(Report).where(Report.job_id == job_id))
     pending = await approval_service.pending_gate(session, job)
-    approvals = await approval_service.approvals_for_job(session, job_id)
+    approvals = list((await approval_service.current_decisions(session, job_id)).values())
     cancellation = await cancellation_service.cancellation_for(session, job_id=job_id)
     stranding = await _stranding(session, job=job, redis=redis)
     state_dict = state.as_dict()
+
+    # The checks that refused the draft, for the re-measure control (ADR 0123). Only at
+    # the final gate: before it nothing has been measured, after it nothing is re-measured.
+    failed_checks = (
+        [
+            vocabulary.metric_words(row.metric).label
+            for row in await evaluations_for_job(session, job_id)
+            if row.passed is False
+        ]
+        if job.status is JobStatus.AWAITING_APPROVAL and pending is GateKind.FINAL
+        else []
+    )
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -251,10 +263,20 @@ async def run_console(
             "spend_gbp": state.spend_gbp,
             "is_terminal": state.is_terminal,
             "awaiting": job.status is JobStatus.AWAITING_APPROVAL,
+            # Why the run is waiting, from the paused step's own record: the console names
+            # the case and offers its control (ADR 0123) rather than one banner for all.
+            "pause_reason": state.pause_reason,
+            "failed_checks": failed_checks,
+            # A run that ended without a report may be started again from here — the
+            # request page's own control, moved to where the operator meets the end.
+            "can_start_again": state.is_terminal
+            and report is None
+            and research_request is not None,
             "budget_exceeded": job.status is JobStatus.BUDGET_EXCEEDED,
             "budget_scope": state.budget_scope,
             "pending_gate": pending.value if pending else None,
             "pending_words": vocabulary.GATES[pending] if pending else None,
+            "pending_page": f"/runs/{job_id}/{GATE_PAGES[pending]}" if pending else None,
             "report_id": str(report.id) if report else None,
             "poll_seconds": POLL_SECONDS,
             "csrf_field": CSRF_FIELD_NAME,
@@ -556,6 +578,101 @@ async def resume_run_page(
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 
+@router.post("/runs/{job_id}/reseal", summary="Re-seal the final gate from the run's record")
+async def reseal_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Move the final gate's seal to the record as it stands, then continue the run.
+
+    The same call the terminal command makes (ADR 0123 part 3), followed by the resume the
+    command tells the operator to make next. The run then either continues on a recorded
+    approval that matches, or stops again at the gate saying the approval was of older
+    content — and offers to decide again, which supersedes it.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was re-sealed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    pending = await approval_service.pending_gate(session, job)
+    try:
+        await gates_service.reseal_gate(
+            session,
+            job=job,
+            actor=user,
+            reason=submitted.get("reason") or "re-sealed from the console",
+            gate=pending or GateKind.FINAL,
+        )
+        await resume_service.resume_run(
+            session, job=job, actor=user, reason="re-sealed from the console"
+        )
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/runs/{job_id}/remeasure", summary="Measure the run's checks again")
+async def remeasure_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Put the checks and everything sealed over them back to be executed, and continue.
+
+    ADR 0123 part 4: the `validate` step and the steps after it run again as their next
+    attempt, for the cost of those steps rather than the whole run. The record keeps every
+    attempt, and the audit chain says who asked and why.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was re-measured.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    reason = submitted.get("reason") or "re-measured from the console"
+    try:
+        await gates_service.remeasure_checks(session, job=job, actor=user, reason=reason)
+        await resume_service.resume_run(session, job=job, actor=user, reason=reason)
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
 @router.post("/runs/{job_id}/cap", summary="Raise what this run may spend")
 async def raise_run_cap(
     request: Request,
@@ -688,7 +805,9 @@ async def plan_review(
     # The pins reach the page inside the payload now — the builder reads them itself, so
     # fetching them here as well would be a second answer to the question the gate hashes.
     payload = await _payload_for(session, job=job, gate=GateKind.PLAN)
-    frame = await frame_for(session, job=job, gate=GateKind.PLAN)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.PLAN, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -752,7 +871,9 @@ async def financials_review(
         )
 
     payload = await _payload_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
-    frame = await frame_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.UNMAPPED_CONCEPTS, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -815,7 +936,9 @@ async def sector_review(
         )
 
     payload = classification_payload(produced)
-    frame = await frame_for(session, job=job, gate=GateKind.SECTOR_SPECIALIST)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.SECTOR_SPECIALIST, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -891,7 +1014,9 @@ async def peer_review(
     # The whole set — what the step proposed and what the operator has added — because
     # that is what the page shows and therefore what the hash must cover.
     payload = await peer_payload_for_job(session, job_id)
-    frame = await frame_for(session, job=job, gate=GateKind.PEER_SET)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.PEER_SET, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -957,7 +1082,9 @@ async def theme_review(
     # hash covers what is being approved, and the name is presentation.
     payload_for_page = dict(payload)
     payload_for_page["subject_name"] = str(produced.get("subject_name", ""))
-    frame = await frame_for(session, job=job, gate=GateKind.THEME_SET)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.THEME_SET, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -1028,7 +1155,9 @@ async def assumptions_review(
 
     rows = await assumptions_for_request(session, job.work_order_id)
     payload = await _payload_for(session, job=job, gate=GateKind.ASSUMPTIONS)
-    frame = await frame_for(session, job=job, gate=GateKind.ASSUMPTIONS)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.ASSUMPTIONS, live_hash=payload_hash_for(payload)
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -1137,7 +1266,9 @@ async def draft_review(
         for row in await session.execute(select(SectionDefinition.key, SectionDefinition.title))
     }
 
-    frame = await frame_for(session, job=job, gate=GateKind.FINAL)
+    frame = await frame_for(
+        session, job=job, gate=GateKind.FINAL, live_hash=payload_hash_for(payload)
+    )
     review = _review_verdict(
         payload=payload,
         evaluations=evaluations,
@@ -1816,6 +1947,16 @@ async def decide_gate_page(
             status=HTTP_409_CONFLICT,
         )
 
+    # A decision the page moved under is superseded by this one (ADR 0123): the service
+    # writes it as amended, or as a rejection that names what it replaces, and refuses a
+    # second decision over content that has not moved.
+    standing = await approval_service.current_decision(session, job.id, gate)
+    supersedes = (
+        standing
+        if standing is not None and standing.payload_hash != submitted.get("payload_hash", "")
+        else None
+    )
+
     try:
         await approval_service.record_decision(
             session,
@@ -1825,12 +1966,15 @@ async def decide_gate_page(
             actor=user,
             payload_hash=submitted.get("payload_hash", ""),
             notes=(submitted.get("notes") or None),
+            supersedes=supersedes,
         )
     except ValidationError as exc:
         # Shown rather than swallowed. Every refusal from the approval service names a
         # rule the operator can act on -- already decided, or out of order -- and hiding
         # that behind a generic error would make the gates feel arbitrary.
         return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
 
     await session.commit()
 

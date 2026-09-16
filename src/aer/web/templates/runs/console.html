@@ -61,7 +61,55 @@
 
     {{ ui.verdict("CURRENT STATE", plain_status, tone=run_words.tone.value) }}
 
-    {% if awaiting %}
+    {% if awaiting and pause_reason == 'gate_stale_page_moved' %}
+      {#
+        The decision on record was taken over an earlier version of the page (ADR 0123).
+        The way forward is the page itself: deciding on what it shows now supersedes the
+        earlier decision, and both stay on the record.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
+        role="alert"
+        id="stale-page-moved"
+      >
+        <h2 class="type-title-2 text-ink">The page moved after your decision</h2>
+        <p class="mt-2 type-body text-ink">
+          Your decision on {{ pending_words.name | lower }} was taken over an earlier version
+          of its page. The run does not continue on a decision about something else. Open it
+          again and decide on what it shows now; the new decision supersedes the old one, and
+          both stay on the record. Nothing is spent until you do.
+        </p>
+        <div class="mt-4">
+          <a href="{{ pending_page }}" id="decide-again"
+             class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Decide again on {{ pending_words.name | lower }}</a>
+        </div>
+      </section>
+    {% elif awaiting and pause_reason == 'gate_stale_seal_drift' %}
+      {#
+        The run's own seal moved after the decision (ADR 0123): the approval matches the
+        page and the seal matches neither, so no decision can release it. Re-sealing is the
+        remedy, and it spends nothing.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
+        role="alert"
+        id="stale-seal-drift"
+      >
+        <h2 class="type-title-2 text-ink">The run&rsquo;s own record moved after your decision</h2>
+        <p class="mt-2 type-body text-ink">
+          What this run sealed for {{ pending_words.name | lower }} and what its page shows
+          have drifted apart, so no decision taken from that page can match. Re-sealing
+          re-derives the seal from the run&rsquo;s own record and continues the run: on your
+          recorded decision if it then matches, or back here asking you to decide again if it
+          was taken over older content. Re-sealing spends nothing.
+        </p>
+        <form method="post" action="/runs/{{ job.id }}/reseal" id="reseal-form" class="mt-4">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <button type="submit" id="reseal-run"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Re-seal and continue</button>
+        </form>
+      </section>
+    {% elif awaiting %}
       <section
         class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
         role="alert"
@@ -104,6 +152,36 @@
           <a href="/runs/{{ job.id }}/review" id="review-draft"
              class="inline-flex min-h-11 items-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'FINAL' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the draft</a>
         </div>
+      </section>
+    {% endif %}
+
+    {% if awaiting and pending_gate == 'FINAL' and failed_checks %}
+      {#
+        A refused check, with its remedy where the refusal is met (ADR 0123, F-22). The
+        checks and everything sealed over them run again as their next attempt; the record
+        keeps every attempt, and the run comes back to this gate.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-refusal-ink bg-refusal-wash p-5"
+        role="status"
+        id="failed-checks"
+      >
+        <h2 class="type-title-2 text-ink">
+          {{ failed_checks | length }} check{{ 's' if failed_checks | length != 1 else '' }} refused this draft
+        </h2>
+        <p class="mt-2 type-body text-ink">
+          {{ failed_checks | join(', ') }}. The review page shows what each one found. If the
+          cause has been put right, measure the checks again: the run re-runs its checks and
+          everything sealed over them, for the cost of those steps rather than the whole run,
+          and returns here.
+        </p>
+        <form method="post" action="/runs/{{ job.id }}/remeasure" id="remeasure-form" class="mt-4 flex flex-wrap items-center gap-3">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="text" name="reason" maxlength="4000" placeholder="What was put right (optional)"
+                 class="min-h-11 w-72 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+          <button type="submit" id="remeasure-run"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Re-measure the checks</button>
+        </form>
       </section>
     {% endif %}
 
@@ -185,6 +263,27 @@
         {% if cancellation.reason %}
           <p class="mt-2 type-body-sm text-ink-muted">Reason: {{ cancellation.reason }}</p>
         {% endif %}
+      </section>
+    {% endif %}
+
+    {% if can_start_again %}
+      {#
+        A run that ended without a report — rejected at a gate, cancelled, failed and
+        abandoned — is started again from here (ADR 0123). The request page has offered the
+        same control since the cancellation fix; the operator meets the end on this page.
+      #}
+      <section class="rounded-md border border-line bg-surface-sunken p-5" role="status" id="start-again">
+        <h2 class="type-title-2 text-ink">Start again</h2>
+        <p class="mt-2 type-body text-ink">
+          This run ended without a report, and its record stays as it is. Starting again runs
+          the request afresh and is priced as a new run.
+        </p>
+        <form method="post" action="/runs" id="start-again-form" class="mt-4">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="request_id" value="{{ job.work_order_id }}" />
+          <button type="submit" id="start-again-run"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Start a new run</button>
+        </form>
       </section>
     {% endif %}
 

@@ -35,7 +35,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.core.enums import Decision, GateKind
+from aer.core.enums import GateKind
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import (
     SECTOR_PROFILES,
@@ -48,7 +48,8 @@ from aer.core.sectors import (
     suggested_profiles,
     unclassified_mandate,
 )
-from aer.db.models import Approval, Job, JobStep, User
+from aer.db.models import Job, JobStep, User
+from aer.services import approvals as approval_service
 
 __all__ = [
     "CLASSIFY_STEP",
@@ -204,16 +205,11 @@ async def confirmed_classification(
     if profile is None:
         return None, ""
 
-    approval = await session.scalar(
-        select(Approval)
-        .where(
-            Approval.job_id == job.id,
-            Approval.gate == GateKind.SECTOR_SPECIALIST,
-            Approval.decision == Decision.APPROVED,
-        )
-        .order_by(Approval.decided_at.desc())
-        .limit(1)
-    )
+    # The decision that stands at the gate, and only if it passes: a rejection that
+    # superseded an earlier approval is not an approval (ADR 0123).
+    approval = await approval_service.current_decision(session, job.id, GateKind.SECTOR_SPECIALIST)
+    if approval is not None and approval.decision not in approval_service.PASSING_DECISIONS:
+        approval = None
     if approval is None:
         message = (
             f"This run's classifier proposed {profile.label}, and nobody has confirmed it. "
