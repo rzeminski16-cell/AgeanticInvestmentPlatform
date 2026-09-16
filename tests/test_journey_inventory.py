@@ -16,6 +16,7 @@ from aer.core.escalation import TriggerKind
 from aer.web.gates import GATE_STEPS
 from aer.workflow.pauses import LIVE_PAYLOAD_GATES
 from aer.workflow.workflows import vertical_slice_v1
+from tests.journey_harness import ASSERTIONS
 from tests.journey_inventory import (
     STILL_RED,
     UNCONSTRUCTED,
@@ -100,5 +101,20 @@ class TestTheSideListsNameRealRows:
         assert not both, f"a row cannot be both red and unbuildable: {sorted(both)}"
 
     def test_every_reason_is_a_sentence(self) -> None:
-        for key, reason in {**STILL_RED, **UNCONSTRUCTED}.items():
+        for key, reason in UNCONSTRUCTED.items():
             assert len(reason) > 20, f"{key}: say why"
+        for key, by_assertion in STILL_RED.items():
+            assert by_assertion, f"{key}: a red row names at least one red assertion"
+            for name, reason in by_assertion.items():
+                assert len(reason) > 20, f"{key}/{name}: say why"
+
+    def test_still_red_names_only_the_three_assertions(self) -> None:
+        for key, by_assertion in STILL_RED.items():
+            unknown = set(by_assertion) - set(ASSERTIONS)
+            assert not unknown, f"{key} records assertions that do not exist: {sorted(unknown)}"
+
+    def test_a_row_red_on_its_control_records_nothing_about_pressing(self) -> None:
+        """`press` is measured only once a control is found; a record claiming both is a
+        record nobody measured."""
+        for key, by_assertion in STILL_RED.items():
+            assert not ("control" in by_assertion and "press" in by_assertion), key

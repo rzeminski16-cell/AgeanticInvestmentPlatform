@@ -2,10 +2,12 @@
 
 The rows come from `tests/journey_inventory.py`; the construction and the three assertions
 from `tests/journey_harness.py`, driven here through a real browser. A row in `STILL_RED`
-is expected to fail on a `DeadEndError` and on nothing else; a row in `UNCONSTRUCTED` is
-expected to fail with "no path constructed" and on nothing else; both are strict, so a fix
-that works flips a row and a fix that does not fails the build. Every other row must pass.
-The harness is green when `STILL_RED` is empty.
+is expected to fail on a `DeadEndError` — red on exactly the assertions the record names —
+and on nothing else: a row red on a different set raises `NotAsRecordedError`, which the
+strict mark does not cover, so a fix that works must move the record and a fix that does
+not fails the build. A row in `UNCONSTRUCTED` is expected to fail with "no path constructed"
+and on nothing else. Every other row must pass. The harness is green when `STILL_RED` is
+empty.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from tests.journey_harness import (
     build,
     check,
     environment_for,
+    judge,
 )
 from tests.journey_inventory import STILL_RED, UNCONSTRUCTED, StoppedState, inventory
 
@@ -34,7 +37,8 @@ def _marks(state: StoppedState) -> list[pytest.MarkDecorator]:
         reason = f"no path constructed: {UNCONSTRUCTED[state.key]}"
         return [pytest.mark.xfail(strict=True, raises=NoPathConstructedError, reason=reason)]
     if state.key in STILL_RED:
-        return [pytest.mark.xfail(strict=True, raises=DeadEndError, reason=STILL_RED[state.key])]
+        reason = "; ".join(f"{name}: {why}" for name, why in STILL_RED[state.key].items())
+        return [pytest.mark.xfail(strict=True, raises=DeadEndError, reason=reason)]
     return []
 
 
@@ -62,4 +66,4 @@ def test_every_stopped_state_offers_a_way_forward(
     del journey_env  # ordered before the server on purpose; its work is done
     scene = Scene(surface=BrowserSurface(page), live_server=live_server, database_url=database_url)
     job_id = build(state, scene)
-    check(state, scene, job_id)
+    judge(state, check(state, scene, job_id))

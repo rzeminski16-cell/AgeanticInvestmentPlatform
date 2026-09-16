@@ -150,11 +150,16 @@ again), both budget ceilings (named in a sentence whose only control is a bare *
 link), the failed step with a remedy (stated, with nothing leading to the settings it names),
 the queued run and the problem page. The forward controls that exist do work: continuing a
 stranded, paused or failed run moves it, raising a per-run ceiling and continuing moves it,
-and every pending gate's link leads to a page whose approval moves it. `STILL_RED` records the
-32 with the measured defect, `UNCONSTRUCTED` the 20 with the reason; the browser half marks
-each `xfail(strict=True)` on the one exception it may raise, and the shape half exits non-zero
-when any row's verdict is not the recorded one — in either direction, so a fix that works has
-to move the record as well as the page.
+and every pending gate's link leads to a page whose approval moves it. By assertion: *text*
+red on 31 rows, *control* red on 17, *press* measured on the 15 rows with a control and red on
+none. `STILL_RED` records each red row **by assertion** with the measured defect,
+`UNCONSTRUCTED` the 20 unbuildable rows with the reason. Per assertion rather than per row
+because the fixes land in that order — Phase 1.2 puts controls on the rejected and stale
+gates while the console still speaks in step keys, and a record that could only say "red"
+would not register it. The browser half marks each red row `xfail(strict=True)` on the one
+exception it may raise, and both halves fail a row whose measured red set differs from the
+recorded one in either direction, so a fix that works has to move the record as well as the
+page, and a regression on an assertion the record calls green fails the build at once.
 
 ### 3.2 The invariant assertions
 

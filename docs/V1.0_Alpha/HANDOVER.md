@@ -118,11 +118,13 @@ Everything here is provable offline and costs nothing but sessions.
    [`11-testing-strategy.md`](11-testing-strategy.md) §3.1 records what was built and what it
    measured — 52 rows generated from code, 32 red, 20 not yet constructible on the fake scene,
    none green. Two lists in `tests/journey_inventory.py` are the record: `STILL_RED` names
-   each red row with its measured defect, `UNCONSTRUCTED` each unbuildable row with the
-   reason, and both halves (`just test-journey`) fail when a row's verdict moves in either
-   direction. So a fix in Phase 1.2–1.4 is done when it deletes its row from `STILL_RED` and
-   the harness stays green; a fix that leaves the row in place fails the build as an
-   unexpected pass. Every pause the workflow raises now records its `PauseReason` beside
+   each red row by which of the three assertions fails and why (*text* on 31, *control* on
+   17, *press* on none of the 15 measured), `UNCONSTRUCTED` each unbuildable row with the
+   reason, and both halves (`just test-journey`) fail a row whose measured red set differs
+   from the record in either direction. So a fix in Phase 1.2–1.4 is done when it removes
+   its assertion from the row's record — the row itself, once the record is empty — and the
+   harness stays green; a fix that leaves the record untouched fails the build as "not as
+   recorded". Every pause the workflow raises now records its `PauseReason` beside
    its gate (`tests/test_pauses.py` pins the raise sites to the enum), and the builders read
    that rather than the pause's prose. What the harness still owes is harness backlog rather
    than platform backlog: the twenty unconstructed rows each need a fixture — a scene that

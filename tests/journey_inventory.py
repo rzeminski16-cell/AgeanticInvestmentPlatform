@@ -20,9 +20,10 @@ the three assertions; `audit/smoke.py --journey` makes the shape assertions in-p
 fake scene. Both take their rows from :func:`inventory`.
 
 Two lists are kept beside the generator, both keyed by row, both asserted against it:
-:data:`STILL_RED` names the rows that fail today with the audit finding each one is, and
-:data:`UNCONSTRUCTED` names the rows the harness cannot yet construct on the fake scene with
-the reason. A row in neither must pass; a row in either must fail in exactly the way it says.
+:data:`STILL_RED` names the rows that fail today, by which of the three assertions fails and
+why, and :data:`UNCONSTRUCTED` names the rows the harness cannot yet construct on the fake
+scene with the reason. A row in neither must pass; a row in either must fail in exactly the
+way it says.
 """
 
 from __future__ import annotations
@@ -393,16 +394,23 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
     "problem.aer_error": "no route on the run's pages catches a bare AerError on the fake scene",
 }
 
-# Rows that fail today, and why. Measured on 16 September 2026 by running the harness on
-# every row it can construct, not predicted: `tests/e2e/test_journey.py` marks exactly these
-# rows `xfail(strict=True)`, so a fix that works flips a row out of this list and a fix that
-# does not fails the build. The harness is green when this is empty.
+# Rows that fail today, and on which of the three assertions, and why. Measured on 16
+# September 2026 by running the harness on every row it can construct, not predicted:
+# `tests/e2e/test_journey.py` marks exactly these rows `xfail(strict=True)`, and both halves
+# fail a row whose measured red set differs from the recorded one in either direction, so a
+# fix that works has to move this record as well as the page, and a fix that does not fails
+# the build. The harness is green when this is empty.
+#
+# Recorded per assertion rather than per row because the fixes land in that order: Phase
+# 1.2 puts the missing controls on the rejected and stale gates while the console still
+# speaks in step keys, and a record that could only say "red" would not register it.
 #
 # What the measurement found, in one sentence: the console prints the workflow's step keys
 # on every run and tells the operator to type a shell command on every unfinished one, so
-# the vocabulary assertion fails on every constructible row; the rows that also lack a way
-# forward are the rejected and stale gates, the two budget ceilings, the failed step with a
-# remedy, the queued run and the problem page.
+# `text` is red on every constructible row but the problem page; `control` is red on the
+# rejected and stale gates, the two budget ceilings, the failed step with a remedy, the
+# queued run and the problem page; `press` was measured wherever a control was found, and
+# every one of them moved the run.
 _CONSOLE: Final = "the console prints the step keys and says to type `just worker`"
 _CONSOLE_RESEAL: Final = "the console prints the step keys and says to type `aer reseal`"
 _CONSOLE_FAILED: Final = "the console prints the step keys and the error's code"
@@ -415,48 +423,60 @@ _GATE_PAGE: Final[dict[GateKind, str]] = {
 }
 
 
-def _measured() -> dict[str, str]:
-    red: dict[str, str] = {
-        "queued": f"§2.11: nothing leads to the worker's health; vocabulary: {_CONSOLE}",
-        "stranded": f"vocabulary: {_CONSOLE} (F-08's control is there: continuing resumes it)",
-        "step_mode": f"vocabulary: {_CONSOLE}",
-        f"budget.{BudgetScope.PER_RUN.value}.{CapState.RAISABLE.value}": (
-            f"vocabulary: {_CONSOLE} and the budget code (raising the ceiling works)"
-        ),
-        f"budget.{BudgetScope.PER_RUN.value}.{CapState.AT_CEILING.value}": (
-            "§2.11: the platform ceiling is named in a sentence whose only control is a bare "
-            f"'settings' link; vocabulary: {_CONSOLE}"
-        ),
-        f"budget.{BudgetScope.MONTHLY.value}": (
-            "§2.11: the monthly budget is named in a sentence whose only control is a bare "
-            f"'settings' link; vocabulary: {_CONSOLE}"
-        ),
-        "failed.external_service_error.remedy": (
-            "§2.11: the remedy is stated and nothing leads to the settings it names; "
-            f"vocabulary: {_CONSOLE_FAILED}"
-        ),
-        "problem.validation_error": "§2.11: the problem page's only control is 'All requests'",
+def _measured() -> dict[str, dict[str, str]]:
+    red: dict[str, dict[str, str]] = {
+        "queued": {
+            "text": _CONSOLE,
+            "control": "§2.11: nothing leads to the worker's health",
+        },
+        "stranded": {"text": _CONSOLE},
+        "step_mode": {"text": _CONSOLE},
+        f"budget.{BudgetScope.PER_RUN.value}.{CapState.RAISABLE.value}": {
+            "text": f"{_CONSOLE} and the budget code",
+        },
+        f"budget.{BudgetScope.PER_RUN.value}.{CapState.AT_CEILING.value}": {
+            "text": f"{_CONSOLE} and the budget code",
+            "control": (
+                "§2.11: the platform ceiling is named in a sentence whose only control is a "
+                "bare 'settings' link"
+            ),
+        },
+        f"budget.{BudgetScope.MONTHLY.value}": {
+            "text": f"{_CONSOLE} and the budget code",
+            "control": (
+                "§2.11: the monthly budget is named in a sentence whose only control is a "
+                "bare 'settings' link"
+            ),
+        },
+        "failed.external_service_error.remedy": {
+            "text": _CONSOLE_FAILED,
+            "control": "§2.11: the remedy is stated and nothing leads to the settings it names",
+        },
+        "problem.validation_error": {
+            "control": "§2.11: the problem page's only control is 'All requests'",
+        },
     }
     for code in failed_step_codes():
-        red[f"failed.{code}"] = f"vocabulary: {_CONSOLE_FAILED} (continuing the run works)"
+        red[f"failed.{code}"] = {"text": _CONSOLE_FAILED}
     for gate in run_gates():
         if f"gate.{gate.value}.{Disposition.PENDING.value}" in UNCONSTRUCTED:
             continue
         page = _GATE_PAGE[gate]
-        red[f"gate.{gate.value}.{Disposition.PENDING.value}"] = (
-            f"vocabulary: {_CONSOLE}; {page} (the gate link works)"
-        )
-        red[f"gate.{gate.value}.{Disposition.REJECTED.value}"] = (
-            f"§2.11: after a rejection nothing offers to start again; {_CONSOLE}; {page}"
-        )
-        red[f"gate.{gate.value}.{Disposition.STALE_PAGE_MOVED.value}"] = (
-            f"F-16: nothing offers to decide again on what the page shows now; {_CONSOLE}; {page}"
-        )
+        red[f"gate.{gate.value}.{Disposition.PENDING.value}"] = {"text": f"{_CONSOLE}; {page}"}
+        red[f"gate.{gate.value}.{Disposition.REJECTED.value}"] = {
+            "text": f"{_CONSOLE}; {page}",
+            "control": "§2.11: after a rejection nothing offers to start again",
+        }
+        red[f"gate.{gate.value}.{Disposition.STALE_PAGE_MOVED.value}"] = {
+            "text": f"{_CONSOLE}; {page}",
+            "control": "F-16: nothing offers to decide again on what the page shows now",
+        }
         if gate not in LIVE_PAYLOAD_GATES:
-            red[f"gate.{gate.value}.{Disposition.STALE_SEAL_DRIFT.value}"] = (
-                f"F-16: the only remedy offered is a shell command; {_CONSOLE_RESEAL}; {page}"
-            )
+            red[f"gate.{gate.value}.{Disposition.STALE_SEAL_DRIFT.value}"] = {
+                "text": f"{_CONSOLE_RESEAL}; {page}",
+                "control": "F-16: the only remedy offered is a shell command",
+            }
     return red
 
 
-STILL_RED: Final[dict[str, str]] = _measured()
+STILL_RED: Final[dict[str, dict[str, str]]] = _measured()

@@ -58,6 +58,7 @@ from tests.db_cleanup import delete_all
 from tests.db_fixtures import run_async
 from tests.e2e.worker import Worker
 from tests.journey_inventory import (
+    STILL_RED,
     UNCONSTRUCTED,
     Disposition,
     Family,
@@ -75,15 +76,19 @@ from tests.workflow_fixtures import (
 )
 
 __all__ = [
+    "ASSERTIONS",
     "CONSOLE_URL",
     "Control",
     "DeadEndError",
     "NoPathConstructedError",
+    "NotAsRecordedError",
     "Scene",
     "Surface",
+    "Verdict",
     "build",
     "check",
     "environment_for",
+    "judge",
     "reset_scene",
 ]
 
@@ -101,6 +106,35 @@ class DeadEndError(AssertionError):
 
 class NoPathConstructedError(AssertionError):
     """The harness could not put a run into this state on the fake scene."""
+
+
+class NotAsRecordedError(AssertionError):
+    """The row is red on different assertions from the ones `STILL_RED` records.
+
+    Either direction: a fix that moved an assertion the record still calls red, or a
+    regression on one it calls green. Both fail the build, so the record is always what was
+    measured last, and a fix is done when it has moved the record as well as the page.
+    """
+
+
+# The three assertions, by the names the record uses.
+ASSERTIONS: Final = ("text", "control", "press")
+
+
+@dataclass(frozen=True, slots=True)
+class Verdict:
+    """What the three assertions found on one row: the defects, by assertion, and the rest.
+
+    ``press`` is measured only when ``control`` passed — a control nobody found cannot be
+    pressed — so a row red on ``control`` says nothing about ``press`` until that is fixed,
+    and the record lists only what was measured.
+    """
+
+    red: dict[str, str]
+    notes: tuple[str, ...]
+
+    def report(self) -> str:
+        return " | ".join([*self.red.values(), *self.notes])
 
 
 # --- the surface ---------------------------------------------------------------------------
@@ -742,12 +776,13 @@ def _assert_pressing_moves(
     return f"pressing {label!r} moved the run: {_what_changed(before, after)}"
 
 
-def check(state: StoppedState, scene: Scene, job_id: uuid.UUID) -> None:
-    """The three assertions, on the pages the state is met on, every one of them reported.
+def check(state: StoppedState, scene: Scene, job_id: uuid.UUID) -> Verdict:
+    """The three assertions, on the pages the state is met on, every one of them measured.
 
     A row is green only when all three hold, so stopping at the first defect would be
-    enough for the verdict; it would also hide which of the three a fix moved, and the
-    harness exists to give every fix a number.
+    enough for a verdict; it would also hide which of the three a fix moved, and the
+    harness exists to give every fix a number. So every assertion that can be measured is,
+    and the verdict says which failed.
     """
     surface = scene.surface
     pages: list[str | None]
@@ -758,32 +793,55 @@ def check(state: StoppedState, scene: Scene, job_id: uuid.UUID) -> None:
     else:
         pages = [_console(scene, job_id)]
 
-    report: list[str] = []
-    failed = False
+    red: dict[str, str] = {}
+    notes: list[str] = []
+    unclean: list[str] = []
     for url in pages:
         if url is not None:
             surface.goto(url)
         try:
             assert_clean_vocabulary(surface, state)
         except DeadEndError as found:
-            failed = True
-            report.append(str(found))
+            unclean.append(str(found))
         else:
-            report.append(f"clean text on {_page_name(surface)}")
+            notes.append(f"clean text on {_page_name(surface)}")
+    if unclean:
+        red["text"] = " | ".join(unclean)
 
     if pages[0] is not None:
         surface.goto(pages[0])
     try:
         control = find_forward_control(surface, state)
     except DeadEndError as found:
-        failed = True
-        report.append(str(found))
+        red["control"] = str(found)
     else:
-        report.append(f"forward control {control.label!r}")
+        notes.append(f"forward control {control.label!r}")
         try:
-            report.append(_assert_pressing_moves(state, scene, control, job_id))
+            notes.append(_assert_pressing_moves(state, scene, control, job_id))
         except DeadEndError as found:
-            failed = True
-            report.append(str(found))
-    if failed:
-        raise DeadEndError(" | ".join(report))
+            red["press"] = str(found)
+    return Verdict(red=red, notes=tuple(notes))
+
+
+def judge(state: StoppedState, verdict: Verdict) -> None:
+    """Hold the verdict to the record.
+
+    Raises :class:`DeadEndError` when the row is red on exactly the assertions
+    `STILL_RED` records — the expected failure — and :class:`NotAsRecordedError` when the
+    measured set differs from the recorded one in either direction. A row the record calls
+    green that measured green returns quietly.
+    """
+    recorded = STILL_RED.get(state.key, {})
+    measured = verdict.red
+    if set(measured) != set(recorded):
+        parts: list[str] = []
+        moved = sorted(set(recorded) - set(measured))
+        if moved:
+            parts.append(f"now green on {moved} — move the record")
+        broke = sorted(set(measured) - set(recorded))
+        if broke:
+            parts.append(f"now red on {broke}: " + "; ".join(measured[name] for name in broke))
+        message = f"{state.key}: not as recorded — " + "; ".join(parts)
+        raise NotAsRecordedError(message)
+    if measured:
+        raise DeadEndError(verdict.report())

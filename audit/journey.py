@@ -12,8 +12,9 @@ posts the real form with the real CSRF token.
 
 One verdict per row, written to ``audit/out/smoke-journey/verdicts.json``. The process exits
 non-zero if any row's verdict is not the one `tests/journey_inventory.py` records for it: a
-row outside ``STILL_RED`` and ``UNCONSTRUCTED`` that fails, or a row inside either that
-does not fail exactly as it says.
+row outside ``STILL_RED`` and ``UNCONSTRUCTED`` that fails, a row in ``STILL_RED`` that is red
+on a different set of assertions from the recorded one, or a row in ``UNCONSTRUCTED`` that
+was constructed.
 """
 
 from __future__ import annotations
@@ -254,6 +255,7 @@ class Verdict:
     ok: bool
     detail: str
     seconds: float
+    red: tuple[str, ...] = ()
 
 
 @contextlib.contextmanager
@@ -285,14 +287,17 @@ def _measure(state: Any, database_url: str) -> Verdict:
     from tests.journey_harness import (  # noqa: PLC0415
         DeadEndError,
         NoPathConstructedError,
+        NotAsRecordedError,
         Scene,
         build,
         check,
         environment_for,
+        judge,
         reset_scene,
     )
 
     started = time.monotonic()
+    red: tuple[str, ...] = ()
     with _environment(environment_for(state)):
         run_async(reset_scene(database_url))
         with InProcessServer(load_settings()) as server:
@@ -301,11 +306,15 @@ def _measure(state: Any, database_url: str) -> Verdict:
             )
             try:
                 job_id = build(state, scene)
-                check(state, scene, job_id)
+                verdict = check(state, scene, job_id)
+                red = tuple(verdict.red)
+                judge(state, verdict)
             except NoPathConstructedError as unbuilt:
                 measured, detail = "unconstructed", str(unbuilt)
             except DeadEndError as dead_end:
                 measured, detail = "red", str(dead_end)
+            except NotAsRecordedError as moved:
+                measured, detail = "not as recorded", str(moved)
             except Exception as broke:  # the harness itself broke, and the verdict says so
                 measured, detail = "error", f"{type(broke).__name__}: {broke}"
             else:
@@ -318,6 +327,7 @@ def _measure(state: Any, database_url: str) -> Verdict:
         ok=measured == expected,
         detail=detail,
         seconds=round(time.monotonic() - started, 1),
+        red=red,
     )
 
 
@@ -332,9 +342,8 @@ def run_journey(database_url: str, *, out_dir: Path, only: str | None = None) ->
         verdict = _measure(state, database_url)
         verdicts.append(verdict)
         mark = "ok " if verdict.ok else "!! "
-        print(
-            f"{mark}{verdict.key:<44} {verdict.expected:<13} {verdict.measured:<13} {verdict.seconds:>5}s"
-        )
+        shown = f"{verdict.measured}({','.join(verdict.red)})" if verdict.red else verdict.measured
+        print(f"{mark}{verdict.key:<44} {verdict.expected:<13} {shown:<28} {verdict.seconds:>5}s")
         if not verdict.ok:
             print(f"    {verdict.detail[:600]}")
     out_dir.mkdir(parents=True, exist_ok=True)
