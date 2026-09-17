@@ -53,7 +53,6 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
         ticker="ACME",
         exchange="NASDAQ",
         as_of_date=date(2023, 6, 30),
-        point_in_time=True,
         base_currency="USD",
         investment_horizon_months=12,
         max_cost_gbp="2.50",

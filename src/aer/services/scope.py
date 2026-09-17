@@ -1,19 +1,17 @@
 """Building an :class:`~aer.core.scope.EvidenceScope` from what a caller is holding.
 
 The scope itself is a pure value in `aer.core`. This is the one place that knows how to
-fill it from a row, so the five fields are read from the same places every time rather than
-assembled slightly differently by each of the three doors' callers.
+fill it from a row, so the fields are read from the same places every time rather than
+assembled slightly differently by each of the two doors' callers.
 
-ADR 0072 duplicates `as_of_date` and `point_in_time` onto `research_requests` for one
-revision, so the clock could be read from either table. It is read from the work order, in
-both builders, and the reason is not tidiness. `verify.citations` reads the run's date from
-the work order because a run without a mandate has nowhere else to read it — and a scope
-that read the *other* copy would be a second answer to "what date is this run dated to",
-kept in step by one function remembering to write both. That is the shape of every defect
-this expansion has turned up so far: two readers, one of them quietly wrong.
+The run identity and the subject kind come from the work order, in both builders, and the
+reason is not tidiness: a run without a mandate has nowhere else to carry them, and a scope
+that read a mandate's copy would be a second answer to "which run is this", kept in step by
+one function remembering to write both. That is the shape of every defect this expansion
+has turned up so far: two readers, one of them quietly wrong.
 
 The cost is one primary-key lookup per scope. The alternative was a divergence nobody would
-see until a citation passed one check and failed the other.
+see until one door answered differently from the other.
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ __all__ = ["scope_for_request", "scope_for_work_order", "with_subject"]
 async def scope_for_request(session: AsyncSession, request: ResearchRequest) -> EvidenceScope:
     """The scope a research run reads evidence under.
 
-    The clock comes from the work order; the subject comes from the mandate, because
+    The run identity comes from the work order; the subject comes from the mandate, because
     `acquire` writes the resolved company there and that is the authoritative answer. It is
     ``None`` before `acquire` has run, which is a real state and not a missing one: a scope
     with no subject sees no facts.
@@ -69,13 +67,11 @@ def scope_for_work_order(work_order: WorkOrder) -> EvidenceScope:
 
     What a tool with no research request uses. Nothing calls it yet — the second tool is
     what will — and it exists here rather than being written later so that the two builders
-    are visibly the same five fields from two rows, which is the whole claim ADR 0072 makes
+    are visibly the same three fields from two rows, which is the whole claim ADR 0072 makes
     about the supertype.
     """
     return EvidenceScope(
         work_order_id=work_order.id,
-        as_of_date=work_order.as_of_date,
-        point_in_time=work_order.point_in_time,
         subject_kind=work_order.subject_kind,
         subject_id=work_order.subject_id,
     )

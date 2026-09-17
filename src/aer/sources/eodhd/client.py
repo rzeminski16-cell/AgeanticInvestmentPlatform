@@ -1,4 +1,4 @@
-"""Retrieving licensed market data, with the point-in-time clamp inside the adapter.
+"""Retrieving licensed market data, with the as-at clamp inside the adapter.
 
 Thin, like every source client here. SSRF guarding, allowlists, the request-rate token
 bucket, retries, the byte cap and archiving all belong to
@@ -9,7 +9,7 @@ What is left is EODHD-specific and worth stating:
 **No method takes a URL, and no method takes an optional as-of date.** Every one takes a
 symbol and a date, and builds the URL itself with the date in the ``to`` parameter. A caller
 cannot express "give me everything you have" — there is no argument for it — which is what
-makes the look-ahead guarantee a property of the type signature rather than of everybody
+makes the as-at bound a property of the type signature rather than of everybody
 remembering. `docs/archive/phase-3-plan.md` task 29 asks for the clamp to be in the adapter rather
 than in the caller, and this is what that means in practice.
 

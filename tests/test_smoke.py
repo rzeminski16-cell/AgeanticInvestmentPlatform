@@ -430,9 +430,10 @@ class TestPortability:
 
 
 class TestTheMandateClockLivesInExactlyOnePlace:
-    """ADR 0072's fourth step: the five duplicated columns are gone from the mandate.
+    """ADR 0072's fourth step: the duplicated columns are gone from the mandate.
 
-    ``as_of_date``, ``point_in_time``, ``max_cost_gbp``, ``status`` and ``archived_at``
+    ``as_of_date``, ``max_cost_gbp``, ``status`` and ``archived_at`` (and, until ADR 0113
+    retired it, the mode flag)
     were carried on ``research_requests`` *and* on the work order it is a detail of for one
     revision, kept in step by a single mirroring function. Duplicated columns diverge unless
     something stops them, and the symptom was found exactly once: a report's front page
@@ -444,7 +445,7 @@ class TestTheMandateClockLivesInExactlyOnePlace:
     the AST sweep catches the assignment that would follow.
     """
 
-    COLUMNS = frozenset({"as_of_date", "point_in_time", "max_cost_gbp", "status", "archived_at"})
+    COLUMNS = frozenset({"as_of_date", "max_cost_gbp", "status", "archived_at"})
 
     def test_the_mandate_carries_none_of_them(self) -> None:
         for name in self.COLUMNS:

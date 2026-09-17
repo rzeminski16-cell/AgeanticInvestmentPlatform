@@ -78,7 +78,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         investment_horizon_months=12,
         max_cost_gbp="2.50",
         portfolio_context={},
-        point_in_time=True,
     )
     company = Company(
         name="Contoso Corporation", ticker="CTSO", exchange="NASDAQ", cik="0000000002"
@@ -157,5 +156,4 @@ async def analysed(scene: dict[str, Any]) -> Any:
         scene["session"],
         new_context(),
         company_id=scene["company"].id,
-        work_order=scene["request"].work_order,
     )

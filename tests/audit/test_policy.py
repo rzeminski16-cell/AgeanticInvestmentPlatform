@@ -178,12 +178,3 @@ class TestTheFinalGate:
             failed_metrics=("citation_accuracy",),
         )
         assert decide_final(facts).stop_reason == "failed metrics"
-
-    def test_a_look_ahead_trigger_stops(self) -> None:
-        facts = FinalGateFacts(
-            sections=self._sections(18),
-            triggers=({"kind": "look_ahead_detected"},),
-            escalations=(),
-            revisions=(),
-        )
-        assert decide_final(facts).stop_reason == "look-ahead trigger"

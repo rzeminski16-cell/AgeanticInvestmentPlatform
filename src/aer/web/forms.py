@@ -64,7 +64,6 @@ FORM_FIELDS: Final[tuple[str, ...]] = (
     "investment_horizon_months",
     "horizon_label",
     "analysis_mode",
-    "point_in_time",
     "undated_sources_admissible",
     "current_weight_percent",
     "maximum_weight_percent",
@@ -160,13 +159,13 @@ _DENIALS: Final[frozenset[str]] = frozenset({"false", "0", "no", "off"})
 def _chosen(raw: str, *, default: bool) -> bool:
     """Read a yes/no decision the form states in words.
 
-    Both of these are rendered as a pair of radios rather than as a checkbox, because a
+    The policy is rendered as a pair of radios rather than as a checkbox, because a
     checkbox names only the state it is in and leaves the other one to be inferred. That
     changes how the answer arrives: a radio group submits ``"false"`` where an unticked
     checkbox submits nothing at all. This function used to be ``value != ""``, which was
     right for the checkbox the field was first built as and has been wrong since — the
-    string ``"false"`` is not empty, so an operator who chose "allow later-published
-    sources" got a point-in-time run and no indication that their choice had been dropped.
+    string ``"false"`` is not empty, so an operator who chose the second option got the
+    first and no indication that their choice had been dropped.
 
     ``default`` is what an absent key means, which is the safe reading rather than the
     permissive one: nothing selected is not a decision to relax a rule.
@@ -216,7 +215,6 @@ def parse_request_form(form: dict[str, str]) -> ParsedForm:
         "investment_horizon_months": values["investment_horizon_months"],
         "horizon_label": values["horizon_label"],
         "analysis_mode": values["analysis_mode"],
-        "point_in_time": _chosen(values["point_in_time"], default=True),
         "undated_sources_admissible": _chosen(values["undated_sources_admissible"], default=True),
         "portfolio_context": {
             "current_weight": weights.get("current_weight"),
@@ -266,9 +264,8 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "investment_horizon_months": str(request.investment_horizon_months),
         "horizon_label": request.horizon_label or "",
         "analysis_mode": request.analysis_mode.value,
-        # The word, not a presence: these are radio groups, and the parser reads which
+        # The word, not a presence: this is a radio group, and the parser reads which
         # option was chosen. See `_chosen`.
-        "point_in_time": "true" if request.work_order.point_in_time else "false",
         "undated_sources_admissible": (
             "true" if request.work_order.undated_sources_admissible else "false"
         ),

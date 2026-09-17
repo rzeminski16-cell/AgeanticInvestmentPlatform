@@ -25,9 +25,10 @@ found and what it rejected, and the caller decides — which keeps this module p
 against a page of HTML with no network at all.
 
 **Most IR documents have no discoverable publication date**, and that is recorded rather than
-guessed: :attr:`IssuerDocument.publication_date` is optional, and under point-in-time rules an
-undated document is quarantined by :mod:`aer.services.sources`. A date invented from a URL slug
-would be worse than no date, because it would pass the check.
+guessed: :attr:`IssuerDocument.publication_date` is optional, and an undated document is
+admitted at a capped tier and never primary (ADR 0111), or refused where the run's policy
+refuses undated sources. A date invented from a URL slug would be worse than no date, because
+it would pass as evidence of when the document appeared.
 """
 
 from __future__ import annotations
@@ -131,8 +132,8 @@ class IssuerDocument:
     """A document an issuer's own site links to.
 
     ``publication_date`` is optional here, unlike :class:`~aer.sources.base.DocumentRef`, and
-    that difference is the point: an IR page rarely dates its links, and an undated document is
-    quarantined under point-in-time rules rather than admitted on a guess.
+    that difference is the point: an IR page rarely dates its links, and an undated document
+    is recorded as undated — capped, never primary (ADR 0111) — rather than admitted on a guess.
     """
 
     url: str

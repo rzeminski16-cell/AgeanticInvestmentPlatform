@@ -1,33 +1,34 @@
 """What a run may see, as one value.
 
-Three doors decide whether a piece of evidence is admissible: `visible_facts`,
-`visible_sources` and the look-ahead refusal in `aer.verify.citations`. Each of them used to
-take a `ResearchRequest` and read two or three fields off it, which had two costs. It made
-the equity mandate a dependency of the evidence layer, so nothing without a ticker could ask
-the question at all. And a signature taking a whole request invites a caller to pass one it
-happens to be holding for some other reason — which is how ADR 0061's bug arrived in the
-first place, as a request-shaped proxy for "about the subject".
+Two doors decide whether a piece of evidence is visible: `visible_facts` and
+`visible_sources`. Each of them used to take a `ResearchRequest` and read two or three fields
+off it, which had two costs. It made the equity mandate a dependency of the evidence layer,
+so nothing without a ticker could ask the question at all. And a signature taking a whole
+request invites a caller to pass one it happens to be holding for some other reason — which
+is how ADR 0061's bug arrived in the first place, as a request-shaped proxy for "about the
+subject".
 
-`EvidenceScope` is the five fields those doors actually read, and no ticker to be tempted by.
-It cannot be half-supplied.
+`EvidenceScope` is the three fields those doors actually read, and no ticker to be tempted
+by. It cannot be half-supplied. (It carried the run's date and a mode flag until ADR 0113
+retired the rule that read them.)
 
 **The asymmetry is the substance of it, not an accident of which fields fitted.** ADR 0061
 decided that a fact is scoped by company and a source document by company *and* run, and
 both halves are live:
 
-* `visible_facts` filters on the company and, under point-in-time, on `filed_date`. The run
-  appears nowhere in it *on purpose* — facts deduplicate on an observation key that excludes
-  the source document, so they hang off whichever run fetched them first, and re-adding the
-  run would hide every fact that run wrote. Five research workers once spent sixty tool
-  calls searching a table that was full and looked empty.
+* `visible_facts` filters on the company. The run appears nowhere in it *on purpose* —
+  facts deduplicate on an observation key that excludes the source document, so they hang
+  off whichever run fetched them first, and re-adding the run would hide every fact that run
+  wrote. Five research workers once spent sixty tool calls searching a table that was full
+  and looked empty.
 * `visible_sources` filters on the run as well, because "what did this run acquire?" is
   exactly the question a sources page asks, and a document some other run fetched is not
   part of the answer.
 
-So the scope carries `work_order_id` even though two of its three consumers ignore it. A
-four-field value would carry the fact half and drop the source half, leaving `visible_sources`
-to reach back to a mandate table for the run identity — behind a value object introduced to
-remove exactly that reach.
+So the scope carries `work_order_id` even though `visible_facts` ignores it. A value without
+it would carry the fact half and drop the source half, leaving `visible_sources` to reach
+back to a mandate table for the run identity — behind a value object introduced to remove
+exactly that reach.
 
 **A set-valued subject is a change to this file and its three callers**, which is the point
 of putting the fields in one place. `subject_id` is one id today because `visible_facts` is a
@@ -40,7 +41,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
 
 __all__ = ["EvidenceScope"]
 
@@ -53,13 +53,11 @@ class EvidenceScope:
     """The scope a run reads evidence under.
 
     Frozen, and with no defaults: a scope assembled field by field is a scope that can be
-    assembled wrongly, and the fields it would be tempting to omit are the two that decide
-    admissibility.
+    assembled wrongly, and the field it would be tempting to omit is the subject, which is
+    the one that decides what a run is shown.
     """
 
     work_order_id: uuid.UUID
-    as_of_date: date
-    point_in_time: bool
     subject_kind: str
     subject_id: uuid.UUID | None
 

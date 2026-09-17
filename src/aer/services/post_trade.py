@@ -661,7 +661,6 @@ async def _open_pass(
         subject_kind=SUBJECT_POSITION,
         subject_id=episode.security.id,
         as_of_date=episode.closed_on,
-        point_in_time=False,
         max_cost_gbp=settings.per_run_budget_gbp,
         status=RequestStatus.RUNNING,
     )

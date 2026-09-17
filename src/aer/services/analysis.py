@@ -16,8 +16,8 @@ calculation over a stored fact.
 
 **One filing's numbers are one period's numbers.** A company restates, amends and refiles,
 so the same concept for the same period arrives more than once. The winner is the most
-recently *filed* observation not later than the as-of date, which is the same rule
-:func:`aer.sources.sec.pit.select_point_in_time` applies at acquisition and is applied again
+recently *filed* observation, which is the same rule
+:func:`aer.sources.sec.selection.select_latest` applies at acquisition and is applied again
 here because the store accumulates across runs.
 """
 
@@ -40,7 +40,7 @@ from aer.calc.ratios import RatioResult, compute_ratios
 from aer.calc.statements import StatementSet, assemble
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
 from aer.core.sectors import SectorProfile
-from aer.db.models import FinancialFact, WorkOrder
+from aer.db.models import FinancialFact
 
 __all__ = [
     "FORECAST_CONCEPTS",
@@ -209,21 +209,20 @@ async def analyse_company(
     context: CalculationContext,
     *,
     company_id: uuid.UUID,
-    work_order: WorkOrder,
     max_periods: int = MAX_PERIODS,
     profile: SectorProfile | None = None,
 ) -> AnalysisOutcome:
     """Assemble statements, ratios and quality signals for a company's recent years.
+
+    Reads the company's facts as the store holds them, on the same terms for a research run
+    and a monitor pass alike (ADR 0103): since ADR 0113 there is no run clock to select
+    against, so nothing about the run itself is needed here.
 
     Args:
         context: The ledger every derivation is recorded in. Supplied rather than created so
             a caller can put this and its other calculations in one transaction — a run
             whose statements persisted and whose ratios did not would be a run with a
             traceable half of an answer.
-        work_order: The run root, for its clock and nothing else: the as-of date and
-            whether point-in-time is on decide which facts are admissible. The run root
-            rather than the mandate, because a monitor pass has no mandate and reads a
-            company on the same terms a research run does (ADR 0072, ADR 0103).
         profile: The confirmed sector, where a person has confirmed one (gap A64). It
             decides two things and nothing else here: which forecast concepts are measured
             for coverage, and which ratios are refused as meaningless rather than
@@ -243,12 +242,7 @@ async def analyse_company(
     undefined = profile.undefined_concepts if profile is not None else ()
     not_meaningful = dict(profile.not_meaningful_ratios) if profile is not None else {}
 
-    facts = await annual_facts(
-        session,
-        company_id=company_id,
-        as_of=work_order.as_of_date,
-        point_in_time=work_order.point_in_time,
-    )
+    facts = await annual_facts(session, company_id=company_id)
     if not facts:
         return AnalysisOutcome(
             skipped=(
@@ -333,20 +327,15 @@ async def annual_facts(
     session: AsyncSession,
     *,
     company_id: uuid.UUID,
-    as_of: date | None,
-    point_in_time: bool,
 ) -> dict[date, list[FinancialFact]]:
     """The company's full-year facts by period, one observation per concept.
 
     Public because the assumption-outcome measurement (K3) must select facts exactly as
     the analysis that proposed the assumptions did, or assumed and actual are not
     commensurable — the selection subtleties below (gap A45) are precisely the ones a
-    second implementation would get wrong. ``as_of=None`` reads everything the store
-    holds, which is what an evergreen projection wants; a run passes its own date.
-
-    Point-in-time filtered on ``filed_date`` when asked: the store holds everything every
-    run has ever fetched, so a run as at 2022 must not read a 2024 filing that happens to
-    be sitting beside it.
+    second implementation would get wrong. Everything the store holds is read: a run reads
+    the filings as they stand (ADR 0113), and the store accumulates across runs, so the
+    most recently filed observation of each figure is the one every reader sees.
 
     **A period is a fiscal year only when a full-year duration ends on it** — gap A45, and
     the reason a live AMZN run reached the assumptions gate with six drivers each derivable
@@ -372,8 +361,6 @@ async def annual_facts(
         # and put a fraction of the company through every ratio.
         FinancialFact.dimension_axis.is_(None),
     )
-    if point_in_time and as_of is not None:
-        statement = statement.where(FinancialFact.filed_date <= as_of)
 
     rows = list(await session.scalars(statement))
 
@@ -381,8 +368,8 @@ async def annual_facts(
     fiscal_year_ends = {row.period_end for row in rows if _spans_a_year(row)}
 
     # The most recently filed observation of each concept-period wins, with the accession
-    # breaking a same-day tie — the same ordering `select_point_in_time` applies at
-    # acquisition, applied again because facts accumulate in the store across runs.
+    # breaking a same-day tie — the same ordering `select_latest` applies at acquisition,
+    # applied again because facts accumulate in the store across runs.
     winners: dict[tuple[date, str], FinancialFact] = {}
     admitted = 0
     for row in rows:

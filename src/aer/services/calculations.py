@@ -419,7 +419,7 @@ async def _macro_observation_node(
             "observed_on": row.observed_on.isoformat(),
             "vintage": row.vintage.isoformat(),
             # False means the current series stamped with a release date rather than a
-            # genuinely archived vintage, which is a weaker point-in-time claim.
+            # genuinely archived vintage, which is a weaker vintage claim.
             "is_archived": row.is_archived,
             "source_document_id": str(row.source_document_id or ""),
         },

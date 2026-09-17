@@ -128,7 +128,7 @@ class TestTheClampIsInTheUrl:
 
 
 class TestABarAfterTheAsOfDateIsAbsent:
-    """Task 29's point-in-time criterion, asserted on the adapter."""
+    """Task 29's as-at criterion, asserted on the adapter."""
 
     def test_the_parser_drops_what_the_provider_should_not_have_sent(self):
         parsed = api.parse_bars(fixture("msft_eod"), symbol=MSFT, as_of=AS_OF)
@@ -244,7 +244,7 @@ class TestTheShareCountIsDated:
         assert shares.shares == Decimal(7_432_000_000)
 
     def test_a_later_count_is_never_used(self):
-        """The quiet look-ahead: a correct price and next quarter's share count."""
+        """The quiet mismatch: a correct price and next quarter's share count."""
         shares = api.parse_shares_outstanding(
             fixture("msft_fundamentals"), symbol=MSFT, as_of=AS_OF
         )

@@ -112,9 +112,9 @@ def reference_rate_url(
 
     Args:
         currency: The quote currency, which must be in :data:`REFERENCE_CURRENCIES`.
-        end_date: Should be the run's as-of date under point-in-time rules, so the API is
-            not even asked for later observations. The bound is **still** applied after
-            parsing — this is a saving and a courtesy, not the control.
+        end_date: Should be the run's as-of date, so the API is not even asked for later
+            observations. The bound is **still** applied after parsing — this is a saving
+            and a courtesy, not the control.
 
     Raises:
         ValidationError: If the currency is not allowlisted, if it is the euro itself, or

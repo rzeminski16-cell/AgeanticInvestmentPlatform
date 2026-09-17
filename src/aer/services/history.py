@@ -212,8 +212,6 @@ async def assumption_outcomes_for(
     context: CalculationContext,
     *,
     prior: Report,
-    as_of: date | None,
-    point_in_time: bool,
 ) -> list[AssumptionOutcome]:
     """The prior run's confirmed assumptions, each measured, waiting, or explained.
 
@@ -240,12 +238,7 @@ async def assumption_outcomes_for(
         return []
 
     measured_year, previous_year, year_label = await _measured_year(
-        session,
-        context,
-        company_id=prior.company_id,
-        after=prior.as_of_date,
-        as_of=as_of,
-        point_in_time=point_in_time,
+        session, context, company_id=prior.company_id, after=prior.as_of_date
     )
 
     ordered = sorted(
@@ -349,20 +342,15 @@ async def _measured_year(
     *,
     company_id: uuid.UUID,
     after: date,
-    as_of: date | None,
-    point_in_time: bool,
 ) -> tuple[StatementSet | None, StatementSet | None, str]:
     """The first full fiscal year after ``after``, assembled, with its predecessor.
 
     Selection and assembly go through :func:`aer.services.analysis.annual_facts` and
     :func:`~aer.calc.statements.assemble` — the exact path the proposal derivations used —
-    so assumed and actual are commensurable by construction.
+    so assumed and actual are commensurable by construction. Everything the store holds is
+    read (ADR 0113): the first fiscal year filed after the prior run is the measured one.
     """
-    facts = await annual_facts(
-        session, company_id=company_id, as_of=as_of, point_in_time=point_in_time
-    )
-    if as_of is not None:
-        facts = {period: rows for period, rows in facts.items() if period <= as_of}
+    facts = await annual_facts(session, company_id=company_id)
     future = sorted(period for period in facts if period > after)
     if not future:
         return None, None, ""
@@ -384,16 +372,14 @@ async def driver_accuracy_for(
     """Each driver's measured count and mean absolute delta, over every prior run.
 
     Read for the company note, which is an evergreen projection: the measurement uses
-    everything the store holds (``as_of=None``), and the context is deliberately thrown
-    away — nothing here reaches a report, and the recorded copies live with the runs
-    whose comparison sections measured the same deltas.
+    everything the store holds, and the context is deliberately thrown away — nothing
+    here reaches a report, and the recorded copies live with the runs whose comparison
+    sections measured the same deltas.
     """
     context = CalculationContext(code_version="projection")
     deltas: dict[str, list[Decimal]] = {}
     for prior in await approved_reports_for(session, company_id=company_id):
-        outcomes = await assumption_outcomes_for(
-            session, context, prior=prior, as_of=None, point_in_time=False
-        )
+        outcomes = await assumption_outcomes_for(session, context, prior=prior)
         for outcome in outcomes:
             if outcome.status == MEASURED and outcome.delta is not None:
                 deltas.setdefault(outcome.name, []).append(abs(Decimal(outcome.delta)))
@@ -689,13 +675,7 @@ async def prior_comparison_content(
                     "prior_report_id": risk["prior_report_id"],
                 }
             )
-        for measured in await assumption_outcomes_for(
-            session,
-            outcome_context,
-            prior=prior,
-            as_of=request.work_order.as_of_date,
-            point_in_time=request.work_order.point_in_time,
-        ):
+        for measured in await assumption_outcomes_for(session, outcome_context, prior=prior):
             comparisons.append(_assumption_row(measured))
 
     if outcome_context.records:

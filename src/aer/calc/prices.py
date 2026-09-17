@@ -22,7 +22,7 @@ with its inputs. The series in between is a pure function with unit tests, deter
 reproducible from the archived response plus the recorded actions, which is what the audit
 trail actually needs.
 
-**Look-ahead is refused rather than filtered.** :func:`adjusted_series` raises on a bar or an
+**A late bar is refused rather than filtered.** :func:`adjusted_series` raises on a bar or an
 action later than the as-of date instead of quietly dropping it. A caller who passed an
 unclamped query would otherwise get the right answer by luck and never learn the query was
 wrong — and the failure mode is a September split silently restating a June valuation, which
@@ -289,7 +289,7 @@ def adjusted_series(
     split_list = tuple(sorted(splits, key=lambda action: action.ex_date))
     dividend_list = tuple(sorted(dividends, key=lambda action: action.ex_date))
 
-    _require_no_look_ahead(ordered, split_list, dividend_list, as_of=as_of)
+    _require_within_as_of(ordered, split_list, dividend_list, as_of=as_of)
     _require_distinct_dates(ordered)
     _require_usable_splits(split_list)
     _require_matching_currency(dividend_list, currency=currency)
@@ -426,7 +426,7 @@ def _last_close_before(
     return previous
 
 
-def _require_no_look_ahead(
+def _require_within_as_of(
     bars: Sequence[Bar],
     splits: Sequence[SplitAction],
     dividends: Sequence[DividendAction],
@@ -441,7 +441,7 @@ def _require_no_look_ahead(
 
     message = (
         f"This series carries {len(late_bars)} bar(s) and {len(late_actions)} corporate "
-        f"action(s) dated after {as_of.isoformat()}. Point-in-time filtering belongs to the "
+        f"action(s) dated after {as_of.isoformat()}. Bounding the series belongs to the "
         "query that fetched them; reaching this function with them still present means it "
         "did not happen, and a split dated after the as-of date restates every price before "
         "it."

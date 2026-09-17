@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 authors = [{ name = "Tracework Invest" }]
-keywords = ["equity-research", "finance", "provenance", "point-in-time"]
+keywords = ["equity-research", "finance", "provenance", "auditable"]
 classifiers = [
   "Private :: Do Not Upload",
   "Programming Language :: Python :: 3.12",

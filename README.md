@@ -27,7 +27,7 @@ task. See [`docs/adr/0003`](docs/adr/0003-deterministic-code-owns-numbers-and-fa
 ## Status
 
 **The chain is complete; the breadth is still growing.** A research request becomes a
-costed plan you approve, filings fetched and hashed, point-in-time facts, traced
+costed plan you approve, filings fetched and hashed, each period's latest-filed facts, traced
 calculations, a drafted report you approve, and a frozen document in which every figure
 carries a footnote that resolves either to the formula that produced it or to the archived
 bytes it came from.
@@ -87,7 +87,10 @@ ADR-level decision. They are stated in [`CLAUDE.md`](CLAUDE.md); what enforces e
 1. Every externally derived fact traces to a hashed artefact.
 2. The model may propose a citation; **only code confirms one**.
 3. No figure reaches a report unless it is a stored fact or a recorded calculation.
-4. Point-in-time is enforced at acquisition, in code.
+4. *Retired.* A rule that nothing published after a run's date could support a claim was
+   shown never to have fired — the date is always the day the run was commissioned — and
+   [ADR 0113](docs/adr/0113-a-run-reads-the-filings-as-they-stand.md) took it down. A run
+   reads the filings as they stand. The number is kept so the others keep theirs.
 5. Units are carried through all arithmetic. A mismatch raises; it never coerces.
 6. Cost is metered and capped in code. A cap that only warns is not a cap.
 7. Skill files are additive-only — they may add requirements, never relax them.

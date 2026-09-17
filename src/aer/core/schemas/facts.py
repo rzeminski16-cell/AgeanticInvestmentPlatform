@@ -3,15 +3,15 @@
 One row of XBRL: this concept, in this unit, for this period, as reported in this filing
 on this date. A :class:`RawFact` is deliberately close to the source — it records what the
 filing said, not what a later filing said it should have said — because that fidelity is
-the entire basis of point-in-time reconstruction.
+what lets every figure trace to the filing that stated it.
 
 **Why ``filed_date`` matters more than it looks.** A company's 2020 annual report states
 FY2020 revenue. Its 2022 annual report also states FY2020 revenue, possibly a different
 number, because of a restatement, a discontinued operation or a reclassification. Both are
-true statements about FY2020; they differ in *when they were made*. Analysis performed as
-at a date in 2021 must use the first, because the second did not exist. Taking "the latest
-value" instead is look-ahead bias, and it is the specific error that makes a backtest look
-brilliant and a live portfolio look nothing like it.
+true statements about FY2020; they differ in *when they were made*. Selection keeps the
+later filing's word and records the earlier one as superseded by it, and a report that
+quotes the figure names the filing it came from — which is only possible because the two
+were never collapsed into one.
 
 **Why ``unit`` is carried and never dropped.** ``143015000000`` is meaningless. It is
 either dollars, shares, or dollars per share, and the difference between the first and the
@@ -163,7 +163,7 @@ class RawFact(BaseModel):
 
     @property
     def is_instant(self) -> bool:
-        """Whether this is a point-in-time measure rather than a flow over a period."""
+        """Whether this is an instant — a balance on a date — rather than a flow over a period."""
         return self.period_start is None
 
     @property
@@ -172,7 +172,7 @@ class RawFact(BaseModel):
 
         Concept, unit, period end, fiscal period — and the dimension, when there is one.
         Two facts sharing this key are rival accounts of one number, and choosing between
-        them is what point-in-time selection does. ``unit`` is in the key because a value
+        them is what filing selection does. ``unit`` is in the key because a value
         in dollars and a value in shares are not rival accounts of anything; the dimension
         is in it because two segments' revenue are two numbers, and a selection that
         treated them as rivals would keep one segment and silently drop the rest.

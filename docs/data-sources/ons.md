@@ -32,16 +32,16 @@ So a UK observation's vintage is the **release date**, and that is a weaker clai
 vintage. It says "this is what the ONS was publishing as of that release", not "this is what
 it was publishing on your as-of date". The distinction is carried in the schema:
 `macro_observations.is_archived` is `true` for ALFRED and `false` for the ONS, so a UK figure
-never borrows a US figure's point-in-time guarantee.
+never borrows a US figure's vintage guarantee.
 
-The one point-in-time check this source supports honestly is enforced: **a release dated after
+The one vintage check this source supports honestly is enforced: **a release dated after
 the as-of date is refused**. A CPI edition published in September cannot inform a valuation
 dated to June, whatever periods its observations cover — those are the revised figures,
 published later.
 
 Retrieving true UK vintages would mean reading the previous-version datasets the ONS publishes
 per release, which is a larger piece of work and is not done. Until it is, a UK macro figure
-used point-in-time carries the limitation rather than pretending otherwise.
+read as at a date carries the limitation rather than pretending otherwise.
 
 ## Endpoints and series
 

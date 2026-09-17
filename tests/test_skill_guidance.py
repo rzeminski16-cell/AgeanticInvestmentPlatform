@@ -140,7 +140,6 @@ def _request() -> ResearchRequestRead:
         base_currency="USD",
         investment_horizon_months=12,
         analysis_mode=AnalysisMode.STANDARD,
-        point_in_time=True,
         focus_questions=[],
         excluded_sources=[],
     )
@@ -193,7 +192,6 @@ def _writer_input(**overrides: object) -> SectionWriterInput:
         "company_name": "Microsoft Corporation",
         "ticker": "MSFT",
         "as_of_date": "2023-01-01",
-        "point_in_time": True,
         "output_contract": {"summary": "string"},
         "problems": ["The previous draft was refused."],
     }

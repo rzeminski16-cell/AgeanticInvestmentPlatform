@@ -80,14 +80,14 @@ DISCLAIMER = (
     "rating expressed is a non-binding personal view."
 )
 
-# The C3 marker: point-in-time is a soft constraint, so a source with no stated
-# publication date is used rather than excluded — and every section resting on one says
-# so with this symbol by its heading, explained once by the note below.
+# The C3 marker: a source with no stated publication date is used rather than excluded
+# (ADR 0111) — and every section resting on one says so with this symbol by its heading,
+# explained once by the note below.
 UNDATED_MARKER = "\N{DAGGER}"
 UNDATED_NOTE = (
-    f"{UNDATED_MARKER} Rests in part on a source without a stated publication date. The "
-    "point-in-time rule cannot be checked against such a source, so it is used with this "
-    "caveat rather than excluded."
+    f"{UNDATED_MARKER} Rests in part on a source without a stated publication date. Such a "
+    "source is a weaker one than a dated document, so it is used with this caveat, and "
+    "never as the primary source a section requires, rather than excluded."
 )
 
 # How much of an artefact digest a document prints. Enough to identify the file among a
@@ -179,7 +179,6 @@ class HeaderView:
     exchange: str
     as_of: date
     base_currency: str
-    point_in_time: bool
     generated_at: datetime
     rating: str | None
     confidence: float | None
@@ -211,8 +210,8 @@ class SectionView:
     charts: tuple[ChartView, ...] = ()
 
     # Whether this section cites a source with no stated publication date (the C3
-    # marker). Point-in-time is a soft constraint: such a source is used rather than
-    # excluded, and the section says so with a small symbol by its heading.
+    # marker). Such a source is used rather than excluded, capped and never primary (ADR
+    # 0111), and the section says so with a small symbol by its heading.
     undated: bool = False
 
     # Whether the definition row claims a place on the one-page summary (gap O8) —
@@ -247,13 +246,6 @@ class CoverageNote:
     sections_shortened: int = 0
     sections_pruned: int = 0
 
-    # Point-in-time enforcement was off for this run (gap R15). The front matter's
-    # "Point-in-time: off" is a setting's name, not an explanation; a reader who does not
-    # know the platform cannot tell that it switches off the guarantee that nothing
-    # published after the as-of date informed the note — so the notice says it in a
-    # sentence, where every other caveat about what the document is gets said.
-    point_in_time_off: bool = False
-
     @property
     def sentence(self) -> str:
         """The notice, minus the sources link — each notation attaches its own."""
@@ -283,11 +275,6 @@ class CoverageNote:
             )
         if self.glance_withheld:
             parts.append(self.glance_withheld)
-        if self.point_in_time_off:
-            parts.append(
-                "point-in-time enforcement was off for this research, so material "
-                "published after the as-of date may have informed it"
-            )
         return "; and ".join(parts) + "." if parts else ""
 
 
@@ -559,7 +546,6 @@ async def assemble_document(
         sections=sections,
         definitions=definitions,
         glance_withheld=glance.refused,
-        point_in_time_off=not request.work_order.point_in_time,
     )
 
     # The C3 marker, derived from stored rows: any section citing a source whose
@@ -579,7 +565,6 @@ async def assemble_document(
             exchange=request.exchange,
             as_of=request.work_order.as_of_date,
             base_currency=request.base_currency,
-            point_in_time=request.work_order.point_in_time,
             generated_at=generated_at or datetime.now(UTC),
             rating=rating,
             confidence=confidence,
@@ -690,7 +675,6 @@ async def _coverage(
     sections: list[ReportSection],
     definitions: dict[uuid.UUID, SectionDefinition],
     glance_withheld: str | None = None,
-    point_in_time_off: bool = False,
 ) -> CoverageNote | None:
     """The coverage notice's inputs, from recorded state only. ``None`` when full.
 
@@ -722,11 +706,7 @@ async def _coverage(
     )
     failed_checks = tuple(checks)
     nothing_to_say = (
-        not failed
-        and not failed_checks
-        and glance_withheld is None
-        and not (shortened or pruned)
-        and not point_in_time_off
+        not failed and not failed_checks and glance_withheld is None and not (shortened or pruned)
     )
     if nothing_to_say:
         return None
@@ -737,7 +717,6 @@ async def _coverage(
         glance_withheld=glance_withheld,
         sections_shortened=shortened,
         sections_pruned=pruned,
-        point_in_time_off=point_in_time_off,
     )
 
 

@@ -82,7 +82,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         investment_horizon_months=12,
         max_cost_gbp="2.50",
         portfolio_context={},
-        point_in_time=True,
     )
     company = Company(
         name="Contoso Corporation", ticker="CTSO", exchange="NASDAQ", cik="0000000001"
@@ -168,7 +167,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -188,7 +186,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -207,7 +204,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -227,7 +223,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end.year for period in outcome.periods] == [2023, 2022, 2021]
@@ -248,7 +243,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.latest is not None
@@ -270,7 +264,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert any("preceding year" in note for note in outcome.skipped)
@@ -282,7 +275,6 @@ class TestTheAnalysisRuns:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -312,7 +304,6 @@ class TestTheLedgerRecordsEachDerivationOnce:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -352,7 +343,6 @@ class TestTheLedgerRecordsEachDerivationOnce:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert context.named("net_debt_to_ebitda"), (
@@ -393,7 +383,6 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -401,9 +390,12 @@ class TestWhichObservationWins:
         assert revenue is not None
         assert revenue.value == Decimal("1100")
 
-    async def test_a_filing_after_the_as_of_date_is_not_read(self, scene: dict[str, Any]) -> None:
-        """Point-in-time, applied here as well as at acquisition: the store accumulates
-        across runs, so yesterday's run must not read tomorrow's filing."""
+    async def test_the_latest_filing_wins_whenever_it_was_filed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The store accumulates across runs, and the most recently filed word on a period
+        is the one read — including a filing made after this run's own date (ADR 0113),
+        which is a later filing's word, not a leak."""
         await _seed(
             scene,
             _facts(
@@ -429,12 +421,11 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         revenue = outcome.periods[0].statements.get("revenue")
         assert revenue is not None
-        assert revenue.value == Decimal("1000")
+        assert revenue.value == Decimal("9999")
 
     async def test_a_quarter_never_joins_an_annual_statement(self, scene: dict[str, Any]) -> None:
         """Three months of revenue beside a year of operating income is not a statement."""
@@ -453,7 +444,6 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -470,7 +460,6 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
             max_periods=3,
         )
 
@@ -490,7 +479,6 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -519,7 +507,6 @@ class TestAFactTheAlgebraCannotRead:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -539,7 +526,6 @@ class TestWhatTheStepRecords:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
         recorded = outcome.as_dict()
 
@@ -562,7 +548,6 @@ class TestWhatTheStepRecords:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.as_dict()["periods"][0]["failed_identities"]
@@ -585,7 +570,6 @@ class TestWhatTheStepRecords:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert "not_a_canonical_concept" in outcome.unplaced_concepts
@@ -607,7 +591,6 @@ class TestTheWorkflowActuallyCallsIt:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -629,7 +612,7 @@ def _instant(
     concept: str = "shares_outstanding",
     value: str = "1000000",
 ) -> FinancialFact:
-    """A point-in-time fact: a balance-sheet line, or a cover-page share count.
+    """An instant fact: a balance-sheet line, or a cover-page share count.
 
     `dei:EntityCommonStockSharesOutstanding` is the one that mattered — dated the day the
     annual report was signed, filed under `fp: FY`, and describing no period at all.
@@ -690,7 +673,6 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [
@@ -717,7 +699,6 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -751,7 +732,6 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -772,7 +752,6 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [date(2022, 12, 31)]
@@ -788,7 +767,6 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [date(2024, 1, 27)]
@@ -810,7 +788,6 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         coverage = outcome.forecast_coverage
@@ -835,7 +812,6 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.forecast_coverage["capital_expenditure"] == 0
@@ -850,7 +826,6 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.as_dict()["forecast_coverage"]["revenue"] == 1
@@ -897,7 +872,6 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -917,7 +891,6 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -935,7 +908,6 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -954,7 +926,6 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -973,7 +944,6 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert set(outcome.forecast_coverage) == set(FORECAST_CONCEPTS)
@@ -1043,7 +1013,6 @@ class TestWhatTheCompanyDidWithItsCash:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.latest is not None
@@ -1083,7 +1052,6 @@ class TestWhatTheCompanyDidWithItsCash:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
@@ -1107,7 +1075,6 @@ class TestWhatTheCompanyDidWithItsCash:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            work_order=scene["request"].work_order,
         )
 
         assert outcome.latest is not None

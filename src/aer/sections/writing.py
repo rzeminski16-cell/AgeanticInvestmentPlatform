@@ -397,7 +397,6 @@ async def execute_builtin_section(
             company_name=subject,
             ticker=request.ticker,
             as_of_date=request.work_order.as_of_date.isoformat(),
-            point_in_time=request.work_order.point_in_time,
             output_contract=contract,
             evidence_policy=stated_policy,
             internal_evidence=evidence.internal,

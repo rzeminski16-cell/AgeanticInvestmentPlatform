@@ -150,7 +150,8 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
   the ten V1.0 features that change a recorded decision or an invariant, argued before the
   code lands rather than after; 0116 (report supersession), 0123 (Phase 1.2's approvals
   model) and 0124 (a standing operator assumption, Phase 1.6) are Accepted, each with its
-  code, on 16 September 2026.
+  code, on 16 September 2026; 0113 (a run reads the filings as they stand) is Accepted in
+  code on 17 September, with its replay acceptance waiting on the re-seeded corpus.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.

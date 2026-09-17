@@ -180,7 +180,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         ticker="CTSO",
         exchange="NASDAQ",
         as_of_date=AS_OF,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -498,9 +497,7 @@ class TestTheFiledShareCountIsPreferred:
             scene, on=date(2024, 1, 24), filed=date(2024, 2, 1), shares="1234567"
         )
 
-        found = await _filed_share_count(
-            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
-        )
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
 
         assert found is not None
         assert found.value == Decimal("1234567")
@@ -515,32 +512,28 @@ class TestTheFiledShareCountIsPreferred:
             scene, on=date(2024, 1, 24), filed=date(2024, 2, 1), shares="1234567"
         )
 
-        found = await _filed_share_count(
-            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
-        )
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
 
         assert found is not None
         assert found.value == Decimal("1234567")
 
-    async def test_a_count_filed_after_the_as_of_date_is_not_read(
+    async def test_a_count_filed_after_the_run_is_the_count_as_it_stands(
         self, scene: dict[str, Any]
     ) -> None:
-        """Point-in-time applies to a share count exactly as it does to a fact."""
+        """ADR 0113. A market capitalisation wants the count as it stands, and a cover
+        page signed after this run was dated is the freshest statement of it on file."""
         await _seed_share_fact(
             scene, on=date(2026, 1, 24), filed=date(2026, 2, 1), shares="9999999"
         )
 
-        found = await _filed_share_count(
-            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
-        )
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
 
-        assert found is None
+        assert found is not None
+        assert found.value == Decimal("9999999")
 
     async def test_no_filed_count_is_nothing_rather_than_a_guess(
         self, scene: dict[str, Any]
     ) -> None:
-        found = await _filed_share_count(
-            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
-        )
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
 
         assert found is None

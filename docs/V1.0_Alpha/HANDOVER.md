@@ -151,9 +151,15 @@ run — backup, verify, restore into a second database and store, then the artef
 audit chain and the run's replay all holding on the restored side — and a test now keeps it
 exercised. That closes Phase 1's list. Its exit criterion holds on every row the harness can
 construct (33 of 52); the 19 unconstructed rows are the harness's own backlog, named in
-`tests/journey_inventory.py`, and each becomes a proof the day its fixture exists. Next is
-Phase 1½: F1 under ADR 0113 (the structural-absence scan first), and the corpus the day the
-keys arrive.
+`tests/journey_inventory.py`, and each becomes a proof the day its fixture exists.
+Phase 1½'s first half is done too (17 September): F1 landed under ADR 0113 — the
+structural-absence scan (`tests/test_point_in_time_is_gone.py`) is green over `src/`,
+`tests/`, `audit/`, `migrations/` and the behaviour documents; migration 0076 dropped
+`work_orders.point_in_time`; the blocking set is nine; the trigger's row left the journey
+inventory, which is now 51 rows (33 green, 18 unconstructed); the ADR is Accepted in code
+and says what it still waits for. What remains of 1½ is the corpus, the day the keys
+arrive: `aer preflight`, `pytest -m live_llm`, the QUICK run, the three re-seeded runs,
+`aer backup`, and ADR 0113's replay acceptance on those runs.
 
 ## 6. Standing constraints on any session doing this work
 

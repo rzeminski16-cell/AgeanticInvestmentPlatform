@@ -294,7 +294,6 @@ async def _export_run(
         exchange=run.request.exchange,
         as_of_date=run.request.work_order.as_of_date,
         base_currency=run.request.base_currency,
-        point_in_time=run.request.work_order.point_in_time,
         rating=run.report.rating,
         confidence=run.report.confidence,
         valuation=_valuation_dict(run.report),

@@ -125,7 +125,8 @@ class TestChoosingTheRate:
         assert chosen.observed_on == AS_OF
 
     def test_a_rate_after_the_as_of_date_is_refused_not_ranked_below(self):
-        """The look-ahead case. A valuation may not convert at a rate nobody had."""
+        """A rate from after the day. A valuation as at a date may not convert at a rate
+        nobody had on it."""
         rates = [gbp_per_usd("0.81", on=date(2024, 7, 15))]
 
         with pytest.raises(LookAheadRateError) as raised:

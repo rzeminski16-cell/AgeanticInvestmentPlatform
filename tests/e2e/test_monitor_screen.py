@@ -74,7 +74,6 @@ async def _seed_a_contradicted_premise(database_url: str) -> None:
                 subject_kind=thesis_monitor.SUBJECT_THESIS,
                 subject_id=thesis.id,
                 as_of_date=date(2026, 2, 2),
-                point_in_time=False,
                 max_cost_gbp=Decimal("12.00"),
                 status=RequestStatus.COMPLETED,
             )

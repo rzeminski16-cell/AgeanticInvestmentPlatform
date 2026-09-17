@@ -269,7 +269,6 @@ class TestEditingADraft:
         expect(page.locator("#current_weight_percent")).to_have_value("2.5")
         # Two radios rather than a checkbox since tranche 5, so each state has a name;
         # the id carries the value it selects.
-        expect(page.locator("#point_in_time-true")).to_be_checked()
         expect(page.locator("#undated_sources_admissible-true")).to_be_checked()
 
     def test_the_form_states_the_run_date_instead_of_asking_for_it(
@@ -277,8 +276,8 @@ class TestEditingADraft:
     ):
         """ADR 0110, in the browser: there is no input, and the date is on the page.
 
-        The statement sits above the hindsight choice it governs, because an operator who
-        cannot see the date cannot tell what that choice will be applied to.
+        The statement sits above the source policy, because an operator commissioning a
+        run should see the date it will carry before they decide anything about it.
         """
         page.goto(f"{live_server}/requests/new")
 

@@ -75,32 +75,19 @@
           Dated <span class="type-data" data-field="as-of">{{ as_of }}</span>, the day it was
           commissioned. An edit cannot move it.
         {% endif %}
-        Every source is judged against that date, and the run's own record carries it.
+        The report and every price, rate and statistic it reads are dated to it, and the
+        run's own record carries it.
       </p>
       {#
         Two radios rather than one checkbox, and the difference is not cosmetic. A checkbox has
-        one label, so the state it is *not* in goes unnamed: the reader sees "point-in-time
-        mode" and has to work out what unticking it does. Naming both outcomes and putting the
+        one label, so the state it is *not* in goes unnamed: the reader sees "refuse undated
+        pages" and has to work out what unticking it does. Naming both outcomes and putting the
         consequence beside each is what makes the unusual choice a decision rather than a slip.
-      #}
-      {{ ui.choice_group(
-        "point_in_time",
-        "Which sources may this run use?",
-        [
-          {"value": "true",
-           "label": "Refuse anything published after today — recommended",
-           "consequence": "Enforced at acquisition, in code. With the run dated to today this mostly catches a document whose own evidence puts it in the future, which is a document that has been mis-dated or made up."},
-          {"value": "false",
-           "label": "Admit a source that says it was published later",
-           "consequence": "Only for a source you know is dated wrongly and would otherwise have to override one document at a time. It switches the look-ahead check off for the whole run."},
-        ],
-        chosen=(values.get("point_in_time") or "true"),
-      ) }}
-      {#
-        The second half of the same question, and a separate control since ADR 0111. It used
-        to ride on the radios above: choosing point-in-time also refused every page whose
-        publication date nothing could establish, which is why a run's plan named news
-        sources and its evidence table held none.
+
+        Its own control since ADR 0111, and the only source policy a run carries since ADR
+        0113: it used to ride on a second pair of radios, so refusing evidence published
+        after today also refused every page whose publication date nothing could establish,
+        which is why a run's plan named news sources and its evidence table held none.
       #}
       {{ ui.choice_group(
         "undated_sources_admissible",

@@ -2,8 +2,8 @@
 
 ``data.sec.gov/submissions/CIK##########.json`` returns the entity's filing history. It is
 what turns "the latest annual report" into a specific accession number and a specific URL,
-and its ``filingDate`` is the anchor every point-in-time decision about a *document* rests
-on.
+and its ``filingDate`` is the day a *document* became public — the date its provenance
+record carries.
 
 **The columnar shape is the hazard in this module.** ``filings.recent`` is not a list of
 filings. It is a set of parallel arrays::
@@ -98,8 +98,8 @@ class Filing:
             url=self.url(cik),
             title=title,
             # The date the filing was *accepted*, not the period it covers. That is the
-            # date the information became public, which is the only one a point-in-time
-            # rule can honestly use.
+            # date the information became public, which is what a document's provenance
+            # honestly records.
             publication_date=self.filing_date,
             form=self.form,
             accession=self.accession,
@@ -134,24 +134,13 @@ class SubmissionsIndex:
     sic: str | None = None
     sic_description: str | None = None
 
-    def filed_on_or_before(self, as_of_date: date) -> tuple[Filing, ...]:
-        """Filings public as at a date.
-
-        The point-in-time gate for documents, applied at acquisition. A filing accepted
-        after the as-of date did not exist as far as the research is concerned, and this
-        is where it stops being a candidate rather than somewhere downstream that might
-        forget to ask.
-        """
-        return tuple(f for f in self.filings if f.filing_date <= as_of_date)
-
     def of_form(self, forms: frozenset[str]) -> tuple[Filing, ...]:
         """Filings of particular form types, e.g. :data:`ANNUAL_FORMS`."""
         return tuple(f for f in self.filings if f.form in forms)
 
-    def latest(self, forms: frozenset[str], *, as_of_date: date | None = None) -> Filing | None:
-        """The most recent filing of a given form type, respecting an as-of date."""
-        candidates = self.filings if as_of_date is None else self.filed_on_or_before(as_of_date)
-        matching = [f for f in candidates if f.form in forms]
+    def latest(self, forms: frozenset[str]) -> Filing | None:
+        """The most recent filing of a given form type, as the index stands."""
+        matching = [f for f in self.filings if f.form in forms]
         if not matching:
             return None
         return max(matching, key=lambda f: (f.filing_date, f.accession))
@@ -221,9 +210,9 @@ def _parse_recent(recent: dict[str, Any]) -> tuple[Filing, ...]:
         filing_date = _parse_date(columns["filingDate"][index])
         accession_raw = str(columns["accessionNumber"][index])
         if filing_date is None or not accession_raw:
-            # Both are load-bearing: without a date the filing cannot be point-in-time
-            # filtered, and without an accession it cannot be cited. A row missing either
-            # is dropped rather than given a substitute.
+            # Both are load-bearing: without a date the filing's provenance says nothing
+            # about when it became public, and without an accession it cannot be cited. A
+            # row missing either is dropped rather than given a substitute.
             continue
         try:
             accession = format_accession(accession_raw)

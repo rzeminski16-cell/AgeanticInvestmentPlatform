@@ -57,7 +57,6 @@ class SectionWriterInput(BaseModel):
     company_name: str
     ticker: str
     as_of_date: str
-    point_in_time: bool
     output_contract: dict[str, Any]
     evidence_policy: dict[str, Any] = Field(default_factory=dict)
     internal_evidence: list[dict[str, Any]] = Field(default_factory=list)
@@ -223,9 +222,7 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
         """
         parts = [
             f"Write the section {payload.title!r} ({payload.section_key}) for "
-            f"{payload.company_name} ({payload.ticker}), as of {payload.as_of_date}"
-            + (" under point-in-time rules" if payload.point_in_time else "")
-            + ".",
+            f"{payload.company_name} ({payload.ticker}), as of {payload.as_of_date}.",
         ]
         if payload.focus.strip():
             # Plain direction, deliberately unattributed. The first wording — "the

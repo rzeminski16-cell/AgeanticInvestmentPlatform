@@ -64,7 +64,6 @@ async def committed(db_engine: Any) -> dict[str, Any]:
             ticker="MSFT",
             exchange="NASDAQ",
             as_of_date=AS_OF_DATE,
-            point_in_time=True,
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,

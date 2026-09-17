@@ -4,18 +4,17 @@ Split from the client for the same reason :mod:`aer.sources.macro.fred` is: URL 
 and parsing are where the errors that matter live, they are pure, and a pure function is one
 a test can exercise exhaustively without a network or a cassette.
 
-**The point-in-time clamp is built into the URL, not applied to the answer.** Every endpoint
-here takes ``as_of`` and puts it in the ``to`` parameter, and there is no code path that
-builds one without it. This is the same guarantee :func:`aer.sources.macro.fred.observations_url`
+**The as-at clamp is built into the URL, not applied to the answer.** Every endpoint here
+takes ``as_of`` and puts it in the ``to`` parameter, and there is no code path that builds
+one without it. This is the same guarantee :func:`aer.sources.macro.fred.observations_url`
 gives for ALFRED vintages and for the same reason: an omitted bound returns today's data,
-which looks exactly like correct data and is the precise error the whole platform exists to
-prevent.
+which looks exactly like the series as at the run's date and is not.
 
 **The clamp is then applied a second time, to what came back.** A vendor that ignores ``to``,
-or a cache that serves a wider window, would otherwise put a bar from after the as-of date
+or a cache that serves a wider window, would otherwise put a bar from after the as-at date
 into a valuation. The parsers drop those and *count* them, so the discrepancy is visible in
 the result rather than silent. Belt and braces, because the cost of the belt is one
-comparison per bar and the cost of it failing is a look-ahead nobody can see.
+comparison per bar and the cost of it failing is a wrong series nobody can see.
 
 **A split is a pair, not a number.** EODHD writes one as ``"2.000000/1.000000"`` — new shares
 over old. A one-for-ten consolidation is ``"1.000000/10.000000"``, which is a ratio of 0.1
@@ -115,9 +114,9 @@ class DividendRow:
 class SharesOutstanding:
     """A share count, and the date it was reported for.
 
-    ``as_reported_on`` is not optional: a count with no date cannot be shown to predate the
-    as-of date, and a market capitalisation built from a later count is a look-ahead of the
-    quietest kind — the price is right, the count is from next quarter, and the product looks
+    ``as_reported_on`` is not optional: a count with no date cannot be placed against the
+    as-of date, and a market capitalisation built from a later count is wrong in the
+    quietest way — the price is right, the count is from next quarter, and the product looks
     entirely plausible.
     """
 
@@ -164,7 +163,7 @@ def fundamentals_url(symbol: str, *, api_token: str) -> str:
     """The fundamentals document, which is where the share count lives.
 
     **No ``to`` parameter, because the endpoint has none.** It returns the current snapshot,
-    so the point-in-time question cannot be answered by the URL and has to be answered by the
+    so the as-at question cannot be answered by the URL and has to be answered by the
     response: :func:`parse_shares_outstanding` picks the most recent count *dated on or before*
     the as-of date, from the historical series the document carries, and refuses if the
     document has only an undated current figure.
@@ -355,7 +354,7 @@ def parse_shares_outstanding(payload: bytes, *, symbol: str, as_of: date) -> Sha
         message = (
             f"The fundamentals document for {symbol} carries no dated share count at or "
             f"before {as_of.isoformat()}. The undated headline figure is today's, and "
-            "pairing it with a price from a past date is a look-ahead that looks like an "
+            "pairing it with a price from a past date is a mismatch that looks like an "
             "ordinary market capitalisation."
         )
         raise ExternalServiceError(

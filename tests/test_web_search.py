@@ -1,7 +1,7 @@
 """The web-search tool (ADR 0092): a listing, bounded, metered, and refused honestly.
 
-Three layers. The **executor** owns every deterministic decision — the point-in-time
-refusal, the per-worker bound, the unrouted refusal, the metering of both halves of the
+Three layers. The **executor** owns every deterministic decision — the per-worker bound,
+the unrouted refusal, the excluded-domain withholding, the metering of both halves of the
 bill — and is tested against the database with the fake provider. The **provider** owns
 the deterministic read of the vendor's response — listing fields out, error objects
 detected, ``pause_turn`` resumed — and is tested against a stubbed SDK client, the same
@@ -11,7 +11,7 @@ it to the ADR's arithmetic so a drifted constant is a red build.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -51,8 +51,6 @@ async def scene(
     """A run mid-research-step, with a search-capable fake provider on the context."""
     user = await seed_user(db_session)
     request = await seed_request(db_session, user=user)
-    # The live case: researching the present, where a search cannot leak the future.
-    request.work_order.point_in_time = False
     job = await seed_job(db_session, request=request)
     step = JobStep(
         job_id=job.id,
@@ -146,24 +144,11 @@ class TestTheExecutor:
         assert str(MAX_WEB_SEARCHES) in refused.refusal
         assert len(scene["provider"].web_searches) == MAX_WEB_SEARCHES
 
-    async def test_a_point_in_time_run_with_a_past_as_of_date_never_searches(
-        self, scene: dict[str, Any]
-    ) -> None:
-        scene["request"].work_order.point_in_time = True
+    async def test_a_run_dated_in_the_past_may_search(self, scene: dict[str, Any]) -> None:
+        """ADR 0113. A search used to be refused when the run was dated before today,
+        because a listing cannot be bounded to a date; the run's date is the day it was
+        commissioned and constrains nothing, so the refusal went with the rule."""
         # seed_request's as-of date is 2022-06-30 — deep in the past.
-        refused = await _executors(scene)["web_search"](_tool_request())
-
-        assert not refused.executed
-        assert "point-in-time" in refused.refusal
-        assert scene["provider"].web_searches == []
-        assert await _costs(scene["session"], scene["step"].id) == []
-
-    async def test_a_point_in_time_run_researching_the_present_may_search(
-        self, scene: dict[str, Any]
-    ) -> None:
-        scene["request"].work_order.point_in_time = True
-        scene["request"].work_order.as_of_date = (datetime.now(UTC) + timedelta(days=1)).date()
-
         outcome = await _executors(scene)["web_search"](_tool_request())
 
         assert outcome.executed

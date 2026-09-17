@@ -153,7 +153,6 @@
   <dl>
     <dt>As-of date</dt><dd>{{ as_of_text }}</dd>
     <dt>Base currency</dt><dd>{{ header.base_currency }}</dd>
-    <dt>Point-in-time</dt><dd>{{ "enforced" if header.point_in_time else "off" }}</dd>
     <dt>Generated</dt><dd>{{ header.generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
     <dt>Non-binding view</dt><dd>{{ header.rating or "no view reached" }}</dd>
     {% if header.confidence is not none %}
@@ -188,8 +187,8 @@
   <h3>Custom analysis</h3>
   <p class="custom-note">
     Bespoke sections authored by the operator as their own methodology. They run under
-    the same evidence, citation and point-in-time rules as the platform's sections, and
-    are the operator's analysis rather than platform output.
+    the same evidence and citation rules as the platform's sections, and are the
+    operator's analysis rather than platform output.
   </p>
   <ol>
     {% for section in custom_sections %}

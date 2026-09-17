@@ -200,7 +200,6 @@ async def dry_run_skill(
         subject_kind="company",
         subject_id=request.company_id,
         as_of_date=request.work_order.as_of_date,
-        point_in_time=request.work_order.point_in_time,
         max_cost_gbp=request.work_order.max_cost_gbp,
         status=request.work_order.status,
     )

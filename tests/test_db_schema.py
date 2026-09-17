@@ -56,7 +56,6 @@ async def make_request(session, *, user_id, **overrides) -> ResearchRequest:
         "base_currency": "USD",
         "investment_horizon_months": 60,
         "analysis_mode": AnalysisMode.FULL,
-        "point_in_time": True,
         "max_cost_gbp": Decimal("2.50"),
     }
     request = research_request(**{**defaults, **overrides})
@@ -182,7 +181,7 @@ class TestPersistenceAndRelationships:
         assert reloaded_request is not None
         assert reloaded_request.work_order.status is RequestStatus.DRAFT
         assert reloaded_request.analysis_mode is AnalysisMode.FULL
-        assert reloaded_request.work_order.point_in_time is True
+        assert reloaded_request.work_order.undated_sources_admissible is True
         assert reloaded_request.portfolio_context == {}
 
     async def test_deleting_the_run_root_cascades_to_jobs_and_steps(self, db_session):

@@ -418,7 +418,6 @@ class TestOneReading:
         assert order.tool == monitor.TOOL
         assert order.subject_kind == monitor.SUBJECT_THESIS
         assert order.subject_id == thesis.id
-        assert order.point_in_time is False
         assert order.status is RequestStatus.COMPLETED
         assert job.total_cost_gbp > 0
         events = list(
@@ -970,7 +969,6 @@ async def committed(db_engine: Any, tmp_path: Path) -> Any:
             investment_horizon_months=12,
             max_cost_gbp="2.50",
             portfolio_context={},
-            point_in_time=True,
         )
         company = Company(
             name="Contoso Corporation", ticker="CTSO", exchange="NASDAQ", cik="0000000002"

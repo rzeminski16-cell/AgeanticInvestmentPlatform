@@ -33,9 +33,10 @@ cases below.
 | 143,015,000,000 | 0000789019-20-000039 | 2020-07-30 | the FY2020 10-K |
 | 142,000,000,000 | 0000789019-22-000010 | 2022-07-28 | the FY2022 10-K, restated |
 
-An as-of date in 2021 must return the first. An as-of date in 2023 must return the second.
-Both must record the filed date they came from. That is the whole point-in-time claim in
-one fixture, and the numbers differ by enough to make a wrong answer obvious.
+Selection must return the second — the latest filing's word on the period (ADR 0113) — and
+record the first as superseded by it, naming the accession that replaced it. Both must
+record the filed date they came from. That is the whole selection claim in one fixture,
+and the numbers differ by enough to make a wrong answer obvious.
 
 The FY2020 figure of 143,015,000,000 is Microsoft's actual reported revenue for that year.
 The 2022 restatement is invented: Microsoft did not restate it. It exists so the test has

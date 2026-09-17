@@ -66,7 +66,6 @@ async def triggers_for_job(
     :func:`cost_scene_for_job`.
     """
     return fire_triggers(
-        point_in_time=request.work_order.point_in_time,
         metrics=await _metric_scores(session, job=job),
         sections=await _section_scenes(session, job=job, request=request),
         conflicts=await _conflict_scenes(session, job=job),
@@ -159,8 +158,7 @@ def _disputes(row: Evaluation) -> tuple[str, ...]:
     Advice never changes a verdict (ADR 0038) — but advice that *disagrees* with one is
     §2.4's "validator disagreement", and the uncertainty trigger exists to put exactly
     that in front of a person. An excerpt-location assist only runs against citations the
-    verifier failed, so "found" is a disagreement by construction; a proposed date is one
-    because the platform holds the source undated.
+    verifier failed, so "found" is a disagreement by construction.
     """
     found: list[str] = []
     for advisory in row.details.get("advisories", []):
@@ -169,11 +167,6 @@ def _disputes(row: Evaluation) -> tuple[str, ...]:
             found.append(
                 "an advisory validator locates a candidate excerpt for a citation the "
                 f"deterministic verifier failed (source {source})"
-            )
-        elif advisory.get("kind") == "date_adjudication" and advisory.get("proposed_date"):
-            found.append(
-                f"an advisory validator proposes {advisory['proposed_date']} for a "
-                f"source the platform holds undated (source {source})"
             )
     return tuple(found)
 
@@ -275,15 +268,11 @@ async def _source_scenes(
         .where(SourceDocument.work_order_id == request.id)
         .order_by(SourceDocument.retrieved_at, SourceDocument.id)
     )
-    scenes: list[SourceScene] = []
-    for row in rows:
-        latest = row.publication_date_latest or row.publication_date
-        scenes.append(
-            SourceScene(
-                name=row.title or row.url,
-                post_dated=latest is not None and latest > request.work_order.as_of_date,
-                admissible=row.is_admissible,
-                injection_flagged=row.injection_flagged,
-            )
+    return tuple(
+        SourceScene(
+            name=row.title or row.url,
+            admissible=row.is_admissible,
+            injection_flagged=row.injection_flagged,
         )
-    return tuple(scenes)
+        for row in rows
+    )

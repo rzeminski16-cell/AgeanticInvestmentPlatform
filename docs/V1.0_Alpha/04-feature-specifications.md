@@ -52,6 +52,15 @@ structural-absence scan in ADR 0113 — the enforcement's own names, with the su
 `as_of_date` readers allowlisted by name — returns only the ADR and the records that cite it;
 the blocking metric set is nine; every archived run still replays.
 
+**Status, 17 September 2026.** Landed in code, £0. The report carries the run's date and no
+mode; the scan (`tests/test_point_in_time_is_gone.py`) returns only the records, over `src/`,
+`tests/`, `audit/`, `migrations/` and the behaviour documents; the blocking set is nine and
+the run-time set nine; migration 0076 dropped the column. Three pieces the spec did not name
+went with it (the validator's date-adjudication assist, a period bound in peer discovery, the
+full-text search's split of hits at the date — ADR 0113 records them). *Every archived run
+still replays* waits on the corpus, which is not in this container; ADR 0113 says so and
+stays Accepted-in-code until the re-seeded runs replay.
+
 **Risk.** This is the largest purely-deletion change in the plan and it touches the drafting
 prompts. Do it early, on its own, with the full suite green before anything else lands.
 

@@ -48,7 +48,7 @@ from tests.workflow_fixtures import (
 pytestmark = pytest.mark.integration
 
 # The fixture index's newest filing is a 10-K accepted on this date; the newest 8-K is
-# earlier. Both matter to the point-in-time tests below.
+# earlier. Both matter to the selection tests below.
 LATEST_ANNUAL = date(2022, 7, 28)
 LATEST_CURRENT = date(2021, 10, 26)
 
@@ -71,7 +71,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         investment_horizon_months=12,
         max_cost_gbp="2.50",
         portfolio_context={},
-        point_in_time=True,
     )
     db_session.add(request)
     await db_session.flush()
@@ -282,17 +281,6 @@ class TestQuarterlyReports:
 
         assert not any(self.SUPERSEDED.primary_document in url for url in client.document_calls)
 
-    async def test_the_point_in_time_window_applies_to_quarterlies_too(
-        self, scene: dict[str, Any]
-    ) -> None:
-        scene["request"].work_order.as_of_date = date(2023, 2, 1)
-        await scene["session"].flush()
-        client = _IndexClient(scene["store"], _index_with(self.ANNUAL, *self.QUARTERS))
-
-        await _acquire(scene, client=client)
-
-        assert not any(self.QUARTERS[2].primary_document in url for url in client.document_calls)
-
     async def test_a_company_with_no_annual_still_yields_its_quarterlies(
         self, scene: dict[str, Any]
     ) -> None:
@@ -319,29 +307,20 @@ class TestQuarterlyReports:
         assert any(extra.primary_document in url for url in client.document_calls)
 
 
-class TestPointInTime:
-    async def test_a_filing_after_the_as_of_date_is_never_fetched(
+class TestTheRunDateSelectsNothing:
+    async def test_the_newest_filings_are_fetched_whatever_the_run_is_dated(
         self, scene: dict[str, Any]
     ) -> None:
-        """Refused on the index, before anything is requested — the cheapest place, and the
-        one where a post-dated filing stops being a candidate rather than being fetched and
-        then thrown away."""
+        """ADR 0113. The index used to be cut at the run's date before anything was
+        requested; the date is the day the run was commissioned and constrains nothing,
+        so a run dated before the newest filing still reads it."""
         scene["request"].work_order.as_of_date = date(2021, 1, 1)
         await scene["session"].flush()
 
         outcome = await _acquire(scene)
 
-        assert all(document.publication_date <= date(2021, 1, 1) for document in outcome.documents)
-        assert not any("2022" in url for url in scene["client"].document_calls)
-
-    async def test_a_window_with_nothing_in_it_says_so(self, scene: dict[str, Any]) -> None:
-        scene["request"].work_order.as_of_date = date(1999, 1, 1)
-        await scene["session"].flush()
-
-        outcome = await _acquire(scene)
-
-        assert outcome.documents == ()
-        assert any("annual report" in note for note in outcome.skipped)
+        assert any(document.publication_date == LATEST_ANNUAL for document in outcome.documents)
+        assert any("2022" in url for url in scene["client"].document_calls)
 
 
 class TestTheDocumentsCanBeCited:

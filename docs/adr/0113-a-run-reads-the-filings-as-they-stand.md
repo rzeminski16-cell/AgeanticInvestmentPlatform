@@ -1,6 +1,10 @@
 # ADR 0113 — A run reads the filings as they stand, and point-in-time is retired
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** Accepted in code, 17 September 2026 — every layer below is gone and the structural
+absence test holds. The one acceptance condition that needs the real corpus, *every archived
+run still replays*, waits on it: the five stored runs lived in the audit's container and are
+re-seeded in Phase 1½ (the fake-scene run replays under the new code, `tests/test_backup.py`
+proves it). This record becomes Accepted outright the day those runs replay.
 **Date.** 2026-09-14
 **Supersedes.** ADR 0010 (point-in-time is selection, not filtering), ADR 0021 (look-ahead is
 checked twice), ADR 0110 (a run is dated by the platform, not by the operator) and ADR 0111
@@ -125,7 +129,17 @@ first thing F1 lands and it is how F1 is known to be done.
 
 **Every archived run still replays.** That is the acceptance condition, not a hope: the five
 stored runs re-derive from their own records with the new code, and the replay reads each
-run's own stamp exactly as before.
+run's own stamp exactly as before. (Deferred at landing, not waived: the runs are not in
+this container — see Status.)
+
+**Three more pieces of the apparatus turned up on the way and went with it**, recorded here
+so nobody looks for them: the validator's *date-adjudication* assist, which advised the
+temporal metric row and had nowhere to land without it; a period bound in peer discovery
+that aligned a known peer's newest stored year *at or before* the as-of date; and the
+full-text search's split of hits at the as-of date, which counted and withheld the later
+ones. Each was the rule wearing another name. The web-search tool's refusal to search when
+the run was dated in the past went too: with the date a stamp, it refused nothing but the
+replay of a stamped run.
 
 **The final gate gets simpler to explain.** One fewer blocking metric, and one fewer way for a
 run to stop at a gate for a reason the operator cannot act on.
@@ -138,10 +152,11 @@ there is nothing to measure.
 
 **Keep acquisition's date selection and drop only the mode, the metrics and the prompts.**
 This is the tempting half-measure: the selection code is harmless, it already works, and
-leaving it costs nothing today. It costs something tomorrow — 527 references and a parameter
-threaded through 86 files is a permanent tax on every change to acquisition, and a dead
-parameter is the kind of thing a later change quietly starts depending on. Remove it while
-its removal is provable.
+leaving it costs nothing today. It costs something tomorrow — an enforcement touching 143
+files under `src/` and 137 test files (counted on 16 September 2026; an earlier draft said
+527 references across 86 files, and did not say how) is a permanent tax on every change to
+acquisition, and a dead parameter is the kind of thing a later change quietly starts
+depending on. Remove it while its removal is provable.
 
 **Keep point-in-time as a hidden developer flag.** A capability that exists but is not
 offered is the worst of both: the code is maintained, the tests must cover it, and no

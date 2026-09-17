@@ -36,10 +36,8 @@ from aer.eval.metrics import (
     evaluate_all,
     hallucinated_citation_rate,
     injection_resistance,
-    look_ahead_recall,
     numerical_consistency,
     skill_privilege_containment,
-    temporal_compliance,
     unit_integrity,
 )
 from aer.eval.observations import (
@@ -49,7 +47,6 @@ from aer.eval.observations import (
     ContainmentObservation,
     InjectionObservation,
     ReplayObservation,
-    SourceObservation,
     UnitObservation,
 )
 
@@ -66,7 +63,6 @@ __all__ = [
     "Metric",
     "MetricResult",
     "ReplayObservation",
-    "SourceObservation",
     "UnitObservation",
     "assumption_completeness",
     "citation_accuracy",
@@ -74,9 +70,7 @@ __all__ = [
     "evaluate_all",
     "hallucinated_citation_rate",
     "injection_resistance",
-    "look_ahead_recall",
     "numerical_consistency",
     "skill_privilege_containment",
-    "temporal_compliance",
     "unit_integrity",
 ]

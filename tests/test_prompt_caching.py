@@ -33,7 +33,6 @@ def _payload(**overrides: Any) -> SectionWriterInput:
         "company_name": "Microsoft Corporation",
         "ticker": "MSFT",
         "as_of_date": "2023-01-01",
-        "point_in_time": True,
         "output_contract": {"type": "object", "properties": {"body": {"type": "string"}}},
         "evidence_policy": {"max_tier": "T1_REGULATORY", "min_sources": 1},
         "internal_evidence": [{"id": "f1", "concept": "Revenue", "value": "198270"}],

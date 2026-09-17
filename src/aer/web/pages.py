@@ -3436,7 +3436,6 @@ def _extraction_counts(produced: Mapping[str, Any]) -> dict[str, int]:
     return {
         "available": available,
         "already_held": max(0, available - written),
-        "look_ahead": int(produced.get("rejected_for_look_ahead", 0)),
     }
 
 

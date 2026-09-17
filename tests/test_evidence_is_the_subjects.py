@@ -20,11 +20,10 @@ Five properties, each tied to a way the live failure actually happened:
    a key that excludes the source document, so re-scoping to the request would have hidden
    every fact the first run wrote — the failure `aer.services.research` already met once,
    and the one that would have made the acceptance rerun worse than the run it verifies.
-5. A fact filed after the as-of date does not reach a pack. Request scoping used to bound a
-   section to one acquisition and so kept later filings out by accident; company scoping
-   does not, which is why the date filter travels with it. Twelve tests failed on this when
-   the predicate landed — every one of them a scene dated 30 June carrying facts filed
-   28 July, which is a look-ahead the old pack showed a writer without comment.
+5. Every fact the store holds about the subject reaches a pack, whenever it was filed.
+   A date filter travelled with the company scope until ADR 0113 retired the rule it
+   served; the store is read as it stands, and a fact filed after the run's date is a
+   later filing's word, not a leak.
 """
 
 from __future__ import annotations
@@ -319,17 +318,13 @@ class TestTheSubjectSurvivesAPeerThatOutranksIt:
         assert str(scene["subject_doc"].id) in listed
 
 
-class TestALaterFilingIsNotShownToAnEarlierRun:
-    async def test_a_fact_filed_after_the_as_of_date_stays_out_of_the_pack(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """Scoping by company removed the accidental bound request scoping provided.
+class TestALaterFilingIsShownLikeAnyOther:
+    async def test_a_fact_filed_after_the_run_reaches_the_pack(self, scene: dict[str, Any]) -> None:
+        """Company scope reads the store as it stands (ADR 0113).
 
-        The old pack joined to this run's documents, which happened to keep a later run's
-        filings out. Company scope does not, so the date filter is part of the same change
-        rather than a separate improvement — and this is the section-level statement of it.
-        Twelve existing tests failed on this when the predicate landed: their scenes were
-        dated 30 June and carried facts filed 28 July.
+        A date filter travelled with the company scope while the run's date selected
+        evidence; that rule is retired, and a fact filed after this run was dated is a
+        later filing's word on the subject — in the pack with the rest, never a leak.
         """
         session = scene["session"]
         await _fact(
@@ -338,15 +333,15 @@ class TestALaterFilingIsNotShownToAnEarlierRun:
             document=scene["subject_doc"],
             concept="revenue",
             # `_fact` files thirty days after the period ends, so this lands on
-            # 30 September — six weeks past the as-of date.
+            # 30 September — six weeks past the run's date.
             period_end=date(2026, 8, 31),
             value="7777",
         )
         await session.flush()
 
         evidence = await _gather(scene)
-        assert "7777" not in str(_internals(evidence)), (
-            "a fact filed after the as-of date reached a section's evidence pack"
+        assert "7777" in str(_internals(evidence)), (
+            "a fact filed after the run's date was kept out of a section's evidence pack"
         )
 
 

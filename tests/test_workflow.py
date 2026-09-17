@@ -1,7 +1,7 @@
 """The vertical slice, end to end: request in, cited report out.
 
-Every test here runs the *real* workflow — the real engine, the real point-in-time
-selector, the real calculation kernel, the real renderer — against a fake provider and a
+Every test here runs the *real* workflow — the real engine, the real filing selector,
+the real calculation kernel, the real renderer — against a fake provider and a
 stubbed SEC client. Nothing is mocked between the steps, so what is asserted is what the
 platform actually does.
 
@@ -520,12 +520,14 @@ class TestTheWholeRun:
         assert document.artefact is not None
         assert len(document.artefact.sha256) == 64
 
-    async def test_the_facts_are_point_in_time(self, finished: dict) -> None:
-        """The fixture restates FY2020 revenue in a filing made after the as-of date.
+    async def test_the_facts_are_the_latest_filed(self, finished: dict) -> None:
+        """The fixture restates FY2020 revenue in a later filing.
 
-        143,015,000,000 was filed in 2020 and is admissible; 142,000,000,000 restates the
-        same period in a 2022 filing the as-of date excludes. Selecting the restatement
-        would be look-ahead bias — the report would rest on a number nobody had at the time.
+        143,015,000,000 was filed in 2020; 142,000,000,000 restates the same period in the
+        2022 annual report. A run reads the filings as they stand (ADR 0113), so the
+        restatement is the figure the run holds, with its own filing date and accession
+        beside it — and the original is a rejected observation on the record, superseded
+        by the filing that replaced it.
         """
         session = finished["session"]
         values = {
@@ -534,8 +536,8 @@ class TestTheWholeRun:
                 select(FinancialFact).where(FinancialFact.concept == "revenue")
             )
         }
-        assert Decimal("143015000000") in values
-        assert Decimal("142000000000") not in values
+        assert Decimal("142000000000") in values
+        assert Decimal("143015000000") not in values
 
     async def test_the_figure_is_a_recorded_calculation(self, finished: dict) -> None:
         session = finished["session"]

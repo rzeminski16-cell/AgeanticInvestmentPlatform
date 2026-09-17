@@ -11,7 +11,6 @@ Pure: no I/O, no clock, no database. ``mypy --strict``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
 from decimal import Decimal
 
 __all__ = [
@@ -22,7 +21,6 @@ __all__ = [
     "ContainmentObservation",
     "InjectionObservation",
     "ReplayObservation",
-    "SourceObservation",
     "UnitObservation",
 ]
 
@@ -66,61 +64,6 @@ class CitationObservation:
         the check failed. Counted separately for exactly that reason.
         """
         return self.genuine and not self.verified
-
-
-@dataclass(frozen=True, slots=True)
-class SourceObservation:
-    """One document put through the point-in-time rules.
-
-    ``published`` is the fixture's answer for when it was actually published — ``None``
-    where nothing establishes a date. ``admitted`` is whether the platform would let it
-    support a claim.
-    """
-
-    name: str
-    published: date | None
-    as_of: date
-    admitted: bool
-
-    # What the extractor concluded, kept for the report. A document refused for the wrong
-    # reason still counts as refused, and the difference is worth being able to see.
-    established: date | None = None
-
-    # Whether the run this document served enforced point-in-time. Defaults to on, which
-    # is what the eval corpus exercises; the live path passes the request's own setting.
-    point_in_time: bool = True
-
-    # And whether it admitted a document nothing could date. A second policy since ADR
-    # 0111, and defaulted the way the platform defaults it: the corpus's undated fixtures
-    # are there to be admitted and capped, not refused.
-    undated_sources_admissible: bool = True
-
-    @property
-    def is_after_as_of(self) -> bool:
-        """Whether this document postdates the as-of date, per the fixture's label."""
-        return self.published is not None and self.published > self.as_of
-
-    @property
-    def must_be_refused(self) -> bool:
-        """What the policies the run actually ran under demand.
-
-        A post-dated document is inadmissible in any mode — it claims knowledge of a
-        future the analysis is not supposed to have. An *undatable* one is inadmissible
-        only where the run refused undated sources, and since ADR 0111 that is its own
-        policy rather than a second meaning for ``point_in_time`` (``decide_quarantine``
-        applies exactly this split). A metric failing the run for a rule the operator had
-        switched off measures the platform's opinion rather than the run: the live AAPL
-        run ran point-in-time off and still wore a temporal-compliance failure on page 1
-        for seven undated-but-admitted documents.
-        """
-        if self.is_after_as_of:
-            return True
-        return not self.undated_sources_admissible and self.published is None
-
-    @property
-    def is_violation(self) -> bool:
-        """A document that should have been refused and was not."""
-        return self.must_be_refused and self.admitted
 
 
 @dataclass(frozen=True, slots=True)

@@ -273,7 +273,6 @@ class TestTheChainOverARealLog:
             investment_horizon_months=36,
             max_cost_gbp="2.00",
             portfolio_context={},
-            point_in_time=True,
             status=RequestStatus.DRAFT,
         )
         db_session.add(request)

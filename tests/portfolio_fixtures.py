@@ -64,7 +64,7 @@ async def book(db_session: Any) -> dict[str, Any]:
     await db_session.flush()
 
     portfolio = Portfolio(user_id=user.id, name="ISA", base_currency="GBP")
-    order = WorkOrder(user_id=user.id, as_of_date=AS_OF, point_in_time=False)
+    order = WorkOrder(user_id=user.id, as_of_date=AS_OF)
     msft = Security(
         ticker="MSFT", exchange="NASDAQ", provider_symbol="MSFT.US", quote_currency="USD"
     )

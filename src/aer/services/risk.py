@@ -907,7 +907,6 @@ async def _open_pass(
         subject_kind=SUBJECT_BOOK,
         subject_id=portfolio.id,
         as_of_date=as_of,
-        point_in_time=False,
         max_cost_gbp=settings.per_run_budget_gbp,
         status=RequestStatus.RUNNING,
     )

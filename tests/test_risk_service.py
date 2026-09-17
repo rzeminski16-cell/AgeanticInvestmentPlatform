@@ -420,7 +420,7 @@ class TestAScenario:
         view = await _risk(db_session, context, book)
         [outcome] = view.scenarios
         assert outcome.pnl is not None
-        order = WorkOrder(user_id=book["user"].id, as_of_date=AS_OF, point_in_time=False)
+        order = WorkOrder(user_id=book["user"].id, as_of_date=AS_OF)
         db_session.add(order)
         await db_session.flush()
         job = Job(
@@ -758,7 +758,7 @@ async def committed(db_engine: Any) -> Any:
         )
         session.add_all([portfolio, barc])
         await session.flush()
-        order = WorkOrder(user_id=user.id, as_of_date=AS_OF, point_in_time=False)
+        order = WorkOrder(user_id=user.id, as_of_date=AS_OF)
         session.add(order)
         await session.flush()
         document = SourceDocument(

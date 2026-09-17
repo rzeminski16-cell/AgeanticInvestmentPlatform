@@ -161,7 +161,6 @@ class SecEdgarClient:
         cik: str | None = None,
         forms: Iterable[str] = (),
         start_date: date | None = None,
-        as_of_date: date | None = None,
         size: int = 10,
     ) -> SecResponse[SearchResults]:
         """Search the full text of filings for a phrase.
@@ -174,16 +173,12 @@ class SecEdgarClient:
             cik: Scopes the search to one filer, and should almost always be supplied. An
                 unscoped search returns other companies' filings, and acquiring one would mean
                 citing a competitor's document for this company's figures.
-            as_of_date: Bounds the query itself, so the index is not asked about later filings.
-                Hits are **still** checked after parsing — the bound is a courtesy to EDGAR and
-                a saving, not the control. See :meth:`SearchResults.admissible`.
         """
         url = build_search_url(
             phrase,
             cik=cik,
             forms=forms,
             start_date=start_date,
-            end_date=as_of_date,
             size=size,
         )
         result = await self._get(url)
@@ -236,39 +231,26 @@ class SecEdgarClient:
         self,
         entity: ResolvedEntity,
         *,
-        as_of_date: date | None = None,
         forms: frozenset[str] | None = None,
     ) -> tuple[DocumentRef, ...]:
-        """List an entity's filings, newest first, filtered at acquisition.
-
-        ``as_of_date`` filters here rather than downstream. A filing accepted after the
-        as-of date is never turned into a reference, so no later code path can fetch it by
-        forgetting to check.
-        """
+        """List an entity's filings, newest first, as the index stands."""
         response = await self.fetch_submissions(entity.identifier)
         index = response.data
 
-        filings = index.filed_on_or_before(as_of_date) if as_of_date else index.filings
         wanted = forms if forms is not None else PERIODIC_FORMS
-        selected = [f for f in filings if f.form in wanted and f.primary_document]
+        selected = [f for f in index.filings if f.form in wanted and f.primary_document]
 
         return tuple(
             filing.to_ref(index.cik, entity_name=index.name or entity.name) for filing in selected
         )
 
-    async def fetch_facts(
-        self,
-        entity: ResolvedEntity,
-        *,
-        as_of_date: date | None = None,  # noqa: ARG002 -- see the docstring
-    ) -> tuple[RawFact, ...]:
+    async def fetch_facts(self, entity: ResolvedEntity) -> tuple[RawFact, ...]:
         """Every fact EDGAR holds for the entity, **unfiltered**.
 
-        ``as_of_date`` is part of the :class:`~aer.sources.base.SourceAdapter` interface
-        and is deliberately ignored here: point-in-time selection happens in
-        :mod:`aer.sources.sec.pit`, on the complete set, so that what was rejected and why
-        is recoverable. Filtering at this point would discard the rejected facts before
-        anyone could look at them, and "why is this figure missing?" would have no answer.
+        Selection happens in :mod:`aer.sources.sec.selection`, on the complete set, so that
+        what was rejected and why is recoverable. Filtering at this point would discard the
+        rejected facts before anyone could look at them, and "why is this figure missing?"
+        would have no answer.
         """
         response = await self.fetch_company_facts(entity.identifier)
         return response.data.facts

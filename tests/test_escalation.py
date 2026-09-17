@@ -83,12 +83,11 @@ pytestmark = pytest.mark.anyio
 
 
 def _passing_metrics() -> tuple[MetricScore, ...]:
-    """All eight run-time rows passing — built from the real Metric vocabulary, so these
-    tests also hold the engine's string constants to the platform's own names."""
+    """Every run-time row the triggers read, passing — built from the real Metric
+    vocabulary, so these tests also hold the engine's string constants to the platform's
+    own names."""
     at_least = {
         Metric.CITATION_ACCURACY: ("1", "0.98"),
-        Metric.TEMPORAL_COMPLIANCE: ("1", "1"),
-        Metric.LOOK_AHEAD_RECALL: ("1", "1"),
         Metric.SOURCE_COVERAGE: ("1", "0.9"),
         Metric.PRIMARY_SOURCE_RATIO: ("0.8", "0.6"),
         Metric.ASSUMPTION_COMPLETENESS: ("1", "1"),
@@ -107,7 +106,6 @@ def _passing_metrics() -> tuple[MetricScore, ...]:
 
 def _clean_scene(**overrides: Any) -> dict[str, Any]:
     scene: dict[str, Any] = {
-        "point_in_time": True,
         "metrics": _passing_metrics(),
         "sections": (
             SectionScene(
@@ -237,37 +235,12 @@ class TestEachTriggerFiresAloneAndNamesItself:
         )
         assert fire_triggers(**scene) == ()
 
-    def test_a_post_dated_admissible_source_under_point_in_time(self) -> None:
-        scene = _clean_scene(
-            sources=(SourceScene(name="Q4 press release", post_dated=True, admissible=True),)
-        )
-        [fired] = fire_triggers(**scene)
-        assert fired.kind is TriggerKind.POTENTIAL_LOOK_AHEAD
-        assert "Q4 press release" in fired.evidence[0]
-
-    def test_the_same_source_is_no_look_ahead_when_point_in_time_is_off(self) -> None:
-        scene = _clean_scene(
-            point_in_time=False,
-            sources=(SourceScene(name="Q4 press release", post_dated=True, admissible=True),),
-        )
+    def test_an_admissible_source_alone_fires_nothing(self) -> None:
+        """A source's date is provenance, never a trigger (ADR 0113): the row that used to
+        fire on a source dated after the run is gone, and an admissible, unflagged source
+        is exactly what a clean run holds."""
+        scene = _clean_scene(sources=(SourceScene(name="Q4 press release", admissible=True),))
         assert fire_triggers(**scene) == ()
-
-    def test_a_failed_temporal_metric_is_look_ahead_evidence(self) -> None:
-        metrics = tuple(
-            MetricScore(
-                metric=row.metric,
-                passed=False if row.metric == Metric.TEMPORAL_COMPLIANCE.value else row.passed,
-                value=row.value,
-                threshold=row.threshold,
-                failures=("'undated note' was used while inadmissible",)
-                if row.metric == Metric.TEMPORAL_COMPLIANCE.value
-                else (),
-            )
-            for row in _passing_metrics()
-        )
-        [fired] = fire_triggers(**_clean_scene(metrics=metrics))
-        assert fired.kind is TriggerKind.POTENTIAL_LOOK_AHEAD
-        assert "undated note" in fired.evidence[0]
 
     def test_a_section_below_the_confidence_floor(self) -> None:
         scene = _clean_scene(
@@ -612,7 +585,7 @@ class TestTheBannerShape:
             ),
             sources=(
                 SourceScene(
-                    name="leak.html", post_dated=True, admissible=True, injection_flagged=True
+                    name="leak.html", admissible=True, injection_flagged=True
                 ),
             ),
             cost=CostScene(cap_gbp=Decimal("10"), estimated_gbp=None, actual_gbp=Decimal("9")),
@@ -693,7 +666,7 @@ async def _seed_source(
         retrieved_at=datetime.now(UTC),
         publication_date=publication_date,
         quarantined=quarantined,
-        quarantine_reason="post-dated under point-in-time rules" if quarantined else None,
+        quarantine_reason="excluded_by_operator" if quarantined else None,
         **extras,
     )
     session.add(document)
@@ -717,17 +690,19 @@ class TestTheServiceReadsTheRecordedRows:
     async def test_a_run_with_nothing_recorded_fires_nothing(self, scene: dict[str, Any]) -> None:
         assert await _fired_kinds(scene) == []
 
-    async def test_a_planted_look_ahead_source_escalates(self, scene: dict[str, Any]) -> None:
-        """A post-dated source that escaped quarantine is exactly what the banner is for."""
-        await _seed_source(scene, publication_date=AS_OF_DATE + timedelta(days=30))
-        assert await _fired_kinds(scene) == [TriggerKind.POTENTIAL_LOOK_AHEAD.value]
-
-    async def test_a_quarantined_look_ahead_source_is_already_handled(
+    async def test_a_source_dated_after_the_run_raises_no_banner(
         self, scene: dict[str, Any]
     ) -> None:
+        """The banner that fired on this went with the rule it watched (ADR 0113): the
+        run's date is a stamp, and a document dated after it is a mis-dated document, not
+        hindsight."""
+        await _seed_source(scene, publication_date=AS_OF_DATE + timedelta(days=30))
+        assert await _fired_kinds(scene) == []
+
+    async def test_a_quarantined_source_is_already_handled(self, scene: dict[str, Any]) -> None:
         """Quarantined and not overridden means nothing can cite it: no banner."""
         await _seed_source(
-            scene, publication_date=AS_OF_DATE + timedelta(days=30), quarantined=True
+            scene, publication_date=AS_OF_DATE - timedelta(days=30), quarantined=True
         )
         assert await _fired_kinds(scene) == []
 

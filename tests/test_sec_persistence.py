@@ -30,7 +30,7 @@ from aer.services.facts import persist_facts, upsert_company
 from aer.services.sources import NO_PUBLICATION_DATE
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
-from aer.sources.sec.pit import select_point_in_time
+from aer.sources.sec.selection import select_latest
 from aer.storage.local import LocalArtefactStore
 from tests.log_helpers import events_at_or_above
 from tests.request_fixtures import research_request
@@ -63,7 +63,6 @@ async def request_row(db_session) -> ResearchRequest:
         investment_horizon_months=36,
         max_cost_gbp="2.00",
         portfolio_context={},
-        point_in_time=True,
         status=RequestStatus.DRAFT,
     )
     db_session.add(row)
@@ -354,9 +353,7 @@ class TestPersistingFacts:
         return acquisition.source_document
 
     async def test_selected_facts_are_written(self, db_session, company, source):
-        selection = select_point_in_time(
-            parse_company_facts(COMPANYFACTS).facts, as_of_date=date(2021, 3, 31)
-        )
+        selection = select_latest(parse_company_facts(COMPANYFACTS).facts)
 
         written = await persist_facts(
             db_session, company=company, source_document=source, facts=selection.chosen
@@ -379,9 +376,7 @@ class TestPersistingFacts:
         assert digest == hashlib.sha256(COMPANYFACTS).hexdigest()
 
     async def test_re_running_writes_nothing_new(self, db_session, company, source):
-        facts = select_point_in_time(
-            parse_company_facts(COMPANYFACTS).facts, as_of_date=date(2021, 3, 31)
-        ).chosen
+        facts = select_latest(parse_company_facts(COMPANYFACTS).facts).chosen
 
         first = await persist_facts(
             db_session, company=company, source_document=source, facts=facts
@@ -397,8 +392,8 @@ class TestPersistingFacts:
         self, db_session, company, source
     ):
         # Both are true statements about the same period, made two years apart. Collapsing
-        # them would destroy the point-in-time record, which is what filed_date being part
-        # of the uniqueness key prevents.
+        # them would destroy the record of which filing said what, which is what filed_date
+        # being part of the uniqueness key prevents.
         original = make_fact(value=143015000000, filed="2020-07-30")
         restatement = make_fact(
             value=142000000000, filed="2022-07-28", accession="0000789019-22-000010"
@@ -490,7 +485,7 @@ class TestPersistingFacts:
         """Postgres binds each value as a parameter and stops at 32,767.
 
         Sixteen columns means 2,047 rows per statement, and this failed on the first real
-        company: Microsoft's companyfacts, point-in-time selected, is 13,702 facts — 219,232
+        company: Microsoft's companyfacts, selected filing by filing, is 13,702 facts — 219,232
         parameters. The extract step died with ``the number of query arguments cannot exceed
         32767`` after the planner call had been paid for.
 
@@ -670,12 +665,13 @@ class TestTwoTagsForOneObservation:
 
 
 class TestTheFullSlice:
-    async def test_parse_select_and_persist_produces_the_point_in_time_answer(
+    async def test_parse_select_and_persist_produces_the_latest_filed_answer(
         self, db_session, store, request_row
     ):
         # The whole task in one test: fetch a companyfacts document, record its
-        # provenance, select as at March 2021, persist, and read back the revenue figure
-        # that was public on that date -- not the one restated in 2022.
+        # provenance, select each period's latest filing, persist, and read back the
+        # revenue figure as the newest filing states it -- the 2022 restatement, not the
+        # original (ADR 0113).
         result = await fetched(store, COMPANYFACTS)
         acquisition = await record_acquisition(
             db_session,
@@ -693,7 +689,7 @@ class TestTheFullSlice:
         )
 
         parsed = parse_company_facts(COMPANYFACTS)
-        selection = select_point_in_time(parsed.facts, as_of_date=request_row.work_order.as_of_date)
+        selection = select_latest(parsed.facts)
         await persist_facts(
             db_session,
             company=company,
@@ -711,10 +707,10 @@ class TestTheFullSlice:
             )
         ).all()
 
-        # Exactly one. The fixture tags FY2020 revenue under two names in the same filing,
-        # and both mean the same number -- point-in-time selection resolves that to a
-        # single answer rather than passing the ambiguity downstream.
+        # Exactly one. The fixture tags FY2020 revenue under two names in the 2020 filing
+        # and restates it in the 2022 one -- selection resolves that to a single answer,
+        # the latest filing's, rather than passing the ambiguity downstream.
         assert len(stored) == 1
-        assert int(stored[0].value) == 143015000000
-        assert stored[0].filed_date == date(2020, 7, 30)
-        assert stored[0].accession == "0000789019-20-000039"
+        assert int(stored[0].value) == 142000000000
+        assert stored[0].filed_date == date(2022, 7, 28)
+        assert stored[0].accession == "0000789019-22-000010"

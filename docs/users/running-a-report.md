@@ -180,32 +180,33 @@ settled on, the assumptions you approved, and the valuation the run reached from
 draft is only as good as those, and all of them are on the run console before a section is
 written.
 
-## Point-in-time
+## The run's date
 
 **A run is dated the day you commission it**, by the platform rather than by you (ADR 0110).
-The form states the date above the choice below; there is nothing to fill in. Commissioning
+The form states the date above the source policy; there is nothing to fill in. Commissioning
 research about a past quarter is the capability that gives up, deliberately: a date somebody
 types is a date somebody can get wrong, and a wrong one fails silently — set it a week early
 and the newest quarterly filing simply is not there, with no error anywhere.
 
-If the request is in point-in-time mode, nothing published after that date may support a
-claim. This is enforced **when a source is acquired**, not filtered afterwards, and checked a
-second time on the latest date before the report is rendered. With the date fixed at today,
-what it mostly catches is a document whose own evidence puts it in the future — one that has
-been mis-dated or made up.
+The date does two things. It is printed on the report, and every price, exchange rate and
+statistic the run reads is read **as at** it. It does not select evidence: a run reads the
+filings as they stand (ADR 0113), so the figure it holds for any period is the latest
+filing's word on it, and a document dated after the run — a restatement filed while the run
+was drafting, say — is admitted with its date on the record. A rule that once refused
+anything published after the date was retired when it was shown never to have fired: the
+date was always today, and nothing is published after today.
 
-It is a *selection* over the whole record rather than a filter on it, which matters for
-restatements: you see what a reader could have seen then, not today's numbers with the
-recent ones removed.
+Restatements are therefore what the newest filing says, with the original recorded beside it
+as superseded — and every figure in the report names the filing it came from, so "which
+filing said this?" is always answerable.
 
-**A page nobody can date is a separate question**, asked separately on the form. Most news
-reporting carries no publication date a machine can read, and until this was its own choice
-the only way to read any of it was to switch point-in-time off — which switched off the
-look-ahead check too. The default now is to read it and cap what it may be worth: an undated
-document counts as a tier-5 secondary source whoever published it, so it can corroborate a
-sentence and can never be the primary source a section requires. The evidence table says
-**Undated** against it and names the cap. Choosing to refuse them instead quarantines every
-one, with its reason, exactly as before.
+**A page nobody can date is the one source policy you choose**, on the form. Most news
+reporting carries no publication date a machine can read. The default is to read it and cap
+what it may be worth: an undated document counts as a tier-5 secondary source whoever
+published it, so it can corroborate a sentence and can never be the primary source a section
+requires. The evidence table says **Undated** against it and names the cap. Choosing to
+refuse them instead quarantines every one, with its reason, and the record of the refusal is
+kept.
 
 ## When a run stops
 

@@ -6,10 +6,9 @@ report — and it is the primary input to reproducing a run months later.
 **It is freely editable until a run exists, and frozen from that moment.** Before a job,
 this is a note to itself and correcting a mistyped ticker costs nothing. After one, it is
 what a plan was approved against and what evidence was gathered under, so editing it would
-not correct the record — it would falsify it. ``as_of_date`` and ``point_in_time``
-especially: changing either retrospectively makes the stored evidence inconsistent with
-the rules that admitted it, which is precisely the look-ahead bias the platform exists to
-prevent.
+not correct the record — it would falsify it. The source policies especially: changing
+them retrospectively makes the stored evidence inconsistent with the rules that admitted
+it.
 
 The rule is enforced in :func:`aer.services.requests.immutable_reason`, not here. A
 database constraint cannot see whether a job exists in the way this rule needs to explain

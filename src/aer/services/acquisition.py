@@ -97,7 +97,7 @@ async def record_acquisition(
 
     Args:
         work_order: The acquisition root this was gathered under (ADR 0093). Supplies the
-            as-of date and the point-in-time setting that decide admissibility — for a
+            source policy and the exclusions the admissibility decision reads — for a
             research run's root via :func:`acquisition_root`, and for a portfolio data
             acquisition from the act's own order, which has no mandate row at all.
         company_id: Which issuer the document is about, passed straight through to
@@ -107,13 +107,14 @@ async def record_acquisition(
             issuer at all.
         result: What the fetcher returned, successful or not.
         publication_date: When the document was published, where that is knowable.
-            ``None`` for a generated aggregate such as an API index — and under
-            point-in-time rules a document with no date is quarantined, which is the
-            correct outcome for something that is not a published document at all.
+            ``None`` for a generated aggregate such as an API index, which the run's
+            undated-sources policy then decides (ADR 0111): admitted and capped at tier 5
+            by default, quarantined where the run refuses undated sources — either is a
+            fair standing for something that is not a published document at all.
         published: The extractor's whole conclusion, for a caller that derived the date
             rather than being handed one — passed through to
-            :func:`~aer.services.sources.record_source_document`, whose admissibility
-            decision then reads the conservative ``latest`` rather than the estimate.
+            :func:`~aer.services.sources.record_source_document`, which records the
+            conservative ``latest`` beside the estimate.
 
     Returns:
         Both rows, so a caller can link facts to the source document without a second

@@ -56,7 +56,6 @@ class TestLoading:
         settings_env.setenv(env("LOG_LEVEL"), "debug")
         settings_env.setenv(env("BIND_PORT"), "9001")
         settings_env.setenv(env("PER_RUN_BUDGET_GBP"), "3.75")
-        settings_env.setenv(env("POINT_IN_TIME_DEFAULT"), "false")
         settings_env.setenv(env("ARTEFACT_ROOT"), str(artefacts))
 
         settings = load_settings()
@@ -65,7 +64,6 @@ class TestLoading:
         assert settings.log_level == "DEBUG"
         assert settings.bind_port == 9001
         assert settings.per_run_budget_gbp == Decimal("3.75")
-        assert settings.point_in_time_default is False
         assert settings.artefact_root == artefacts
         assert settings.http_user_agent == valid_user_agent
 
@@ -78,7 +76,6 @@ class TestLoading:
         assert settings.log_level == "INFO"
         assert settings.log_json is True
         assert settings.artefact_root == Path("./var/artefacts")
-        assert settings.point_in_time_default is True
         # £12.00, not the £2.50 this was written with. The old figure predated any run to
         # measure: the first full live run spent £5.17 on the draft step alone, and got past
         # the cap only because that step carried no estimate for the guard to read.

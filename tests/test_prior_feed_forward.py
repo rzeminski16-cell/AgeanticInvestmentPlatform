@@ -165,7 +165,8 @@ class TestThePriorDigest:
     async def test_the_as_of_bound_and_the_limit_hold(
         self, db_session: AsyncSession, owner: User
     ) -> None:
-        """A point-in-time run cannot be shaped by a view recorded in its future."""
+        """A run is shown the views recorded before its own date, so a replay is shown
+        the same priors the run was."""
         company = await _company(db_session)
         for year in (2018, 2019, 2020, 2021):
             await _approved_report(db_session, user=owner, company=company, as_of=date(year, 6, 30))

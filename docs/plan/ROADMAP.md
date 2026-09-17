@@ -870,7 +870,7 @@ authority on sequencing within this item.
 
 | | Feature | Needs |
 |---|---|---|
-| F1 | Remove point-in-time | ADR 0113 |
+| F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted in code; the replay acceptance waits on the corpus |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
 | F3 | The closing section reads the operator's own book | F12 |
 | F4 | The refresh | ADR 0116, F7 |
@@ -895,7 +895,8 @@ authority on sequencing within this item.
 unplaced. **F1 is Phase 1½**: after Phase 1's instruments (CI green, the order dependence
 verified, the journey harness red) and before Phase 2, alone, with the suite green before
 anything else lands — and beside it the corpus, which the delivery plan costed at £0 on stored
-runs that no longer exist (§3.19, item 2). **The loop — F3, F4, F5, F6, F9–F15 and the nineteen
+runs that no longer exist (§3.19, item 2). F1 landed on 17 September 2026 at £0; the corpus
+half is open until the keys arrive. **The loop — F3, F4, F5, F6, F9–F15 and the nineteen
 surfaces of `03-page-specifications.md` — is Phase 6a**, estimated at 25–35 sessions and £0
 live, after Phase 6 and before Phase 6b (which has nothing to record until F9, F10 and F14
 exist), in the dependency order of `04-feature-specifications.md`: risk and the pre-trade

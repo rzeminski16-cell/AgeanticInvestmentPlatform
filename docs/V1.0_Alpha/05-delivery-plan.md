@@ -182,6 +182,26 @@ the fixture it waits for — the sector and unmapped-concepts gates the fake sce
 the nine escalation triggers, an unverifiable citation, a bare `AerError` problem page), and
 each becomes a proof the day its fixture exists. Phase 1½ begins with that understood.
 
+**Phase 1½, first half — F1, DONE, 17 September 2026, £0.** ADR 0113 landed in the order
+it asked for: the structural-absence scan first (`tests/test_point_in_time_is_gone.py`,
+red), then the five enforcement layers — `sources/sec/pit.py` replaced by
+`sources/sec/selection.py` (the latest filing's word on each period, the rest recorded as
+superseded), the per-adapter bounding in the SEC and Companies House clients, the
+quarantine's date rule, the claim-time comparison and the direct SQL filters in the
+workflow — then the mode (migration 0076 drops `work_orders.point_in_time`; the request form
+keeps only the undated-sources pair), the two metrics (`BLOCKING` ten → nine, `RUN_TIME`
+eleven → nine, both with the comment rewritten), the trigger (§2.4's third row, and the
+journey inventory is 51 rows: 33 green, 18 unconstructed, both halves agreeing), the three
+prompt clauses (planner version 5, plan critic version 2, the writer's user turn), the
+renderer's header line and coverage sentence with the three goldens re-recorded, the tests
+(the corpus of dated documents is now `tests/publication_date_fixtures.py`, scored on the
+extractor alone) and the behaviour documents. Three pieces the spec did not name went with
+it — the validator's date-adjudication assist, a period bound in peer discovery, the
+full-text search's split of hits at the date — and ADR 0113 records them. **Not done, and
+said so:** ADR 0113's *every archived run still replays*, which needs the corpus. The second
+half of the phase — keys, the QUICK run, the three re-seeded runs, `aer backup`, that
+replay — is unchanged and waits on the operator's keys (D2).
+
 ## 6. Phase 2 — A bank can be researched
 
 **ISSUE 1, blocking · 7–9 sessions · £8 live · 1 ADR**

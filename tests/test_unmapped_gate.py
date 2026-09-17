@@ -53,9 +53,8 @@ pytestmark = pytest.mark.integration
 UNMAPPED_FIXTURE = "companyfacts_unmapped.json"
 UNMAPPED_TAG = "us-gaap:AllocatedShareBasedCompensationExpense"
 
-# After both fixtures' filing dates. The look-ahead filter is doing its job either way;
-# an as-of date before them would leave every fact rejected and make `facts_written` say
-# nothing about whether the gate discarded anything.
+# After both fixtures' filing dates, so the scene reads as a run commissioned once the
+# filings existed; nothing turns on the date since ADR 0113.
 AS_OF_DATE = date(2024, 6, 30)
 
 _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
@@ -90,7 +89,6 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
             ticker="MSFT",
             exchange="NASDAQ",
             as_of_date=AS_OF_DATE,
-            point_in_time=True,
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,

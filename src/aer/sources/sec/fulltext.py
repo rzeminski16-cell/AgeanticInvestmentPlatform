@@ -11,12 +11,6 @@ document, and a search result carrying its own URL would be a way for whatever E
 choose what this platform fetches next. Building the URL from identifiers means the worst a
 poisoned index entry can do is name a document that does not exist.
 
-**Post-dated hits are kept and marked, not dropped.** :meth:`SearchResults.admissible` splits
-rather than filters, so a run can report *"three results were excluded as published after the
-as-of date"*. Silently dropping them makes a search that found relevant material look like a
-search that found nothing, and those need different responses from a reviewer — the second means
-"look elsewhere", the first means "this exists and you may not use it yet".
-
 Coverage is worth knowing: EDGAR's full-text index starts at 2001, so a search bounded before
 then returns nothing and that is the index's answer rather than a fault.
 """
@@ -105,23 +99,6 @@ class SearchResults:
     hits: tuple[FullTextHit, ...]
     total: int
 
-    def admissible(
-        self, as_of_date: date | None
-    ) -> tuple[tuple[FullTextHit, ...], tuple[FullTextHit, ...]]:
-        """Split the hits into those usable at ``as_of_date`` and those published after it.
-
-        Returns:
-            ``(usable, excluded)``. **A split rather than a filter**, so a run can say how many
-            results the point-in-time rule cost it. A search that found relevant material and a
-            search that found nothing need different responses, and filtering makes them look
-            identical.
-        """
-        if as_of_date is None:
-            return self.hits, ()
-        usable = tuple(hit for hit in self.hits if hit.filed <= as_of_date)
-        excluded = tuple(hit for hit in self.hits if hit.filed > as_of_date)
-        return usable, excluded
-
 
 def build_search_url(
     phrase: str,
@@ -140,8 +117,8 @@ def build_search_url(
         cik: Restricts the search to one filer. Strongly preferred: an unscoped search over
             every filer returns other companies' documents, and a run that acquired one would
             have cited a competitor's filing for this company's figures.
-        end_date: Should be the request's as-of date under point-in-time rules, so the index
-            is not even asked about later filings.
+        end_date: The end of the window, where a caller wants one. Nothing in a research run
+            sets it: a run reads the filings as they stand (ADR 0113).
 
     Raises:
         ValidationError: The phrase is empty, or the date range runs backwards.

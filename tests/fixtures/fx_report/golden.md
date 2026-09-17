@@ -3,7 +3,6 @@
 **Ticker:** MSFT (NASDAQ)  
 **As-of date:** 30 June 2022  
 **Base currency:** USD  
-**Point-in-time:** enforced  
 **Generated:** 2 July 2022, 09:30 UTC  
 **Non-binding view:** Constructive (non-binding)  
 **Confidence:** 62%  
@@ -93,7 +92,7 @@ A comparable-company analysis was performed against three peers as at 30 June 20
 - **Golden Warnings:** Insufficient evidence: the golden scene says so.
 - **Golden Failed:** This section could not be generated.
 
-*† Rests in part on a source without a stated publication date. The point-in-time rule cannot be checked against such a source, so it is used with this caveat rather than excluded.*
+*† Rests in part on a source without a stated publication date. Such a source is a weaker one than a dated document, so it is used with this caveat, and never as the primary source a section requires, rather than excluded.*
 
 
 ## Notes

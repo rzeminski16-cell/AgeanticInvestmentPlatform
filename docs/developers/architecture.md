@@ -55,10 +55,11 @@ so a run with no company had nowhere to live. `work_orders` is now the supertype
 `research_requests` is a 1:1 detail row sharing its key. A model call no longer requires an
 equity mandate, and still requires a cap (ADR 0072).
 
-**2. Evidence scope took a `ResearchRequest`.** `EvidenceScope(work_order_id, as_of_date,
-point_in_time, subject_kind, subject_id)` replaced it in `visible_facts`, `visible_sources`
-and `verify.citations`, carrying the run identity so ADR 0061's one-predicate rule — evidence
-is scoped to the *subject*, not the request — survives unchanged.
+**2. Evidence scope took a `ResearchRequest`.** `EvidenceScope(work_order_id, subject_kind,
+subject_id)` replaced it in `visible_facts` and `visible_sources`, carrying the run identity
+so ADR 0061's one-predicate rule — evidence is scoped to the *subject*, not the request —
+survives unchanged. (It carried the run's date and a mode flag as well until ADR 0113 retired
+the rule that read them.)
 
 **3. A source reference resolved by hope.** `SourceRef.fact()` covered several relations
 that hold published figures and resolved as "a row in `financial_facts`". Nothing complained
@@ -108,10 +109,11 @@ evidence is a system that can launder an opinion into a fact.
 
 ## Two clocks
 
-The research clock is an **as-of date**: a run is a point-in-time selection over the record,
-and look-ahead is refused. Since ADR 0110 the platform stamps it at commissioning rather than
-taking it from an operator, so it is a fact about the run rather than a setting on it — the
-selection, and every guard over it, is unchanged. The portfolio clock is **continuous**: a
+The research clock is an **as-of date**: the day a run was commissioned, stamped by the
+platform (ADR 0110) rather than taken from an operator, so it is a fact about the run rather
+than a setting on it. It dates the report and the "as at" reads of prices, rates and
+statistics; it selects no evidence (ADR 0113 — a run reads the filings as they stand, the
+latest filing's word on each period). The portfolio clock is **continuous**: a
 book is followed, and what it was worth last March is a different question from what it is
 worth now.
 

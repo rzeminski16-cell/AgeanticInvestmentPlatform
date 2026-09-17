@@ -28,7 +28,7 @@ planning, interpretation, comparison, adversarial challenge and writing.**
 | iXBRL / PDF / HTML parsing | Source relevance triage |
 | **All arithmetic** — ratios, growth, WACC, DCF, comps, scenarios | Assumption *proposal* with justification |
 | Unit and currency normalisation | Drafting sections from already-structured facts |
-| Date arithmetic and point-in-time filtering | Red-teaming the thesis |
+| Date arithmetic and selection between filings | Red-teaming the thesis |
 | Citation resolution and excerpt verification | Natural-language writing |
 | Schema validation, storage, rendering, cost metering | |
 
@@ -49,14 +49,18 @@ single most common way systems like this produce confidently wrong numbers.
    evidence, and a lineage containing an *attested* node reaches no shareable surface,
    because the type it propagates into has no field for the figure. Three kinds of figure,
    not three kinds of evidence: invariant 1 is untouched.
-4. **Point-in-time is enforced at acquisition, in code.** Nothing published after the
-   as-of date may support a claim when point-in-time mode is on.
+4. **Retired — ADR 0113.** This row read *point-in-time is enforced at acquisition, in
+   code* until the readiness audit showed the rule had never fired: the run's date is the
+   day it was commissioned (ADR 0110), so nothing was ever published after it. A run now
+   reads the filings as they stand — the latest filing's word on each period, the rest
+   recorded as superseded — and `tests/test_point_in_time_is_gone.py` keeps the
+   enforcement gone. The number is kept so the other invariants keep theirs.
 5. **Units are carried through all arithmetic.** A unit mismatch raises; it never coerces.
 6. **Cost is metered and capped in code.** Every model call goes through the router and
    writes a cost row. Caps that only warn are caps that do not work.
 7. **Skill files are additive-only.** User-authored instructions may add requirements,
    never relax them. No wording in a skill file can switch off citations, set a rating,
-   or bypass point-in-time rules. Enforced structurally, not by prompt text.
+   or relax the platform's source rules. Enforced structurally, not by prompt text.
 8. **Untrusted content is data, never instruction.** Fetched pages and documents are
    wrapped and labelled. Tool authorisation is enforced in code, so injected text cannot
    cause a tool call the agent's role does not already permit.

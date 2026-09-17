@@ -1,31 +1,19 @@
-"""Point-in-time fact selection: what was known, as at a date.
+"""Fact selection: one observation per thing a filer said, the most recent word winning.
 
 This is the most important forty lines in the ingestion layer, so the rule is stated
 before the code.
 
 **The rule.** Group facts by what they are statements *about* — concept, unit, period end
-and fiscal period. Within a group, discard every fact filed after the as-of date. From
-what remains, choose the one filed **latest**. That is the most recent thing the company
-had said about that period as at that date, which is precisely what an analyst working
-that day would have had in front of them.
+and fiscal period. Within a group, choose the one filed **latest**. That is the most recent
+thing the company has said about that period, which is what an analyst reading the filings
+as they stand today has in front of them (ADR 0113: a run reads the filings as they stand).
 
-**The rule that is wrong, and why it is tempting.** Taking the latest value regardless of
-filing date is one line shorter and gives cleaner-looking data, because restatements
-resolve accounting messes and the restated figure is usually the more "correct" one. It is
-also look-ahead bias in its purest form. A model tested on restated history sees the
-company's 2020 results as they were understood in 2023 — including the reclassifications
-that were made *because of* what happened in 2021 and 2022. It will appear to have
-predicted things it could not have known, and the live version will not.
-
-That failure is silent. Nothing raises, no number looks implausible, and the backtest
-simply looks better than reality. It is the single most common way a research system
-produces confident nonsense, which is why the selection is deterministic Python with an
-exhaustive test rather than a judgement made anywhere near a prompt.
-
-**Every fact is accounted for.** The result is a partition: each input fact appears
-exactly once, in ``chosen`` or in ``rejected`` with a reason. A selector that returned only
-its winners would make "why is this figure not in the report?" unanswerable, and that
-question gets asked about every report.
+**Why the losers are kept.** The result is a partition: each input fact appears exactly
+once, in ``chosen`` or in ``rejected`` with a reason and the accession that beat it. A
+selector that returned only its winners would make "why is this figure not in the report?"
+unanswerable, and that question gets asked about every report. A restatement is the
+ordinary case — the later filing's figure wins and the original is recorded as superseded
+by it — so the audit trail says which filing every number came from and which it replaced.
 """
 
 from __future__ import annotations
@@ -41,18 +29,14 @@ from aer.errors import ValidationError
 
 __all__ = [
     "DUPLICATE_TAGGING_IN_SAME_FILING",
-    "FILED_AFTER_AS_OF_DATE",
     "SUPERSEDED_BY_LATER_FILING",
-    "PointInTimeSelection",
+    "FactSelection",
     "RejectedFact",
-    "select_point_in_time",
+    "select_latest",
 ]
 
-FILED_AFTER_AS_OF_DATE: Final = "filed_after_as_of_date"
-"""The fact did not exist yet. Using it would be look-ahead bias."""
-
 SUPERSEDED_BY_LATER_FILING: Final = "superseded_by_later_filing"
-"""A later filing, still on or before the as-of date, restated this period."""
+"""A later filing restated this period; the later figure is the one chosen."""
 
 DUPLICATE_TAGGING_IN_SAME_FILING: Final = "duplicate_tagging_in_same_filing"
 """One filing tagged the same concept twice, under two names.
@@ -71,24 +55,18 @@ class RejectedFact:
     fact: RawFact
     reason: str
 
-    # Set when the reason is supersession: which filing won. Makes the rejection
-    # auditable without re-running the selection to work out what beat it.
+    # Which filing won. Makes the rejection auditable without re-running the selection to
+    # work out what beat it.
     superseded_by: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class PointInTimeSelection:
+class FactSelection:
     """The outcome of a selection: a partition of the input facts."""
 
     chosen: tuple[RawFact, ...]
     rejected: tuple[RejectedFact, ...]
-    as_of_date: date
     basis: FactBasis
-
-    @property
-    def rejected_for_look_ahead(self) -> tuple[RejectedFact, ...]:
-        """Facts excluded because they were filed after the as-of date."""
-        return tuple(r for r in self.rejected if r.reason == FILED_AFTER_AS_OF_DATE)
 
     def latest(self, concept: str, *, unit: str | None = None) -> RawFact | None:
         """The chosen fact for a concept with the most recent period end."""
@@ -111,20 +89,18 @@ class PointInTimeSelection:
         )
 
 
-def select_point_in_time(
+def select_latest(
     facts: tuple[RawFact, ...] | list[RawFact],
     *,
-    as_of_date: date,
     basis: FactBasis = FactBasis.AS_REPORTED,
-) -> PointInTimeSelection:
-    """Choose the facts that were public as at ``as_of_date``.
+) -> FactSelection:
+    """Choose, for each thing the filer reported, the figure from the latest filing.
 
     Args:
         facts: Every observation the source reported, unfiltered.
-        as_of_date: The date the research is performed *as at*. A fact filed on this exact
-            date is included — a filing accepted on a day was public that day.
         basis: Which version of each number to select. Only
-            :attr:`~aer.core.enums.FactBasis.AS_REPORTED` is implemented.
+            :attr:`~aer.core.enums.FactBasis.AS_REPORTED` is implemented: the figure as the
+            winning filing reported it, with no vendor standardisation applied.
 
     Raises:
         ValidationError: If a basis other than ``AS_REPORTED`` is requested.
@@ -134,37 +110,30 @@ def select_point_in_time(
         ``rejected`` with a reason.
     """
     if basis is not FactBasis.AS_REPORTED:
-        # Deliberately not implemented rather than merely unused. Selecting the restated
-        # figure means selecting information that did not exist at the as-of date, and a
-        # convenience function for doing that is a convenience function for introducing
-        # look-ahead bias. If a genuine need appears, it needs an ADR, not a branch here.
+        # Deliberately not implemented rather than merely unused. A vendor-standardised
+        # figure is a figure nobody filed, and a fact that traces to no filing has no
+        # artefact behind it (invariant 1). If a genuine need appears, it needs an ADR, not
+        # a branch here.
         message = (
-            f"Only the {FactBasis.AS_REPORTED.value} basis is implemented. Selecting "
-            f"{basis.value} facts would use figures published after the as-of date, "
-            "which is look-ahead bias by construction."
+            f"Only the {FactBasis.AS_REPORTED.value} basis is implemented. A {basis.value} "
+            "figure is one no filing reported, so nothing archived could stand behind it."
         )
-        raise ValidationError(
-            message, context={"basis": basis.value, "as_of_date": as_of_date.isoformat()}
-        )
+        raise ValidationError(message, context={"basis": basis.value})
 
     groups: dict[tuple[str, str, date, str | None, str | None, str | None], list[RawFact]] = (
         defaultdict(list)
     )
-    rejected: list[RejectedFact] = []
-
     for fact in facts:
-        if fact.filed_date > as_of_date:
-            rejected.append(RejectedFact(fact=fact, reason=FILED_AFTER_AS_OF_DATE))
-            continue
         groups[fact.period_key].append(fact)
 
     chosen: list[RawFact] = []
+    rejected: list[RejectedFact] = []
     for candidates in groups.values():
         # Sorted rather than max() so the losers are identified as well as the winner.
         #
         # Three keys, each doing a distinct job:
         #
-        # * `filed_date` is the rule itself -- the most recent thing the company had said.
+        # * `filed_date` is the rule itself -- the most recent thing the company has said.
         # * `accession` breaks a same-day tie. A 10-K and a same-day 10-K/A are ordered by
         #   the sequence number EDGAR issued, and the later one is the more recent word.
         # * `raw_concept` breaks a tie *within one filing*, which happens whenever a filer
@@ -190,9 +159,8 @@ def select_point_in_time(
             for loser in ordered[:-1]
         )
 
-    return PointInTimeSelection(
+    return FactSelection(
         chosen=tuple(sorted(chosen, key=lambda f: (f.concept, f.period_end, f.unit))),
         rejected=tuple(rejected),
-        as_of_date=as_of_date,
         basis=basis,
     )

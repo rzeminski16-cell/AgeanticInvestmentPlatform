@@ -51,7 +51,6 @@ class TriggerKind(StrEnum):
 
     LOW_SOURCE_COVERAGE = "low_source_coverage"
     CREDIBLE_SOURCE_CONFLICT = "credible_source_conflict"
-    POTENTIAL_LOOK_AHEAD = "potential_look_ahead"
     HIGH_MODEL_UNCERTAINTY = "high_model_uncertainty"
     MATERIAL_MISSING_SECTION = "material_missing_section"
     SKILL_POLICY_CLAMP = "skill_policy_clamp"
@@ -68,6 +67,12 @@ class TriggerKind(StrEnum):
     # The challenges are not lost: they are `disagreements` rows and they reach both the gate
     # page and the report's appendix on their own section, which is where a reader can weigh
     # them instead of being alarmed by their existence.
+    #
+    # §2.4's third row — the trigger for a source dated after the run being admissible —
+    # went with the rule it watched (ADR 0113). The run's date was always the day it was
+    # commissioned, so the row never had anything to fire on. A gate payload sealed under
+    # the old build still carries the row's record; the words for it fall back to the
+    # stored kind.
 
 
 # §2.4: "any section self-confidence < 0.5". A float because it compares against the
@@ -83,8 +88,6 @@ COST_ALERT_RATIO: Final = Decimal("0.8")
 # quietly un-wiring a trigger.
 _CITATION_ACCURACY: Final = "citation_accuracy"
 _HALLUCINATED_CITATION_RATE: Final = "hallucinated_citation_rate"
-_TEMPORAL_COMPLIANCE: Final = "temporal_compliance"
-_LOOK_AHEAD_RECALL: Final = "look_ahead_recall"
 _PRIMARY_SOURCE_RATIO: Final = "primary_source_ratio"
 _NUMERICAL_CONSISTENCY: Final = "numerical_consistency"
 _FIGURE_PLAUSIBILITY: Final = "figure_plausibility"
@@ -215,7 +218,6 @@ class SourceScene:
     """One source document, reduced to the two flags the triggers read."""
 
     name: str
-    post_dated: bool = False
     admissible: bool = True
     injection_flagged: bool = False
 
@@ -248,7 +250,6 @@ class FiredTrigger:
 
 def fire_triggers(
     *,
-    point_in_time: bool,
     metrics: tuple[MetricScore, ...],
     sections: tuple[SectionScene, ...],
     conflicts: tuple[ConflictScene, ...],
@@ -256,7 +257,7 @@ def fire_triggers(
     sources: tuple[SourceScene, ...],
     cost: CostScene,
 ) -> tuple[FiredTrigger, ...]:
-    """Evaluate all nine §2.4 conditions over one run's recorded rows.
+    """Evaluate the eight surviving §2.4 conditions over one run's recorded rows.
 
     Returns the fired triggers in the table's own order, each carrying the evidence that
     made it fire. An empty tuple is the clean run — no banner.
@@ -264,7 +265,6 @@ def fire_triggers(
     candidates = (
         _low_source_coverage(sections, metrics),
         _credible_source_conflict(conflicts),
-        _potential_look_ahead(sources, metrics, point_in_time=point_in_time),
         _high_model_uncertainty(sections, metrics),
         _material_missing_section(sections),
         _skill_policy_clamp(clamps),
@@ -276,7 +276,7 @@ def fire_triggers(
 
 
 # ==========================================================================================
-# The nine conditions, in §2.4's order
+# The eight conditions, in §2.4's order
 # ==========================================================================================
 
 
@@ -334,43 +334,6 @@ def _credible_source_conflict(conflicts: tuple[ConflictScene, ...]) -> FiredTrig
         message=(
             "Credible sources disagree materially about a figure. Both positions are "
             "recorded side by side below; approving publishes the conflict on the record."
-        ),
-        evidence=_capped(evidence),
-    )
-
-
-def _potential_look_ahead(
-    sources: tuple[SourceScene, ...],
-    metrics: tuple[MetricScore, ...],
-    *,
-    point_in_time: bool,
-) -> FiredTrigger | None:
-    """A source published after the as-of date is usable while point-in-time is on.
-
-    Two ways to hold: a post-dated source that is admissible anyway (an override, or an
-    enforcement gap — either way a person should see it), or the temporal metrics
-    recording that inadmissible evidence was in fact used.
-    """
-    evidence = (
-        [
-            f"'{row.name}' postdates the as-of date and is admissible"
-            for row in sources
-            if row.post_dated and row.admissible
-        ]
-        if point_in_time
-        else []
-    )
-    for name in (_TEMPORAL_COMPLIANCE, _LOOK_AHEAD_RECALL):
-        score = _score(metrics, name)
-        if score is not None and score.passed is False:
-            evidence.extend(score.failures or (f"{name} failed",))
-    if not evidence:
-        return None
-    return FiredTrigger(
-        kind=TriggerKind.POTENTIAL_LOOK_AHEAD,
-        message=(
-            "Evidence dated after the as-of date can reach this report. Under "
-            "point-in-time rules that is look-ahead, and the affected sources are named."
         ),
         evidence=_capped(evidence),
     )

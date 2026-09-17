@@ -47,10 +47,11 @@ compromised CMS was told to serve.
 text only when there is exactly one unambiguous candidate — `Interim results — 28 July 2022` is
 real evidence; a year in a filename is not, and two dates in one link is a range.
 
-Where no date is found, `publication_date` is `None` and the document is **quarantined under
-point-in-time rules**. That is the honest outcome: a date invented from a URL slug would be worse
-than none, because it would pass the check. An operator who knows the date can record an override
-with a reason.
+Where no date is found, `publication_date` is `None` and the document is **admitted and capped
+at tier 5, never primary** (ADR 0111) — or quarantined, where the run's policy refuses undated
+sources. That is the honest outcome: a date invented from a URL slug would be worse than none,
+because it would pass as evidence of when the document appeared. An operator who knows the date
+can record an override with a reason against a refused one.
 
 ## Licensing
 

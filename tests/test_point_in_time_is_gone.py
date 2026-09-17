@@ -1,0 +1,139 @@
+"""Point-in-time is retired, and this is the assertion that keeps it retired (ADR 0113).
+
+A deletion nobody asserts is a deletion that returns. The enforcement had five layers —
+fact selection against an as-of date, the quarantine's look-ahead rule, per-adapter bounding,
+the claim-time check and the prompts' clause — plus a mode on the request, two metrics, a
+trigger and the report's own header lines. Each is a name, and this scans for the names.
+
+**What the scan polices.** Under `src/`, `tests/` and `audit/` the enforcement's names and
+the phrase itself may not appear at all: `point_in_time` in any spelling, the selection
+function and its rejection reason, the quarantine reason, the two metrics, the trigger, and
+"look-ahead" as the rule's own word. Prose counts as much as code, because a docstring that
+still describes the rule is how the rule grows back as folklore.
+
+**What survives, and is deliberately not scanned.** `as_of_date` is the run's date stamp
+(ADR 0110) and the "as at" bound on the price, FX and macro reads; `reports.as_of_date`
+records the date a finished run was made as at; `watchlist_commissions.as_of_date` and the
+post-trade reviewer's own as-of date (ADR 0075) are theirs. An earlier draft of the ADR
+asked for `as_of` to vanish everywhere, which no tree that keeps those readers could
+satisfy; the allowlist is the list above, by name, so a new `as_of` reader is a deliberate
+addition rather than a silent one. `undated_sources_admissible` also survives: it is a
+statement about evidence quality (ADR 0111), not about a date. Two error codes survive by
+name as well — `look_ahead_price` in `aer.calc.prices` and `look_ahead_rate` in
+`aer.calc.fx` — because they are the "as at" readers' own refusals of a bar or a rate dated
+after the day a series is read as at, and an error code is stable (`aer.errors`); their
+prose no longer borrows the retired rule's words.
+
+**The documents.** Records are immutable and keep their words: every ADR, the archive, the
+readiness audit's exports, the roadmap, and the V1.0 folder that records the removal. The
+documents that describe how the platform *behaves* — the user guides, the developer guides,
+the data-source dossiers, the product pages, the root README — must not describe a rule
+that no longer binds.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Final
+
+import pytest
+
+ROOT: Final = Path(__file__).resolve().parent.parent
+
+# The enforcement's own names, and the phrase. Case-insensitive, so `Point-in-time:` on a
+# report header and `POINT_IN_TIME` on an enum are the same hit. "point in time" with spaces
+# is not matched: revenue recognised *at a point in time* is an accounting term, not the rule.
+# The two surviving error codes are excluded by name — see the module docstring.
+FORBIDDEN: Final = re.compile(
+    r"point[-_]in[-_]time"
+    r"|select_point_in_time|PointInTimeSelection"
+    r"|filed_after_as_of_date|rejected_for_look_ahead"
+    r"|published_after_as_of_date"
+    r"|temporal_compliance|look_ahead_recall"
+    r"|potential_look_ahead"
+    r"|look[-_ ]ahead(?!_price\b|_rate\b)",
+    re.IGNORECASE,
+)
+
+CODE_TREES: Final = ("src", "tests", "audit", "migrations")
+CODE_SUFFIXES: Final = frozenset({".py", ".html", ".md", ".txt", ".json", ".toml", ".yml", ".yaml"})
+
+# Immutable history, and the records that cite the removal.
+CODE_ALLOWED: Final = (
+    "tests/test_point_in_time_is_gone.py",
+    # Migrations are the schema's history; the column's arrival and its removal both live here.
+    "migrations/versions/",
+)
+
+DOC_ALLOWED: Final = (
+    "docs/adr/",
+    "docs/archive/",
+    "docs/plan/readiness-audit-2026-09/",
+    "docs/plan/readiness-audit-2026-09.md",
+    "docs/plan/ROADMAP.md",
+    "docs/V1.0_Alpha/",
+    # The index names ADR 0113 by its title, and the knowledge map's invariant table records
+    # the removal in the row the invariant used to occupy.
+    "docs/README.md",
+    "docs/developers/knowledge-map.md",
+    "CLAUDE.md",
+)
+
+
+def _hits(files: list[Path], allowed: tuple[str, ...]) -> list[str]:
+    found: list[str] = []
+    for path in files:
+        relative = path.relative_to(ROOT).as_posix()
+        if any(relative == item or relative.startswith(item) for item in allowed):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for number, line in enumerate(text.splitlines(), start=1):
+            if FORBIDDEN.search(line):
+                found.append(f"{relative}:{number}: {line.strip()[:120]}")
+    return found
+
+
+def _code_files() -> list[Path]:
+    files: list[Path] = []
+    for tree in CODE_TREES:
+        files.extend(
+            path
+            for path in sorted((ROOT / tree).rglob("*"))
+            if path.is_file() and path.suffix in CODE_SUFFIXES and "__pycache__" not in path.parts
+        )
+    return files
+
+
+def _doc_files() -> list[Path]:
+    docs = [
+        path
+        for path in sorted((ROOT / "docs").rglob("*"))
+        if path.is_file() and path.suffix in {".md", ".html", ".ipynb", ".js", ".json"}
+    ]
+    return [
+        *docs,
+        ROOT / "README.md",
+        ROOT / "CLAUDE.md",
+        ROOT / ".env.example",
+        ROOT / "pyproject.toml",
+    ]
+
+
+def test_the_enforcement_has_no_name_left_in_the_code() -> None:
+    hits = _hits(_code_files(), CODE_ALLOWED)
+    assert not hits, "point-in-time enforcement is named in code:\n  " + "\n  ".join(hits)
+
+
+def test_the_documents_that_describe_behaviour_do_not_describe_the_rule() -> None:
+    hits = _hits(_doc_files(), DOC_ALLOWED)
+    assert not hits, "a behaviour document still describes point-in-time:\n  " + "\n  ".join(hits)
+
+
+@pytest.mark.parametrize("record", ["docs/adr/0113-a-run-reads-the-filings-as-they-stand.md"])
+def test_the_record_of_the_removal_is_where_the_scan_says_it_is(record: str) -> None:
+    """The allowlist is only honest while the record it protects exists."""
+    assert (ROOT / record).is_file()

@@ -204,16 +204,16 @@ class TestFetchAndParse:
 
 class TestDiscovery:
     @respx.mock
-    async def test_documents_are_filtered_at_acquisition_by_the_as_of_date(self, client):
-        # Filtered here, not downstream. A filing accepted after the as-of date never
-        # becomes a reference, so no later code path can fetch it by forgetting to check.
+    async def test_every_periodic_filing_is_offered_with_its_date(self, client):
+        # The whole index, each reference dated by the regulator's own record (ADR 0113):
+        # the newest annual report is a candidate whatever day the run was commissioned.
         respx.get(SUBMISSIONS_URL).mock(return_value=json_response("submissions_msft.json"))
         entity = ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP")
 
-        refs = await client.discover_documents(entity, as_of_date=date(2021, 1, 1))
+        refs = await client.discover_documents(entity)
 
-        assert all(ref.publication_date <= date(2021, 1, 1) for ref in refs)
-        assert "0000789019-22-000010" not in {ref.accession for ref in refs}
+        assert all(ref.publication_date is not None for ref in refs)
+        assert "0000789019-22-000010" in {ref.accession for ref in refs}
 
     @respx.mock
     async def test_periodic_forms_are_the_default(self, client):
@@ -237,12 +237,12 @@ class TestDiscovery:
 
     @respx.mock
     async def test_fetch_facts_returns_everything_unfiltered(self, client):
-        # Point-in-time selection happens later, on the complete set, so what was
-        # rejected and why stays recoverable.
+        # Filing selection happens later, on the complete set, so what was rejected and
+        # why stays recoverable.
         respx.get(COMPANYFACTS_URL).mock(return_value=json_response("companyfacts_msft.json"))
         entity = ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP")
 
-        facts = await client.fetch_facts(entity, as_of_date=date(2021, 1, 1))
+        facts = await client.fetch_facts(entity)
 
         assert any(f.filed_date > date(2021, 1, 1) for f in facts)
 

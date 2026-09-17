@@ -341,10 +341,6 @@ class Settings(BaseSettings):
     obsidian_vault_root: Path | None = None
     obsidian_personal_root: Path | None = None
 
-    # -- Research defaults -------------------------------------------------------------
-
-    point_in_time_default: bool = True
-
     # -- Cost control ------------------------------------------------------------------
 
     # £2.50 until the first full live run measured one: the draft step alone came to £5.17,

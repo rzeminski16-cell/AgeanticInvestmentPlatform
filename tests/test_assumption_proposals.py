@@ -435,8 +435,8 @@ class TestTheCashCostOfDebtProxy:
 
     async def test_it_proposes_cash_interest_over_average_debt(self, scene: dict[str, Any]) -> None:
         # Long-term debt 400 in both years, so the average is 400 and 20/400 = 0.05.
-        # 2022 and 2023, not 2024: the scene's as-of is 30 June 2024 and a year is filed
-        # the following February, so a 2024 year-end never survives point-in-time.
+        # 2022 and 2023, not 2024: the scene is dated 30 June 2024 and a year is filed
+        # the following February, so no 2024 year-end has been filed yet.
         await seed_years(
             scene,
             {

@@ -54,7 +54,6 @@ def a_request(**overrides: object) -> ResearchRequest:
         "investment_horizon_months": 36,
         "horizon_label": "Through the next capex cycle",
         "analysis_mode": AnalysisMode.FULL,
-        "point_in_time": True,
         # Stated rather than left to the column default, which applies at INSERT and this
         # row is never persisted. An unset boolean reads back as `None` and would make the
         # round trip below assert that "false" is the honest rendering of "not yet known".
@@ -156,7 +155,6 @@ class TestTheFormRoundTrip:
         assert payload.investment_horizon_months == stored.investment_horizon_months
         assert payload.horizon_label == stored.horizon_label
         assert payload.analysis_mode is stored.analysis_mode
-        assert payload.point_in_time == stored.work_order.point_in_time
         assert payload.undated_sources_admissible == stored.work_order.undated_sources_admissible
         assert payload.focus_questions == stored.focus_questions
         assert payload.excluded_sources == stored.excluded_sources
@@ -215,16 +213,16 @@ class TestTheFormRoundTrip:
         assert page.extra["as_of"] == "2022-06-30"
         assert page.extra["as_of"] != datetime.now(UTC).date().isoformat()
 
-    def test_point_in_time_off_renders_as_the_chosen_radio(self) -> None:
+    def test_refusing_undated_sources_renders_as_the_chosen_radio(self) -> None:
         # The control is a pair of radios and the parser reads which one was chosen, so
         # the honest representation is the word. Rendering "" left neither radio checked
-        # and read back as *true*, which is how the guard could not be turned off at all.
-        values = form_values_from(a_request(point_in_time=False))
+        # and read back as *true*, which is how the policy could not be changed at all.
+        values = form_values_from(a_request(undated_sources_admissible=False))
 
-        assert values["point_in_time"] == "false"
+        assert values["undated_sources_admissible"] == "false"
         parsed = parse_request_form(values)
         assert parsed.payload is not None
-        assert parsed.payload.point_in_time is False
+        assert parsed.payload.undated_sources_admissible is False
 
     def test_it_fills_every_field_the_form_renders(self) -> None:
         assert set(form_values_from(a_request())) == set(FORM_FIELDS)

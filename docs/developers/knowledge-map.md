@@ -25,7 +25,7 @@ interpretation, comparison, adversarial challenge and writing.**
 | Fetching, hashing, caching, parsing | Research planning |
 | **All arithmetic** — ratios, WACC, DCF, comps | Assumption *proposal*, with justification |
 | Unit and currency handling | Source relevance triage |
-| Date arithmetic, point-in-time selection | Drafting sections from structured facts |
+| Date arithmetic, selection between filings | Drafting sections from structured facts |
 | Citation resolution and verification | Red-teaming the thesis |
 | Schema validation, storage, cost metering | Natural-language writing |
 
@@ -205,7 +205,7 @@ ADR-level decision, not a code change.
 | 1 | Every externally derived fact traces to a hashed artefact | `storage/` + `tests/test_artefact_store.py`; `aer verify-artefacts` re-hashes the store |
 | 2 | The model may propose a citation; only code confirms one | `verify/` + `tests/test_citations.py` (ADR 0018) |
 | 3 | No figure reaches a report unless it is a stored fact or recorded calculation | `core/section_output.py` numeral scan + `sections/evidence.py` closed-world id checks |
-| 4 | Point-in-time is enforced at acquisition, in code | `sources/sec` selection (ADR 0010: selection, not filtering) + `tests/test_sec_pit.py` |
+| 4 | *Retired by ADR 0113* — a run reads the filings as they stand | `sources/sec/selection.py` (the latest filing's word on each period, the rest recorded as superseded; `tests/test_sec_selection.py`) + `tests/test_point_in_time_is_gone.py`, the scan that keeps the retired enforcement gone. The number is kept so the others keep theirs |
 | 5 | Units are carried through all arithmetic; mismatch raises | `calc/units.py` + `tests/test_units.py`, both operand orders |
 | 6 | Cost is metered and capped in code | `providers/costs.py`, `workflow/engine.py` BudgetGuard + `tests/test_budget.py` (ADRs 0051, 0052) |
 | 7 | Skill files are additive-only | `core/skill_policy.py`, the `core/skill_guidance.py` role table (ADR 0108) + the ADR 0040 corpus (`tests/skill_corpus.py`) |
@@ -221,8 +221,9 @@ ones — read the ADR before touching its territory:
   is UTC's and the cap does not join), 0052 (a step with no estimate is a step with no cap),
   0053 (a call is capped in pounds, not in tokens).
 - **Evidence and provenance** — 0008 (content-addressed artefacts), 0010 (point-in-time is
-  selection), 0014 (what may change after the fact), 0017 (locators), 0018 (only code
-  confirms a citation), 0021 (look-ahead checked twice), 0024 (the evidence chain is a
+  selection) and 0021 (look-ahead checked twice) — both superseded in their enforcement by
+  0113 (a run reads the filings as they stand), 0014 (what may change after the fact), 0017
+  (locators), 0018 (only code confirms a citation), 0024 (the evidence chain is a
   surface), 0031 (erasure is an appended event), 0044 (an aggregate is dated by its newest
   component), 0055 (evidence reaches a section ranked, and a thin report says so), 0058 (a
   dimensioned fact is a different observation), 0061 (evidence is scoped to the subject, not

@@ -660,11 +660,11 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
             },
             {"label": "Depth", "value": item.analysis_mode.value.capitalize()},
             {
-                "label": "Point-in-time",
+                "label": "Undated pages",
                 "value": (
-                    "On — no source published after the as-of date may be used"
-                    if item.work_order.point_in_time
-                    else "Off — look-ahead bias is possible"
+                    "Read, and never as a primary source"
+                    if item.work_order.undated_sources_admissible
+                    else "Refused at acquisition"
                 ),
             },
             {"label": "Base currency", "value": item.base_currency, "is_data": True},

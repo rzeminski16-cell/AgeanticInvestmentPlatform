@@ -11,8 +11,9 @@ The three operations are deliberately the smallest set that supports the pipelin
   can happen until this succeeds, and it is where a typo in a ticker becomes a clear
   failure rather than an empty result set three steps later.
 * **Discover** — list what documents exist for that entity, each with the date it was
-  published. The date is what makes point-in-time filtering possible, so an adapter that
-  cannot supply it cannot support point-in-time research.
+  published. The date is provenance: a document's own record of when it became public,
+  which the source page prints and the evidence tier reads (an undated document is never
+  primary, ADR 0111). An adapter that cannot supply it cannot say what its documents are.
 * **Extract** — parse documents into typed facts.
 
 Notably absent: anything that decides whether a number is *good*. An adapter reports what
@@ -52,10 +53,10 @@ class ResolvedEntity:
 class DocumentRef:
     """A document that exists, and enough about it to decide whether to fetch it.
 
-    ``publication_date`` is not optional. A document with no date cannot be shown to
-    predate an as-of date, so under point-in-time rules it is inadmissible — and an
-    adapter that returned undated references would push that decision downstream to a
-    place with less information about it.
+    ``publication_date`` is not optional. An index that names a document names the day it
+    became public, and that date is what the evidence tier reads (an undated document is
+    admitted and never primary, ADR 0111) — an adapter that returned undated references
+    would push that judgement downstream to a place with less information about it.
     """
 
     url: str
@@ -92,25 +93,21 @@ class SourceAdapter(Protocol):
         self,
         entity: ResolvedEntity,
         *,
-        as_of_date: date | None = None,
         forms: frozenset[str] | None = None,
     ) -> tuple[DocumentRef, ...]:
-        """List documents for an entity, newest first.
+        """List documents for an entity, newest first, as the publisher's index stands.
 
-        ``as_of_date`` filters at acquisition rather than afterwards: a document published
-        after the as-of date is not fetched at all under point-in-time rules, so it cannot
-        leak into a run through a later code path that forgot to check.
+        A run reads the filings as they stand when it runs (ADR 0113): nothing here is
+        bounded by a date, and the index's own order is the order returned.
         """
         ...
 
-    async def fetch_facts(
-        self, entity: ResolvedEntity, *, as_of_date: date | None = None
-    ) -> tuple[RawFact, ...]:
+    async def fetch_facts(self, entity: ResolvedEntity) -> tuple[RawFact, ...]:
         """Return every fact this publisher holds for the entity.
 
-        Unfiltered by concept, and **unfiltered by point-in-time** — selection happens in
-        :mod:`aer.sources.sec.pit`, on the full set, so the facts that were rejected and
-        the reason for each are recoverable. An adapter that filtered here would leave no
-        trace of what it discarded.
+        Unfiltered by concept and unfiltered by filing — selection happens in
+        :mod:`aer.sources.sec.selection`, on the full set, so the facts that were rejected
+        and the reason for each are recoverable. An adapter that filtered here would leave
+        no trace of what it discarded.
         """
         ...

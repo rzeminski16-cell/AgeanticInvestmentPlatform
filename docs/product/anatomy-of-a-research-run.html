@@ -604,8 +604,8 @@
       <div class="legend-item">
         <p class="legend-key"><span class="swatch code"></span> Deterministic</p>
         <p>
-          Fetching, hashing, parsing, all arithmetic, unit conversion, point-in-time
-          filtering, citation verification. Tested, repeatable, and the only thing allowed
+          Fetching, hashing, parsing, all arithmetic, unit conversion, selection between
+          filings, citation verification. Tested, repeatable, and the only thing allowed
           to produce a number.
         </p>
       </div>
@@ -785,7 +785,7 @@
           <div class="step-body">
             <span class="step-key">research_recent_developments</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
-            <span class="step-what">What has happened lately — and, in point-in-time mode, only what had happened by your as-of date.</span>
+            <span class="step-what">What has happened lately, from the pages the run may read.</span>
           </div>
           <div class="cost">£0.10</div>
         </div>
@@ -968,7 +968,7 @@
           <p class="agent-meta"><span>Sonnet · medium</span><span>3 tools</span><span>ADR 0037</span></p>
         </div>
         <p class="agent-asked">A section you wrote the instructions for, drafted under the policy those instructions compose into.</p>
-        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>Your instructions are additive only — enforced structurally, not by asking nicely. No wording in a skill file can switch citations off, set a rating, or step around the point-in-time rules.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>Your instructions are additive only — enforced structurally, not by asking nicely. No wording in a skill file can switch citations off, set a rating, or relax the platform's source rules.</p>
       </div>
 
       <div class="agent">
@@ -1097,9 +1097,9 @@
     </div>
 
     <p class="note">
-      Two properties fall out of the shape. <strong>Point-in-time is enforced at
-      acquisition</strong>, not at reading — a document published after your as-of date never
-      enters the run, so no later code path can use it by forgetting to check. And
+      Two properties fall out of the shape. <strong>Admissibility is decided at
+      acquisition</strong>, not at reading — a source the run may not use is flagged when it
+      arrives, so no later code path can cite it by forgetting to check. And
       <strong>units travel with the arithmetic</strong>: a mismatch raises rather than
       coercing, which is what stops a whole-company figure being divided by a per-share one.
       That error is wrong by the entire share count and looks completely ordinary on the page.

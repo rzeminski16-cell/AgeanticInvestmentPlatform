@@ -4,9 +4,8 @@ The spec's own tests, held exactly: a driver with a closed period and a filed ac
 produces a delta; a driver whose period has not closed produces "not yet observable",
 never a zero; an assumption the concept map cannot place is skipped with a stated reason
 rather than silently. On top of those, what the doctrine demands: the deltas that reach
-the comparison section are persisted as traced calculations (invariant 3), the accuracy
-aggregate weights by measured count, and point-in-time hides a year filed after the
-reading run's as-of date.
+the comparison section are persisted as traced calculations (invariant 3), and the accuracy
+aggregate weights by measured count.
 
 The realised value is asserted numerically against hand arithmetic — 106.4 over 100 is
 growth of 0.064 and nothing else — because a delta is exactly the kind of figure that
@@ -279,13 +278,7 @@ class TestAssumptionOutcomes:
         self, scene: dict[str, Any]
     ) -> None:
         context = new_context()
-        outcomes = await assumption_outcomes_for(
-            scene["session"],
-            context,
-            prior=scene["prior"],
-            as_of=READING_AS_OF,
-            point_in_time=True,
-        )
+        outcomes = await assumption_outcomes_for(scene["session"], context, prior=scene["prior"])
         by_name = {outcome.name: outcome for outcome in outcomes}
 
         growth = by_name["revenue_growth"]
@@ -304,11 +297,7 @@ class TestAssumptionOutcomes:
 
     async def test_a_judgement_is_not_measurable_and_says_why(self, scene: dict[str, Any]) -> None:
         outcomes = await assumption_outcomes_for(
-            scene["session"],
-            new_context(),
-            prior=scene["prior"],
-            as_of=READING_AS_OF,
-            point_in_time=True,
+            scene["session"], new_context(), prior=scene["prior"]
         )
         by_name = {outcome.name: outcome for outcome in outcomes}
 
@@ -335,11 +324,7 @@ class TestAssumptionOutcomes:
         self, scene: dict[str, Any]
     ) -> None:
         outcomes = await assumption_outcomes_for(
-            scene["session"],
-            new_context(),
-            prior=scene["prior"],
-            as_of=READING_AS_OF,
-            point_in_time=True,
+            scene["session"], new_context(), prior=scene["prior"]
         )
         by_name = {outcome.name: outcome for outcome in outcomes}
 
@@ -374,42 +359,11 @@ class TestAssumptionOutcomes:
             lines={"revenue": Decimal("100000000")},
         )
 
-        outcomes = await assumption_outcomes_for(
-            db_session, new_context(), prior=prior, as_of=READING_AS_OF, point_in_time=True
-        )
+        outcomes = await assumption_outcomes_for(db_session, new_context(), prior=prior)
 
         assert [outcome.status for outcome in outcomes] == [NOT_YET_OBSERVABLE]
         assert outcomes[0].delta is None
         assert "not yet observable" in outcomes[0].basis
-
-    async def test_point_in_time_hides_a_year_filed_after_the_reading_run(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """A run as at 2023-01-01 must not read the July 2023 filing beside it."""
-        outcomes = await assumption_outcomes_for(
-            scene["session"],
-            new_context(),
-            prior=scene["prior"],
-            as_of=date(2023, 1, 1),
-            point_in_time=True,
-        )
-        by_name = {outcome.name: outcome for outcome in outcomes}
-
-        assert by_name["revenue_growth"].status == NOT_YET_OBSERVABLE
-
-    async def test_a_closed_year_not_yet_filed_is_still_hidden(self, scene: dict[str, Any]) -> None:
-        """The filed-date half of point-in-time: the year ended 2023-06-30 but its
-        filing landed 2023-07-27, so a run as at 2023-07-01 has not seen it."""
-        outcomes = await assumption_outcomes_for(
-            scene["session"],
-            new_context(),
-            prior=scene["prior"],
-            as_of=date(2023, 7, 1),
-            point_in_time=True,
-        )
-        by_name = {outcome.name: outcome for outcome in outcomes}
-
-        assert by_name["revenue_growth"].status == NOT_YET_OBSERVABLE
 
 
 class TestTheComparisonSection:

@@ -160,7 +160,6 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "investment_horizon_months",
     "horizon_label",
     "analysis_mode",
-    "point_in_time",
     "undated_sources_admissible",
     "portfolio_context",
     "risk_tolerance",
@@ -171,14 +170,14 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "max_cost_gbp",
 )
 
-# The three of them the *run* owns rather than the equity mandate: whether look-ahead is
-# refused, whether an undatable source may be read, and what the run may spend. Editable by
-# the operator like the rest, stored on `work_orders` since ADR 0072.
+# The two of them the *run* owns rather than the equity mandate: whether an undatable
+# source may be read, and what the run may spend. Editable by the operator like the rest,
+# stored on `work_orders` since ADR 0072.
 #
 # `as_of_date` is a work-order field too and is deliberately not here: it is stamped at
 # commissioning and never edited (ADR 0110), so it is neither an editable field nor a
 # payload one.
-_RUN_ROOT_FIELDS: Final = frozenset({"point_in_time", "undated_sources_admissible", "max_cost_gbp"})
+_RUN_ROOT_FIELDS: Final = frozenset({"undated_sources_admissible", "max_cost_gbp"})
 
 
 def _as_problem(exclusion: Exclusion) -> FieldProblem:
@@ -240,10 +239,10 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     so that a field added to the schema cannot end up settable at creation and silently
     ignored on edit — which would look exactly like an edit that did not save.
 
-    **Three of them land on the work order** (ADR 0072): the two source policies and the
-    cap are properties of a *run*, and the spend guard and the look-ahead refusal have read
-    them from there since 0054. Writing them here rather than to a second copy is what
-    removes the mirror this function used to need beside it.
+    **Two of them land on the work order** (ADR 0072): the source policy and the cap are
+    properties of a *run*, and the spend guard and the quarantine decision have read them
+    from there since 0054. Writing them here rather than to a second copy is what removes
+    the mirror this function used to need beside it.
 
     The as-of date is a work-order field and is **not** among them. It is stamped once, at
     creation, from the clock (ADR 0110); an edit that moved it would falsify evidence the
@@ -259,7 +258,6 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     request.investment_horizon_months = payload.investment_horizon_months
     request.horizon_label = payload.horizon_label
     request.analysis_mode = payload.analysis_mode
-    request.work_order.point_in_time = payload.point_in_time
     request.work_order.undated_sources_admissible = payload.undated_sources_admissible
     # mode="json" so Decimal weights land as JSON strings the database can read back
     # without a float ever being involved. The CHECK constraints on this column cast
@@ -304,7 +302,6 @@ def mandate_read(row: ResearchRequest) -> ResearchRequestRead:
         reporting_currency=row.reporting_currency,
         investment_horizon_months=row.investment_horizon_months,
         horizon_label=row.horizon_label,
-        point_in_time=row.work_order.point_in_time,
         undated_sources_admissible=row.work_order.undated_sources_admissible,
         portfolio_context=PortfolioContext.model_validate(row.portfolio_context),
         risk_tolerance=row.risk_tolerance,
@@ -345,7 +342,6 @@ async def create_request(
         # above were checked against, so a request cannot be judged on one day and dated
         # to another by a clock read that crossed midnight in between.
         as_of_date=limits.today,
-        point_in_time=payload.point_in_time,
         undated_sources_admissible=payload.undated_sources_admissible,
         max_cost_gbp=payload.max_cost_gbp,
         status=RequestStatus.DRAFT,
@@ -375,7 +371,6 @@ async def create_request(
             "exchange": request.exchange,
             "as_of_date": request.work_order.as_of_date.isoformat(),
             "analysis_mode": request.analysis_mode.value,
-            "point_in_time": request.work_order.point_in_time,
             "undated_sources_admissible": request.work_order.undated_sources_admissible,
             "max_cost_gbp": str(request.work_order.max_cost_gbp),
         },
@@ -465,11 +460,11 @@ def _what_a_run_left_behind(
         ),
         (
             select(SourceDocument.id).where(SourceDocument.work_order_id == request.id),
-            "Evidence has been gathered against this request. The as-of date and "
-            "point-in-time setting are what admitted that evidence, so changing them now "
-            "would leave the stored sources inconsistent with the rules that selected them "
-            "— and deleting the request would throw away the provenance of bytes that are "
-            "still on disk. Create a new request instead.",
+            "Evidence has been gathered against this request. Its source policies and "
+            "exclusions are what admitted that evidence, so changing them now would leave "
+            "the stored sources inconsistent with the rules that selected them — and "
+            "deleting the request would throw away the provenance of bytes that are still "
+            "on disk. Create a new request instead.",
         ),
     )
 

@@ -137,7 +137,6 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
             ticker="MSFT",
             exchange="NASDAQ",
             as_of_date=AS_OF_DATE,
-            point_in_time=True,
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
@@ -510,28 +509,24 @@ class TestTheGateApi:
         assert body["sources"][0]["provider"] == "sec_edgar"
         assert len(body["sources"][0]["sha256"]) == 64
 
-    async def test_the_slices_api_aggregate_is_shown_quarantined(
+    async def test_the_slices_api_aggregate_is_dated_by_its_newest_filing(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        """And that is correct, not a defect, which is why it is pinned.
-
-        **The reason changed, and the change is the point.** The SEC's ``companyfacts``
-        response is a view assembled on request, so it used to be quarantined
-        ``no_publication_date`` — which meant no claim could cite the only source the run
-        held. ADR 0044 dates it by its newest component: the day it could first have
-        existed. This run's as-of date is earlier than that day, so the aggregate is now
-        quarantined for a reason that is *true* — it did not exist yet — and a run in that
-        position should be reading the filings themselves, which this one now does.
-
-        Surfacing it rather than suppressing it is the whole argument for the table.
+        """The SEC's ``companyfacts`` response is a view assembled on request, so it used
+        to be quarantined ``no_publication_date`` — which meant no claim could cite the only
+        source the run held. ADR 0044 dates it by its newest component: the day it could
+        first have existed. That date is later than this run's own, and nothing turns on
+        that since ADR 0113: the row carries the derived date, says it was derived, and is
+        admissible like any other dated source.
         """
         job_id = await _to_second_gate(api, committed, driver)
 
         body = (await api.get(f"/api/runs/{job_id}/sources")).json()
 
         aggregate = next(row for row in body["sources"] if "companyfacts" in row["url"])
-        assert body["quarantined"] == 1
-        assert aggregate["quarantine_reason"] == "published_after_as_of_date"
+        assert body["quarantined"] == 0
+        assert aggregate["admissible"]
+        assert aggregate["quarantine_reason"] is None
         assert aggregate["publication_date_confidence"] == pytest.approx(0.9), (
             "derived from the contents rather than stated, and the row must say so"
         )
@@ -539,8 +534,8 @@ class TestTheGateApi:
     async def test_the_filings_the_aggregate_could_not_supply_are_admissible(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        """The other half of ADR 0044's argument, and the reason the quarantine above is
-        tolerable: the run holds dated, citable primary documents of its own."""
+        """The other half of ADR 0044's argument: the run holds dated, citable primary
+        documents of its own rather than resting on the aggregate alone."""
         job_id = await _to_second_gate(api, committed, driver)
 
         body = (await api.get(f"/api/runs/{job_id}/sources")).json()

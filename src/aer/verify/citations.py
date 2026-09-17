@@ -41,19 +41,13 @@ stored on every verdict, because 0.97 and 0.02 send an operator to different pla
 with four bad citations should tell an operator about four rather than about the first. The
 refusal happens at gate 2, where a person can see all of them at once.
 
-**Point-in-time is checked again here, and that repetition is the design.** A source is already
-screened at acquisition, in :mod:`aer.services.sources`, and screening it a second time looks
-redundant until you notice the two moments know different things. Acquisition cannot know what a
-claim will later rest on: a document gathered for background ends up under a numeric claim, or
-a document admitted under one policy is cited after a correction to the record moved the run's
-own date. This check runs against the work order's as-of date **as it stands when the claim is
-made**, which is the only moment at which the question "does this report use information nobody
-had?" has a final answer. Threat T13.
-
-The operator moving the as-of date used to be the headline case for this, and since ADR 0110
-they cannot: the date is stamped at commissioning and never edited. What that removes is one
-way in for the mismatch, not the mismatch — a run started on Monday and still acquiring on
-Tuesday is dated Monday, and the second check is what notices.
+**Admissibility is read again here, before the text is.** A source is screened at acquisition,
+in :mod:`aer.services.sources`, and the verdict is on its row; a claim citing a quarantined
+document, or a prior run's own output, fails whatever the quote says. Acquisition cannot know
+what a claim will later rest on — a document gathered for background ends up under a numeric
+claim — so the moment the claim is made is where the row's verdict is applied. There is no
+second date comparison: the check that used to run here compared against a run date that was
+always the day the run was commissioned, and was retired with it (ADR 0113).
 """
 
 from __future__ import annotations
@@ -85,7 +79,6 @@ from aer.db.models import (
     Extraction,
     ReportSection,
     SourceDocument,
-    WorkOrder,
 )
 from aer.errors import IntegrityError
 from aer.extract import ExtractionError, extract_text
@@ -179,10 +172,10 @@ async def verify(
     """
     reader = documents if documents is not None else ReadOnce(store, settings)
 
-    # Before the text is even re-read: a source that may not be used at this as-of date fails
-    # whatever it says, and re-parsing a filing to confirm a quote nobody may cite is work done
-    # to reach an answer that was already decided.
-    inadmissible = await _refuse_if_out_of_time(session, citation=citation)
+    # Before the text is even re-read: a source that may not be used fails whatever it says,
+    # and re-parsing a filing to confirm a quote nobody may cite is work done to reach an
+    # answer that was already decided.
+    inadmissible = await _refuse_if_inadmissible(session, citation=citation)
     if inadmissible is not None:
         return _record(citation, inadmissible)
 
@@ -194,54 +187,24 @@ async def verify(
     return _record(citation, _compare(extraction, extracted))
 
 
-async def _refuse_if_out_of_time(
+async def _refuse_if_inadmissible(
     session: AsyncSession, *, citation: Citation
 ) -> VerificationOutcome | None:
-    """Whether this citation's source may be used at the request's as-of date.
+    """Whether this citation's source may support a claim at all.
 
     ``None`` means it may. The check is on the source document's own record rather than on a
-    recomputed date: the quarantine decision was made at acquisition with the evidence in hand,
-    and re-deriving it here from a stored date would use less information than the decision it
-    was second-guessing.
-
-    What *is* re-derived is the comparison against the as-of date, because the as-of date can
-    change after acquisition and a citation is only sound against the request as it now stands.
+    recomputed verdict: the quarantine decision was made at acquisition with the evidence in
+    hand, and re-deriving it here would use less information than the decision it was
+    second-guessing.
     """
     source = await _source_for(session, citation=citation)
     if source is None:  # pragma: no cover -- RESTRICT makes this unreachable in practice
         return VerificationOutcome(False, Decimal(0), "the source document is gone")
-
-    # The run root rather than the mandate (ADR 0072). What this needs is a date and a
-    # boolean, and both are properties of the run; reaching them through a research request
-    # made the look-ahead guard unavailable to any run that is not about a company.
-    work_order = await session.get(WorkOrder, source.work_order_id)
-    if work_order is None:  # pragma: no cover -- source_documents.work_order_id is NOT NULL
-        return VerificationOutcome(False, Decimal(0), "the work order is gone")
-
-    refused = _refuse_source(source)
-    if refused is not None:
-        return refused
-
-    if not work_order.point_in_time:
-        return None
-
-    # The latest date any evidence supports, not the best estimate. A document that *might* be
-    # from after the as-of date cannot be shown to have predated it, which is the question.
-    latest = source.publication_date_latest or source.publication_date
-    if latest is not None and latest > work_order.as_of_date:
-        return VerificationOutcome(
-            False,
-            Decimal(0),
-            f"the source was published on {latest.isoformat()}, after the run's as-of date "
-            f"of {work_order.as_of_date.isoformat()}. Citing it would use information nobody "
-            "had at the time.",
-        )
-
-    return None
+    return _refuse_source(source)
 
 
 def _refuse_source(source: SourceDocument) -> VerificationOutcome | None:
-    """Refusals that follow from what the source *is*, before any date arithmetic."""
+    """Refusals that follow from what the source *is*, before the text is re-read."""
     if source.provider is Provider.INTERNAL_PRIOR_RUN:
         # Section 2.8 rule 4, and a hard failure by design: prior research may inform a
         # hypothesis but cannot support a claim. A platform citing its own earlier output

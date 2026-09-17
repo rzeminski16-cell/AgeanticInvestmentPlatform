@@ -151,7 +151,6 @@ def _header(header: HeaderView, *, style: HouseStyle) -> list[str]:
         f"**Ticker:** {header.ticker} ({header.exchange})  ",
         f"**As-of date:** {display.date_text(header.as_of, style=style)}  ",
         f"**Base currency:** {header.base_currency}  ",
-        f"**Point-in-time:** {'enforced' if header.point_in_time else 'off'}  ",
         f"**Generated:** "
         f"{display.date_text(header.generated_at.date(), style=style)}"
         f"{header.generated_at.strftime(', %H:%M UTC')}  ",

@@ -177,7 +177,7 @@ from aer.skills.resolution import (
     resolve_skills_for_plan,
 )
 from aer.sources.sec.companyfacts import UnmappedConcept, parse_company_facts
-from aer.sources.sec.pit import select_point_in_time
+from aer.sources.sec.selection import select_latest
 from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 from aer.workflow.pauses import PauseReason
@@ -803,8 +803,8 @@ async def _prior_digests(session: AsyncSession, *, request: ResearchRequest) -> 
 
     The company is found by listing, exactly as the prior-run comparison finds it; a
     request the platform has never resolved has no company row and no history. The
-    ``before`` bound is the request's as-of date, so a point-in-time run cannot be shaped
-    by a view recorded in its future.
+    ``before`` bound is the run's own date stamp (ADR 0110), so a replayed run is shown
+    the same priors it was shown the first time.
     """
     company = await session.scalar(
         select(Company).where(
@@ -1037,7 +1037,6 @@ async def _critique_from_model(
                 ticker=request.ticker,
                 exchange=request.exchange,
                 as_of_date=request.work_order.as_of_date.isoformat(),
-                point_in_time=request.work_order.point_in_time,
                 analysis_mode=request.analysis_mode.value,
                 investment_horizon_months=request.investment_horizon_months,
                 focus_questions=list(request.focus_questions or []),
@@ -1417,7 +1416,6 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1581,7 +1579,6 @@ async def _value(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1676,7 +1673,6 @@ async def _comps(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        work_order=request.work_order,
         profile=profile_for(sector_key_of(context.outputs)),
     )
 
@@ -2807,9 +2803,7 @@ async def _acquire_prices(context: StepContext) -> StepResult:
         # endpoint is a ten-weight request, and it is a feed the operator's subscription
         # does not include, so the fallback could only ever fail: no market capitalisation,
         # and with it no enterprise-value multiple in the comps table.
-        shares_outstanding=await _filed_share_count(
-            context, company_id=company.id, request=request
-        ),
+        shares_outstanding=await _filed_share_count(context, company_id=company.id),
     )
 
     if ledger.records:
@@ -2818,9 +2812,7 @@ async def _acquire_prices(context: StepContext) -> StepResult:
     return StepResult(output=outcome.as_dict())
 
 
-async def _filed_share_count(
-    context: StepContext, *, company_id: uuid.UUID, request: ResearchRequest
-) -> Quantity | None:
+async def _filed_share_count(context: StepContext, *, company_id: uuid.UUID) -> Quantity | None:
     """The most recent share count the filings carry, or nothing.
 
     The cover page of every annual report states the shares outstanding on the day it was
@@ -2846,8 +2838,6 @@ async def _filed_share_count(
         .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
         .limit(1)
     )
-    if request.work_order.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.work_order.as_of_date)
 
     fact = await context.session.scalar(statement)
     if fact is None:
@@ -2860,7 +2850,7 @@ async def _filed_share_count(
 
 
 async def _extract(context: StepContext) -> StepResult:
-    """Parse the archived document and persist the point-in-time facts.
+    """Parse the archived document and persist each period's latest-filed facts.
 
     Parsed from the **artefact**, not from a response held in memory. The artefact is the
     authoritative copy, and if the two could differ then the facts and the evidence a
@@ -2873,7 +2863,7 @@ async def _extract(context: StepContext) -> StepResult:
     payload = await store.read(acquired["artefact_sha256"])
     parsed = parse_company_facts(payload)
 
-    selection = select_point_in_time(parsed.facts, as_of_date=request.work_order.as_of_date)
+    selection = select_latest(parsed.facts)
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     document = await context.session.get(SourceDocument, _uuid(acquired["source_document_id"]))
@@ -2943,7 +2933,6 @@ async def _extract(context: StepContext) -> StepResult:
         "fact_extractions": len(fact_extractions),
         "facts_chosen": len(selection.chosen),
         "facts_rejected": len(selection.rejected),
-        "rejected_for_look_ahead": len(selection.rejected_for_look_ahead),
         "exchange": request.exchange,
         "unmapped_tags": list(unmapped),
         "unmapped_concepts": unmapped_detail,
@@ -2980,7 +2969,6 @@ async def _calculate(context: StepContext) -> StepResult:
     into the suite — it is the headline growth figure the summary reaches for, and it spans
     the whole filed history rather than sitting inside one period.
     """
-    request = await _request_for(context)
     acquired = context.output_of("acquire")
     company_id = _uuid(acquired["company_id"])
     calc_context = calculation_service.new_context()
@@ -2989,7 +2977,6 @@ async def _calculate(context: StepContext) -> StepResult:
         context.session,
         calc_context,
         company_id=company_id,
-        work_order=request.work_order,
         # What this kind of business does not define, so the coverage the gate reads and
         # the ratios the report shows are both about a company of this kind (A64).
         profile=profile_for(sector_key_of(context.outputs)),
@@ -3035,13 +3022,7 @@ async def _revenue_growth(
     # holds every quarter a 10-Q filed, and a September run on a June-quarter filer
     # would otherwise compound an annual figure into a three-month one (readiness
     # audit 2026-09): the newest `period_end` was a quarter's.
-    request = await _request_for(context)
-    by_period = await annual_facts(
-        context.session,
-        company_id=company_id,
-        as_of=request.work_order.as_of_date,
-        point_in_time=request.work_order.point_in_time,
-    )
+    by_period = await annual_facts(context.session, company_id=company_id)
     facts = [
         fact
         for period in sorted(by_period)
@@ -3627,7 +3608,7 @@ async def final_gate_payload(
     of the older draft, which is correct: the evidence changed.
 
     **The §2.4 triggers ride inside the hash on the same argument** (task 41). "Approved
-    with the look-ahead banner showing" must be verifiable, and a trigger outside the hash
+    with the thin-sourcing banner showing" must be verifiable, and a trigger outside the hash
     could fire after the approval without invalidating it. The trigger engine is pure over
     rows that are frozen once the red-team step has run, so the hash sealed there and the
     hash the review page computes live agree — a property the tests hold, not assume.

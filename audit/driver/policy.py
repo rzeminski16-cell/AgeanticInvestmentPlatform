@@ -339,7 +339,6 @@ def decide_final(facts: FinalGateFacts) -> GateVerdict:
         for s in facts.sections
         if str(s.get("status", "")).lower() != "generated" or s.get("note")
     ]
-    look_ahead = [t for t in facts.triggers if "look" in str(t.get("kind", "")).lower()]
     if pending:
         return GateVerdict(
             False, "Sections are still pending.", tuple(findings), stop_reason="pending sections"
@@ -350,10 +349,6 @@ def decide_final(facts: FinalGateFacts) -> GateVerdict:
             f"Only {len(generated)} of {len(facts.sections)} sections generated ({len(failed)} failed).",
             tuple(findings),
             stop_reason="too many sections lost",
-        )
-    if look_ahead:
-        return GateVerdict(
-            False, "A look-ahead trigger fired.", tuple(findings), stop_reason="look-ahead trigger"
         )
     if facts.failed_metrics:
         return GateVerdict(

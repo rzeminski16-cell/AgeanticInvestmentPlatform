@@ -57,7 +57,7 @@ document at acquisition.
 | UK annual/interim report documents | Issuer IR site (`docs/data-sources/issuer-ir.md`), Tier 2 |
 | UK structured financials | Inline XBRL out of that report (`docs/data-sources/uk-ixbrl.md`) |
 | Statutory accounts, entity graph, filing dates | Companies House (`docs/data-sources/companies-house.md`), Tier 1 |
-| Publication date / point-in-time anchor | `aer/extract/dates.py` — extracted and scored, not taken from one index |
+| Publication date | `aer/extract/dates.py` — extracted and scored, not taken from one index |
 
 What is genuinely weaker is discovery of RNS-class announcements: the issuer's own RNS archive
 is Tier 2 where the NSM would have been Tier 1. Task 19's disagreement ladder is where that

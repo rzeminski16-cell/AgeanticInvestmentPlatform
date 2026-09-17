@@ -1,17 +1,18 @@
-"""The blocking gate: ten measurements over the corpora the phases produced.
+"""The blocking gate: nine measurements over the corpora the phases produced.
 
 This is the module that turns "we proved it once" into "it is still true". It gathers
-observations by running the **real** verifier, the real date extractor, the real injection
-scanner, the real unit algebra, the real replay harness, the real assumptions ladder and
-the real skill-containment layers over labelled corpora, hands them to
-:mod:`aer.eval.metrics`, and fails the build if any of the ten moves.
+observations by running the **real** verifier, the real injection scanner, the real unit
+algebra, the real replay harness, the real assumptions ladder and the real
+skill-containment layers over labelled corpora, hands them to :mod:`aer.eval.metrics`, and
+fails the build if any of the nine moves. (The two temporal metrics measured a rule that
+never applied and left with it — ADR 0113.)
 
 Three properties make it a gate rather than a formality.
 
 * **The corpora contain the wrong answers as well as the right ones.** Scored against
   only-genuine citations a verifier that always says yes gets 100%, and against only
-  post-dated documents a platform that refuses everything gets 100%. Both mistakes are in
-  the fixtures.
+  contained payloads a scanner that flags nothing gets 100%. Both mistakes are in the
+  fixtures.
 * **An empty corpus fails.** If a fixture stops loading, the metric raises rather than
   scoring perfectly on nothing.
 * **Each metric has its own test.** A single "everything passes" assertion would report
@@ -52,7 +53,6 @@ from aer.eval import (
     InjectionObservation,
     MetricResult,
     ReplayObservation,
-    SourceObservation,
     UnitObservation,
     evaluate_all,
 )
@@ -62,22 +62,18 @@ from aer.eval.metrics import (
     custom_section_contract_conformance,
     hallucinated_citation_rate,
     injection_resistance,
-    look_ahead_recall,
     numerical_consistency,
     skill_privilege_containment,
-    temporal_compliance,
     unit_integrity,
 )
 from aer.eval.replay import CALC_MODULES, completeness_observations_for_job, registry, replay
-from aer.extract.dates import extract_publication_date
 from aer.extract.html import extract_html
 from aer.extract.injection import scan_markup, scan_text
 from aer.services.citations import record_citation, record_claim
 from aer.services.extractions import record_excerpt
-from aer.services.sources import decide_quarantine
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
-from tests import citation_corpus, injection_fixtures, lookahead_fixtures, skill_corpus
+from tests import citation_corpus, injection_fixtures, skill_corpus
 from tests.agent_probes import ProbeAnswer
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.scene_fixtures import build_scene
@@ -174,51 +170,6 @@ async def citations(
                 verified=outcome.verified,
                 ratio=str(outcome.ratio) if outcome.ratio is not None else None,
                 error=citation.verification_error,
-            )
-        )
-
-    return observations
-
-
-@pytest.fixture
-def sources() -> list[SourceObservation]:
-    """Every planted document in ``lookahead_fixtures``, put through the real rules.
-
-    Two steps, in the order the platform runs them: extract a date from whatever evidence
-    the document carries, then decide admissibility on the **latest** date any evidence
-    supports. Nothing is told the answer — the fixture's ``expected`` is used only as the
-    label the metric scores against.
-    """
-    observations: list[SourceObservation] = []
-    planted = (
-        *lookahead_fixtures.POST_DATED,
-        *lookahead_fixtures.ADMISSIBLE,
-        *lookahead_fixtures.UNDATABLE,
-    )
-
-    for case in planted:
-        found = extract_publication_date(
-            index_date=case.index_date,
-            metadata=case.metadata,
-            text=case.text,
-            headers=case.headers,
-        )
-        decision = decide_quarantine(
-            publication_date=found.latest if found is not None else None,
-            point_in_time=True,
-            source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=lookahead_fixtures.AS_OF,
-        )
-        observations.append(
-            SourceObservation(
-                name=case.name,
-                # The **conservative** date, not the best estimate. Admissibility is decided
-                # on the latest evidence (ADR 0021), so the label the metric scores against
-                # has to be the same question the platform is answering.
-                published=case.conservative,
-                as_of=lookahead_fixtures.AS_OF,
-                admitted=not decision.quarantined,
-                established=found.value if found is not None else None,
             )
         )
 
@@ -434,9 +385,8 @@ async def _document_for(
         title="Contoso Corporation Form 10-K",
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,
-        # Comfortably before the scene's as-of date. A corpus document published *after* it
-        # is refused by the look-ahead check before its text is ever read, and every pair
-        # would score zero for a reason that has nothing to do with the verifier.
+        # Dated, so the document carries its full tier rather than the tier-5 cap an
+        # undated one gets (ADR 0111); this corpus is about the verifier, not about that.
         publication_date=AS_OF_DATE - timedelta(days=30),
         publication_date_latest=AS_OF_DATE - timedelta(days=30),
         retrieved_at=datetime.now(UTC),
@@ -464,12 +414,6 @@ class TestTheBlockingMetrics:
         sentence in it that nothing supports and a badge saying it was checked."""
         _assert_passed(hallucinated_citation_rate(citations))
 
-    def test_temporal_compliance(self, sources: list[SourceObservation]) -> None:
-        _assert_passed(temporal_compliance(sources))
-
-    def test_look_ahead_recall(self, sources: list[SourceObservation]) -> None:
-        _assert_passed(look_ahead_recall(sources))
-
     def test_injection_resistance(self, injections: list[InjectionObservation]) -> None:
         _assert_passed(injection_resistance(injections))
 
@@ -494,10 +438,9 @@ class TestTheBlockingMetrics:
         evidence floor is an authoring surface that can switch the guarantees off."""
         _assert_passed(skill_privilege_containment(containments))
 
-    async def test_all_ten_together(
+    async def test_all_nine_together(
         self,
         citations: list[CitationObservation],
-        sources: list[SourceObservation],
         injections: list[InjectionObservation],
         units: list[UnitObservation],
         replays: list[ReplayObservation],
@@ -512,7 +455,6 @@ class TestTheBlockingMetrics:
         """
         results = evaluate_all(
             citations=citations,
-            sources=sources,
             injections=injections,
             units=units,
             replays=replays,
@@ -545,19 +487,6 @@ class TestTheCorporaAreWorthScoring:
         # The size docs/archive/PLAN.md §2.10 asks for. At 40, the 98% threshold permits no errors
         # at all — 39/40 is 0.975 — which is the intended strictness.
         assert len(citation_corpus.PAIRS) >= 40
-
-    def test_the_look_ahead_corpus_plants_traps_and_controls(
-        self, sources: list[SourceObservation]
-    ) -> None:
-        assert sum(1 for row in sources if row.is_after_as_of) >= 5
-        # A platform that refused everything would score 100% on compliance; these are what
-        # stop that passing.
-        assert sum(1 for row in sources if row.admitted) >= 3
-
-    def test_the_look_ahead_corpus_includes_undatable_documents(
-        self, sources: list[SourceObservation]
-    ) -> None:
-        assert any(row.published is None for row in sources)
 
     def test_the_injection_corpus_is_the_size_the_plan_asks_for(
         self, injections: list[InjectionObservation]
@@ -619,7 +548,7 @@ class TestTheCorporaAreWorthScoring:
             "set_sizing",
             "exceed_budget",
             "disable_citations",
-            "override_point_in_time",
+            "override_source_policy",
             "escape_boundary",
             "reach_the_adversary",
         }
@@ -727,7 +656,6 @@ class TestWhatTheGateReports:
     def test_every_result_serialises(
         self,
         citations: list[CitationObservation],
-        sources: list[SourceObservation],
         injections: list[InjectionObservation],
         units: list[UnitObservation],
         replays: list[ReplayObservation],
@@ -738,7 +666,6 @@ class TestWhatTheGateReports:
         # `evaluations.details` is JSONB, and Phase 3 writes these rows.
         results = evaluate_all(
             citations=citations,
-            sources=sources,
             injections=injections,
             units=units,
             replays=replays,

@@ -9,7 +9,7 @@ over what period, and **on what date it was said**.
 report different values for the same company's same period in the same unit and both be
 correct, because they were filed two years apart and the later one is a restatement. The
 uniqueness constraint therefore includes it: collapsing them would silently destroy the
-point-in-time record, which is the one thing this schema exists to preserve.
+record of which filing said what, which is the one thing this schema exists to preserve.
 
 **``source_document_id`` is not nullable.** A fact with no provenance is a number somebody
 typed. The chain is fact → source document → artefact → SHA-256, and it is unbroken by
@@ -103,8 +103,9 @@ class FinancialFact(Base):
 
     # -- When it was said ----------------------------------------------------------------
 
-    # The point-in-time key. Everything in this schema that prevents look-ahead bias comes
-    # back to comparing this against a request's as-of date.
+    # When it was said. Selection prefers the later filing's word on a period, and a report
+    # naming a figure names the filing that stated it, so this is part of the fact's
+    # identity rather than metadata about it.
     filed_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     form: Mapped[str | None] = mapped_column(String(16))

@@ -1,7 +1,7 @@
 """Parsing companyfacts into typed facts.
 
 Two properties matter most here: that repeated observations of the same period are all
-kept — they are the point-in-time record, not duplicates — and that values survive as
+kept — they are the record of which filing said what, not duplicates — and that values survive as
 exact decimals rather than passing through a float.
 """
 
@@ -157,7 +157,7 @@ class TestARefusedTagIsNotAGapInTheMap:
 
 class TestObservations:
     def test_every_observation_of_a_period_is_kept(self, facts):
-        # The repetition is the point-in-time record, not duplication to be collapsed.
+        # The repetition is the record of which filing said what, not duplication to collapse.
         # FY2020 revenue appears twice under the Revenues tag, filed two years apart.
         fy2020 = [
             f
@@ -227,8 +227,8 @@ class TestNumericFidelity:
 
 class TestMalformedObservations:
     def test_an_observation_with_no_filed_date_is_skipped(self):
-        # Without it the fact cannot be point-in-time filtered, which makes it unusable
-        # rather than merely incomplete.
+        # Without it the fact cannot be ranked against a later filing, which makes it
+        # unusable rather than merely incomplete.
         payload = b"""{"cik": 1, "facts": {"us-gaap": {"Revenues": {"units": {"USD": [
           {"start": "2020-01-01", "end": "2020-12-31", "val": 1,
            "accn": "0000000001-20-000001", "form": "10-K"}

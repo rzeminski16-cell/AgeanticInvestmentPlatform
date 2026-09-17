@@ -9,11 +9,6 @@ covered ÷ generated. This module is that arithmetic — the same
 kept pure so a validator can be tested against handwritten rows exactly as the gate's
 metrics are.
 
-Temporal compliance and look-ahead recall need nothing new: the fixture semantics of
-:class:`~aer.eval.observations.SourceObservation` are the platform's own quarantine rules
-(undated and post-dated sources are inadmissible under point-in-time), so a live run's
-sources build the same observations and reuse the same functions.
-
 **An empty population raises**, exactly as the gate's metrics do — and the caller decides
 what that means. For CI it is a broken fixture and a red build; for a live run it is a
 metric with nothing to measure, recorded as *not exercised* rather than as a pass, which

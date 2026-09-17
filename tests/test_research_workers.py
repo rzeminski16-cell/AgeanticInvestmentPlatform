@@ -816,7 +816,7 @@ class TestFetchingAKnownUrl:
         """Gap C2. The live run recorded five EDGAR filings as undated T5 secondary
         material — found through full-text search, whose hits carry the regulator's own
         filed date and form, then fetched through a path that threw both away. That
-        mis-tiering is what failed temporal_compliance and put a warning on page 1."""
+        mis-tiering is what put a warning on page 1 of the live note."""
         fetch_scene["session"].add(
             Company(name="CONTOSO CORP", cik="0001111111", ticker="CTSO", exchange="NASDAQ")
         )
@@ -1829,7 +1829,6 @@ async def rerun_scene(db_session: AsyncSession) -> dict[str, Any]:
             ticker=ticker,
             exchange=exchange,
             as_of_date=date(2023, 1, 1),
-            point_in_time=True,
             base_currency="USD",
             investment_horizon_months=12,
             max_cost_gbp="2.50",
@@ -1921,7 +1920,7 @@ class TestFactsAreScopedToTheCompanyNotTheRequest:
             "the re-run saw none of its own company's facts, which is what sent five "
             "workers looking through an empty table"
         )
-        assert outcome.internal_results[0]["fact_id"] == str(rerun_scene["fact"].id)
+        assert str(rerun_scene["fact"].id) in {row["fact_id"] for row in outcome.internal_results}
 
     async def test_the_validator_accepts_what_the_search_offered(
         self, rerun_scene: dict[str, Any]
@@ -1957,21 +1956,21 @@ class TestFactsAreScopedToTheCompanyNotTheRequest:
 
         assert str(rerun_scene["foreign_fact"].id) not in found
 
-    async def test_a_point_in_time_run_is_not_shown_a_later_filing(
+    async def test_a_filing_stored_by_a_later_run_is_in_reach(
         self, rerun_scene: dict[str, Any]
     ) -> None:
-        """The half of the fix that widening the scope made necessary.
+        """Company scope reads the store as it stands (ADR 0113).
 
-        Request scope happened to bound a worker to one acquisition. Company scope does
-        not, so a fact filed after this run's as-of date — stored by some later run — would
-        now be in reach without this.
+        A date filter travelled with the scope until the rule it served was retired: a
+        fact filed after this run's date — stored by some later run — is a later filing's
+        word on the company, and a run reads the filings as they stand.
         """
         executors = build_executors(rerun_scene["session"], request=rerun_scene["rerun"])
 
         outcome = await executors["search_facts"](_tool_request("search_facts", "revenue"))
         found = {row["fact_id"] for row in outcome.internal_results}
 
-        assert str(rerun_scene["future_fact"].id) not in found
+        assert str(rerun_scene["future_fact"].id) in found
 
     async def test_a_run_whose_company_is_not_resolved_yet_sees_nothing(
         self, rerun_scene: dict[str, Any]
@@ -2199,13 +2198,10 @@ class _RecordingSearch:
         phrase: str,
         *,
         cik: str | None = None,
-        as_of_date: date | None = None,
         size: int = 10,
         **extra: Any,
     ) -> Any:
-        self.calls.append(
-            {"phrase": phrase, "cik": cik, "as_of_date": as_of_date, "size": size, **extra}
-        )
+        self.calls.append({"phrase": phrase, "cik": cik, "size": size, **extra})
         if self._raises is not None:
             raise self._raises
         return SimpleNamespace(data=self._results)
@@ -2249,7 +2245,8 @@ class TestSearchingTheFilingsFullText:
         [call] = index.calls
         assert call["phrase"] == "segment reporting"
         assert call["cik"] == "0001111111", "the search must be scoped to this run's filer"
-        assert call["as_of_date"] == evidence_scene["request"].work_order.as_of_date
+        # No date travels with the query (ADR 0113): the scope is the filer, nothing else.
+        assert "as_of_date" not in call
 
     async def test_a_hit_is_a_listing_and_not_a_reading(
         self, evidence_scene: dict[str, Any]
@@ -2309,38 +2306,14 @@ class TestSearchingTheFilingsFullText:
             "2013-07-30",
         ]
 
-    async def test_hits_after_the_as_of_date_are_counted_rather_than_dropped(
+    async def test_a_hit_filed_after_the_run_is_shown_like_any_other(
         self, evidence_scene: dict[str, Any]
     ) -> None:
-        """ "The search found nothing" and "the search found things you may not read" call
-        for different next moves from a worker."""
-        index = _RecordingSearch(
-            hits=(
-                _hit(filed=date(2022, 7, 30)),
-                _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001"),
-            )
-        )
-        executors = build_executors(
-            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
-        )
-
-        outcome = await executors["search_filings_full_text"](
-            _tool_request("search_filings_full_text", "segment reporting")
-        )
-
-        usable = [row for row in outcome.internal_results if "filed" in row]
-        notes = [row["note"] for row in outcome.internal_results if "note" in row]
-        assert [row["filed"] for row in usable] == ["2022-07-30"]
-        assert len(notes) == 1
-        assert "1 further hit" in notes[0]
-
-    async def test_the_post_dated_hit_never_reaches_the_worker_as_a_filing(
-        self, evidence_scene: dict[str, Any]
-    ) -> None:
-        """Counted is not the same as shown. A worker handed the URL of a document it may
-        not read would fetch it, and point-in-time would be over."""
+        """ADR 0113. Hits used to be split at the run's date, the later ones counted and
+        withheld; the run's date constrains nothing, so every hit the index returned is a
+        filing the worker may read, newest first."""
         later = _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001")
-        index = _RecordingSearch(hits=(later,))
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)), later))
         executors = build_executors(
             evidence_scene["session"], request=evidence_scene["request"], sec_client=index
         )
@@ -2349,30 +2322,9 @@ class TestSearchingTheFilingsFullText:
             _tool_request("search_filings_full_text", "segment reporting")
         )
 
-        rendered = str(outcome.internal_results)
-        assert later.url not in rendered
-        assert later.accession not in rendered
-
-    async def test_a_run_with_point_in_time_off_is_not_bounded(
-        self, evidence_scene: dict[str, Any]
-    ) -> None:
-        """The bound comes from the mode, not from the date. A run the operator turned
-        point-in-time off for asked for today's filings and should get them."""
-        evidence_scene["request"].work_order.point_in_time = False
-        await evidence_scene["session"].flush()
-        later = _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001")
-        index = _RecordingSearch(hits=(later,))
-        executors = build_executors(
-            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
-        )
-
-        outcome = await executors["search_filings_full_text"](
-            _tool_request("search_filings_full_text", "segment reporting")
-        )
-
-        [call] = index.calls
-        assert call["as_of_date"] is None
-        assert [row["filed"] for row in outcome.internal_results] == ["2024-07-30"]
+        assert [row["filed"] for row in outcome.internal_results] == ["2024-07-30", "2022-07-30"]
+        assert not [row for row in outcome.internal_results if "note" in row]
+        assert later.accession in str(outcome.internal_results)
 
     async def test_an_unresolved_company_is_a_refusal_and_no_search_happens(
         self, rerun_scene: dict[str, Any]

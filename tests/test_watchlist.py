@@ -349,7 +349,6 @@ class TestCommissioning:
         assert request.analysis_mode is AnalysisMode.STANDARD
         assert request.investment_horizon_months == 12
         assert request.work_order.as_of_date == TODAY
-        assert request.work_order.point_in_time is True
         assert request.work_order.max_cost_gbp == Decimal("12.00")
         assert request.work_order.user_id == user.id
         assert job.work_order_id == request.id

@@ -45,7 +45,6 @@ def valid_form(**overrides) -> dict[str, str]:
         "investment_horizon_months": "36",
         "horizon_label": "Through the next capex cycle",
         "analysis_mode": "full",
-        "point_in_time": "true",
         "undated_sources_admissible": "true",
         "current_weight_percent": "2.5",
         "maximum_weight_percent": "5",
@@ -112,8 +111,8 @@ class TestFormRenders:
 
     async def test_the_form_states_the_date_rather_than_asking_for_it(self, web):
         # ADR 0110. There is no input, because there is no choice: the run is dated the
-        # day it is commissioned. Stating it is not decoration — an operator who cannot
-        # see the date cannot tell what the point-in-time choice below it will apply to.
+        # day it is commissioned. Stating it is not decoration — the report and every
+        # price the run reads carry that date, and the operator should see it first.
         page = (await web.get(NEW)).text
         today = datetime.now(UTC).date().isoformat()
 
@@ -219,24 +218,15 @@ class TestSuccessfulSubmission:
             row = await session.scalar(select(ResearchRequest))
         assert row.portfolio_context["current_weight"] == "0.025"
 
-    async def test_choosing_later_published_sources_is_stored_as_false(self, web, db_engine):
-        """The control is a pair of radios, so "off" arrives as the word `false`.
-
-        This read `values["point_in_time"] != ""`, which was right for the checkbox the
-        field was first built as and has been wrong since it became radios: `"false"` is
-        not empty, so an operator who chose "allow later-published sources" got a
-        point-in-time run and nothing said otherwise.
-        """
-        token = await fresh_token(web)
-        await web.post(NEW, data=valid_form(csrf_token=token, point_in_time="false"))
-
-        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
-        async with factory() as session:
-            row = await session.scalar(select(ResearchRequest))
-        assert row.work_order.point_in_time is False
-
     async def test_refusing_undated_sources_is_stored_as_false(self, web, db_engine):
-        """The second policy, chosen on the same screen and stored separately (ADR 0111)."""
+        """The control is a pair of radios, so "refuse" arrives as the word `false`.
+
+        The parser once read ``values[name] != ""``, which was right for the checkbox the
+        field was first built as and has been wrong since it became radios: `"false"` is
+        not empty, so an operator who chose the second option got the first and nothing
+        said otherwise. The policy is its own since ADR 0111 and the only one since ADR
+        0113.
+        """
         token = await fresh_token(web)
         await web.post(NEW, data=valid_form(csrf_token=token, undated_sources_admissible="false"))
 
@@ -244,23 +234,22 @@ class TestSuccessfulSubmission:
         async with factory() as session:
             row = await session.scalar(select(ResearchRequest))
         assert row.work_order.undated_sources_admissible is False
-        assert row.work_order.point_in_time is True, "the two policies are independent"
 
-    async def test_a_missing_decision_keeps_the_guard_on(self, web, db_engine):
-        """Nothing selected is not a decision to relax a rule.
+    async def test_a_missing_decision_keeps_the_default(self, web, db_engine):
+        """Nothing selected is not a decision.
 
         A radio group always submits something, so this is the malformed submission rather
-        than the ordinary one — and the safe reading is the one that keeps both guards.
+        than the ordinary one — and the safe reading is the platform's default.
         """
         token = await fresh_token(web)
         form = valid_form(csrf_token=token)
-        del form["point_in_time"]
+        del form["undated_sources_admissible"]
         await web.post(NEW, data=form)
 
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             row = await session.scalar(select(ResearchRequest))
-        assert row.work_order.point_in_time is True
+        assert row.work_order.undated_sources_admissible is True
 
     async def test_the_new_request_appears_in_the_list(self, web):
         token = await fresh_token(web)

@@ -1,4 +1,4 @@
-"""Fetching macro series, from two providers with very different point-in-time guarantees.
+"""Fetching macro series, from two providers with very different vintage guarantees.
 
 Thin, like every source client here. SSRF guarding, allowlists, rate limits, retries, the
 byte cap and archiving all belong to :class:`~aer.fetch.client.SafeFetcher`, and a second
@@ -214,7 +214,7 @@ class MacroClient:
                 :data:`~aer.sources.macro.ecb.REFERENCE_CURRENCIES`. Never a URL, and never
                 a code that has not had a determination made — the allowlist is the control.
             as_of: Bounds the request itself, so the portal is not asked for observations
-                the run may not use. **The bound is a saving, not the point-in-time check**:
+                the run may not use. **The bound is a saving, not the as-at check**:
                 :func:`aer.calc.fx.select_rate` applies that again over what comes back,
                 because a control that lives only in a query parameter is a control that
                 disappears the day somebody caches a response.

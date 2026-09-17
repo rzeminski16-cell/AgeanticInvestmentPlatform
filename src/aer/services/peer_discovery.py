@@ -117,7 +117,6 @@ async def discover_peers(
         outcome = await _one_peer(
             session,
             client=client,
-            request=request,
             subject=subject,
             proposal=proposal,
             seen=seen,
@@ -218,7 +217,6 @@ async def _one_peer(
     session: AsyncSession,
     *,
     client: Any,
-    request: ResearchRequest,
     subject: Company,
     proposal: ProposedPeer,
     seen: set[str],
@@ -226,10 +224,10 @@ async def _one_peer(
     """One proposed ticker, resolved and recorded, or refused with the reason.
 
     A company this platform has already researched keeps its own id and the latest stored
-    period at or before the as-of date — free, and honest, because those facts exist. One
-    it has not is carried by its registry identifier with no period: recording the name is
-    the whole point, and inventing an alignment date for a company nothing was fetched for
-    would be a fabricated comparison waiting to happen.
+    period — free, and honest, because those facts exist, and read as they stand (ADR
+    0113). One it has not is carried by its registry identifier with no period: recording
+    the name is the whole point, and inventing an alignment date for a company nothing was
+    fetched for would be a fabricated comparison waiting to happen.
     """
     identified = await _identified(client=client, subject=subject, proposal=proposal, seen=seen)
     if isinstance(identified, RefusedPeer):
@@ -245,10 +243,7 @@ async def _one_peer(
         )
 
     period_end = await session.scalar(
-        select(func.max(FinancialFact.period_end)).where(
-            FinancialFact.company_id == company.id,
-            FinancialFact.period_end <= request.work_order.as_of_date,
-        )
+        select(func.max(FinancialFact.period_end)).where(FinancialFact.company_id == company.id)
     )
     return PeerProposal(
         identifier=str(company.id),

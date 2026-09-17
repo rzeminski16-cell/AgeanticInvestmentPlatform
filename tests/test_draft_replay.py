@@ -71,8 +71,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
 def _header(section_key: str, title: str = "Cash Flow Analysis") -> str:
     return (
-        f"Write the section {title!r} ({section_key}) for MICROSOFT CORP (MSFT), as of "
-        "2022-09-30 under point-in-time rules."
+        f"Write the section {title!r} ({section_key}) for MICROSOFT CORP (MSFT), as of 2022-09-30."
     )
 
 

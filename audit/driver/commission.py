@@ -39,7 +39,6 @@ async def commission(
         reporting_currency=subject.reporting_currency,
         investment_horizon_months=subject.horizon_months,
         analysis_mode=analysis_mode,
-        point_in_time=True,
         undated_sources_admissible=True,
         focus_questions=list(subject.focus_questions),
         max_cost_gbp=cap_gbp,

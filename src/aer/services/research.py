@@ -265,12 +265,7 @@ def build_executors(
 
         try:
             found = await sec_client.search_full_text(
-                tool_request.query.strip(),
-                cik=cik,
-                as_of_date=request.work_order.as_of_date
-                if request.work_order.point_in_time
-                else None,
-                size=MAX_HITS,
+                tool_request.query.strip(), cik=cik, size=MAX_HITS
             )
         except AerError as refused:
             return ExecutedTool(
@@ -280,14 +275,11 @@ def build_executors(
                 refusal=f"The filing index refused the search: {refused.message}",
             )
 
-        usable, excluded = found.data.admissible(
-            request.work_order.as_of_date if request.work_order.point_in_time else None
-        )
         # Newest first (gap O9): a live run spent two of its twelve fetches on
         # decade-old 10-Ks because the listing arrived in index order. Nothing is
         # excluded — an old filing can still be chosen — but the documents most able to
         # support a current claim lead the list the worker spends its budget from.
-        usable = sorted(usable, key=lambda hit: hit.filed, reverse=True)
+        usable = sorted(found.data.hits, key=lambda hit: hit.filed, reverse=True)
         # The operator's exclusions reach the regulator's index like anywhere else: a
         # filing on an excluded domain is withheld from the listing, and the count is
         # said (Phase 1.7).
@@ -311,17 +303,6 @@ def build_executors(
             }
             for hit in usable
         ]
-        if excluded:
-            # Said rather than silently dropped: "the search found nothing" and "the search
-            # found things you may not read" call for different next moves.
-            results.append(
-                {
-                    "note": (
-                        f"{len(excluded)} further hit(s) were published after this run's "
-                        "as-of date and are not available to it."
-                    )
-                }
-            )
         if withheld:
             results.append({"note": _withheld_note(withheld)})
 
@@ -368,11 +349,8 @@ async def _web_search(
 ) -> ExecutedTool:
     """One web search: refused where it cannot be honest, metered where it can (ADR 0092).
 
-    Three refusals, each deterministic and each stated:
+    Two refusals, each deterministic and each stated:
 
-    * **Point-in-time.** A live index cannot be bounded by an as-of date, and a result's
-      own date line is external text — so a point-in-time run whose as-of date is in the
-      past never searches. Invariant 4, enforced at acquisition, in code.
     * **The bound.** :data:`MAX_WEB_SEARCHES` per worker node, counted here.
     * **No route.** A deployment that never configured the ``web_search`` route gets a
       recorded refusal, not a silent default model — the router's own rule.
@@ -383,22 +361,6 @@ async def _web_search(
     fee and the carrying call's tokens — land as ``costs`` rows against this step before
     the results are returned.
     """
-    if (
-        request.work_order.point_in_time
-        and request.work_order.as_of_date < datetime.now(UTC).date()
-    ):
-        return ExecutedTool(
-            tool=tool_request.tool,
-            query=tool_request.query,
-            executed=False,
-            refusal=(
-                "Refused: this is a point-in-time run with an as-of date in the past, and "
-                "a live web search cannot be bounded by that date. Nothing published "
-                "after the as-of date may inform this run, and a search result's own "
-                "date is not evidence of when it was published."
-            ),
-        )
-
     if searches_spent["count"] >= MAX_WEB_SEARCHES:
         return ExecutedTool(
             tool=tool_request.tool,

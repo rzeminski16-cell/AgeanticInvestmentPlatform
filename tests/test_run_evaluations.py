@@ -8,7 +8,6 @@ slice, whose validate step must leave all eleven rows behind.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from datetime import UTC, date, datetime
@@ -415,7 +414,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         ticker="MSFT",
         exchange="NASDAQ",
         as_of_date=AS_OF_DATE,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -602,7 +600,6 @@ class TestACleanRun:
         assert rows["citation_accuracy"].value == Decimal(1)
         assert rows["hallucinated_citation_rate"].passed is True
         assert rows["hallucinated_citation_rate"].value == Decimal(0)
-        assert rows["temporal_compliance"].passed is True
         assert rows["source_coverage"].passed is True
         assert rows["primary_source_ratio"].passed is True
         assert rows["numerical_consistency"].passed is True
@@ -616,19 +613,22 @@ class TestACleanRun:
         assert "cited_figure_agreement" in rows
         assert rows["cited_figure_agreement"].passed is not False
 
-    async def test_nothing_to_catch_is_not_exercised_never_a_pass(
+    async def test_nothing_to_measure_is_not_exercised_never_a_pass(
         self, scene: dict[str, Any]
     ) -> None:
-        # No post-dated source was planted, so look-ahead recall had nothing to catch.
+        # A minimal scene gives some check nothing to measure — no claim names a
+        # calculation, for one — and the row it writes must say so rather than pass.
         await evaluate_run(
             _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
         )
         rows = await _rows_by_metric(scene["session"], scene["job"].id)
 
-        recall = rows["look_ahead_recall"]
-        assert recall.passed is None
-        assert recall.value is None
-        assert "not exercised" in recall.details["note"]
+        unexercised = [row for row in rows.values() if row.passed is None]
+        assert unexercised, "a minimal scene leaves at least one check with nothing to measure"
+        for row in unexercised:
+            assert row.value is None
+            assert "not exercised" in row.details["note"]
+        assert not [row for row in rows.values() if row.passed is True and row.value is None]
 
     async def test_rerunning_replaces_the_rows_rather_than_stacking_them(
         self, scene: dict[str, Any]
@@ -918,10 +918,13 @@ class TestTheBatchTransportKeepsTheAuditStandard:
         assert provider.call_count == 0
 
 
-class TestTheTemporalRows:
-    async def test_a_post_dated_source_that_escaped_quarantine_fails_compliance(
+class TestTheRetiredRowsAreNotWritten:
+    async def test_a_source_dated_after_the_run_is_no_failure_and_no_row(
         self, scene: dict[str, Any]
     ) -> None:
+        """ADR 0113. The two metrics that measured a source's date against the run's are
+        gone from the run-time set, and a document dated after the run — a mis-dated
+        document, not hindsight — fails nothing."""
         scene["document"].publication_date = date(2022, 9, 1)
         await scene["session"].flush()
 
@@ -930,49 +933,8 @@ class TestTheTemporalRows:
         )
         rows = await _rows_by_metric(scene["session"], scene["job"].id)
 
-        assert rows["temporal_compliance"].passed is False
-        assert rows["look_ahead_recall"].passed is False
-
-    async def test_a_quarantined_post_dated_source_is_caught_and_recorded(
-        self, scene: dict[str, Any]
-    ) -> None:
-        session = scene["session"]
-        # Its own bytes: one record per artefact per request (gap C4), so a trap sharing
-        # the scene's artefact would be refused by the constraint rather than planted.
-        payload = b"<html>the late filing</html>"
-        trap_artefact = Artefact(
-            sha256=hashlib.sha256(payload).hexdigest(),
-            media_type="text/html",
-            size_bytes=len(payload),
-            storage_key="traps/late-filing",
-        )
-        session.add(trap_artefact)
-        await session.flush()
-        trap = SourceDocument(
-            work_order_id=scene["request"].id,
-            job_id=scene["job"].id,
-            artefact_id=trap_artefact.id,
-            url="https://example.invalid/late-filing.htm",
-            provider=Provider.ISSUER_IR,
-            source_tier=SourceTier.T2_ISSUER,
-            retrieved_at=datetime.now(UTC),
-            publication_date=date(2022, 9, 1),
-            quarantined=True,
-            quarantine_reason="published_after_as_of_date",
-        )
-        session.add(trap)
-        await session.flush()
-
-        await evaluate_run(
-            _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
-        )
-        rows = await _rows_by_metric(session, scene["job"].id)
-
-        # The trap exercises recall, and the quarantine caught it; the admitted source
-        # is still compliant.
-        assert rows["look_ahead_recall"].passed is True
-        assert rows["look_ahead_recall"].value == Decimal(1)
-        assert rows["temporal_compliance"].passed is True
+        assert set(rows) == {metric.value for metric in RUN_TIME}
+        assert not [name for name, row in rows.items() if row.passed is False]
 
 
 class TestCoverageAgainstAComposedFloor:
@@ -1087,8 +1049,6 @@ class TestTheFigureScenesAreAssembledHonestly:
                     fiscal_year=2022,
                     fiscal_period="Q3",
                     basis=FactBasis.AS_REPORTED,
-                    # Inside the point-in-time window: the request's as-of date is
-                    # 2022-06-30 and visible_facts drops anything filed after it.
                     filed_date=date(2022, 4, 30),
                 )
             )
@@ -1114,8 +1074,6 @@ class TestTheFigureScenesAreAssembledHonestly:
                     fiscal_year=2022,
                     fiscal_period="Q3",
                     basis=FactBasis.AS_REPORTED,
-                    # Inside the point-in-time window: the request's as-of date is
-                    # 2022-06-30 and visible_facts drops anything filed after it.
                     filed_date=date(2022, 4, 30),
                 )
             )

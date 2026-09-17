@@ -86,7 +86,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         ticker="CTSO",
         exchange="NASDAQ",
         as_of_date=AS_OF,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -234,7 +233,6 @@ async def _build(scene: dict[str, Any], *, client: Any, context: Any = None) -> 
         session,
         new_context(),
         company_id=scene["subject"].id,
-        work_order=scene["request"].work_order,
     )
     outcome = await build_comps_table(
         session,

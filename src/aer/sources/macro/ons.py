@@ -12,12 +12,12 @@ current series and tells you when it was last released. There is no ``realtime_s
 So a UK observation's vintage is **the release date the API reports**, and that is a weaker
 claim than a FRED vintage: it says "this is what the ONS was publishing as of that release",
 not "this is what it was publishing on your as-of date". :attr:`OnsSeries.is_archived` is
-``False`` for exactly that reason, and the persistence layer records it, so a UK figure used
-point-in-time carries the limitation rather than borrowing the confidence of a US one.
+``False`` for exactly that reason, and the persistence layer records it, so a UK figure read
+as at a date carries the limitation rather than borrowing the confidence of a US one.
 
-**A release after the as-of date is refused.** It is the one point-in-time check this source
-can support honestly, and it is the one that matters: a CPI series released in September
-cannot inform a valuation dated to June, whatever its observations say.
+**A release after the as-of date is refused.** It is the one vintage check this source can
+support honestly, and it is the one that matters: a CPI series released in September cannot
+inform a valuation dated to June, whatever its observations say.
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ class OnsSeries:
 
     # Always ``False`` for this source. A field rather than a constant because the
     # persistence layer stores it per observation, and a UK figure that silently inherited
-    # a US figure's point-in-time guarantee would be the whole problem.
+    # a US figure's vintage guarantee would be the whole problem.
     is_archived: bool = False
 
     def as_at(self, cutoff: date) -> MacroObservation | None:
@@ -202,7 +202,7 @@ def parse_timeseries(payload: bytes, *, series: MacroSeries) -> OnsSeries:
 def observations_for(parsed: OnsSeries, *, as_of: date) -> OnsSeries:
     """The series, having checked its release does not postdate the as-of date.
 
-    The one point-in-time guarantee this source can honestly make. A CPI edition released in
+    The one vintage guarantee this source can honestly make. A CPI edition released in
     September cannot inform a valuation dated to June, whatever periods its observations
     cover, and the check is on the *release* rather than on the observations because the
     observations of a September release describe June perfectly well — revised.
@@ -259,8 +259,8 @@ def _release_date(description: dict[str, Any], *, series: MacroSeries) -> date:
     if raw is None:
         message = (
             f"The ONS response for {series.identifier} carries no release date. Without one "
-            "there is nothing to check the as-of date against, and a figure with no date is "
-            "not point-in-time evidence."
+            "there is nothing to check the as-of date against, and a figure with no date "
+            "has no vintage at all."
         )
         raise ExternalServiceError(
             message, provider=Provider.ONS.value, context={"series": series.identifier}

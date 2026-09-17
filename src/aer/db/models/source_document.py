@@ -10,11 +10,12 @@ Separating them is what makes the audit trail honest. Bytes are identical or the
 not; provenance is a set of claims about those bytes, and claims are the thing that can
 be wrong.
 
-**The quarantine flag is the point-in-time safety net.** A document whose publication
-date cannot be established cannot be shown to predate a request's as-of date, so under
-point-in-time rules it is not admissible evidence. It is kept — throwing it away would
-lose the record of what was seen — but flagged, so nothing downstream can cite it by
-accident. The rule is applied in :mod:`aer.services.sources`, in code, with a test.
+**The quarantine flag is the admissibility record.** A document from a domain the
+operator excluded, one whose publication date cannot be established where the run refuses
+such documents, or one at a tier that may never be cited, is not admissible evidence. It
+is kept — throwing it away would lose the record of what was seen — but flagged, so
+nothing downstream can cite it by accident. The rules are applied in
+:mod:`aer.services.sources`, in code, with a test.
 """
 
 from __future__ import annotations
@@ -62,8 +63,8 @@ class SourceDocument(Base):
 
     # Which run this was gathered for. Not nullable, for the reason the request column
     # carried before ADR 0072 moved the run root: a source with no run is a source nobody
-    # can explain the presence of, and point-in-time is a property of the run, so the link
-    # is what makes it checkable at all. `visible_sources` compares against this column —
+    # can explain the presence of, and the source policy is a property of the run, so the
+    # link is what makes it checkable at all. `visible_sources` compares against this column —
     # ADR 0061's rule that a source document is scoped by run *and* subject, where a fact
     # is scoped by subject alone.
     work_order_id: Mapped[UuidFk] = mapped_column(
@@ -116,12 +117,13 @@ class SourceDocument(Base):
     # -- Time ----------------------------------------------------------------------------
 
     # NULL means "could not be established", not "undated". The difference matters: it is
-    # the trigger for quarantine under point-in-time rules.
+    # the trigger for quarantine where the run refuses undated sources, and for the tier
+    # cap where it admits them (ADR 0111).
     publication_date: Mapped[date | None] = mapped_column(Date)
 
     # How confident the extractor is in that date, 0..1. A date parsed from a filing
-    # header is not the same evidence as one guessed from a URL slug, and a downstream
-    # point-in-time decision should be able to tell.
+    # header is not the same evidence as one guessed from a URL slug, and a reader
+    # weighing the document should be able to tell.
     publication_date_confidence: Mapped[float | None] = mapped_column(Float)
 
     # Which kind of evidence won, as a `DateEvidence` value. Stored as text rather than as an
@@ -135,11 +137,13 @@ class SourceDocument(Base):
     # which is the difference between a score and an argument.
     publication_date_candidates: Mapped[list[Any] | None] = mapped_column(JSONB)
 
-    # **The latest date any evidence supports**, which is what the point-in-time rule is decided
-    # on. Kept alongside `publication_date` rather than replacing it, because the two answer
-    # different questions: that one is the best estimate and is what gets shown, this one is the
-    # conservative bound and is what admissibility turns on. Where the candidates agree they are
-    # the same date, which is the ordinary case.
+    # **The latest date any evidence supports.** Kept alongside `publication_date` rather than
+    # replacing it, because the two answer different questions: that one is the best estimate
+    # and is what gets shown, this one is the conservative bound, and a reader who sees them
+    # differ knows the document is dated less firmly than the estimate suggests. It decided
+    # admissibility while a run was dated against its sources; since ADR 0113 it is
+    # provenance. Where the candidates agree they are the same date, which is the ordinary
+    # case.
     publication_date_latest: Mapped[date | None] = mapped_column(Date)
 
     retrieved_at: Mapped[Timestamp] = mapped_column(nullable=False)
@@ -209,7 +213,7 @@ class SourceDocument(Base):
     # **A flag, not a quarantine.** A document that hides text is shown to a human at gate 2;
     # it is not refused, because hidden text has innocent uses and because nothing downstream
     # depends on detection — see `aer.extract.injection`. Kept separate from `quarantined`,
-    # which is the point-in-time rule and is a refusal.
+    # which is the admissibility rule and is a refusal.
     injection_flagged: Mapped[bool] = mapped_column(
         nullable=False, default=False, server_default=text("false")
     )

@@ -69,7 +69,7 @@ src/aer/            application package
     sec/tickers.py  ticker and exchange to CIK, refusing to guess an ambiguity
     sec/submissions.py  the filing index; checks the parallel arrays are parallel
     sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
-    sec/pit.py      point-in-time selection: what was known, as at a date
+    sec/selection.py  which filing's figure stands for a period: the latest, the rest recorded
     tiering.py      provider + kind -> tier, by table; an unknown pair is not citable
     sec/fulltext.py full-text search; URLs built from identifiers, never from the response
     sec/client.py   EDGAR endpoints, URL construction and pacing
@@ -233,7 +233,7 @@ primary.** `SourceTier.as_evidence` caps it at tier 5 whoever published it, so i
 corroborate and may never be the primary source a section's policy requires; the recorded
 tier is kept beside the cap, and the evidence table shows both. A run may still refuse
 undated sources outright — `work_orders.undated_sources_admissible`, its own policy since
-ADR 0111 rather than a second meaning for `point_in_time` — and then the document is kept,
+ADR 0111 rather than a second meaning for a mode flag — and then the document is kept,
 so the record of what was seen survives, but flagged so nothing can cite it. See
 `docs/adr/0111-an-undated-source-is-admitted-and-never-primary.md` and
 `docs/adr/0008-content-addressed-immutable-artefacts.md`.
@@ -313,7 +313,7 @@ are escaped rather than the text deleted, so a reviewer reading the archived pro
 attempted.
 
 **A finding is a flag, never a block**, and `injection_flagged` is kept separate from
-`quarantined`: quarantine is the point-in-time rule and is a refusal, a flag is information for a
+`quarantined`: quarantine is the admissibility rule and is a refusal, a flag is information for a
 human. The corpus is 26 poisoned documents, all detected and all contained — plus clean filings
 that must *not* be flagged, and one honest false positive (a print-only appendix genuinely is
 hidden text) kept rather than tuned away. See
@@ -452,38 +452,38 @@ created it, and a test asserts the file exists.
 Tier 1 regulatory filing and still needs the FCA's terms recorded against it. What is removed is
 the ability to fetch one. See `docs/adr/0022-the-fca-nsm-is-not-fetched-automatically.md`.
 
-### Look-ahead: checked twice, on the latest date
+### Publication dates: extracted and scored, never trusted
 
-A report citing a document published after its own as-of date reads exactly like one that does
-not, so publication dates are **extracted and scored, never trusted**. Four kinds of evidence, in
-order of trust: the filing index, the document's own metadata, a date printed in the text, and —
-last, because it describes a file on a server rather than a document — `Last-Modified`. Every
-candidate is kept, so a confidence is an argument a reviewer can check rather than a bare number.
+A page's own date, its server's and a regulator's record of it can all differ, so publication
+dates are **extracted and scored, never trusted**. Four kinds of evidence, in order of trust:
+the filing index, the document's own metadata, a date printed in the text, and — last, because
+it describes a file on a server rather than a document — `Last-Modified`. Every candidate is
+kept, so a confidence is an argument a reviewer can check rather than a bare number, and the
+newest date any evidence supports is stored beside the best estimate.
 
-**Admissibility is decided on the latest candidate, not the best estimate.** If the index says
-July and the document's own text says September, the honest answer to "can this be shown to
-predate 31 July?" is no. Being wrong that way costs a quarantine an operator can lift with a
-written reason; being wrong the other way costs a report that used information nobody had and
-never mentions it.
+**A date decides nothing on its own.** Admissibility is decided at acquisition from three
+things: whether the domain is one the operator excluded, whether a date exists at all — and
+only where the run refuses undated sources (ADR 0111) — and whether the tier may be cited. The
+rule that once refused a source published after the run's date compared against a date that
+was always the day the run was commissioned, and was retired with it (ADR 0113; the earlier
+design is recorded in ADR 0021, which 0113 supersedes in its enforcement).
 
-The check runs **at acquisition and again when a claim is made**, because the two moments know
-different things: acquisition cannot know what a claim will later rest on, nor see an as-of date
-that moves afterwards. A source fetched under one as-of date and cited after the operator moved it
-earlier passes the first check and fails the second — that case is in the suite.
+The verdict is written on the row, and **read again when a claim is made**: a citation of a
+quarantined document, or of a prior run's own output, fails before the text is re-read.
 
 A quarantined source is usable only after a **recorded** override: a person, a reason and a time.
 The override never clears the flag, so the record says both that the document was refused and that
-somebody decided to use it anyway. See
-`docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
+somebody decided to use it anyway.
 
-### Ten numbers that block a build
+### Nine numbers that block a build
 
 Every guarantee here was proved once, by a test written the day the feature landed. That is
-not the same as being true tomorrow, so ten of them are measured continuously and block CI:
-citation accuracy ≥ 98%, hallucinated citations 0, temporal compliance 100%, look-ahead recall
-100%, injection violations 0, unit mismatches 0, numerical consistency within 0.5% on
-independent recomputation, assumption completeness 100%, custom section contract
-conformance 100%, and skill privilege containment 0 violations.
+not the same as being true tomorrow, so nine of them are measured continuously and block CI:
+citation accuracy ≥ 98%, hallucinated citations 0, injection violations 0, unit mismatches 0,
+numerical consistency within 0.5% on independent recomputation, assumption completeness
+100%, custom section contract conformance 100%, and skill privilege containment 0 violations.
+(Two temporal metrics were measured until ADR 0113 retired the rule they scored; on every
+stored run they had read "not exercised".)
 
 **The two Phase 3 metrics work from the ledger, not from memory.** Numerical consistency
 re-executes every stored calculation from exactly what its row recorded — the named traced
@@ -503,11 +503,10 @@ least one answer a person worked out on paper.
 
 **Every corpus contains the wrong answers as well as the right ones**, because otherwise the
 gate is a formality. Scored against only-genuine citations, a verifier that returns `True`
-unconditionally gets 100%. Scored against only post-dated documents, a platform that refuses
-everything gets 100%. Both degenerate passes are closed: a third of the citation corpus is
-fabricated, the look-ahead corpus has controls that must be *admitted*, and the compliance
-metric refuses to score a corpus in which nothing was admitted. **An empty corpus fails** — a
-metric over nothing is perfect and checks nothing.
+unconditionally gets 100%. Scored against only-contained payloads, a scanner that flags
+nothing gets 100%. Both degenerate passes are closed: a third of the citation corpus is
+fabricated, and the injection corpus carries clean filings that must *not* be flagged. **An
+empty corpus fails** — a metric over nothing is perfect and checks nothing.
 
 **The gate found a real defect on its first run**, which is the best argument for it that
 could have been made. The citation verifier accepted `$198,270` cited as `$198,720`
@@ -614,29 +613,29 @@ Gate 2 checks the evidence *before* it looks for an approval — being asked to 
 while the platform holds unverified citations would mean approving something it cannot stand
 behind, without being told. See `docs/adr/0018-only-code-confirms-a-citation.md`.
 
-### Point-in-time data
+### Which filing said what
 
 A company's FY2020 revenue has more than one true value. The FY2020 annual report states
 one figure; the FY2022 report may state a different one for the same year, after a
-restatement. Both are true; they differ in *when they were said*. Research performed as at
-a date in 2021 must use the first, because the second did not exist.
+restatement. Both are true; they differ in *when they were said*. A run reads the filings
+as they stand (ADR 0113), so the figure it holds is the latest filing's word on the period
+— and the earlier one is recorded as superseded, naming the accession that replaced it,
+because "why is this figure not in the report?" is asked about every report.
 
-Taking "the latest value" instead is look-ahead bias, and it fails **silently** — nothing
-raises, no figure looks implausible, and the analysis simply looks better than reality.
+SEC EDGAR carries the filing date on every fact, which makes the answer computable:
 
-SEC EDGAR carries the filing date on every fact, which makes the correct answer computable:
+> Group facts by concept, unit, period end, fiscal period and dimension. Choose the one
+> filed **latest**.
 
-> Group facts by concept, unit, period end and fiscal period. Discard every fact filed
-> after the as-of date. From what remains, choose the one filed **latest**.
+`aer.sources.sec.selection` implements exactly that, as a pure function with an exhaustive
+test suite, and returns a **partition** rather than a filtered list: every input fact
+appears once, in `chosen` or in `rejected` with a reason. Every stored fact keeps its own
+filing date and accession, so a report quoting a figure names the filing it came from.
 
-`aer.sources.sec.pit` implements exactly that, as a pure function with an exhaustive test
-suite, and returns a **partition** rather than a filtered list: every input fact appears
-once, in `chosen` or in `rejected` with a reason. "Why is this figure not in the report?"
-is asked about every report, and a filtered list cannot answer it.
-
-Only the `as_reported` basis is implemented. Asking for `restated` raises. See
-`docs/adr/0010-point-in-time-is-selection-not-filtering.md` and
-`docs/data-sources/sec-edgar.md`.
+Only the `as_reported` basis is implemented. Asking for `restated` raises: a figure no
+filing reported is a figure nothing archived can stand behind. See
+`docs/adr/0113-a-run-reads-the-filings-as-they-stand.md` (which supersedes ADR 0010 in its
+enforcement) and `docs/data-sources/sec-edgar.md`.
 
 ### Calculations
 
@@ -991,10 +990,11 @@ published in August cited a figure that no longer exists.
 
 So `price_bars` holds what the exchange printed, `corporate_actions` holds the events with the
 **ex-date** that decides which bars each one touches, and the adjusted series is a recorded
-calculation over the two. Point-in-time then costs nothing extra: a valuation as of June
-applies only actions whose ex-date had arrived by June, because a split announced in September
-had not happened. Under one adjusted column there is no honest way to clamp at all — the
-vendor already folded September's split into the June figure, and the look-ahead is invisible.
+calculation over the two. Reading the series as at a date then costs nothing extra: a
+valuation as of June applies only actions whose ex-date had arrived by June, because a split
+announced in September had not happened. Under one adjusted column there is no honest way to
+clamp at all — the vendor already folded September's split into the June figure, and the
+error is invisible.
 
 The vendor's own `adjusted_close` is kept as a **cross-check, never the answer**. A systematic
 divergence between it and this platform's arithmetic is a bug worth finding, and it cannot be
@@ -1028,14 +1028,14 @@ grew a purge path (ADR 0031). A statement previously in the codebase — "derive
 be published, raw series may not" — was not supported by the terms and has been removed;
 `docs/adr/0030` records the reading.
 
-**The point-in-time clamp is in the adapter, not the caller.** Every URL builder takes
-`as_of` as a required argument and puts it in the `to` parameter; there is no code path that
-omits it, exactly as `aer/sources/macro/fred.py` has none that omits an ALFRED vintage. The
-parsers then apply the bound a *second* time to what came back and count what they discarded,
-because a provider that ignores `to` produces a look-ahead that looks like a correct number.
+**The as-at clamp is in the adapter, not the caller.** Every URL builder takes `as_of` as a
+required argument and puts it in the `to` parameter; there is no code path that omits it,
+exactly as `aer/sources/macro/fred.py` has none that omits an ALFRED vintage. The parsers
+then apply the bound a *second* time to what came back and count what they discarded,
+because a provider that ignores `to` produces a wrong series that looks like a correct one.
 The fundamentals endpoint has no bound to give, so the share count is taken from the dated
 historical series rather than from the undated headline figure — pairing a correct June price
-with next quarter's share count is the quietest look-ahead of the lot.
+with next quarter's share count is the quietest mismatch of the lot.
 
 **Two limits, and they are different quantities.** A thousand requests a minute, which the
 token bucket already handles; and a hundred thousand *weighted* API calls a day, which it

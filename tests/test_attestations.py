@@ -251,7 +251,7 @@ async def book(db_session: Any) -> dict[str, Any]:
     await db_session.flush()
 
     portfolio = Portfolio(user_id=user.id, name="ISA", base_currency="GBP")
-    order = WorkOrder(user_id=user.id, as_of_date=DEALT_ON, point_in_time=False)
+    order = WorkOrder(user_id=user.id, as_of_date=DEALT_ON)
     db_session.add_all([portfolio, order])
     await db_session.flush()
 

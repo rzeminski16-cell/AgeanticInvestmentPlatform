@@ -57,11 +57,9 @@ from aer.eval.metrics import (
     Metric,
     MetricResult,
     assumption_completeness,
-    look_ahead_recall,
     numerical_consistency,
-    temporal_compliance,
 )
-from aer.eval.observations import CitedFigureObservation, SourceObservation
+from aer.eval.observations import CitedFigureObservation
 from aer.eval.replay import completeness_observations_for_job, replay_observations_for_job
 from aer.eval.runtime import (
     RunCitation,
@@ -158,15 +156,11 @@ async def evaluate_run(
     rows = await _load(context.session, job=job, request=request)
 
     results: dict[Metric, MetricResult | None] = {}
-    citation_rows = _citation_rows(rows, request=request)
+    citation_rows = _citation_rows(rows)
     results[Metric.CITATION_ACCURACY] = _measure(lambda: run_citation_accuracy(citation_rows))
     results[Metric.HALLUCINATED_CITATION_RATE] = _measure(
         lambda: run_hallucinated_citation_rate(citation_rows)
     )
-
-    source_rows = _source_rows(rows, request=request)
-    results[Metric.TEMPORAL_COMPLIANCE] = _measure(lambda: temporal_compliance(source_rows))
-    results[Metric.LOOK_AHEAD_RECALL] = _measure(lambda: look_ahead_recall(source_rows))
 
     coverage_rows = _coverage_rows(rows)
     results[Metric.SOURCE_COVERAGE] = _measure(lambda: source_coverage(coverage_rows))
@@ -207,7 +201,7 @@ async def evaluate_run(
     cited = await _cited_figures(context.session, job=job)
     results[Metric.CITED_FIGURE_AGREEMENT] = _measure(lambda: cited_figure_agreement(cited))
 
-    advisories = await _advise(context, rows, use_batch=use_batch, request=request)
+    advisories = await _advise(context, rows, use_batch=use_batch)
 
     written = await _write(context.session, job_id=job.id, results=results, advisories=advisories)
     _log.info(
@@ -375,16 +369,16 @@ async def _tier_every_referenced_document(session: AsyncSession, rows: _RunRows)
 # ==========================================================================================
 
 
-def _citation_rows(rows: _RunRows, *, request: ResearchRequest) -> list[RunCitation]:
+def _citation_rows(rows: _RunRows) -> list[RunCitation]:
     built: list[RunCitation] = []
     for citation, claim in rows.citations:
         # The comparison's own outcome, separate from the overall verdict. Decided by
         # re-asking the platform's own admissibility question of the source row — not by
         # parsing the error text — so a citation the verifier refused before comparing
-        # (quarantine, look-ahead) is not mistaken for a fabrication.
+        # (a quarantined source) is not mistaken for a fabrication.
         if citation.excerpt_verified:
             excerpt_found: bool | None = True
-        elif _source_comparable(rows, citation.source_document_id, request=request):
+        elif _source_comparable(rows, citation.source_document_id):
             excerpt_found = False
         else:
             excerpt_found = None
@@ -400,41 +394,15 @@ def _citation_rows(rows: _RunRows, *, request: ResearchRequest) -> list[RunCitat
     return built
 
 
-def _source_comparable(rows: _RunRows, source_id: uuid.UUID, *, request: ResearchRequest) -> bool:
+def _source_comparable(rows: _RunRows, source_id: uuid.UUID) -> bool:
     """Whether the verifier would have reached the excerpt comparison for this source.
 
-    The same two refusals `aer.verify.citations` applies before re-reading a document:
-    an inadmissible source, and — in point-in-time mode — one whose latest supportable
-    date postdates the request. A citation refused on either is the temporal family's
-    failure, and the hallucination row must not claim an excerpt nobody checked.
+    The one refusal `aer.verify.citations` applies before re-reading a document: an
+    inadmissible source. A citation refused on it is a quarantine's doing, and the
+    hallucination row must not claim an excerpt nobody checked.
     """
     source = next((row for row in rows.sources if row.id == source_id), None)
-    if source is None or not source.is_admissible:
-        return False
-    if not request.work_order.point_in_time:
-        return True
-    latest = source.publication_date_latest or source.publication_date
-    return latest is None or latest <= request.work_order.as_of_date
-
-
-def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObservation]:
-    # The run's own policies travel with each observation: the hallucination metric already
-    # respects request.work_order.point_in_time, and the temporal metric judging the same run by a
-    # stricter rule than it ran under is how a point-in-time-off report came to wear a
-    # temporal-compliance failure on its front page. Both flags, since ADR 0111 — a run
-    # that admitted undated sources on purpose is not one that let them slip through.
-    return [
-        SourceObservation(
-            name=row.title or row.url,
-            published=row.publication_date_latest or row.publication_date,
-            as_of=request.work_order.as_of_date,
-            admitted=row.is_admissible,
-            established=row.publication_date,
-            point_in_time=request.work_order.point_in_time,
-            undated_sources_admissible=request.work_order.undated_sources_admissible,
-        )
-        for row in rows.sources
-    ]
+    return source is not None and source.is_admissible
 
 
 def _coverage_rows(rows: _RunRows) -> list[SectionCoverage]:
@@ -684,7 +652,7 @@ def _measure(compute: Any) -> MetricResult | None:
 
 
 async def _advise(
-    context: AgentContext, rows: _RunRows, *, use_batch: bool, request: ResearchRequest
+    context: AgentContext, rows: _RunRows, *, use_batch: bool
 ) -> dict[Metric, list[dict[str, Any]]]:
     """Ask the validator role about what the deterministic checks could not settle.
 
@@ -695,13 +663,7 @@ async def _advise(
     inputs: list[tuple[Metric, AssistInput]] = []
     inputs.extend(
         (Metric.CITATION_ACCURACY, item)
-        for item in await _citation_questions(
-            context.session, rows, context=context, request=request
-        )
-    )
-    inputs.extend(
-        (Metric.TEMPORAL_COMPLIANCE, item)
-        for item in await _temporal_questions(context.session, rows, context=context)
+        for item in await _citation_questions(context.session, rows, context=context)
     )
     if not inputs:
         return {}
@@ -725,7 +687,6 @@ async def _advise(
                 "question": payload.question,
                 "found": advisory.found,
                 "candidate_excerpt": advisory.candidate_excerpt,
-                "proposed_date": advisory.proposed_date,
                 "rationale": advisory.rationale,
                 "confidence": advisory.confidence,
                 "advisory": True,
@@ -735,7 +696,7 @@ async def _advise(
 
 
 async def _citation_questions(
-    session: AsyncSession, rows: _RunRows, *, context: AgentContext, request: ResearchRequest
+    session: AsyncSession, rows: _RunRows, *, context: AgentContext
 ) -> list[AssistInput]:
     """One excerpt-location question per unresolved citation, up to the cap.
 
@@ -750,7 +711,7 @@ async def _citation_questions(
             break
         if citation.excerpt_verified or citation.override_reason is not None:
             continue
-        if not _source_comparable(rows, citation.source_document_id, request=request):
+        if not _source_comparable(rows, citation.source_document_id):
             # The document may not be used at all; locating a better excerpt in it
             # would be advice about evidence the run is forbidden to cite.
             continue
@@ -765,46 +726,6 @@ async def _citation_questions(
                     "The claim below cites this document, but the recorded excerpt did "
                     "not verify. Find a passage that supports the claim, if one exists.\n"
                     f"Claim: {claim.text[:_QUESTION_CHARS]}"
-                ),
-                source_document_id=source_id,
-                source_tier=tier,
-                document_text=text,
-            )
-        )
-    return questions
-
-
-async def _temporal_questions(
-    session: AsyncSession, rows: _RunRows, *, context: AgentContext
-) -> list[AssistInput]:
-    """One date-adjudication question per undated source with readable text, capped."""
-    questions: list[AssistInput] = []
-    for source in rows.sources:
-        if len(questions) >= MAX_ASSISTS:
-            break
-        if (source.publication_date_latest or source.publication_date) is not None:
-            continue
-        extraction = await session.scalar(
-            select(Extraction)
-            .where(Extraction.source_document_id == source.id)
-            .order_by(Extraction.created_at)
-            .limit(1)
-        )
-        if extraction is None:
-            # Nothing has extracted readable text from this source, so there is nothing
-            # for an adjudicator to read. Not a gap to paper over with a guess.
-            continue
-        window = await _document_window(session, context, extraction_id=extraction.id)
-        if window is None:
-            continue
-        text, source_id, tier = window
-        questions.append(
-            AssistInput(
-                kind="date_adjudication",
-                question=(
-                    "This document has no established publication date, so under "
-                    "point-in-time rules it is quarantined. Does its own text establish "
-                    "when it was published?"
                 ),
                 source_document_id=source_id,
                 source_tier=tier,

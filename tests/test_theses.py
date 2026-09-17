@@ -657,7 +657,6 @@ async def _approved_report(
         ticker=company.ticker,
         exchange=company.exchange,
         as_of_date=as_of,
-        point_in_time=True,
         base_currency="GBP",
         reporting_currency="GBP",
         investment_horizon_months=12,

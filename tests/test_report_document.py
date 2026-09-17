@@ -194,7 +194,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         ticker="MSFT",
         exchange="NASDAQ",
         as_of_date=AS_OF_DATE,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -519,24 +518,6 @@ class TestTheReportFacesTheReader:
     def test_a_full_report_carries_no_notice(self) -> None:
         assert CoverageNote(sections_failed=(), sections_total=18, checks_failed=()).sentence == ""
 
-    def test_point_in_time_off_is_explained_not_just_named(self) -> None:
-        """Gap R15: the front matter's "Point-in-time: off" is a setting's name. The
-        notice says what the setting off *costs* — the guarantee that nothing published
-        after the as-of date informed the note."""
-        note = CoverageNote(
-            sections_failed=(), sections_total=18, checks_failed=(), point_in_time_off=True
-        )
-        assert "published after the as-of date" in note.sentence
-
-    async def test_a_point_in_time_off_run_carries_the_notice(self, scene: dict[str, Any]) -> None:
-        scene["request"].work_order.point_in_time = False
-        await scene["session"].flush()
-
-        document = await _document(scene)
-
-        assert document.coverage is not None
-        assert "point-in-time enforcement was off" in document.coverage.sentence
-
     def test_display_values_read_like_prose_not_storage(self) -> None:
         assert _display_value(Decimal("0.437565271053")) == (
             "0.4376 (rounded; full precision stored)"
@@ -547,10 +528,10 @@ class TestTheReportFacesTheReader:
     async def test_a_section_resting_on_an_undated_source_carries_the_marker(
         self, scene: dict[str, Any]
     ) -> None:
-        """The C3 marker: point-in-time is a soft constraint, and the reader sees where.
+        """The C3 marker: an undated source is used, capped, and the reader sees where.
 
-        A source with no stated publication date is used rather than excluded; the
-        section resting on it carries a small symbol by its heading, and the legend
+        A source with no stated publication date is used rather than excluded (ADR 0111);
+        the section resting on it carries a small symbol by its heading, and the legend
         explains the symbol exactly once.
         """
         document = await _document(scene)

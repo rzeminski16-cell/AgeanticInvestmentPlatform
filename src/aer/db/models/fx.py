@@ -68,7 +68,7 @@ class FxRateRow(Base):
     base: Mapped[str] = mapped_column(String(3), nullable=False)
     quote: Mapped[str] = mapped_column(String(3), nullable=False)
 
-    # The day the rate was for, which is the field point-in-time selection filters against.
+    # The day the rate was for, which is the field an as-at read filters against.
     # `aer.calc.fx.FxRate` keeps the same distinction for the same reason.
     observed_on: Mapped[date] = mapped_column(Date, nullable=False)
 

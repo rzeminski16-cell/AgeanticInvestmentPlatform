@@ -208,7 +208,7 @@ class TestRecordingIsIdempotent:
 
 
 class TestTheSchemaEnforcesWhatTheQueryAssumes:
-    """The check constraint the point-in-time read leans on.
+    """The check constraint the as-at read leans on.
 
     `observation_as_at` filters on both the vintage and the period, and the second filter is
     redundant *because of this constraint*: a period cannot postdate its own vintage, so a
@@ -287,7 +287,7 @@ class TestWhatTheSeriesRowCarries:
         assert row.is_archived is True
 
     async def test_an_ons_release_is_not_marked_as_an_archive(self, db_session, clean):
-        """A UK figure must not borrow a US figure's point-in-time guarantee."""
+        """A UK figure must not borrow a US figure's vintage guarantee."""
         await macro_service.record_series(
             db_session,
             response(

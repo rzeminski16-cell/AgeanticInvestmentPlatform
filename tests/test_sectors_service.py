@@ -61,7 +61,6 @@ async def scene(db_session: Any) -> dict[str, Any]:
         ticker="BARC",
         exchange="LSE",
         as_of_date=AS_OF_DATE,
-        point_in_time=True,
         base_currency="GBP",
         reporting_currency="GBP",
         investment_horizon_months=12,

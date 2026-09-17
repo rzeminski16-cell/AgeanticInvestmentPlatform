@@ -30,10 +30,10 @@ migration 0051's backfill wrote. So `work_order_id=request.id` at a call site is
 coincidence being exploited; it is the contract. The alternative — a separate id and a
 lookup — buys nothing and adds a join to every path that has a request and wants its cap.
 
-**This is now the only place those columns live.** `user_id`, `as_of_date`, `point_in_time`,
-`max_cost_gbp`, `status` and `archived_at` were duplicated onto `research_requests` for
-exactly one revision, kept in step by a single mirroring function, and migration `0064`
-dropped the copies. The duplication was ugly on purpose: `tests/test_migrations.py` compares
+**This is now the only place those columns live.** `user_id`, `as_of_date`, `max_cost_gbp`,
+`status` and `archived_at` were duplicated onto `research_requests` for exactly one
+revision, kept in step by a single mirroring function, and migration `0064` dropped the
+copies. The duplication was ugly on purpose: `tests/test_migrations.py` compares
 the migrated schema against the models with `compare_type` on, so a column dropped in a
 migration while still declared on a model is a red build in the same commit — and the only
 way to drop a column *later* is for the model to keep it *now*.
@@ -104,20 +104,20 @@ class WorkOrder(Base):
     # by construction and exactly as ADR 0061 arranged: the emptiness is the guard working.
     subject_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
-    # -- The clock the run reads --------------------------------------------------------
+    # -- The run's date ------------------------------------------------------------------
 
+    # The day the run was commissioned: a stamp, never a choice (ADR 0110). It dates the
+    # report and the "as at" reads of prices, rates and macro series; it selects nothing
+    # (ADR 0113). The mode that once refused evidence published after it, and the column
+    # that carried the mode, went with migration 0076.
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    # Whether evidence published after `as_of_date` is admissible. Enforced at acquisition
-    # in code, per invariant 4; this is what the enforcement reads.
-    point_in_time: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
-
     # Whether a document whose publication date nothing establishes may be used at all.
-    # A separate policy from the one above, and separate since ADR 0111: the two used to
-    # share `point_in_time`, so the only way to read an undated news page was to switch
-    # off the look-ahead check as well. Defaults to admitting them, and the cap that makes
-    # that safe is in `SourceTier.as_evidence` rather than here — an undated document may
-    # corroborate and may never be the primary source a section's policy requires.
+    # Its own policy since ADR 0111, and the one source policy a run carries: it is a
+    # statement about evidence quality, not about a date. Defaults to admitting them, and
+    # the cap that makes that safe is in `SourceTier.as_evidence` rather than here — an
+    # undated document may corroborate and may never be the primary source a section's
+    # policy requires.
     undated_sources_admissible: Mapped[bool] = mapped_column(
         nullable=False, server_default=text("true"), default=True
     )

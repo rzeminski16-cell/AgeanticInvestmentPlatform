@@ -190,7 +190,7 @@ function bullets(s, items, opts) {
   const panes = [
     ["Code owns", [
       "All arithmetic — ratios, growth, cost of capital, discounted cash flow, scenarios",
-      "Fetching, hashing, caching and point-in-time filtering",
+      "Fetching, hashing, caching and selection between filings",
       "Units and currency, carried through every operation; a mismatch raises",
       "Citation verification: re-reading the artefact by hash and finding the excerpt",
       "Cost metering, and the caps that stop a run rather than warn about it",
@@ -452,7 +452,7 @@ function bullets(s, items, opts) {
     "Evidence hashed at the moment it is fetched — or it is hearsay for ever",
     "Arithmetic outside the prose, with units that raise instead of coercing",
     "A cost ledger, and a cap that stops the work rather than warning about it",
-    "Point-in-time enforced when a page is acquired, not when it is quoted",
+    "Admissibility decided when a page is acquired, not when it is quoted",
     "A record that still re-executes a year after anybody remembers the question",
   ], { x: 7.15, y: 2.55, w: 5.1, h: 3.3, fontSize: 12 });
 

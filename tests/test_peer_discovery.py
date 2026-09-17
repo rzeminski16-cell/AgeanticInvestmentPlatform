@@ -99,7 +99,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         ticker="CTSO",
         exchange="NASDAQ",
         as_of_date=AS_OF_DATE,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -157,7 +156,6 @@ async def _seed_gate(engine: Any, *, peers: list[dict[str, str]] | None, refused
             ticker="CTSO",
             exchange="NASDAQ",
             as_of_date=AS_OF_DATE,
-            point_in_time=True,
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
@@ -378,12 +376,10 @@ class TestAPeerNeedsOnlyToResolve:
         assert peer.identifier == str(company.id)
         assert peer.period_end == date(2021, 12, 31)
 
-    async def test_a_stored_period_after_the_as_of_date_is_not_offered(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """Point-in-time applies to the comparison too: a known company whose only stored
-        year postdates the as-of date aligns nothing, and says so with a None period
-        rather than a refusal — the name is still worth recording."""
+    async def test_a_stored_period_after_the_run_is_offered(self, scene: dict[str, Any]) -> None:
+        """A known company's newest stored year is the one offered for comparison, whenever
+        it was filed (ADR 0113): the comparison reads the store as it stands, exactly as
+        the subject's own analysis does."""
         session = scene["session"]
         company = Company(name="PEER Corporation", ticker="PEER", exchange="NASDAQ", cik=PEER_CIK)
         session.add(company)
@@ -408,7 +404,7 @@ class TestAPeerNeedsOnlyToResolve:
         outcome = await discover(scene, proposed("PEER"))
 
         (peer,) = outcome.peers
-        assert peer.period_end is None
+        assert peer.period_end == scene["request"].work_order.as_of_date + timedelta(days=200)
 
     async def test_a_refusal_names_what_was_proposed(self, scene: dict[str, Any]) -> None:
         """A proposal of six arriving as four must not look like a proposal of four."""

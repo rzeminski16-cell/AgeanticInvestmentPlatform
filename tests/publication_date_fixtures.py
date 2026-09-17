@@ -1,19 +1,18 @@
-"""``fx_lookahead``: documents that must not reach a report, and near-misses that must.
+"""``fx_dates``: documents whose publication date is known in advance, hidden in different places.
 
-§2.10 sets **look-ahead detection recall at 100%**, and that target is only meaningful against a
-corpus where the answer is known in advance. :data:`POST_DATED` holds five documents planted
-after :data:`AS_OF`, each hiding its date in a different place, because a detector that only
-reads one of the four kinds of evidence would score perfectly against a corpus that only used
-that one.
+The extractor is scored against a corpus where the answer is written down before it runs.
+:data:`POST_DATED` holds documents dated after :data:`AS_OF`, each hiding its date in a
+different place, because an extractor that only reads one of the four kinds of evidence would
+score perfectly against a corpus that only used that one. :data:`ADMISSIBLE` holds documents
+dated on, just before, and well before it — including the boundary, which the extractor is
+still tested on although nothing turns on it any more.
 
-:data:`ADMISSIBLE` is the half that keeps the rule honest. A system that quarantined everything
-would hit 100% recall and be useless: it would refuse the filings the report is made of. These
-are dated on, just before, and well before the as-of date — including the boundary case, because
-"published on the as-of date" is admissible and an off-by-one in either direction is a whole
-class of wrong report.
-
-:data:`UNDATABLE` is the third case. No date can be established, so under point-in-time rules it
-is refused — not because it is known to be too new, but because it cannot be shown not to be.
+**No case is refused for its date.** A rule refusing a document published after the run's
+date was retired with the date it compared against (ADR 0113): the run's date is the day it
+was commissioned, so a document dated after it is a mis-dated document, recorded as such.
+What admissibility still reads is :data:`UNDATABLE` — no date can be established — and only
+where the run refuses undated sources (ADR 0111); by default such a document is admitted,
+capped at tier 5 and never primary.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from typing import Final
 
 __all__ = ["ADMISSIBLE", "AS_OF", "POST_DATED", "UNDATABLE", "Planted"]
 
-# The as-of date every case in this module is judged against.
+# The date every case in this module is written against.
 AS_OF: Final = date(2022, 7, 31)
 
 
@@ -37,9 +36,9 @@ class Planted:
             established. Written here rather than derived, so the fixture states the answer and
             the test checks it rather than the other way round.
         latest: The newest date any evidence here supports, where that differs from
-            ``expected``. Admissibility is decided on this one, not on the best estimate — ADR
-            0021 — so a document whose index says July and whose own text says September must
-            be refused even though July is the better guess at when it was published.
+            ``expected``. Recorded beside the estimate, so a reader can see the evidence
+            disagrees — a document whose index says July and whose own text says September
+            is dated less firmly than "July" suggests.
     """
 
     name: str
@@ -52,11 +51,11 @@ class Planted:
 
     @property
     def conservative(self) -> date | None:
-        """The date the point-in-time rule is judged on."""
+        """The newest date any evidence supports."""
         return self.latest if self.latest is not None else self.expected
 
 
-# -- Planted after the as-of date. Every one of these must be refused. -----------------------------
+# -- Dated after AS_OF, each in a different place. Every one must be dated correctly. --------------
 
 POST_DATED: Final[tuple[Planted, ...]] = (
     Planted(
@@ -82,11 +81,10 @@ POST_DATED: Final[tuple[Planted, ...]] = (
         expected=date(2022, 10, 25),
         text="FOR IMMEDIATE RELEASE\n25 October 2022\nThe Board today announced a share buyback.",
     ),
-    # **The disagreement case, and the reason ADR 0021 exists.** The filing index says 28 July,
-    # which is before the as-of date and is the better estimate of when this was published. The
-    # document's own text says September. The honest answer to "can this be shown to predate 31
-    # July?" is no, so it must be refused — and a system deciding on the best estimate rather
-    # than on the latest evidence would admit it while looking entirely correct.
+    # **The disagreement case.** The filing index says 28 July, which is the better estimate
+    # of when this was published. The document's own text says September. Both are kept on
+    # the record — the estimate and the bound — because a reader shown only "28 July" would
+    # not know the document's own words disagree.
     Planted(
         name="an index date before the as-of, with a September date in the document",
         expected=date(2022, 7, 28),
@@ -95,7 +93,7 @@ POST_DATED: Final[tuple[Planted, ...]] = (
         text="Interim statement issued 15 September 2022 covering the period to 30 June 2022.",
     ),
     # The one that is only visible in the weakest evidence. If HTTP headers were dropped as
-    # unreliable rather than merely scored low, this document would be admitted with no date at
+    # unreliable rather than merely scored low, this document would be recorded with no date at
     # all — which is the failure mode that argues for keeping them.
     Planted(
         name="a page datable only from its Last-Modified header",
@@ -106,7 +104,7 @@ POST_DATED: Final[tuple[Planted, ...]] = (
 )
 
 
-# -- Dated on or before the as-of date. Every one of these must be usable. -------------------------
+# -- Dated on or before AS_OF. -------------------------------------------------------------------
 
 ADMISSIBLE: Final[tuple[Planted, ...]] = (
     Planted(
@@ -115,8 +113,9 @@ ADMISSIBLE: Final[tuple[Planted, ...]] = (
         index_date=date(2022, 7, 24),
         text="Annual report on Form 10-K for the fiscal year ended 30 June 2022.",
     ),
-    # The boundary. Published *on* the as-of date is admissible: the rule is "nothing published
-    # after", and an off-by-one here refuses a quarter's worth of real filings.
+    # The boundary the retired rule once turned on. Kept because the extractor is still
+    # expected to date it exactly, and an off-by-one in a date parser is a class of wrong
+    # record whatever reads it.
     Planted(
         name="a filing on the as-of date itself",
         expected=AS_OF,
@@ -138,7 +137,7 @@ ADMISSIBLE: Final[tuple[Planted, ...]] = (
 )
 
 
-# -- No date can be established. Refused under point-in-time, and only under it. -------------------
+# -- No date can be established. Refused only where the run refuses undated sources. --------------
 
 UNDATABLE: Final[tuple[Planted, ...]] = (
     Planted(

@@ -32,7 +32,6 @@ _RUN_ROOT_FIELDS = frozenset(
     {
         "user_id",
         "as_of_date",
-        "point_in_time",
         "undated_sources_admissible",
         "max_cost_gbp",
         "status",

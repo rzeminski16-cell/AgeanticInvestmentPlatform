@@ -92,8 +92,9 @@ cross product that can actually occur:
 - every gate kind in the approvals model, in each of its three dispositions — pending,
   decided, stale;
 - every pause reason the engine can write (`_record_node_failure`, seal drift, budget scope
-  `per_run` and `monthly`, unverified citations, a fired look-ahead trigger — the last of
-  which F1 deletes, and the harness must then lose the row rather than keep a dead one);
+  `per_run` and `monthly`, unverified citations, a fired escalation trigger — one row per
+  `TriggerKind`, so when F1 deleted the look-ahead trigger on 17 September the inventory lost
+  its row rather than keeping a dead one: 52 rows became 51);
 - every `AerError` code that reaches a page.
 
 A state nobody can reach is a defect in the harness or a dead branch in the engine, and the
@@ -196,7 +197,7 @@ the test.
 | **1** Every fact traces to a hashed artefact | Gains the **UK path**, where a fact is this platform's own parse rather than a registry's aggregation (F19) | `just verify-artefacts` over the corpus, plus a golden test that `extract_ixbrl` over a stored accounts document produces byte-identical facts twice. A parsing error is a wrong number with a perfect audit trail, so this is the boundary tested hardest |
 | **2** Code confirms a citation | Unchanged | `tests/test_citations.py`; the boundary scanner at `:74` |
 | **3** No figure without a fact, a calculation or an attestation | Gains **supersession**: a superseded report's figures must not reach a current surface | A partial unique index (migration M2) plus a service test that a second current report for one company raises, and a render test that a superseded report renders only at its own address |
-| **4** Point-in-time enforced at acquisition | **Removed** (F1, ADR 0113) | A structural absence test: a text scan over `src/` and `docs/` for `point.in.time`, `look_ahead`, `temporal_compliance` and `as_of`, allowing only the ADR that records the removal and the retrieval-timestamp code F11 depends on. A deletion nobody asserts is a deletion that grows back |
+| **4** Point-in-time enforced at acquisition | **Removed** (F1, ADR 0113, 17 September 2026) | A structural absence test, `tests/test_point_in_time_is_gone.py`: a text scan over `src/`, `tests/`, `audit/`, `migrations/` and the behaviour documents for the enforcement's own names and the phrase itself — `point_in_time` in any spelling, the selection function and its rejection reason, the quarantine reason, the two metrics, the trigger, and "look-ahead" as the rule's word — allowing only the scan, the migrations, the ADRs, the archive and the records that cite the removal. `as_of` is deliberately *not* scanned: it survives as the run's stamp and the "as at" bound on prices, rates and macro reads, and the test names those readers in its docstring. A deletion nobody asserts is a deletion that grows back |
 | **5** Units carried; a mismatch raises | Gains the **derived bank revenue** (ADR 0114) | A property test that the derivation raises on a currency or scale mismatch between net interest income and non-interest income, and that it is refused entirely for a filer the sector gate has not confirmed as a bank |
 | **6** Cost metered and capped | Gains the **refresh** and the **scheduler** | The fake provider counts calls; a refresh of a stored run must make no more than the mechanism document's ceiling, and the scheduler's daily pass must make **zero**. "Never spends" is a test, not a promise |
 | **7** Skill files additive-only | Unchanged | The attack corpus in `tests/skill_corpus.py`, every member of which must be refused with a readable reason |
@@ -308,7 +309,7 @@ carries it.
 
 | # | Feature | The test |
 |---|---|---|
-| F1 | Point-in-time removal | The structural absence scan (§3.2); all five stored runs still replay; the blocking metric set shrinks by one and `just eval` is green at the new count |
+| F1 | Point-in-time removal | The structural absence scan (§3.2) — green, 17 September 2026; the blocking metric set is nine and `just eval` is green at that count; all five stored runs still replay — **open**, the runs are re-seeded in Phase 1½'s second half |
 | F2 | The adversary argues the opposite case | A seeded false challenge — a figure the calculation record refutes — is dropped before drafting; no run's disagreements section contains an unresolved item; the appendix is rewritten after a settle rather than at `validate` |
 | F3 | The closing section | Every figure in it is a recorded calculation with a footnote; `RESERVED_OUTPUT_FIELDS` is still refused; the section is absent, not empty, when the book is empty |
 | F4 | The refresh | A refresh of a stored run re-drafts between 3 and 6 of 18 sections, leaves the rest byte-identical, names every material move in the change summary, and makes no more model calls than the ceiling. Materiality is a table test: ≥2% relative, a sign change, and a premise-threshold crossing are always material |

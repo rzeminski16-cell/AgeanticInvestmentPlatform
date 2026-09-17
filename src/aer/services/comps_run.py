@@ -509,9 +509,7 @@ async def _one_peer(
     if company is None:
         return None
 
-    peer_analysis = await analyse_company(
-        session, new_context(), company_id=company.id, work_order=request.work_order
-    )
+    peer_analysis = await analyse_company(session, new_context(), company_id=company.id)
     latest = peer_analysis.periods[0] if peer_analysis.periods else None
     if latest is None:
         return None

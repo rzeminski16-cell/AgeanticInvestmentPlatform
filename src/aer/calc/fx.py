@@ -110,7 +110,7 @@ class FxRate:
     an upside-down application a raised error rather than a plausible wrong number.
 
     ``observed_on`` is the date the rate was *for*, not the date it was fetched. The two
-    differ by up to a day for end-of-day series, and point-in-time selection needs the first.
+    differ by up to a day for end-of-day series, and an as-at read needs the first.
     """
 
     base: str

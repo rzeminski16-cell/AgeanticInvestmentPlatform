@@ -1,13 +1,13 @@
 # SEC EDGAR
 
 The primary US fundamentals source. Free, complete for US registrants, and — uniquely
-among free sources — genuinely point-in-time.
+among free sources — fully attributed: every fact names the filing that stated it.
 
 ## Why it is the core US source
 
 Every fact EDGAR returns carries the accession number and the filing date of the document
-that reported it. That makes "what did this company say its FY2020 revenue was, as at
-March 2021?" a question with a determinate answer rather than an approximation. Paid
+that reported it. That makes "what did this company say its FY2020 revenue was, and in
+which filing?" a question with a determinate answer rather than an approximation. Paid
 vendors generally serve *restated* figures, which are cleaner and wrong for any
 backward-looking analysis.
 
@@ -103,14 +103,14 @@ would silently lose real data whenever the alias map falls behind the taxonomy.
 ## The aggregate endpoints are not citable documents
 
 `companyfacts`, `submissions` and the ticker file are **generated on request** from
-whatever exists at that moment. They have no publication date of their own, so they are
-recorded with `publication_date = NULL` and are therefore quarantined under point-in-time
-rules.
+whatever exists at that moment. They have no publication date of their own, so the acquire
+step dates `companyfacts` by the newest filing it carries — the day the aggregate could
+first have existed (ADR 0044) — and the row says the date was derived rather than stated.
 
-That is correct rather than unfortunate. You do not cite "the companyfacts endpoint" as
-evidence for a claim — you cite the **filing**, identified by its accession number. Every
-fact parsed out of the aggregate carries that accession, and the filing itself, when
-fetched, has a real filing date and is fully admissible.
+Either way, you do not cite "the companyfacts endpoint" as evidence for a claim — you cite
+the **filing**, identified by its accession number. Every fact parsed out of the aggregate
+carries that accession, and the filing itself, when fetched, has a real filing date and is
+the primary source a section rests on.
 
 ## Recording provenance is the caller's job
 
@@ -128,26 +128,27 @@ either way — the store is content-addressed, so an unrecorded artefact is stil
 deduplicated and re-readable — but a retention policy will eventually need to reconcile the
 two.
 
-## Point-in-time selection
+## Selecting between filings
 
-The rule, implemented in `sources/sec/pit.py`:
+The rule, implemented in `sources/sec/selection.py` (ADR 0113 — a run reads the filings as
+they stand):
 
-> Group facts by `(concept, unit, period_end, fiscal_period)`. Discard every fact filed
-> after the as-of date. From what remains, choose the one filed **latest**.
+> Group facts by `(concept, unit, period_end, fiscal_period, dimension)`. Choose the one
+> filed **latest**.
 
 Ties are broken by accession, then by raw tag, so the result never depends on input
 ordering. Every input fact appears exactly once in the output, either in `chosen` or in
-`rejected` with one of three reasons:
+`rejected` with one of two reasons, and a superseded fact names the accession that replaced
+it:
 
 | Reason | Meaning |
 |---|---|
-| `filed_after_as_of_date` | Did not exist yet. Using it would be look-ahead bias. |
-| `superseded_by_later_filing` | A later filing, still within the as-of date, restated it. |
+| `superseded_by_later_filing` | A later filing restated it. |
 | `duplicate_tagging_in_same_filing` | One filing tagged the same number twice. |
 
-Only the `as_reported` basis is implemented. `select_point_in_time` **raises** if asked for
-`restated`, because a convenience function for selecting restated figures is a convenience
-function for introducing look-ahead bias.
+Only the `as_reported` basis is implemented. `select_latest` **raises** if asked for
+`restated` or `vendor_standardised`: a figure no filing reported is a figure nothing archived
+can stand behind.
 
 ## Full-text search
 

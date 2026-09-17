@@ -150,7 +150,7 @@ async def document(db_session: Any) -> SourceDocument:
     db_session.add_all([user, artefact])
     await db_session.flush()
 
-    order = WorkOrder(user_id=user.id, as_of_date=MONDAY, point_in_time=True)
+    order = WorkOrder(user_id=user.id, as_of_date=MONDAY)
     db_session.add(order)
     await db_session.flush()
 

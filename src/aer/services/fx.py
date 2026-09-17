@@ -8,29 +8,29 @@ neither of those needs a session, and so the arithmetic stays testable without o
 **Nothing here decides anything.** Which observation an as-of date may use, how stale is too
 stale, and what a cross-rate is are all :mod:`aer.calc.fx`'s answers, tested there and
 reached from here — this module's job is to hand that module rows and to write down what it
-returns. A second copy of the point-in-time rule living in a SQL ``WHERE`` clause is exactly
-how two ideas of "as at" come to disagree, and the one in the query is the one nobody reads.
+returns. A second copy of the as-at rule living in a SQL ``WHERE`` clause is exactly how
+two ideas of "as at" come to disagree, and the one in the query is the one nobody reads.
 
 **Storing is idempotent on ``(pair, day, vintage)``.** A retried acquisition writes no second
 copy, because duplicate rows at one vintage would make a correction appear where none
 happened. A rate the ECB has genuinely restated arrives at a *later* vintage and is a new
 row, never an update to the old one.
 
-**An observation later than the response's as-of date is refused at the door.** Invariant 4
+**An observation later than the response's as-of date is refused at the door.** The bound
 is enforced at acquisition, in code: :func:`aer.sources.macro.ecb.reference_rate_url` bounds
 the request, and this bounds what gets written even if the portal answers with more than it
 was asked for. :func:`aer.calc.fx.select_rate` then applies the same rule a third time over
 what comes back out. Three checks for one rule is not redundancy here — it is the difference
 between a control and a query parameter.
 
-**The vintage is an audit trail, not a point-in-time filter, and this is where this module
-parts company with :mod:`aer.services.macro`.** ALFRED genuinely serves a series as it stood
+**The vintage is an audit trail, not an as-at filter, and this is where this module parts
+company with :mod:`aer.services.macro`.** ALFRED genuinely serves a series as it stood
 on a chosen date, so a macro read filters ``vintage <= as_of`` and gets what was knowable.
 The ECB Data Portal is not an archive: it serves the rates as they stand, so a vintage here
 records when *this platform* read them and nothing else. Filtering on it would make a run
 dated to last June blind to every rate fetched since, which is a fetch-order artefact
-wearing point-in-time clothes. What bounds a read is ``observed_on``, which is when the rate
-was *published*, and that is filtered — in the kernel.
+wearing as-at clothes. What bounds a read is ``observed_on``, which is when the rate was
+*published*, and that is filtered — in the kernel.
 """
 
 from __future__ import annotations

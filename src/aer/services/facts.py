@@ -1,9 +1,9 @@
 """Persisting selected facts, and resolving the company they belong to.
 
 Two operations, both deliberately dull. The interesting decisions — which tag means
-revenue, which filing was current at the as-of date — were made in
-:mod:`aer.core.concepts` and :mod:`aer.sources.sec.pit`, where they are pure functions
-with exhaustive tests. What is left here is writing rows.
+revenue, which filing's figure stands for a period — were made in
+:mod:`aer.core.concepts` and :mod:`aer.sources.sec.selection`, where they are pure
+functions with exhaustive tests. What is left here is writing rows.
 
 **Facts are inserted idempotently.** A re-run for the same company over the same filings
 must not create a second copy of every number: the uniqueness index covers the observation
@@ -12,7 +12,7 @@ Re-running research is normal, and a pipeline that duplicated its output every t
 make every count downstream wrong.
 
 **The basis is recorded, never inferred.** A row says ``as_reported`` because a
-point-in-time selection produced it, not because that is the usual case. When a vendor
+selection over the filings produced it, not because that is the usual case. When a vendor
 adapter eventually writes ``vendor_standardised`` rows, the distinction has to already be
 in the data rather than being reconstructed from which table it came from.
 
@@ -46,7 +46,7 @@ _log = structlog.get_logger("aer.services.facts")
 # count in an ``int16`` — so 32,767 is a hard ceiling, not a tunable. A multi-row INSERT
 # therefore has a row ceiling of ``32767 // columns``, and with sixteen columns that is 2,047.
 #
-# Microsoft's companyfacts, point-in-time selected at a 2022 as-of date, is **13,702 facts**:
+# Microsoft's companyfacts, selected as it stood in 2022, is **13,702 facts**:
 # 219,232 parameters, nearly seven times over. The extract step failed on it with
 # ``the number of query arguments cannot exceed 32767``. This is not an edge case — it is
 # every US large cap with a decade of filings, which is the platform's whole subject.
@@ -54,7 +54,7 @@ _PARAMETER_LIMIT: Final = 32_767
 
 
 def visible_facts(scope: EvidenceScope) -> Select[Any]:
-    """The facts a run may see: the subject's consolidated figures, as at the as-of date.
+    """The facts a run may see: the subject's consolidated figures, as the store holds them.
 
     **Scoped by company, not by request** (ADR 0061). Every consumer of a fact needs the
     same three predicates, and each one exists because getting it wrong produced a specific
@@ -73,11 +73,9 @@ def visible_facts(scope: EvidenceScope) -> Select[Any]:
     off the first run's document, so adding the request back would hide them: five research
     workers once spent sixty tool calls searching a table that was full and looked empty.
 
-    *The date filter is part of the scope, not a separate improvement.* Request scope
-    happened to bound a consumer to one acquisition; company scope does not, so without this
-    a point-in-time run could be shown a fact filed after its as-of date by some later run.
-    Filtered on ``filed_date``, because what matters is when the filing was filed, not when
-    this platform happened to fetch it.
+    *No date filter, since ADR 0113.* A run reads the filings as they stand, and a fact a
+    later run fetched is a fact the company filed: the store's most recent observation of
+    each figure is the one every run should see.
 
     *Consolidated only*, under ADR 0058: a segment's slice is indistinguishable from the
     company's own line once it is in a pack, and a writer citing it would state a fraction
@@ -92,8 +90,6 @@ def visible_facts(scope: EvidenceScope) -> Select[Any]:
         # no rows anyway; saying so here keeps that an intention rather than a coincidence
         # of SQL null semantics.
         return statement.where(sa_false())
-    if scope.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= scope.as_of_date)
     return statement
 
 

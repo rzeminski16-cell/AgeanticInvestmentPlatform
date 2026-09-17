@@ -12,9 +12,8 @@ returns nothing for.
 query rather than a memory. The order carries a cap of zero: no step of this may call a
 model, and the budget guard enforces exactly that (ADR 0093).
 
-**A book acquisition is inherently not point-in-time.** The operator wants today's close —
-that is the point of verifying at first sight — so the order says ``point_in_time=False``
-and admissibility follows from that honestly.
+**A book acquisition wants today's close** — that is the point of verifying at first
+sight — so the order is dated today and reads the price as it stands.
 """
 
 from __future__ import annotations
@@ -102,7 +101,6 @@ async def add_listing(
         subject_kind="portfolio",
         subject_id=portfolio.id,
         as_of_date=today,
-        point_in_time=False,
         max_cost_gbp=Decimal(0),
         status=RequestStatus.RUNNING,
     )

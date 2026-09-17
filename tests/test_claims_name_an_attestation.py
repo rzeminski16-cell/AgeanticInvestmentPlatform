@@ -73,7 +73,6 @@ async def scene(db_session: Any) -> dict[str, Any]:
         investment_horizon_months=12,
         max_cost_gbp="2.50",
         portfolio_context={},
-        point_in_time=True,
         status=RequestStatus.DRAFT,
     )
     portfolio = Portfolio(user_id=user.id, name="ISA", base_currency="GBP")

@@ -5,10 +5,10 @@ arithmetic applied to a live run's own tables (task 39). One row per metric per 
 because the question the dashboard and the task 41 escalation engine both ask is "how did
 *this* run do on *this* metric?", and a row is an answer that survives the run's context.
 
-**``passed`` is nullable, and NULL means the metric was not exercised.** A run with no
-post-dated source has nothing for look-ahead recall to measure; recording that as a pass
-would claim a check that never ran, and omitting the row would make "every completed run
-carries all eight" unverifiable. NULL says, precisely, "there was nothing to check" — and
+**``passed`` is nullable, and NULL means the metric was not exercised.** A run whose
+sections cite nothing has nothing for citation accuracy to measure; recording that as a
+pass would claim a check that never ran, and omitting the row would make "every completed
+run carries the whole set" unverifiable. NULL says, precisely, "there was nothing to check" — and
 the check constraint ties it to a NULL value, so a row cannot claim a score without a
 verdict or a verdict without a score.
 

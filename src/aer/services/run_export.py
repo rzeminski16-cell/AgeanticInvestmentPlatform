@@ -342,7 +342,6 @@ async def export_run(session: AsyncSession, *, job_id: uuid.UUID) -> RunExport:
             "ticker": request.ticker,
             "exchange": request.exchange,
             "as_of_date": request.work_order.as_of_date.isoformat(),
-            "point_in_time": request.work_order.point_in_time,
             "analysis_mode": request.analysis_mode.value,
             "max_cost_gbp": _decimal(request.work_order.max_cost_gbp),
         },

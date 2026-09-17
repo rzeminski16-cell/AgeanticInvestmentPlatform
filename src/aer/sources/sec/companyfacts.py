@@ -17,11 +17,11 @@ FY2020 revenue appears in the FY2020 10-K, again in the FY2021 10-K as a compara
 again in the FY2022 10-K. Each carries the accession and the date of the filing that said
 it, and they do not always agree.
 
-That repetition is not noise to be deduplicated away. It is the point-in-time record, and
-:mod:`aer.sources.sec.pit` is what turns it into an answer. This module's only job is to
-parse it faithfully and completely — including the observations that will later be
-rejected, because a rejection nobody can see is indistinguishable from a fact nobody
-found.
+That repetition is not noise to be deduplicated away. It is the record of which filing said
+what, and :mod:`aer.sources.sec.selection` is what turns it into an answer. This module's
+only job is to parse it faithfully and completely — including the observations that will
+later be rejected, because a rejection nobody can see is indistinguishable from a fact
+nobody found.
 
 **Values are parsed as :class:`~decimal.Decimal` from the raw JSON text.** ``json.loads``
 would turn ``143015000000`` into a float, and a float cannot represent every integer above
@@ -306,8 +306,8 @@ def _parse_observation(
     """One observation, or ``None`` if it lacks what a fact needs to be usable.
 
     An observation without an end date, a value, an accession or a filed date is not a
-    fact this platform can do anything with: it cannot be placed in time, cited, or
-    point-in-time filtered. Skipped rather than defaulted — a made-up date is far more
+    fact this platform can do anything with: it cannot be placed in time, cited, or ranked
+    against a later filing. Skipped rather than defaulted — a made-up date is far more
     dangerous than a missing row.
     """
     period_end = _parse_date(entry.get("end"))

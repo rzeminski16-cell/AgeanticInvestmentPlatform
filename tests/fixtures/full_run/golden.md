@@ -3,7 +3,6 @@
 **Ticker:** MSFT (NASDAQ)  
 **As-of date:** 30 June 2022  
 **Base currency:** USD  
-**Point-in-time:** enforced  
 **Generated:** <generated>
 **Non-binding view:** no view reached  
 
@@ -17,20 +16,19 @@
 
 | Label | Period | Value |
 |---|---|---|
-| Revenue | FY2021 | $168,088m[^1] |
-| Net income | FY2021 | $61,271m[^2] |
+| Revenue | FY2022 | $198,270m[^1] |
 
 ### Revenue history
 
-|  | FY2017 | FY2020 | FY2021 |
-|---|---|---|---|
-| Revenue | $89,950m[^3] | $143,015m[^3] | $168,088m[^3] |
+|  | FY2017 | FY2020 | FY2021 | FY2022 |
+|---|---|---|---|---|
+| Revenue | $89,950m[^2] | $142,000m[^2] | $168,088m[^2] | $198,270m[^2] |
 
 ### Headline figures
 
 | Label | Period | Value |
 |---|---|---|
-| Net margin | FY2021 | 36.5%[^4] |
+| Net margin | FY2021 | 36.5%[^3] |
 
 ## Executive Summary
 
@@ -50,7 +48,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^5][^6] |
+| Scripted label with no figure in it. | 0.36451739565[^4][^5] |
 
 ## Investment Thesis
 
@@ -78,7 +76,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^7][^8] |
+| Scripted label with no figure in it. | 0.36451739565[^6][^7] |
 
 ### Operating Footprint
 
@@ -94,7 +92,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^9][^10] |
+| Scripted label with no figure in it. | 0.36451739565[^8][^9] |
 
 ## Industry & Competitive Positioning
 
@@ -114,7 +112,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^11][^12] |
+| Scripted label with no figure in it. | 0.36451739565[^10][^11] |
 
 ## Management & Governance
 
@@ -130,7 +128,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^13][^14] |
+| Scripted label with no figure in it. | 0.36451739565[^12][^13] |
 
 ## Historical Financial Analysis
 
@@ -142,17 +140,17 @@ Scripted analysis from the recorded evidence; see the figures.
 
 |  | Scripted period with no figure in it. |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^15][^16] |
+| Scripted label with no figure in it. | 0.36451739565[^14][^15] |
 
 ### Figures
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.36451739565[^17][^18] |
+| Scripted label with no figure in it. | 0.36451739565[^16][^17] |
 
 ### Revenue and margin history
 
-Revenue by fiscal period in USD, with recorded margin trajectories. Every bar and point is a stored figure.[^19][^20][^21][^22][^23]
+Revenue by fiscal period in USD, with recorded margin trajectories. Every bar and point is a stored figure.[^18][^19][^20][^21][^22][^23]
 
 *Rendered in the HTML and PDF editions of this report.*
 
@@ -302,7 +300,7 @@ This is the first research run for MICROSOFT CORP (MSFT). No prior approved repo
 
 ### Summary
 
-The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
+The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
 
 ### Validation Metrics
 
@@ -313,12 +311,10 @@ The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised
 | cited figure agreement | 0E-8 | at most 0E-8 | pass |
 | figure plausibility | 0E-8 | at most 0E-8 | pass |
 | hallucinated citation rate | 0E-8 | at most 0E-8 | pass |
-| look-ahead recall | 1.00000000 | at least 1.00000000 | pass |
 | numerical consistency | 0E-8 | at most 0.00500000 | pass |
 | presentation integrity | 0E-8 | at most 0E-8 | pass |
 | primary source ratio | 1.00000000 | at least 0.60000000 | pass |
 | source coverage | 1.00000000 | at least 0.90000000 | pass |
-| temporal compliance | 1.00000000 | at least 1.00000000 | pass |
 
 ## Comparable companies
 
@@ -333,26 +329,26 @@ A comparable-company analysis was attempted as at 30 June 2022, but its single p
 
 [^1]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^2]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^3]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^4]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^5]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^6]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^7]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^8]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^9]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^10]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^11]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^12]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^13]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^14]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^15]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^16]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^17]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^18]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^3]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^4]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^5]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^6]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^7]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^8]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^9]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^10]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^11]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^12]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^13]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^14]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^15]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^16]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^17]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^18]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^19]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^20]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^21]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^22]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) for FY2020 (code version `<code>`).
+[^22]: Calculated: `net margin = net income / revenue` = 0.3118 (rounded; full precision stored) for FY2020 (code version `<code>`).
 [^23]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^24]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^25]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).

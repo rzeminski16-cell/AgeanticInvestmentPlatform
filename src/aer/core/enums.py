@@ -283,14 +283,14 @@ class FactBasis(StrEnum):
     true values depending on when you ask, and conflating them is the mechanism by which a
     backtest flatters itself.
 
-    ``AS_REPORTED`` is the only basis admissible under point-in-time rules, and the only
-    one :func:`aer.sources.sec.pit.select_point_in_time` will produce. The other two are
+    ``AS_REPORTED`` is the only basis a filing can stand behind, and the only one
+    :func:`aer.sources.sec.selection.select_latest` will produce. The other two are
     defined here because they exist in the world and a stored fact has to be able to say
     which it is — not because anything currently creates them.
     """
 
     AS_REPORTED = "as_reported"
-    """What the filing said at the time it was filed. The point-in-time answer."""
+    """What the filing said at the time it was filed. The archived answer."""
 
     RESTATED = "restated"
     """A later filing's revision of an earlier period. True today, unknowable then."""

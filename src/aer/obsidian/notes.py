@@ -60,7 +60,6 @@ class RunNoteMeta(_NoteMeta):
     exchange: str
     as_of_date: date
     base_currency: str
-    point_in_time: bool
     rating: str | None = None
     confidence: float | None = None
     valuation: dict[str, Any] | None = None

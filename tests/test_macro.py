@@ -275,7 +275,7 @@ class TestTheOnsIsHonestAboutWhatItCannotDo:
         assert ons.observations_for(parsed, as_of=date(2024, 6, 19)) is parsed
 
     def test_a_response_with_no_release_date_is_refused(self):
-        """Nothing to check the as-of date against is not point-in-time evidence."""
+        """Nothing to check the as-of date against is a figure with no vintage at all."""
         with pytest.raises(ExternalServiceError, match="no release date"):
             ons.parse_timeseries(b'{"description": {"title": "x"}, "months": []}', series=UK_CPI)
 

@@ -47,10 +47,10 @@ later one silently is how a backtest starts flattering itself.
 
 ## What this module is not
 
-It is **not** point-in-time selection. :func:`aer.sources.sec.pit.select_point_in_time`
-decides which facts are admissible as at a date; this decides between the ones that
-already are. Feeding it a restatement is possible — hence rung 4 — but that is a safety
-net, not the intended input.
+It is **not** filing selection. :func:`aer.sources.sec.selection.select_latest` decides
+which filing's figure stands for a period; this decides between figures from different
+sources that already stand. Feeding it a restatement is possible — hence rung 4 — but that
+is a safety net, not the intended input.
 
 It is **not** a judgement about whether a figure matters. See :attr:`Resolution.material`.
 
@@ -467,8 +467,8 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
             (
                 f"{position_a.label} is {position_a.basis.value} and {position_b.label} is "
                 f"{position_b.basis.value}. Both can be true of the same period, because "
-                "they answer different questions, and preferring one by date would be a "
-                "look-ahead decision made by accident."
+                "they answer different questions, and preferring one by date would answer "
+                "a question nobody asked."
             ),
             position_a,
             position_b,

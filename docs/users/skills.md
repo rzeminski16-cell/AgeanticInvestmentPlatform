@@ -4,8 +4,8 @@ Your own method, written down once and carried into every run that follows: what
 analyse, what to weigh, how to present it — and, where the platform's sections do not
 say what you need said, a section of your own.
 
-> **A skill may add requirements. It cannot remove citations, set a rating, or relax
-> point-in-time rules.** That is enforced in code, not by wording, and a corpus of attack
+> **A skill may add requirements. It cannot remove citations, set a rating, or relax the
+> platform's source rules.** That is enforced in code, not by wording, and a corpus of attack
 > files proves it on every build.
 
 ---

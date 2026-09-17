@@ -1,15 +1,16 @@
 """The validator's assistant: advisory judgement where the deterministic answer ran out.
 
-ADR 0038. Two of the per-run validators (task 39) meet genuine ambiguity: a claim whose
-citation failed the excerpt match — is the supporting text simply *elsewhere* in the
-document? — and a source with no established publication date — does the text itself say
-when it was published? Both are questions a model answers well and a rule answers badly.
+ADR 0038. The citation validator (task 39) meets genuine ambiguity: a claim whose citation
+failed the excerpt match — is the supporting text simply *elsewhere* in the document? That
+is a question a model answers well and a rule answers badly. A second question, whether an
+undated document's own text says when it was published, went with the temporal metric it
+advised on (ADR 0113).
 
 **Advice is the entire output.** The assist's response is recorded in the evaluation
 row's details and nowhere else. There is no path from anything here to
-``citations.excerpt_verified`` (one function writes that, and this is not it), to a
-source's quarantine flag, or to a metric's value — the deterministic verdict stands
-whatever the model thinks of it, which is the property the tests pin.
+``citations.excerpt_verified`` (one function writes that, and this is not it) or to a
+metric's value — the deterministic verdict stands whatever the model thinks of it, which
+is the property the tests pin.
 
 The document text an assist reads is fetched content: it travels in the untrusted
 channel, delimited and neutralised, exactly as it does for every other agent.
@@ -38,16 +39,15 @@ class ValidatorAdvisory(BaseModel):
 
     found: bool
     candidate_excerpt: str | None = Field(default=None, max_length=600)
-    proposed_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     rationale: str = Field(min_length=1, max_length=500)
     confidence: float = Field(ge=0, le=1)
 
     @model_validator(mode="after")
     def _found_carries_a_proposal(self) -> ValidatorAdvisory:
-        if self.found and self.candidate_excerpt is None and self.proposed_date is None:
+        if self.found and self.candidate_excerpt is None:
             message = (
                 "An advisory that claims to have found something must carry it — a "
-                "candidate excerpt or a proposed date."
+                "candidate excerpt."
             )
             raise ValueError(message)
         return self
@@ -58,7 +58,7 @@ class AssistInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["excerpt_location", "date_adjudication"]
+    kind: Literal["excerpt_location"]
     question: str = Field(min_length=1, max_length=1_000)
     source_document_id: str
     source_tier: str = "T5_SECONDARY"
@@ -77,10 +77,7 @@ Rules:
 1. For an excerpt-location question: search the quoted document for a passage that \
 supports the claim. Return it verbatim in candidate_excerpt if you find one; say found: \
 false if you do not. Never compose a passage the document does not contain.
-2. For a date-adjudication question: propose the publication date the quoted text itself \
-supports, as YYYY-MM-DD, with the evidence in your rationale. If the text does not \
-establish one, say found: false.
-3. State your confidence honestly. A confident wrong answer wastes a person's time twice."""
+2. State your confidence honestly. A confident wrong answer wastes a person's time twice."""
 
 
 class ValidatorAssist(Agent[AssistInput, ValidatorAdvisory]):
@@ -88,7 +85,7 @@ class ValidatorAssist(Agent[AssistInput, ValidatorAdvisory]):
 
     role: ClassVar[str] = "validator"
     output_schema: ClassVar[type[BaseModel]] = ValidatorAdvisory
-    prompt_version: ClassVar[str] = "1"
+    prompt_version: ClassVar[str] = "2"
 
     def system_prompt(self, payload: AssistInput) -> str:  # noqa: ARG002 -- fixed by design
         return _SYSTEM_PROMPT

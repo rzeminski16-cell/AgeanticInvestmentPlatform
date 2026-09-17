@@ -1,10 +1,12 @@
-"""Provenance records, the point-in-time quarantine rule, and artefact immutability.
+"""Provenance records, the quarantine rules, and artefact immutability.
 
 Three things are being protected:
 
-1. **A source that cannot be dated cannot be cited under point-in-time rules.** This is
-   the cheapest place to stop look-ahead bias, and the only place where the decision is
-   still obvious — later on, nobody remembers why a document had no date.
+1. **A source the run may not use is refused where it arrives.** One from an excluded
+   domain, one nothing can date where the run refuses such documents, one at a tier that
+   may never be cited: acquisition is the cheapest place to decide, and the only place
+   where the decision is still obvious — later on, nobody remembers why a document had no
+   date.
 2. **Artefact rows cannot be updated.** Enforced by the database, so it holds against a
    script and an ad-hoc ``psql`` session, not only against this application.
 3. **The audit trail records what was refused.** "What did this run decline to use, and
@@ -37,7 +39,6 @@ from aer.services.sources import (
     EXCLUDED_BY_OPERATOR,
     NO_PUBLICATION_DATE,
     NOT_CITABLE,
-    PUBLISHED_AFTER_AS_OF,
     decide_quarantine,
     excluded_domains_for,
     list_quarantined,
@@ -73,7 +74,6 @@ async def request_row(db_session) -> ResearchRequest:
         investment_horizon_months=36,
         max_cost_gbp="2.00",
         portfolio_context={},
-        point_in_time=True,
         status=RequestStatus.DRAFT,
     )
     db_session.add(row)
@@ -315,7 +315,7 @@ async def _refusing_undated(session, request_row):
     """This run's acquisition root, set to the strict datability policy.
 
     ADR 0111 made admitting an undated document the default, so a test about refusing one
-    says so. The strict rule did not go away; it stopped being implied by `point_in_time`.
+    says so. The strict rule did not go away; it stopped being implied by a mode flag.
     """
     root = await acquisition_root(session, request_row)
     root.undated_sources_admissible = False
@@ -326,10 +326,9 @@ async def _refusing_undated(session, request_row):
 class TestQuarantineRule:
     """The rule alone, with no database. Pure input to pure output."""
 
-    def test_a_dated_source_passes_under_point_in_time(self):
+    def test_a_dated_source_passes(self):
         decision = decide_quarantine(
             publication_date=date(2026, 5, 1),
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
         )
         assert decision.quarantined is False
@@ -338,7 +337,6 @@ class TestQuarantineRule:
     def test_an_undated_source_is_quarantined_where_the_run_refuses_them(self):
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             undated_sources_admissible=False,
         )
@@ -346,45 +344,30 @@ class TestQuarantineRule:
         assert decision.reason == NO_PUBLICATION_DATE
 
     def test_an_undated_source_passes_under_the_default_policy(self):
-        # ADR 0111. The datability rule is not point-in-time's second meaning, and the
-        # platform's default is to read the page and cap what it may be worth.
+        # ADR 0111. The datability rule is its own, and the platform's default is to read
+        # the page and cap what it may be worth.
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T2_ISSUER,
         )
         assert decision.quarantined is False
 
-    def test_the_two_rules_are_independent(self):
-        # The trade that used to be forced: admitting an undated page cost the look-ahead
-        # check, because both were spelled `point_in_time`. All four corners, stated.
+    def test_a_date_decides_nothing_on_its_own(self):
+        # ADR 0113. The rule that refused a source published after the run's date went
+        # with the date it compared against; a late date is a date on the record, not a
+        # reason, under either datability policy.
         for undated_admissible in (True, False):
             late = decide_quarantine(
-                publication_date=date(2026, 6, 1),
-                point_in_time=True,
+                publication_date=date(2099, 6, 1),
                 source_tier=SourceTier.T1_REGULATORY,
-                as_of_date=date(2026, 5, 1),
                 undated_sources_admissible=undated_admissible,
             )
-            assert late.quarantined is True
-            assert late.reason == PUBLISHED_AFTER_AS_OF
-
-        for point_in_time in (True, False):
-            undated = decide_quarantine(
-                publication_date=None,
-                point_in_time=point_in_time,
-                source_tier=SourceTier.T1_REGULATORY,
-                as_of_date=date(2026, 5, 1),
-                undated_sources_admissible=False,
-            )
-            assert undated.quarantined is True
-            assert undated.reason == NO_PUBLICATION_DATE
+            assert late.quarantined is False
 
     def test_an_uncitable_tier_is_quarantined_whatever_its_date(self):
-        for point_in_time in (True, False):
+        for publication_date in (date(2026, 1, 1), None):
             decision = decide_quarantine(
-                publication_date=date(2026, 1, 1),
-                point_in_time=point_in_time,
+                publication_date=publication_date,
                 source_tier=SourceTier.T6_UNVERIFIED,
             )
             assert decision.quarantined is True
@@ -395,7 +378,6 @@ class TestQuarantineRule:
         # is the one worth telling them about.
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T6_UNVERIFIED,
             undated_sources_admissible=False,
         )
@@ -412,9 +394,7 @@ class TestQuarantineRule:
         ],
     )
     def test_every_citable_tier_passes_when_dated(self, tier):
-        decision = decide_quarantine(
-            publication_date=date(2026, 1, 1), point_in_time=True, source_tier=tier
-        )
+        decision = decide_quarantine(publication_date=date(2026, 1, 1), source_tier=tier)
         assert decision.quarantined is False
 
 
@@ -429,7 +409,6 @@ class TestAnExcludedDomainIsRefused:
     def test_a_document_from_an_excluded_domain_is_quarantined_for_that(self):
         decision = decide_quarantine(
             publication_date=date(2026, 1, 1),
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             url="https://news.example.com/contoso",
             excluded_domains=("example.com",),
@@ -443,7 +422,6 @@ class TestAnExcludedDomainIsRefused:
         # page; the URL that was asked for is not the one that answered.
         decision = decide_quarantine(
             publication_date=date(2026, 1, 1),
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             url="https://short.invalid/x",
             canonical_url="https://example.com/the-page",
@@ -456,7 +434,6 @@ class TestAnExcludedDomainIsRefused:
         # reason named, because it is the one that is theirs.
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T6_UNVERIFIED,
             undated_sources_admissible=False,
             url="https://example.com/x",
@@ -467,7 +444,6 @@ class TestAnExcludedDomainIsRefused:
     def test_a_domain_not_excluded_passes_as_before(self):
         decision = decide_quarantine(
             publication_date=date(2026, 1, 1),
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             url="https://www.sec.gov/x",
             excluded_domains=("example.com",),
@@ -621,10 +597,8 @@ class TestRecordingSources:
             publisher="U.S. Securities and Exchange Commission",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
-            # Before the request's as-of date of 2026-06-30. It was 2026-07-30 until task 15,
-            # a month *after* it, and this test asserted the document was admissible — because
-            # at the time nothing compared the two. That is the look-ahead hole the task closed,
-            # and this fixture was sitting in it.
+            # The filing's own date, recorded for the reader. Nothing compares it against
+            # the run's date (ADR 0113); it is what a footnote prints beside the filing.
             publication_date=date(2026, 6, 12),
             publication_date_confidence=1.0,
             http_status=200,
@@ -682,8 +656,7 @@ class TestRecordingSources:
     async def test_an_undated_source_is_admitted_by_default(
         self, db_session, request_row, artefact
     ):
-        """ADR 0111. The run enforces point-in-time and still reads the page."""
-        assert request_row.work_order.point_in_time is True
+        """ADR 0111. The platform's default: the run reads the page and caps it."""
         assert request_row.work_order.undated_sources_admissible is True
 
         document = await record_source_document(
@@ -800,8 +773,8 @@ class TestRecordingSources:
         assert [doc.url for doc in quarantined] == ["https://example.invalid/a"]
 
     async def test_a_naive_retrieved_at_is_refused(self, db_session, request_row, artefact):
-        # A provenance timestamp without an offset is ambiguous by up to a day, which is
-        # exactly the precision a point-in-time decision turns on.
+        # A provenance timestamp without an offset is ambiguous by up to a day, and "when
+        # did we fetch these bytes" is the question a later review asks of it.
         with pytest.raises(ValidationError, match="timezone-aware"):
             await record_source_document(
                 db_session,

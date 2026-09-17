@@ -5,18 +5,15 @@ module writes those records and applies the admissibility rules that can be deci
 acquisition time:
 
 1. **A source whose publication date is unknown is quarantined where the run's policy says
-   so**, because a document that cannot be dated cannot be shown to have existed before the
-   as-of date. Since ADR 0111 that policy is `work_orders.undated_sources_admissible`, and
-   it defaults to admitting them: refusing every undatable page is why a run's plan named
+   so.** Since ADR 0111 that policy is `work_orders.undated_sources_admissible`, and it
+   defaults to admitting them: refusing every undatable page is why a run's plan named
    news sources and its evidence table held none. What makes admitting them safe is not
    here — `SourceTier.as_evidence` caps an undated document at tier 5, so it may
-   corroborate and may never be the primary source a section's policy requires.
-2. **A source published after the as-of date is quarantined** when the run is point-in-time.
-   The look-ahead rule proper, and the defence against threat T13. It kept `point_in_time`
-   when rule 1 stopped sharing it, because the two questions are different: "can this be
-   shown to predate the as-of date?" and "is this demonstrably newer than it?".
-3. **A source at a tier that may never be cited is quarantined**, whatever its date.
-4. **A source from a domain the operator excluded is quarantined**, whatever its date or
+   corroborate and may never be the primary source a section's policy requires. A document
+   whose publisher stamps no machine-readable date is a weaker source than one that does,
+   and that is a statement about evidence quality, not about when the run was dated.
+2. **A source at a tier that may never be cited is quarantined**, whatever its date.
+3. **A source from a domain the operator excluded is quarantined**, whatever its date or
    tier, and before either is looked at. The request's ``excluded_sources`` used to reach a
    line in the planner's prompt and nothing else; a promise the operator makes on the one
    page where they say what a run may not read is kept here, in code (invariant 8). The
@@ -24,13 +21,15 @@ acquisition time:
    has to remember to pass them, and the research executors ask the same question before
    a page is fetched at all — see :mod:`aer.core.exclusions`.
 
-The date checked is the **latest** any evidence supports, not the best estimate. The question
-is not when a document was probably published but whether it can be shown to predate the as-of
-date, and one with any evidence of being newer cannot. See :mod:`aer.extract.dates`.
+There is no date comparison. A rule refusing a source published after the run's date was
+retired with the date it compared against (ADR 0113); the publication date is still
+recorded — the best estimate and the **latest** any evidence supports, see
+:mod:`aer.extract.dates` — because when a document appeared is provenance a reader wants,
+whatever it no longer decides.
 
-**This is one of two checks, not the only one.** The same rule runs again in
-:mod:`aer.verify.citations` when a claim is made, because acquisition cannot know what a claim
-will later rest on and cannot see an as-of date that moves afterwards.
+**The decision is read again at claim time.** :mod:`aer.verify.citations` refuses a
+citation of a quarantined document, so a rule applied here holds wherever the document is
+later cited.
 
 The document is **kept**, not discarded. Losing it would erase the record of what the run
 looked at, and "we saw this and refused to use it" is a more useful audit trail than
@@ -63,7 +62,6 @@ __all__ = [
     "EXCLUDED_BY_OPERATOR",
     "NOT_CITABLE",
     "NO_PUBLICATION_DATE",
-    "PUBLISHED_AFTER_AS_OF",
     "QuarantineDecision",
     "decide_quarantine",
     "excluded_domains_for",
@@ -101,13 +99,6 @@ _log = structlog.get_logger("aer.services.sources")
 NOT_CITABLE = "tier_not_citable"
 """Quarantine reason for a tier that may never be cited as evidence."""
 
-PUBLISHED_AFTER_AS_OF = "published_after_as_of_date"
-"""Quarantine reason for a source that did not exist when the research is dated.
-
-The look-ahead rule proper. An undatable source is refused because it *might* be too new; this
-one is refused because it demonstrably is.
-"""
-
 EXCLUDED_BY_OPERATOR = "excluded_by_operator"
 """Quarantine reason for a source from a domain the request's operator excluded.
 
@@ -133,9 +124,7 @@ class QuarantineDecision:
 def decide_quarantine(
     *,
     publication_date: date | None,
-    point_in_time: bool,
     source_tier: SourceTier,
-    as_of_date: date | None = None,
     undated_sources_admissible: bool = True,
     url: str | None = None,
     canonical_url: str | None = None,
@@ -147,17 +136,12 @@ def decide_quarantine(
     without a database and read without tracing through a service call.
 
     Args:
-        publication_date: For a document with several date candidates, pass the **latest** of
-            them rather than the best estimate. The question here is not when the document was
-            probably published but whether it can be shown to predate ``as_of_date``, and a
-            document with any evidence of being newer cannot. See :mod:`aer.extract.dates`.
-        as_of_date: The request's as-of date. ``None`` skips the look-ahead check, which is
-            correct only where the caller has no as-of date to check against.
+        publication_date: What the evidence establishes about when the document appeared,
+            or ``None`` where nothing does. Only its absence is decided on here; the date
+            itself is recorded for the reader (ADR 0113). See :mod:`aer.extract.dates`.
         undated_sources_admissible: The run's policy on a document nothing can date (ADR
             0111). Defaults to admitting it, which is the platform's default and what the
-            work order carries; a caller that means the strict rule passes ``False``. This
-            is deliberately **not** ``point_in_time``: the two used to share that flag, so
-            reading an undated news page cost the look-ahead check as well.
+            work order carries; a caller that means the strict rule passes ``False``.
         url: The URL that was asked for, and ``canonical_url`` the one that answered after
             redirects. Both are held to ``excluded_domains``: a permitted host that
             redirects onto an excluded one has delivered the excluded page.
@@ -181,17 +165,6 @@ def decide_quarantine(
             quarantined=True,
             reason=NO_PUBLICATION_DATE,
         )
-    # The look-ahead rule proper, and the one this whole module is named for. Checked here at
-    # acquisition and again at claim time in `aer.verify.citations`, because the two moments
-    # know different things: this one cannot know what a claim will later rest on, and that one
-    # cannot un-fetch a document.
-    if (
-        point_in_time
-        and publication_date is not None
-        and as_of_date is not None
-        and publication_date > as_of_date
-    ):
-        return QuarantineDecision(quarantined=True, reason=PUBLISHED_AFTER_AS_OF)
     if not source_tier.is_citable:
         return QuarantineDecision(quarantined=True, reason=NOT_CITABLE)
     return QuarantineDecision(quarantined=False)
@@ -238,18 +211,18 @@ async def record_source_document(
     that a replayed or backfilled acquisition can record when it actually happened rather
     than when it was written down.
 
-    ``work_order`` is the acquisition root (ADR 0093): it supplies the as-of date and the
-    point-in-time flag the admissibility decision reads, whatever tool the acquisition
-    belongs to. A research run's root shares its id with the mandate row (ADR 0072); a
-    portfolio data acquisition has no mandate row at all, which is why the clock cannot
-    live there.
+    ``work_order`` is the acquisition root (ADR 0093): it supplies the undated-sources
+    policy the admissibility decision reads and the mandate the exclusions come from,
+    whatever tool the acquisition belongs to. A research run's root shares its id with the
+    mandate row (ADR 0072); a portfolio data acquisition has no mandate row at all, which
+    is why the policy cannot live there.
 
     Args:
         published: The whole result from :func:`aer.extract.dates.extract_publication_date`,
             which is what a caller that extracted a date should pass. It fills the date, the
-            confidence, the winning evidence and every losing candidate, and — the part that
-            matters — the admissibility decision is then made on
-            :attr:`~aer.extract.dates.PublicationDate.latest` rather than on the best estimate.
+            confidence, the winning evidence and every losing candidate, and the row keeps
+            :attr:`~aer.extract.dates.PublicationDate.latest` beside the best estimate so a
+            reader can see how firmly the document is dated.
         publication_date: A bare date, for callers that have one from somewhere other than the
             extractor — an adapter with an authoritative filing date, or a test. Ignored when
             ``published`` is given, because the richer value already carries it.
@@ -261,28 +234,26 @@ async def record_source_document(
 
     Raises:
         ValidationError: If ``retrieved_at`` is naive. A provenance timestamp without a
-            timezone is ambiguous by up to a day, which is exactly the precision a
-            point-in-time decision depends on.
+            timezone is ambiguous by up to a day, and "when did we fetch these bytes" is the
+            question a later review of the decision asks (ADR 0113).
     """
     moment = retrieved_at or datetime.now(UTC)
     if moment.tzinfo is None:
         message = (
             "retrieved_at must be timezone-aware. A provenance timestamp without an "
-            "offset cannot be compared against an as-of date without guessing."
+            "offset cannot say which day the bytes were fetched on without guessing."
         )
         raise ValidationError(message, context={"url": url})
 
     chosen = published.value if published is not None else publication_date
     confidence = published.confidence if published is not None else publication_date_confidence
-    # The conservative bound, and what admissibility turns on. Falls back to the estimate when
-    # there is only one date, which is the same value.
+    # The conservative bound, kept on the row beside the estimate. Falls back to the estimate
+    # when there is only one date, which is the same value.
     latest = published.latest if published is not None else chosen
 
     decision = decide_quarantine(
         publication_date=latest,
-        point_in_time=work_order.point_in_time,
         source_tier=source_tier,
-        as_of_date=work_order.as_of_date,
         undated_sources_admissible=work_order.undated_sources_admissible,
         url=url,
         canonical_url=canonical_url,

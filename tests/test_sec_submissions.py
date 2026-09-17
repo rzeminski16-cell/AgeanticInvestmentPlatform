@@ -15,7 +15,6 @@ import pytest
 from aer.errors import ExternalServiceError
 from aer.sources.sec.submissions import (
     ANNUAL_FORMS,
-    QUARTERLY_FORMS,
     parse_submissions,
 )
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
@@ -99,22 +98,16 @@ class TestFiltering:
         assert len(annuals) == 3
         assert all(f.form == "10-K" for f in annuals)
 
-    def test_latest_respects_the_as_of_date(self, index):
-        # The look-ahead case in miniature: "the latest annual report" means a different
-        # filing depending on when you ask.
-        as_at_2021 = index.latest(ANNUAL_FORMS, as_of_date=date(2021, 1, 1))
-        as_at_2023 = index.latest(ANNUAL_FORMS, as_of_date=date(2023, 1, 1))
+    def test_latest_is_the_newest_filing_of_the_form(self, index):
+        # "The latest annual report" is the newest one the index lists (ADR 0113): the
+        # FY2022 10-K, not the FY2020 one three filings back.
+        newest = index.latest(ANNUAL_FORMS)
 
-        assert as_at_2021 is not None
-        assert as_at_2021.accession == "0000789019-20-000039"
-        assert as_at_2023 is not None
-        assert as_at_2023.accession == "0000789019-22-000010"
+        assert newest is not None
+        assert newest.accession == "0000789019-22-000010"
 
     def test_latest_returns_none_when_nothing_matches(self, index):
         assert index.latest(frozenset({"S-1"})) is None
-
-    def test_latest_returns_none_when_everything_is_too_recent(self, index):
-        assert index.latest(QUARTERLY_FORMS, as_of_date=date(2019, 1, 1)) is None
 
 
 class TestUrlConstruction:
@@ -130,8 +123,8 @@ class TestUrlConstruction:
 
     def test_a_document_ref_carries_the_filing_date_as_its_publication_date(self, index):
         # The date the filing was accepted, not the period it covers. That is when the
-        # information became public, and it is the only date a point-in-time rule can
-        # honestly use.
+        # information became public, and it is the only date a filing's provenance can
+        # honestly carry.
         fy2020 = next(f for f in index.filings if f.accession == "0000789019-20-000039")
 
         ref = fy2020.to_ref(index.cik, entity_name="MICROSOFT CORP")

@@ -500,7 +500,6 @@ async def run_monitor(
         subject_kind=SUBJECT_THESIS,
         subject_id=thesis.id,
         as_of_date=started.date(),
-        point_in_time=False,
         max_cost_gbp=settings.per_run_budget_gbp,
         status=RequestStatus.RUNNING,
     )
@@ -594,9 +593,7 @@ async def _read_one(
     step = context.job_step
     job = outcome.job
     try:
-        finding = await _read_premise(
-            context, order=order, thesis=thesis, company=company, premise=premise
-        )
+        finding = await _read_premise(context, thesis=thesis, company=company, premise=premise)
     except BudgetExceededError as refused:
         stopped = await _stop(
             session, job=job, order=order, thesis=thesis, premise=premise, refused=refused
@@ -682,7 +679,6 @@ async def _finish(
 async def _read_premise(
     context: AgentContext,
     *,
-    order: WorkOrder,
     thesis: Thesis,
     company: Company,
     premise: Premise,
@@ -695,7 +691,7 @@ async def _read_premise(
     session = context.session
     last = await _last_reading(session, premise)
     since = _read_since(premise, last)
-    facts = await annual_facts(session, company_id=company.id, as_of=None, point_in_time=False)
+    facts = await annual_facts(session, company_id=company.id)
     window = {
         period_end: rows
         for period_end, rows in facts.items()
@@ -717,7 +713,6 @@ async def _read_premise(
         session,
         ledger,
         company_id=company.id,
-        work_order=order,
         max_periods=_PERIODS_TO_READ,
     )
     try:

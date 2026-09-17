@@ -1,20 +1,19 @@
-"""Look-ahead bias: dates extracted rather than trusted, and checked twice.
+"""Publication dates: extracted rather than trusted, and what admissibility reads from them.
 
-Threat T13, and the quietest failure in the platform. A report citing a document published after
-its own as-of date reads exactly like one that does not; nothing in the prose gives it away. So
-the target in §2.10 is **100% recall on the planted corpus**, and it is asserted here against
-:mod:`tests.lookahead_fixtures`, where the answer for each document is written down in advance.
+A document's date is evidence about the document, and the extractor scores it rather than
+believing the first thing it finds. The corpus in :mod:`tests.publication_date_fixtures` writes
+the answer down in advance: documents dated after :data:`AS_OF`, each hiding its date in a
+different place; documents dated on or before it; and documents nothing can date.
 
-**Both halves of the corpus matter.** A system that quarantined everything would score 100% on
-:data:`~tests.lookahead_fixtures.POST_DATED` and be worthless, because it would also refuse the
-filings a report is made of. :data:`~tests.lookahead_fixtures.ADMISSIBLE` is what stops that
-being the answer, and it includes the boundary — published *on* the as-of date is admissible, and
-an off-by-one there rejects a whole quarter of real filings.
+**The date decides nothing about admissibility on its own.** A rule refusing a document
+published after the run's date was retired with the date it compared against (ADR 0113). What
+admissibility reads is whether a date exists at all, and only where the run refuses undated
+sources (ADR 0111); what a date still does is stand on the record — best estimate and
+conservative bound both — for the reader weighing the source.
 
-**The check runs twice, and both are tested separately.** Once at acquisition, where the source
-is recorded, and once at claim time, where a citation is verified. The two know different things:
-acquisition cannot know what a claim will later rest on, and cannot see an as-of date that moves
-afterwards.
+**The claim-time check reads the row's verdict.** A quarantined document, or a prior run's own
+output, fails a citation whatever the quote says. Both checks are tested here against the
+database, after the pure functions they rest on.
 """
 
 from __future__ import annotations
@@ -45,7 +44,6 @@ from aer.services.acquisition import acquisition_root
 from aer.services.citations import record_citation, record_claim
 from aer.services.sources import (
     NO_PUBLICATION_DATE,
-    PUBLISHED_AFTER_AS_OF,
     decide_quarantine,
     override_admissibility,
     record_source_document,
@@ -53,7 +51,7 @@ from aer.services.sources import (
 from aer.sources.tiering import DocumentKind, tier_for
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
-from tests.lookahead_fixtures import ADMISSIBLE, AS_OF, POST_DATED, UNDATABLE, Planted
+from tests.publication_date_fixtures import ADMISSIBLE, AS_OF, POST_DATED, UNDATABLE, Planted
 from tests.scene_fixtures import build_scene
 
 
@@ -66,49 +64,44 @@ def _extract(case: Planted) -> PublicationDate | None:
     )
 
 
-# -- Recall on the planted corpus ------------------------------------------------------------------
+# -- The planted corpus ----------------------------------------------------------------------------
 
 
 class TestTheCorpus:
-    """The numbers §2.10 asks for, as tests rather than as a claim."""
+    """Every case dated as the fixture says, and admitted or refused as the policy says."""
 
     @pytest.mark.parametrize("case", POST_DATED, ids=lambda c: c.name)
-    def test_every_post_dated_document_is_dated_correctly(self, case: Planted) -> None:
+    def test_every_later_dated_document_is_dated_correctly(self, case: Planted) -> None:
         found = _extract(case)
 
         assert found is not None, "no date could be established at all"
         assert found.value == case.expected
 
     @pytest.mark.parametrize("case", POST_DATED, ids=lambda c: c.name)
-    def test_every_post_dated_document_is_refused(self, case: Planted) -> None:
-        """Recall, stated as the test that decides it. Five documents, five mechanisms, no
-        exceptions."""
+    def test_a_document_dated_after_the_run_is_admitted_all_the_same(self, case: Planted) -> None:
+        """ADR 0113. The run's date is the day it was commissioned, so a document dated after
+        it is a mis-dated document, recorded as such — not hindsight to refuse. Six documents,
+        six places to hide a date, none of them a reason."""
         found = _extract(case)
         assert found is not None
+        assert found.latest > AS_OF
 
         decision = decide_quarantine(
             publication_date=found.latest,
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
         )
 
-        assert decision.quarantined
-        assert decision.reason == PUBLISHED_AFTER_AS_OF
+        assert not decision.quarantined, f"{case.name} was refused: {decision.reason}"
 
     @pytest.mark.parametrize("case", ADMISSIBLE, ids=lambda c: c.name)
     def test_every_admissible_document_is_admitted(self, case: Planted) -> None:
-        """The half that keeps the rule honest: refusing everything would score perfectly on the
-        planted half and refuse the filings a report is made of."""
         found = _extract(case)
         assert found is not None
         assert found.value == case.expected
 
         decision = decide_quarantine(
             publication_date=found.latest,
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
         )
 
         assert not decision.quarantined, f"{case.name} was refused: {decision.reason}"
@@ -125,9 +118,7 @@ class TestTheCorpus:
     ) -> None:
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
             undated_sources_admissible=False,
         )
 
@@ -136,19 +127,12 @@ class TestTheCorpus:
         assert _extract(case) is None
 
     @pytest.mark.parametrize("case", UNDATABLE, ids=lambda c: c.name)
-    def test_an_undatable_document_is_admitted_under_point_in_time(self, case: Planted) -> None:
-        """The datability rule is its own, not point-in-time's second meaning (ADR 0111).
-
-        A run may enforce look-ahead — refusing anything demonstrably published after its
-        as-of date — and still read a page whose date nothing establishes. What keeps that
-        honest is the tier cap, which is asserted below rather than here: this is only the
-        half that used to be impossible.
-        """
+    def test_an_undatable_document_is_admitted_by_default(self, case: Planted) -> None:
+        """The platform's default (ADR 0111): a page nothing can date is worth reading. What
+        keeps that honest is the tier cap, asserted below rather than here."""
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
         )
 
         assert not decision.quarantined
@@ -209,7 +193,7 @@ class TestTheOrderOfTrust:
 
     def test_a_header_is_used_when_it_is_all_there_is(self) -> None:
         """Scored low, not discarded. A page datable only from its header is still datable, and
-        dropping the evidence would quarantine it for no reason."""
+        dropping the evidence would record it as undatable for no reason."""
         found = extract_publication_date(headers={"Last-Modified": "Fri, 04 Nov 2022 11:00:00 GMT"})
 
         assert found is not None
@@ -283,7 +267,7 @@ class TestConfidenceIsExplicable:
 
 
 class TestTheConservativeBound:
-    """``latest`` versus ``chosen``, which is the whole reason both exist."""
+    """``latest`` versus ``chosen``: both on the record, neither a verdict."""
 
     def test_latest_is_the_newest_candidate_not_the_chosen_one(self) -> None:
         found = extract_publication_date(
@@ -294,42 +278,24 @@ class TestTheConservativeBound:
         assert found.value == date(2022, 7, 28)
         assert found.latest == date(2022, 9, 3)
 
-    def test_a_document_with_any_later_evidence_is_refused(self) -> None:
-        """The index says July and the text says September. The honest answer to "can this be
-        shown to predate 31 July?" is no, and admitting it is exactly the mistake the rule
-        exists to prevent."""
+    def test_neither_date_decides_admissibility(self) -> None:
+        """The index says July and the text says September. Once, the bound decided the
+        document's admissibility against the run's date; since ADR 0113 both dates are
+        provenance, and the decision reads only that a date exists."""
         found = extract_publication_date(
             index_date=date(2022, 7, 28), text="Published 3 September 2022"
         )
         assert found is not None
 
-        decision = decide_quarantine(
-            publication_date=found.latest,
-            point_in_time=True,
-            source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
+        on_the_bound = decide_quarantine(
+            publication_date=found.latest, source_tier=SourceTier.T1_REGULATORY
+        )
+        on_the_estimate = decide_quarantine(
+            publication_date=found.value, source_tier=SourceTier.T1_REGULATORY
         )
 
-        assert decision.quarantined
-        assert decision.reason == PUBLISHED_AFTER_AS_OF
-
-    def test_the_same_document_is_admitted_on_the_best_estimate_alone(self) -> None:
-        """Stated as its own test because it is what the conservative rule is *costing*: judged
-        on the best estimate this document would be let through. That is the trade, and it is
-        made deliberately — see the module docstring in ``aer.extract.dates``."""
-        found = extract_publication_date(
-            index_date=date(2022, 7, 28), text="Published 3 September 2022"
-        )
-        assert found is not None
-
-        lenient = decide_quarantine(
-            publication_date=found.value,
-            point_in_time=True,
-            source_tier=SourceTier.T1_REGULATORY,
-            as_of_date=AS_OF,
-        )
-
-        assert not lenient.quarantined
+        assert not on_the_bound.quarantined
+        assert not on_the_estimate.quarantined
 
 
 class TestParsing:
@@ -376,7 +342,7 @@ class TestParsing:
     def test_an_ambiguous_all_numeric_date_is_not_parsed(self) -> None:
         """``03/04/2022`` is 3 April to a UK filing and 4 March to a US one, and this platform
         reads both. A date that could be either is not evidence, and guessing would put a silent
-        one-month error into the look-ahead check."""
+        one-month error into the record."""
         assert from_text("Dated 03/04/2022 in the register.") == []
 
     def test_an_impossible_date_is_ignored_rather_than_raising(self) -> None:
@@ -407,8 +373,8 @@ class TestParsing:
 
     def test_a_date_after_the_retrieval_moment_is_discarded(self) -> None:
         """A document cannot have been published after it was fetched, so a "date" in the future
-        is a misparse — a period end, a coupon date — and keeping it would quarantine the
-        document for a reason that is not true."""
+        is a misparse — a period end, a coupon date — and keeping it would put a date on the
+        record that is not true."""
         found = extract_publication_date(
             text="Notes mature on 15 March 2031. Published 28 July 2022.",
             not_after=date(2022, 8, 1),
@@ -427,7 +393,7 @@ class TestParsing:
 
     def test_ties_within_one_kind_of_evidence_take_the_earliest(self) -> None:
         """Metadata routinely carries a creation *and* a modification date, and the modification
-        is a later edit of the same document. The conservative direction is handled by
+        is a later edit of the same document. The newer date is still on the record as
         ``latest``, so nothing is lost by being sensible here."""
         found = extract_publication_date(
             metadata={"CreationDate": "D:20220728000000Z", "ModDate": "D:20220803000000Z"}
@@ -534,12 +500,12 @@ async def _fresh_artefact(session: AsyncSession, tag: str) -> Any:
     per artefact per request — so a shared artefact answers with the scene's admissible
     document instead of the state under test.
     """
-    payload = f"<html><body>lookahead {tag}</body></html>".encode()
+    payload = f"<html><body>dated {tag}</body></html>".encode()
     artefact = Artefact(
         sha256=hashlib.sha256(payload).hexdigest(),
         media_type="text/html",
         size_bytes=len(payload),
-        storage_key=f"lookahead/{tag}",
+        storage_key=f"dated/{tag}",
     )
     session.add(artefact)
     await session.flush()
@@ -563,7 +529,7 @@ async def _refusing_undated(session: AsyncSession, request: Any) -> WorkOrder:
 
     ADR 0111 made admitting an undated document the default, so a test about refusing one
     has to say so — which is the shape of the decision: the strict rule is still there and
-    is now chosen rather than inherited from `point_in_time`.
+    is chosen rather than inherited from a mode flag.
     """
     root = await acquisition_root(session, request)
     root.undated_sources_admissible = False
@@ -578,7 +544,7 @@ class TestAtAcquisitionTime:
     async def test_an_undated_source_is_admitted_and_capped(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
-        """ADR 0111, at the service. The run enforces look-ahead and still reads the page.
+        """ADR 0111, at the service. The run reads the page and caps what it may carry.
 
         Both halves in one assertion set, because they are one decision: the document is
         admissible, and the tier an evidence policy reads is 5 rather than the 1 its
@@ -617,34 +583,12 @@ class TestAtAcquisitionTime:
         assert source.quarantine_reason == NO_PUBLICATION_DATE
         assert not source.is_admissible
 
-    async def test_the_look_ahead_check_survives_admitting_undated_sources(
+    async def test_a_source_dated_after_the_run_is_recorded_and_admitted(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
-        """The trade that used to be forced, refused. Admitting rule 1 kept rule 2."""
-        found = extract_publication_date(index_date=date(2022, 8, 12))
-        assert found is not None
-
-        root = await acquisition_root(db_session, scene["request"])
-        assert root.undated_sources_admissible
-        assert root.point_in_time
-
-        source = await record_source_document(
-            db_session,
-            work_order=root,
-            artefact=await _fresh_artefact(db_session, "late-and-lenient"),
-            url="https://example.invalid/late-and-lenient.htm",
-            provider=Provider.SEC_EDGAR,
-            source_tier=SourceTier.T1_REGULATORY,
-            published=found,
-        )
-
-        assert source.quarantined
-        assert source.quarantine_reason == PUBLISHED_AFTER_AS_OF
-
-    async def test_a_post_dated_source_is_quarantined_when_recorded(
-        self, db_session: AsyncSession, scene: dict[str, Any]
-    ) -> None:
-        found = extract_publication_date(index_date=date(2022, 8, 12))
+        """ADR 0113 at the service: the date is written down, and nothing turns on it."""
+        as_of = scene["request"].work_order.as_of_date
+        found = extract_publication_date(index_date=as_of + timedelta(days=12))
         assert found is not None
 
         source = await record_source_document(
@@ -657,9 +601,9 @@ class TestAtAcquisitionTime:
             published=found,
         )
 
-        assert source.quarantined
-        assert source.quarantine_reason == PUBLISHED_AFTER_AS_OF
-        assert not source.is_admissible
+        assert not source.quarantined
+        assert source.is_admissible
+        assert source.publication_date == as_of + timedelta(days=12)
 
     async def test_the_candidates_are_stored_so_the_confidence_can_be_argued_with(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -685,15 +629,13 @@ class TestAtAcquisitionTime:
         assert source.publication_date_candidates is not None
         assert len(source.publication_date_candidates) == 2
 
-    async def test_the_service_quarantines_on_the_latest_date_not_the_estimate(
+    async def test_the_service_records_the_bound_beside_the_estimate(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
-        """The conservative bound has to survive the trip through the service.
-
-        The index puts this document comfortably before the as-of date and its own text puts it
-        after. Judged on the best estimate it is admitted; judged on the bound it is refused, and
-        the bound is what the rule is for. Asserted here rather than only against
-        ``decide_quarantine``, because the service is what chooses which of the two to pass.
+        """The index puts this document a month before the run's date and its own text a
+        month after. Both survive the trip through the service, on their own columns, and
+        the document is admitted: a reader can see the evidence disagrees, which is what the
+        bound is for now that it decides nothing (ADR 0113).
         """
         as_of = scene["request"].work_order.as_of_date
         found = extract_publication_date(
@@ -701,7 +643,7 @@ class TestAtAcquisitionTime:
             text=f"Published {(as_of + timedelta(days=30)).strftime('%d %B %Y')}",
         )
         assert found is not None
-        assert found.value < as_of, "the estimate should be admissible on its own"
+        assert found.value < as_of
         assert found.latest > as_of
 
         source = await record_source_document(
@@ -714,8 +656,9 @@ class TestAtAcquisitionTime:
             published=found,
         )
 
-        assert source.quarantined
-        assert source.quarantine_reason == PUBLISHED_AFTER_AS_OF
+        assert not source.quarantined
+        assert source.publication_date == found.value
+        assert source.publication_date_latest == found.latest
 
     async def test_an_admissible_source_is_not_quarantined(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -808,52 +751,12 @@ class TestTheOverride:
 
 @pytest.mark.integration
 class TestAtClaimTime:
-    """The second check, and the reason there are two.
+    """The second check reads the first's verdict.
 
-    Acquisition screens what it fetches. It cannot know what a claim will later rest on, and it
-    cannot see an as-of date that moves after the fetch. Every test here starts from a source
-    that **passed** acquisition and is inadmissible by the time a claim is made.
+    Acquisition screens what it fetches and writes the decision on the row. A claim made
+    later cannot rest on a document that decision refused, and the verifier says so before
+    it re-reads a word of the text.
     """
-
-    async def test_a_citation_on_a_source_published_after_the_as_of_date_fails(
-        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
-    ) -> None:
-        citation = await _cited_claim(db_session, scene)
-        as_of = scene["request"].work_order.as_of_date
-        scene["document"].publication_date_latest = as_of + timedelta(days=10)
-        await db_session.flush()
-
-        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
-
-        assert outcome.failed
-        assert citation.excerpt_verified is False
-        assert "after the run's as-of date" in (outcome.reason or "")
-
-    async def test_moving_the_as_of_date_earlier_invalidates_a_citation(
-        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
-    ) -> None:
-        """**The case acquisition cannot catch.** The document was admissible when it was
-        fetched. The operator then moved the as-of date back, and the same citation is now
-        resting on information nobody had — which only this check can see."""
-        scene["document"].publication_date = date(2022, 6, 1)
-        scene["document"].publication_date_latest = date(2022, 6, 1)
-        await db_session.flush()
-
-        citation = await _cited_claim(db_session, scene)
-        passing = await verify(db_session, scene["store"], citation=citation, settings=settings)
-        assert passing.verified
-
-        # On the work order, which is where a run's clock lives since ADR 0072. The
-        # mandate carries a copy for one more revision and nothing reads it: two answers to
-        # "what date is this run dated to" is exactly what moving the clock avoided.
-        work_order = await db_session.get(WorkOrder, scene["request"].id)
-        work_order.as_of_date = date(2022, 5, 1)
-        await db_session.flush()
-
-        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
-
-        assert outcome.failed
-        assert citation.excerpt_verified is False
 
     async def test_a_citation_on_a_quarantined_source_fails(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
@@ -891,13 +794,12 @@ class TestAtClaimTime:
 
         assert outcome.verified
 
-    async def test_the_check_is_skipped_when_point_in_time_is_off(
+    async def test_a_source_dated_after_the_run_is_still_citable(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
     ) -> None:
-        """The rule belongs to point-in-time mode. With it off, a recent document is just a
-        recent document."""
-        work_order = await db_session.get(WorkOrder, scene["request"].id)
-        work_order.point_in_time = False
+        """ADR 0113 at claim time. The check that once compared the source's latest date
+        against the run's is gone, and a citation on a document dated after the run stands
+        or falls on its excerpt alone."""
         as_of = scene["request"].work_order.as_of_date
         scene["document"].publication_date_latest = as_of + timedelta(days=90)
         await db_session.flush()
@@ -906,29 +808,3 @@ class TestAtClaimTime:
         outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
 
         assert outcome.verified
-
-    async def test_a_source_published_on_the_as_of_date_is_still_citable(
-        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
-    ) -> None:
-        """The boundary, at claim time as well as at acquisition."""
-        scene["document"].publication_date_latest = scene["request"].work_order.as_of_date
-        await db_session.flush()
-
-        citation = await _cited_claim(db_session, scene)
-        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
-
-        assert outcome.verified
-
-    async def test_the_latest_date_decides_not_the_best_estimate(
-        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
-    ) -> None:
-        """The conservative bound is what the check reads, here as at acquisition."""
-        scene["document"].publication_date = date(2022, 6, 1)
-        as_of = scene["request"].work_order.as_of_date
-        scene["document"].publication_date_latest = as_of + timedelta(days=30)
-        await db_session.flush()
-
-        citation = await _cited_claim(db_session, scene)
-        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
-
-        assert outcome.failed

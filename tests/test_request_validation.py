@@ -264,7 +264,7 @@ class TestOptionalPreferences:
         assert payload.risk_tolerance is None
         assert payload.esg_sensitivity is None
         assert payload.analysis_mode is AnalysisMode.FULL
-        assert payload.point_in_time is True
+        assert payload.undated_sources_admissible is True
 
     def test_an_unknown_value_is_rejected(self):
         with pytest.raises(PydanticValidationError):

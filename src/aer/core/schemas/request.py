@@ -165,11 +165,10 @@ class ResearchRequestCreate(BaseModel):
     investment_horizon_months: Annotated[int, Field(ge=1, le=MAX_HORIZON_MONTHS)]
     horizon_label: Annotated[str | None, Field(max_length=120)] = None
     analysis_mode: AnalysisMode = AnalysisMode.FULL
-    point_in_time: bool = True
-    # Two policies, two fields, since ADR 0111. The one above refuses a source published
-    # after the as-of date; this one decides whether a page nothing can date may be read
-    # at all. They shared `point_in_time`, which meant admitting a news article with no
-    # byline date cost the look-ahead check as well.
+    # The one source policy a run carries: whether a page nothing can date may be read at
+    # all (ADR 0111). A second field once refused a source published after the as-of
+    # date; with the date a stamp rather than a choice it constrained nothing, and it went
+    # (ADR 0113).
     undated_sources_admissible: bool = True
     portfolio_context: PortfolioContext = Field(default_factory=PortfolioContext)
 
@@ -325,7 +324,6 @@ class ResearchRequestRead(ResearchRequestSummary):
     reporting_currency: str | None
     investment_horizon_months: int
     horizon_label: str | None
-    point_in_time: bool
     undated_sources_admissible: bool
     portfolio_context: PortfolioContext
     risk_tolerance: str | None

@@ -194,25 +194,6 @@ class TestParsingTheFilingHistory:
         assert all(f.category in ACCOUNTS_CATEGORIES for f in accounts)
         assert all(f.is_fetchable for f in accounts)
 
-    def test_the_point_in_time_filter_is_applied_at_discovery(self) -> None:
-        history = parse_filing_history(
-            fixture("ch_filing_history.json"), company_number=COMPANY_NUMBER
-        )
-
-        early = history.filed_on_or_before(date(2022, 1, 1))
-
-        assert all(f.filed_on <= date(2022, 1, 1) for f in early)
-        assert len(early) < len(history.filings)
-
-    def test_a_filing_on_the_as_of_date_is_kept(self) -> None:
-        history = parse_filing_history(
-            fixture("ch_filing_history.json"), company_number=COMPANY_NUMBER
-        )
-
-        assert any(
-            f.filed_on == date(2022, 10, 14) for f in history.filed_on_or_before(date(2022, 10, 14))
-        )
-
     def test_a_malformed_entry_is_skipped_rather_than_fatal(self) -> None:
         broken = fixture("ch_filing_history.json").replace(b'"date": "2021-10-08"', b'"x": 0')
 
@@ -311,17 +292,22 @@ class TestFetchingThroughTheClient:
         assert all(ref.url.startswith(f"{DOCUMENT_ROOT}/document/") for ref in refs)
         assert all(ref.publication_date <= date(2022, 10, 14) for ref in refs)
 
-    async def test_discovery_filters_by_the_as_of_date(self, client, respx_mock) -> None:
+    async def test_discovery_offers_every_account_filing_with_its_date(
+        self, client, respx_mock
+    ) -> None:
+        """The whole history's accounts, each dated by the register (ADR 0113): nothing
+        cuts the list at the run's date any more."""
         respx_mock.get(url__startswith=HISTORY_URL).mock(
             return_value=_json("ch_filing_history.json")
         )
 
         refs = await client.discover_documents(
-            ResolvedEntity(identifier=COMPANY_NUMBER, name="ACME HOLDINGS PLC"),
-            as_of_date=date(2022, 1, 1),
+            ResolvedEntity(identifier=COMPANY_NUMBER, name="ACME HOLDINGS PLC")
         )
 
-        assert all(ref.publication_date <= date(2022, 1, 1) for ref in refs)
+        assert len(refs) == 2
+        assert all(ref.publication_date is not None for ref in refs)
+        assert any(ref.publication_date > date(2022, 1, 1) for ref in refs)
 
     async def test_the_history_query_asks_the_register_to_filter(self, client, respx_mock) -> None:
         """One request instead of several pages of officer appointments."""

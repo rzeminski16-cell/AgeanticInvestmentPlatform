@@ -263,12 +263,6 @@
         {{ ui.figure("Exchange", payload.exchange or "—") }}
       </div>
     </div>
-    {% if counts.look_ahead %}
-      <p class="mt-3 type-body-sm text-ink-muted" id="facts-look-ahead">
-        {{ counts.look_ahead }} further fact(s) were held back as published after this
-        run's as-of date.
-      </p>
-    {% endif %}
   {% endcall %}
 
   {% if payload.load_errors %}

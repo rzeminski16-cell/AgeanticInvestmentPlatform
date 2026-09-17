@@ -90,8 +90,8 @@ class TestTheRegistryIsTheAllowlist:
         assert "format=csvdata" in url
 
     def test_the_as_of_date_bounds_the_request(self):
-        """A saving and a courtesy to the portal. The point-in-time control is
-        `select_rate`, applied again over whatever comes back."""
+        """A saving and a courtesy to the portal. The as-at control is `select_rate`,
+        applied again over whatever comes back."""
         url = ecb.reference_rate_url("USD", end_date=date(2024, 6, 30))
 
         assert "endPeriod=2024-06-30" in url

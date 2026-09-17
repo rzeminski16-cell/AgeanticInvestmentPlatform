@@ -51,7 +51,6 @@ async def _monitor_run(session: AsyncSession) -> WorkOrder:
         subject_kind="thesis",
         subject_id=uuid.uuid4(),
         as_of_date=date(2026, 6, 30),
-        point_in_time=True,
     )
     session.add(order)
     await session.flush()

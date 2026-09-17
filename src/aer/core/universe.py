@@ -7,9 +7,9 @@ report that looks the same as any other while resting on a model that does not a
 Why each exclusion exists — the reason matters more than the rule, because the rule is
 what gets relaxed by someone who has forgotten the reason:
 
-* **Unsupported exchange.** Point-in-time correctness depends on knowing an exchange's
-  reporting calendar, its filing regime and its trading days. Those are per-jurisdiction
-  facts the platform simply does not have outside the US and UK.
+* **Unsupported exchange.** Reading a company's filings correctly depends on knowing an
+  exchange's reporting calendar, its filing regime and its trading days. Those are
+  per-jurisdiction facts the platform simply does not have outside the US and UK.
 * **OTC and pink-sheet venues.** Disclosure is voluntary and irregular. There is no
   reliable filing stream to hash, so the evidence base a report is supposed to rest on
   does not exist.
@@ -208,7 +208,7 @@ def check_universe(
                 rule=ExclusionRule.UNSUPPORTED_EXCHANGE,
                 message=(
                     f"{normalised_exchange or 'This exchange'} is not supported. "
-                    "Point-in-time correctness depends on knowing an exchange's filing "
+                    "Reading filings correctly depends on knowing an exchange's filing "
                     f"regime and calendar, which this platform holds only for: {supported}."
                 ),
             )

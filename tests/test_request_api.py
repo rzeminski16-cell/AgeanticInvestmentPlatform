@@ -183,8 +183,8 @@ class TestCreate:
             row = (
                 await connection.execute(
                     sa.text(
-                        "SELECT tool, subject_kind, as_of_date, point_in_time, max_cost_gbp "
-                        "FROM work_orders WHERE id = :id"
+                        "SELECT tool, subject_kind, as_of_date, undated_sources_admissible, "
+                        "max_cost_gbp FROM work_orders WHERE id = :id"
                     ),
                     {"id": created["id"]},
                 )
@@ -192,7 +192,7 @@ class TestCreate:
 
         assert row.tool == "research"
         assert row.subject_kind == "company"
-        assert row.point_in_time is True
+        assert row.undated_sources_admissible is True
         assert str(row.max_cost_gbp) == "1.25"
         assert row.as_of_date.isoformat() == created["as_of_date"]
 

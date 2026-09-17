@@ -46,7 +46,6 @@ async def _finished(
         base_currency="GBP",
         investment_horizon_months=12,
         analysis_mode=mode,
-        point_in_time=True,
         status=RequestStatus.APPROVED,
     )
     request.work_order.max_cost_gbp = Decimal("8.00")

@@ -298,7 +298,6 @@ closed "Refine this mandate — optional" disclosure.
 | Ticker | `MSFT` | |
 | Exchange | `NASDAQ` | |
 | ISIN | *leave blank* | Optional; one less thing to get wrong |
-| Which sources may this run use? | **Refuse anything published after today** | Point-in-time on. This is the honest test |
 | May this run read a page it cannot date? | **Yes, and never as a primary source** | The default. News reporting mostly carries no machine-readable date |
 | Depth | `standard` | Depth is most of what a run costs |
 | Most this report may cost | **`3.00`** | **The important one — see below** |
@@ -501,9 +500,10 @@ Open `/runs/{id}/sources`.
 
 - The Microsoft FY2026 10-K is listed (period ending 30 June 2026).
 - Excerpts are **real prose from the filing**, not boilerplate or navigation furniture.
-- **Nothing published after 31 August 2026 has been admitted.** Point-in-time is enforced at
-  acquisition, in code — so if something later is there, that is a real bug and worth stopping
-  for.
+- **Every source carries its date, or says it has none.** A document dated after the run is
+  a later filing's word and is admitted with its date (ADR 0113); one nothing can date reads
+  **Undated** and is capped. A source whose date the evidence contradicts — the index says one
+  month, the document another, and the row shows only one — is the thing worth stopping for.
 - Refused sources are listed too, with the reason. Refusals are a good sign, not a bad one.
 
 **Expect the list to be filings, and little else — that is the design, not a gap.** A

@@ -102,7 +102,6 @@ class TestNoRoleAsksForSomethingItCannotReceive:
             company_name="Contoso",
             ticker="CTSO",
             as_of_date="2023-01-01",
-            point_in_time=True,
             output_contract=_EXECUTIVE_SUMMARY,
         )
         wire = transform_schema(SectionWriterAgent().response_schema(payload))

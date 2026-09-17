@@ -484,7 +484,6 @@ async def commission(
         investment_horizon_months=DEFAULT_HORIZON_MONTHS,
         horizon_label=_HORIZON_LABEL,
         analysis_mode=DEFAULT_MODE,
-        point_in_time=True,
         max_cost_gbp=cap,
     )
     request = await request_service.create_request(

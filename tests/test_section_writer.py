@@ -110,7 +110,6 @@ async def build_writer_scene(db_session: AsyncSession, tmp_path: Any) -> dict[st
         ticker="MSFT",
         exchange="NASDAQ",
         as_of_date=AS_OF_DATE,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,
@@ -165,8 +164,8 @@ async def build_writer_scene(db_session: AsyncSession, tmp_path: Any) -> dict[st
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,
         retrieved_at=datetime.now(UTC),
-        # Before the as-of date: a post-dated source is a look-ahead violation the
-        # admissibility rules rightly refuse, and this suite is not about that.
+        # Dated, so the source carries its full tier: an undated one is capped at tier 5
+        # (ADR 0111), and this suite is not about that.
         publication_date=date(2022, 6, 15),
         quarantined=False,
     )
@@ -1131,7 +1130,6 @@ class TestTheClaimLengthsAreAskedForNotJustEnforced:
                 company_name="Microsoft Corporation",
                 ticker="MSFT",
                 as_of_date="2024-06-30",
-                point_in_time=True,
                 output_contract={"properties": {"commentary": {"type": "string"}}},
             )
         )
@@ -1223,7 +1221,6 @@ class TestTheWriterSpeaksToTheReader:
                 company_name="Microsoft Corporation",
                 ticker="MSFT",
                 as_of_date="2024-06-30",
-                point_in_time=True,
                 output_contract={"properties": {"commentary": {"type": "string"}}},
             )
         )
@@ -1258,7 +1255,6 @@ class TestTheWriterSpeaksToTheReader:
                 company_name="Microsoft Corporation",
                 ticker="MSFT",
                 as_of_date="2024-06-30",
-                point_in_time=True,
                 output_contract={"properties": {"commentary": {"type": "string"}}},
                 focus="Weigh the cloud segment's growth against its capital intensity.",
             )
@@ -1499,7 +1495,6 @@ class TestTheBudgetIsStatedWithItsConsequence:
             company_name="Microsoft Corporation",
             ticker="MSFT",
             as_of_date="2022-06-30",
-            point_in_time=True,
             output_contract={},
             word_budget=word_budget,
         )

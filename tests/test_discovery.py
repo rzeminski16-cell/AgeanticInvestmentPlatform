@@ -4,8 +4,7 @@ Two adapters with opposite risk profiles, which is why they are tested together.
 
 **EDGAR full-text search** returns identifiers the SEC issued, and the URL is built from them
 here. The tests that matter are the ones asserting the response's own strings never become a
-URL, and that a hit published after the as-of date is *reported as excluded* rather than
-silently missing.
+URL, and that a hit the index cannot date is dropped rather than admitted undated.
 
 **Issuer-IR discovery** is the first adapter whose candidate URLs come out of untrusted content.
 A page can link anywhere, so most of :class:`TestWhatIsRefused` is about links that must not
@@ -31,7 +30,6 @@ from aer.fetch.errors import RobotsDisallowedError, UrlNotAllowedError
 from aer.fetch.policy import host_matches, policy_for
 from aer.fetch.robots import RobotsCache
 from aer.services.acquisition import acquisition_root, record_acquisition
-from aer.services.sources import PUBLISHED_AFTER_AS_OF
 from aer.sources.issuer import PROVIDER, SOURCE_TIER, Rejection, discover_documents
 from aer.sources.sec.client import SecEdgarClient
 from aer.sources.sec.fulltext import (
@@ -128,8 +126,9 @@ class TestParsingSearchResults:
         assert len(results.hits) == 3
 
     def test_a_hit_with_no_date_is_skipped(self) -> None:
-        """A document with no filing date cannot be point-in-time checked, so it cannot be
-        acquired under the rules — dropping it here beats admitting it undated."""
+        """The index is the regulator's own record of when a filing was made, and a hit it
+        cannot date is a hit nothing else can — dropping it here beats admitting it undated
+        and capped."""
         undated = fixture_bytes("fulltext_msft.json").replace(
             b'"file_date": "2021-07-29"', b'"x": 0'
         )
@@ -156,35 +155,16 @@ class TestParsingSearchResults:
         assert results.total == 0
 
 
-class TestPointInTimeOnSearchResults:
-    def test_a_post_dated_hit_is_excluded_and_reported(self) -> None:
-        """**Reported, not dropped.** A search that found relevant material and a search that
-        found nothing need different responses: the first means "this exists and you may not use
-        it yet", the second means "look elsewhere"."""
-        usable, excluded = _results().admissible(AS_OF)
-
-        assert len(usable) == 3
-        assert len(excluded) == 1
-        assert excluded[0].filed == date(2022, 10, 25)
-
-    def test_nothing_is_excluded_without_an_as_of_date(self) -> None:
-        usable, excluded = _results().admissible(None)
-
-        assert len(usable) == 4
-        assert excluded == ()
-
-    def test_a_hit_filed_on_the_as_of_date_is_usable(self) -> None:
-        """The boundary, again: published *on* the as-of date is admissible."""
-        usable, excluded = _results().admissible(date(2022, 7, 28))
-
-        assert any(hit.filed == date(2022, 7, 28) for hit in usable)
-        assert all(hit.filed > date(2022, 7, 28) for hit in excluded)
-
-    def test_the_split_keeps_every_hit(self) -> None:
+class TestEveryHitIsAFiling:
+    def test_every_hit_carries_the_regulators_own_date(self) -> None:
+        """The index's ``file_date`` is the filing date, and it travels with the hit so the
+        document it names enters at the regulator's tier with its date (gap C2). Nothing
+        splits the hits by that date (ADR 0113): the run reads the filings as they stand."""
         results = _results()
-        usable, excluded = results.admissible(AS_OF)
 
-        assert len(usable) + len(excluded) == len(results.hits)
+        assert len(results.hits) == 4
+        assert all(hit.filed is not None for hit in results.hits)
+        assert any(hit.filed == date(2022, 10, 25) for hit in results.hits)
 
 
 class TestBuildingTheSearchUrl:
@@ -251,11 +231,13 @@ class TestSearchingThroughTheClient:
         assert len(response.data.hits) == 4
         assert response.sha256, "the response was archived like any other fetch"
 
-    async def test_the_as_of_date_bounds_the_query_that_is_sent(
+    async def test_the_query_is_not_bounded_by_the_runs_date(
         self, fetcher: SafeFetcher, artefact_store, sleeper
     ) -> None:
-        """A courtesy to EDGAR and a saving, not the control — the hits are still checked after
-        parsing. Asserted on the request that actually went out."""
+        """The request that goes out asks for the filer's whole index (ADR 0113): the
+        end-date bound the client used to send was the run's date, which constrains
+        nothing now that it is the day the run was commissioned. Asserted on the request
+        that actually went out."""
         client = SecEdgarClient(fetcher, store=artefact_store, sleep=sleeper)
 
         with respx.mock(assert_all_called=True) as mock:
@@ -266,9 +248,11 @@ class TestSearchingThroughTheClient:
                     headers={"content-type": "application/json"},
                 )
             )
-            await client.search_full_text("revenue", cik=MSFT_CIK, as_of_date=AS_OF)
+            await client.search_full_text("revenue", cik=MSFT_CIK)
 
-        assert "enddt=2022-07-31" in str(route.calls[0].request.url)
+        sent = str(route.calls[0].request.url)
+        assert "enddt=" not in sent
+        assert f"ciks={MSFT_CIK}" in sent
 
 
 # -- The issuer's own site -------------------------------------------------------------------------
@@ -307,8 +291,9 @@ class TestWhatIsFound:
         assert dated[0].publication_date == date(2022, 7, 28)
 
     def test_most_documents_have_no_date_and_that_is_recorded(self) -> None:
-        """An undated document is quarantined under point-in-time rules. A date invented from a
-        URL slug would be worse than none, because it would pass the check."""
+        """An undated document is admitted and capped, or refused where the run says so (ADR
+        0111). A date invented from a URL slug would be worse than none, because it would
+        pass as evidence of when the document appeared."""
         found = discover_documents(IR_PAGE, page_url=IR_PAGE_URL, allowed_host=IR_HOST)
 
         assert any(doc.publication_date is None for doc in found.documents)
@@ -500,7 +485,7 @@ class TestTheFetchLayerIsTheControl:
 
 @pytest.fixture
 async def mandate_row(db_session) -> ResearchRequest:
-    """A point-in-time request, as-of the date the fixtures are built around."""
+    """A request dated to the day the fixtures are built around."""
     user = User(email="discovery@example.invalid", display_name="Discovery", role=UserRole.OWNER)
     db_session.add(user)
     await db_session.flush()
@@ -515,7 +500,6 @@ async def mandate_row(db_session) -> ResearchRequest:
         investment_horizon_months=36,
         max_cost_gbp="2.00",
         portfolio_context={},
-        point_in_time=True,
         status=RequestStatus.DRAFT,
     )
     db_session.add(row)
@@ -641,22 +625,19 @@ class TestARunAcquiresMoreThanOneDocument:
 
         assert replayed == body
 
-    async def test_a_post_dated_search_result_is_quarantined_rather_than_dropped(
+    async def test_a_search_result_filed_after_the_run_is_admitted_with_its_date(
         self,
         db_session,
         fetcher: SafeFetcher,
         artefact_store,
         mandate_row: ResearchRequest,
     ) -> None:
-        """The hit EDGAR returned that the point-in-time rule refuses.
+        """A hit filed after the run's date is a filing like any other (ADR 0113).
 
-        It is fetched, hashed and recorded — and marked inadmissible. "We saw this and refused
-        to use it" is a more useful audit trail than a document that silently never appears,
-        and a reviewer asking why a search seemed to find nothing gets an answer.
+        It is fetched, hashed and recorded with the regulator's own date on its row; the
+        rule that once quarantined it went with the date it compared against.
         """
-        _, excluded = _results().admissible(AS_OF)
-        assert excluded, "the fixture must contain a post-dated hit"
-        hit = excluded[0]
+        hit = next(item for item in _results().hits if item.filed > AS_OF)
 
         with respx.mock(assert_all_called=True) as mock:
             mock.get(hit.url).mock(
@@ -678,7 +659,7 @@ class TestARunAcquiresMoreThanOneDocument:
             publication_date=hit.filed,
         )
 
-        assert acquisition.quarantined
-        assert acquisition.source_document.quarantine_reason == PUBLISHED_AFTER_AS_OF
-        assert acquisition.sha256, "refused, and still archived"
-        assert not acquisition.source_document.is_admissible
+        assert not acquisition.quarantined
+        assert acquisition.source_document.is_admissible
+        assert acquisition.source_document.publication_date == hit.filed
+        assert acquisition.sha256

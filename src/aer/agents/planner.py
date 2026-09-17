@@ -186,11 +186,9 @@ from filed evidence. If you write a number, it is wrong by construction.
 3. You propose only sections from the list you are given. A section that is not on that \
 list has no output contract and nothing could validate what it produced.
 4. You name the risks to the plan itself: data that may not exist, filings that may be \
-late, a business whose structure the standard analysis does not fit.
-5. Point-in-time research means nothing published after the as-of date may be used. If the \
-as-of date makes part of the request impossible, say so in the risks rather than planning \
-around it silently.
-6. Keep each field within its length: `summary` under {_SUMMARY_BUDGET} characters, each \
+late, a business whose structure the standard analysis does not fit. If something makes \
+part of the request impossible, say so in the risks rather than planning around it silently.
+5. Keep each field within its length: `summary` under {_SUMMARY_BUDGET} characters, each \
 section's `focus` under {_FOCUS_BUDGET}, and each source's `what` and `why` under \
 {_REASON_BUDGET}. These are hard limits on the stored plan, not suggestions. Write a second \
 section rather than one long one. The lists are bounded the same way: at most \
@@ -220,12 +218,14 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     # Tools and token caps are deliberately absent: they live in this role's
     # `aer.agents.registry` definition, and a declaration here would grant nothing.
 
-    # Bumped when rule 6 was added, again when it grew the list bounds (gap A42), and
-    # again when prior research began feeding forward (K2, ADR 0064). `_ensure_prompt`
+    # Bumped when the length rule was added, again when it grew the list bounds (gap A42),
+    # again when prior research began feeding forward (K2, ADR 0064), and again when the
+    # as-of-date rule left (ADR 0113): a model told to observe a rule that never binds
+    # spends attention on it and may invent an observation of it in prose. `_ensure_prompt`
     # records an unbumped edit under a hash-suffixed version so a run is never attributed
     # to the wrong instruction — that safety net is for accidents, and none of these was
     # one.
-    prompt_version: ClassVar[str] = "4"
+    prompt_version: ClassVar[str] = "5"
 
     def system_prompt(self, payload: PlannerInput) -> str:
         """The planner's instruction. One constant, plus one rule that travels with priors.
@@ -263,7 +263,6 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
             f"Company: {request.company_name}",
             f"Ticker: {request.ticker} on {request.exchange}",
             f"As-of date: {request.as_of_date.isoformat()}",
-            f"Point-in-time: {'on' if request.point_in_time else 'off'}",
             f"Base currency: {request.base_currency}",
             f"Analysis mode: {request.analysis_mode.value}",
             f"Investment horizon: {request.investment_horizon_months} months",

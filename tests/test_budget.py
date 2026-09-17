@@ -64,7 +64,6 @@ async def _job(session: AsyncSession) -> Job:
         investment_horizon_months=12,
         max_cost_gbp=Decimal("2.50"),
         portfolio_context={},
-        point_in_time=True,
         status=RequestStatus.DRAFT,
     )
     session.add(request)

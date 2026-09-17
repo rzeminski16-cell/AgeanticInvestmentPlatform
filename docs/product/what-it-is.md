@@ -120,8 +120,9 @@ The refusals are the product as much as the outputs are.
   in a filing cannot cause a tool call the agent's role does not already hold.
 - **It will not overspend.** Every model call is priced in pounds at the boundary and
   checked against the run's cap and the month's. A cap that only warns is not a cap.
-- **It will not look ahead.** In point-in-time mode nothing published after your as-of date
-  can support a claim, enforced when the source is acquired rather than filtered afterwards.
+- **It will not cite what it may not use.** A source from a domain you excluded, or one
+  nothing can date where you refused such pages, is flagged when it is acquired rather than
+  filtered afterwards, and no claim can rest on it.
 - **It will not tell you it valued a bank with a discounted cash flow.** Sector rules block
   rather than footnote: a depository has no classified balance sheet, so the platform
   refuses the model and says which one it used instead.

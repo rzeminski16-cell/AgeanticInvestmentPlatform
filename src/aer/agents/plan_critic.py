@@ -41,8 +41,11 @@ class PlanChallengeAspect(StrEnum):
     SOURCES = "sources"
     RISKS = "risks"
     FEASIBILITY = "feasibility"
-    POINT_IN_TIME = "point_in_time"
     FOCUS = "focus"
+
+    # A sixth aspect, for work the as-of date made impossible, went with the rule that
+    # made anything impossible (ADR 0113). A challenge recorded under it before then is
+    # still a row with that word in its `aspect` column; nothing re-validates it here.
 
 
 # The same budget-versus-ceiling split every bounded field carries: the API's schema mode
@@ -96,7 +99,6 @@ class PlanCriticInput(BaseModel):
     ticker: str
     exchange: str
     as_of_date: str
-    point_in_time: bool
     analysis_mode: str
     investment_horizon_months: int
     focus_questions: list[str] = Field(default_factory=list)
@@ -122,8 +124,8 @@ the stock is outside your role, and a challenge asserting one is wrong by constr
 (this plan researches the wrong thing), scored honestly.
 3. Look hardest for what the plan misses: a source that obviously bears on the request
 and is not planned, a focus question the sections never answer, a risk to the plan itself
-nobody named, work the as-of date makes impossible under point-in-time rules, a section
-focus that asks for figures no planned source can establish.
+nobody named, work the request makes impossible, a section focus that asks for figures no
+planned source can establish.
 4. You never produce a figure of your own, and you never assert a fact about the company.
 Where a challenge rests on something needing verification, phrase it as the question the
 plan should be asking.
@@ -141,7 +143,8 @@ class PlanCriticAgent(Agent[PlanCriticInput, PlanCritique]):
 
     role: ClassVar[str] = "plan_critic"
     output_schema: ClassVar[type[BaseModel]] = PlanCritique
-    prompt_version: ClassVar[str] = "1"
+    # Bumped when the clause about the as-of date left rule 3 (ADR 0113).
+    prompt_version: ClassVar[str] = "2"
 
     def system_prompt(self, payload: PlanCriticInput) -> str:  # noqa: ARG002 -- fixed by design
         return _SYSTEM_PROMPT
@@ -151,7 +154,6 @@ class PlanCriticAgent(Agent[PlanCriticInput, PlanCritique]):
         lines = [
             f"Critique the proposed research plan for {payload.company_name} "
             f"({payload.ticker} on {payload.exchange}), as of {payload.as_of_date}.",
-            f"Point-in-time: {'on' if payload.point_in_time else 'off'}",
             f"Analysis mode: {payload.analysis_mode}",
             f"Investment horizon: {payload.investment_horizon_months} months",
         ]

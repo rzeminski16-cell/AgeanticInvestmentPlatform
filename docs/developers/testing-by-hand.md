@@ -1248,17 +1248,20 @@ recorded, never recomputed from estimates.
 in as many words. That is not "caching is off", it is "caching was asked for and refused",
 and every cause is invisible from the outside.
 
-### 14.4 Point-in-time
+### 14.4 The run's date
 
-Run a request with point-in-time **on**. There is no as-of date to set: a run is dated the
-day you commission it (ADR 0110), and the form states that date above the choice.
+Commission a request. There is no as-of date to set: a run is dated the day you commission
+it (ADR 0110), and the form states that date above the source policy.
 
-**Expect:** nothing published after that date supports any claim, and the report says
-point-in-time is on. Enforcement is at acquisition, not a filter afterwards — and it is
-checked a second time on the latest date before rendering.
+**Expect:** the report's front matter carries that date, every price, rate and statistic the
+run reads is read as at it, and the sources page shows each document with the date its own
+evidence supports. A filing dated after the run — a later restatement, a quarterly that
+arrived while the run was drafting — is admitted with its date, because a run reads the
+filings as they stand (ADR 0113).
 
-**Wrong:** a citation to a document filed after the as-of date. That is a look-ahead and it
-is the one error this whole mode exists to prevent.
+**Wrong:** a source refused *for its date*. Nothing quarantines on a date any more; a
+document is refused for an excluded domain, for having no date where the run refuses undated
+pages, or for a tier that may never be cited, and the reason on the row says which.
 
 **Also worth looking at:** the evidence table's tier column. A document with no discoverable
 publication date reads **Undated**, is admitted, and shows its recorded tier beside a cap of

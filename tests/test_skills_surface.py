@@ -389,7 +389,6 @@ async def _seed_finished_run(
         ticker=ticker,
         exchange="NASDAQ",
         as_of_date=date(2022, 9, 30),
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,

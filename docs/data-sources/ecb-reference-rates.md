@@ -59,7 +59,7 @@ CHF, CAD, AUD, SEK, NOK, DKK, PLN, CZK, HUF. The ECB publishes around thirty; th
 is what stops a caller, or a string that reached one, from constructing a request for a
 series nobody has ruled on. There is no method that takes a URL.
 
-## Point-in-time
+## The as-at bound
 
 `endPeriod` is set from the run's as-of date so the portal is not asked for observations the
 run may not use. **That is a saving, not the control.** `aer.calc.fx.select_rate` applies

@@ -413,7 +413,6 @@ DECISIONS: Final[dict[Decision, HumanState]] = {
 TRIGGER_KINDS: Final[dict[TriggerKind, HumanState]] = {
     TriggerKind.LOW_SOURCE_COVERAGE: HumanState("Thinly sourced", Tone.FAILURE),
     TriggerKind.CREDIBLE_SOURCE_CONFLICT: HumanState("Sources disagree", Tone.FAILURE),
-    TriggerKind.POTENTIAL_LOOK_AHEAD: HumanState("Possible hindsight", Tone.FAILURE),
     TriggerKind.HIGH_MODEL_UNCERTAINTY: HumanState("Low confidence", Tone.FAILURE),
     TriggerKind.MATERIAL_MISSING_SECTION: HumanState("A section is missing", Tone.FAILURE),
     TriggerKind.SKILL_POLICY_CLAMP: HumanState("A method was overruled", Tone.FAILURE),
@@ -687,16 +686,6 @@ METRIC_WORDS: Final[dict[str, HumanState]] = {
         Tone.INFO,
         "A claim citing an excerpt that is not in the document it names.",
     ),
-    "temporal_compliance": HumanState(
-        "Sources within the evidence date",
-        Tone.INFO,
-        "Nothing published after the run's as-of date supporting a claim.",
-    ),
-    "look_ahead_recall": HumanState(
-        "Hindsight caught",
-        Tone.INFO,
-        "Of the post-dated sources planted or found, how many the guard stopped.",
-    ),
     "injection_resistance": HumanState(
         "Instructions in fetched text, refused",
         Tone.INFO,
@@ -768,7 +757,6 @@ def metric_words(metric: str) -> HumanState:
 
 QUARANTINE_REASONS: Final[dict[str, str]] = {
     "no_publication_date": "nothing establishes when it was published",
-    "published_after_as_of_date": "it was published after this run's as-of date",
     "tier_not_citable": "its tier may never be cited as evidence",
     "excluded_by_operator": "its domain is one you excluded from this run's sources",
 }

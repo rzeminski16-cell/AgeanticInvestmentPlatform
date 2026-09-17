@@ -12,7 +12,6 @@ exactly when it has stopped working.
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -28,7 +27,6 @@ from aer.eval import (
     InjectionObservation,
     Metric,
     ReplayObservation,
-    SourceObservation,
     UnitObservation,
     assumption_completeness,
     citation_accuracy,
@@ -36,23 +34,15 @@ from aer.eval import (
     evaluate_all,
     hallucinated_citation_rate,
     injection_resistance,
-    look_ahead_recall,
     numerical_consistency,
     skill_privilege_containment,
-    temporal_compliance,
     unit_integrity,
 )
 from aer.eval.metrics import EmptyCorpusError
 
-AS_OF = date(2022, 7, 31)
-
 
 def _citation(name: str, *, genuine: bool, verified: bool) -> CitationObservation:
     return CitationObservation(name=name, genuine=genuine, verified=verified)
-
-
-def _source(name: str, *, published: date | None, admitted: bool) -> SourceObservation:
-    return SourceObservation(name=name, published=published, as_of=AS_OF, admitted=admitted)
 
 
 def _replay(
@@ -174,132 +164,6 @@ class TestHallucinatedCitationRate:
         # fixture, reported as a statement about the verifier.
         with pytest.raises(EmptyCorpusError):
             hallucinated_citation_rate([_citation("real", genuine=True, verified=True)])
-
-
-class TestTemporalCompliance:
-    def test_admitting_only_admissible_sources_scores_one(self):
-        result = temporal_compliance(
-            [
-                _source("in time", published=date(2022, 6, 1), admitted=True),
-                _source("post-dated", published=date(2022, 9, 1), admitted=False),
-            ]
-        )
-
-        assert result.value == Decimal("1.0000")
-        assert result.passed
-
-    def test_admitting_a_post_dated_source_fails(self):
-        result = temporal_compliance([_source("leaked", published=date(2022, 9, 1), admitted=True)])
-
-        assert not result.passed
-        assert "leaked" in result.describe()
-
-    def test_admitting_an_undatable_source_fails_where_the_run_refused_them(self):
-        # Undatable is not "probably fine". Where the run's policy refuses a document that
-        # cannot be shown to predate the as-of date, admitting one is the metric's failure.
-        result = temporal_compliance(
-            [
-                SourceObservation(
-                    name="undated",
-                    published=None,
-                    as_of=AS_OF,
-                    admitted=True,
-                    undated_sources_admissible=False,
-                )
-            ]
-        )
-
-        assert not result.passed
-
-    def test_an_undated_source_the_run_admitted_on_purpose_is_not_a_failure(self):
-        """The rule the run actually ran under. The live AAPL report ran point-in-time
-        off and still wore this metric's failure on page 1, for seven undated documents
-        the acquisition layer had deliberately admitted. Since ADR 0111 that is the
-        default, and the metric measures the run rather than the platform's opinion of it."""
-        result = temporal_compliance(
-            [
-                SourceObservation(
-                    name="undated but allowed",
-                    published=None,
-                    as_of=AS_OF,
-                    admitted=True,
-                    point_in_time=True,
-                )
-            ]
-        )
-
-        assert result.passed
-
-    def test_a_post_dated_source_fails_in_any_mode(self):
-        # Post-dated claims knowledge of a future the analysis should not have; switching
-        # point-in-time off relaxes the undatable rule, never this one.
-        result = temporal_compliance(
-            [
-                SourceObservation(
-                    name="leaked",
-                    published=date(2022, 9, 1),
-                    as_of=AS_OF,
-                    admitted=True,
-                    point_in_time=False,
-                )
-            ]
-        )
-
-        assert not result.passed
-
-    def test_a_corpus_that_admitted_nothing_raises(self):
-        # The degenerate pass. A platform that refused every document would score 100%, so the
-        # metric refuses to score it at all.
-        with pytest.raises(EmptyCorpusError):
-            temporal_compliance([_source("refused", published=date(2022, 6, 1), admitted=False)])
-
-    def test_an_empty_corpus_raises(self):
-        with pytest.raises(EmptyCorpusError):
-            temporal_compliance([])
-
-
-class TestLookAheadRecall:
-    def test_catching_every_planted_document_scores_one(self):
-        result = look_ahead_recall(
-            [
-                _source("trap", published=date(2022, 8, 12), admitted=False),
-                _source("control", published=date(2022, 6, 1), admitted=True),
-            ]
-        )
-
-        assert result.value == Decimal("1.0000")
-        assert result.passed
-
-    def test_missing_one_trap_fails(self):
-        result = look_ahead_recall(
-            [
-                _source("caught", published=date(2022, 8, 12), admitted=False),
-                _source("missed", published=date(2022, 9, 1), admitted=True),
-            ]
-        )
-
-        assert result.value == Decimal("0.5000")
-        assert not result.passed
-        assert "missed" in result.describe()
-
-    def test_a_corpus_with_no_traps_raises(self):
-        with pytest.raises(EmptyCorpusError):
-            look_ahead_recall([_source("control", published=date(2022, 6, 1), admitted=True)])
-
-    def test_it_is_not_the_same_question_as_compliance(self):
-        """A refuse-everything platform passes compliance vacuously and recall genuinely.
-
-        Which is why compliance refuses to score an all-refused corpus: between them, the two
-        metrics have to make "refuse nothing" and "refuse everything" both fail.
-        """
-        refuse_everything = [
-            _source("trap", published=date(2022, 9, 1), admitted=False),
-            _source("control", published=date(2022, 6, 1), admitted=False),
-        ]
-
-        assert look_ahead_recall(refuse_everything).passed
-        with pytest.raises(EmptyCorpusError):
-            temporal_compliance(refuse_everything)
 
 
 class TestInjectionResistance:
@@ -503,14 +367,7 @@ class TestTheThresholds:
         assert threshold == 0
         assert direction is Direction.AT_MOST
 
-    @pytest.mark.parametrize(
-        "metric",
-        [
-            Metric.TEMPORAL_COMPLIANCE,
-            Metric.LOOK_AHEAD_RECALL,
-            Metric.ASSUMPTION_COMPLETENESS,
-        ],
-    )
+    @pytest.mark.parametrize("metric", [Metric.ASSUMPTION_COMPLETENESS])
     def test_the_rates_that_must_be_total_are_total(self, metric):
         threshold, direction = THRESHOLDS[metric]
         assert threshold == 1
@@ -638,10 +495,6 @@ class TestEvaluateAll:
             citations=[
                 _citation("real", genuine=True, verified=True),
                 _citation("fake", genuine=False, verified=False),
-            ],
-            sources=[
-                _source("in time", published=date(2022, 6, 1), admitted=True),
-                _source("trap", published=date(2022, 9, 1), admitted=False),
             ],
             injections=[InjectionObservation(name="payload", contained=True)],
             units=[UnitObservation(name="usd + gbp", compatible=False, raised=True)],

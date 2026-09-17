@@ -10,13 +10,12 @@ The pieces to fix that were all built and none of them were called. The submissi
 lists every filing with the date it was accepted; :class:`~aer.sources.sec.submissions.Filing`
 turns one into a reference the fetch layer accepts; the fetcher archives and hashes. This
 module joins them: the latest annual report, the quarterly reports filed since it, and the
-recent current reports, inside the point-in-time window, fetched, dated, archived and
-excerpted.
+recent current reports, as the index stands, fetched, dated, archived and excerpted.
 
 **Every document is dated by its acceptance, not by the period it covers.** The date a
-filing became public is the only one a point-in-time rule can honestly use, and it is what
-:meth:`Filing.to_ref` carries. A 10-K for the year to June, accepted in August, is
-inadmissible to a run as at July — correctly, because nobody could read it then.
+filing became public is what its provenance honestly records, and it is what
+:meth:`Filing.to_ref` carries: a 10-K for the year to June, accepted in August, is dated
+August, because that is when anyone could first have read it.
 
 **Excerpts are recorded here, not left to the reader.** A source document with no
 extractions contributes nothing to a section's evidence pack and cannot be cited, so
@@ -268,7 +267,7 @@ async def acquire_filings(
 
     _record_classification(company, index)
 
-    wanted, missing = _wanted(index, request=request, max_current=max_current)
+    wanted, missing = _wanted(index, max_current=max_current)
     acquired: list[AcquiredFiling] = []
     excerpts = 0
     skipped = list(missing)
@@ -321,19 +320,16 @@ def _record_classification(company: Company, index: SubmissionsIndex) -> None:
         )
 
 
-def _wanted(
-    index: SubmissionsIndex, *, request: ResearchRequest, max_current: int
-) -> tuple[list[Filing], list[str]]:
+def _wanted(index: SubmissionsIndex, *, max_current: int) -> tuple[list[Filing], list[str]]:
     """Which filings to fetch, and what was not there to fetch.
 
-    Point-in-time is applied here, on the index, before anything is requested — the cheapest
-    possible place, and the one where a filing that postdates the as-of date stops being a
-    candidate rather than being fetched and then refused.
+    The whole index is a candidate: the newest annual report, the quarters it has not yet
+    caught up with, and the most recent current reports (ADR 0113). A filing's date is
+    carried on the record for the reader, never used to hide it.
     """
-    as_of = request.work_order.as_of_date if request.work_order.point_in_time else None
-    annual = index.latest(ANNUAL_FORMS, as_of_date=as_of)
+    annual = index.latest(ANNUAL_FORMS)
 
-    candidates = index.filed_on_or_before(as_of) if as_of else index.filings
+    candidates = index.filings
 
     # The quarters the annual report has not yet caught up with. A run as at mid-year was
     # reading a narrative up to three quarters stale — the live report's freshest company
@@ -359,13 +355,13 @@ def _wanted(
     missing: list[str] = []
     if annual is None:
         missing.append(
-            "No annual report (10-K, 20-F or 40-F) is listed for this entity at or before "
-            "the as-of date, so the run has no narrative annual filing to read."
+            "No annual report (10-K, 20-F or 40-F) is listed for this entity, so the run "
+            "has no narrative annual filing to read."
         )
     if not current:
         missing.append(
-            "No current reports (8-K or 6-K) are listed at or before the as-of date, so "
-            "there is nothing recent beyond the periodic filings."
+            "No current reports (8-K or 6-K) are listed for this entity, so there is "
+            "nothing recent beyond the periodic filings."
         )
 
     wanted = [annual, *quarterly, *current] if annual else [*quarterly, *current]

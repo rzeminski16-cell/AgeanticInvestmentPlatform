@@ -2,9 +2,9 @@
 
 Two kinds of input here. :func:`fixture_bytes` reads a recorded-shape JSON payload for the
 parser tests; :func:`make_fact` builds a :class:`~aer.core.schemas.facts.RawFact` directly
-for the point-in-time tests.
+for the selection tests.
 
-The second exists because point-in-time selection is about *relationships between filing
+The second exists because filing selection is about *relationships between filing
 dates*, and expressing "these two facts describe the same period and were filed two years
 apart" through a JSON fixture buries the one thing the test is about under forty lines of
 structure. The parsers are tested against real shapes; the selector is tested against

@@ -13,7 +13,7 @@ the unique constraint says so.
 **``is_archived`` records how strong the vintage claim is.** ALFRED genuinely returns a series
 as it stood on a chosen date. The ONS returns the current series and says when it was
 released, which is a weaker thing — and a UK figure that silently inherited a US figure's
-point-in-time guarantee would be the whole problem this table exists to prevent. The column
+vintage guarantee would be the whole problem this table exists to prevent. The column
 carries the difference so a report can too.
 
 **The check constraints below are documentation; the migration is the enforcement.** The test

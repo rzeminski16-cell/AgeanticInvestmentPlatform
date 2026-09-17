@@ -8,9 +8,9 @@ silently rewrites itself, and nothing in it could say why.
 
 So ``price_bars`` holds what the exchange printed and ``corporate_actions`` holds the events,
 each with the ex-date that decides which bars it touches. Task 29's adjustment is a recorded
-calculation over the two, and the point-in-time clamp falls out of the same structure: a
-valuation dated to June applies only the actions whose ex-date had arrived by June, because a
-split announced in September did not exist yet.
+calculation over the two, and the as-at clamp falls out of the same structure: a series read
+as at June applies only the actions whose ex-date had arrived by June, because a split
+announced in September did not exist yet.
 
 **A security is not a company.** One company can have several listings — a dual listing, an
 ADR, two share classes with different votes — and they trade at different prices in different
@@ -204,8 +204,9 @@ class CorporateAction(Base):
 
     **The ex-date is the one that matters.** Declaration, record and payment dates are
     administrative; the ex-date is when the market price steps, and therefore when an
-    adjustment applies. It is also what makes the point-in-time clamp work: an action whose
-    ex-date is after the as-of date had not happened yet and must not restate anything.
+    adjustment applies. It is also what makes the as-at clamp work: an action whose ex-date
+    is after the day a series is read as at had not happened yet and must not restate
+    anything.
     """
 
     __tablename__ = "corporate_actions"

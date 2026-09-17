@@ -178,14 +178,6 @@ class FilingHistory:
     def accounts(self) -> tuple[FilingRecord, ...]:
         return tuple(f for f in self.filings if f.is_accounts and f.is_fetchable)
 
-    def filed_on_or_before(self, as_of_date: date) -> tuple[FilingRecord, ...]:
-        """Filings this platform may look at, as at a date.
-
-        Filtered here rather than downstream, so a filing accepted after the as-of date is
-        never turned into a reference and no later code path can fetch it by forgetting.
-        """
-        return tuple(f for f in self.filings if f.filed_on <= as_of_date)
-
 
 def document_url(document_id: str) -> str:
     """The content URL for a filed document, built from its identifier."""
@@ -441,15 +433,13 @@ class CompaniesHouseClient:
         self,
         entity: ResolvedEntity,
         *,
-        as_of_date: date | None = None,
         forms: frozenset[str] | None = None,
     ) -> tuple[DocumentRef, ...]:
-        """A company's accounts, newest first, filtered at acquisition."""
+        """A company's accounts, newest first, as they stand on the register."""
         categories = forms if forms is not None else ACCOUNTS_CATEGORIES
         history = await self.fetch_filing_history(entity.identifier, categories=categories)
 
-        filings = history.filed_on_or_before(as_of_date) if as_of_date else history.filings
-        wanted = [f for f in filings if f.is_fetchable and f.category in categories]
+        wanted = [f for f in history.filings if f.is_fetchable and f.category in categories]
 
         return tuple(filing.to_ref(company_name=entity.name) for filing in wanted)
 

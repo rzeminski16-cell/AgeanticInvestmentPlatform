@@ -86,7 +86,6 @@ async def _run(
         ticker=company.ticker or "",
         exchange=company.exchange or "NASDAQ",
         as_of_date=as_of,
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,

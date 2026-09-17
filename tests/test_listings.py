@@ -138,8 +138,8 @@ class TestAVerifiedListing:
         self, db_session: AsyncSession, store: LocalArtefactStore, book: Portfolio
     ) -> None:
         """ADR 0093 on the table: tool and subject_kind distinguish it, the clock is the
-        day of the act, point-in-time is off because today's close is the point, and the
-        cap is the zero that refuses every model call under it."""
+        day of the act because today's close is the point, and the cap is the zero that
+        refuses every model call under it."""
         await add_listing(
             db_session,
             store,
@@ -153,7 +153,6 @@ class TestAVerifiedListing:
         assert order.subject_kind == "portfolio"
         assert order.subject_id == book.id
         assert order.as_of_date == datetime.now(UTC).date()
-        assert order.point_in_time is False
         assert order.max_cost_gbp == 0
         assert order.status is RequestStatus.COMPLETED
 

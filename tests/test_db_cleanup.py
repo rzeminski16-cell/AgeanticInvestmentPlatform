@@ -140,7 +140,6 @@ async def _seed(session: AsyncSession) -> None:
         ticker="CTSO",
         exchange="NASDAQ",
         as_of_date=datetime.now(UTC).date(),
-        point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
         investment_horizon_months=12,

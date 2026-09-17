@@ -70,7 +70,7 @@ Responses carry `X-RateLimit-Remaining`. That figure is authoritative and overwr
 local estimate on every response; the ledger is a model of the provider's counter, and a
 model drifts.
 
-## Point-in-time
+## The as-at bound
 
 **The clamp is in the adapter, not in the caller.** Every URL builder in
 `aer/sources/eodhd/api.py` takes `as_of` as a required keyword argument with no default and
@@ -86,7 +86,7 @@ correct number. The cost of the second check is one date comparison per row.
 share count is therefore taken from the *historical* `outstandingShares` series, choosing the
 most recent entry dated on or before the as-of date, and never from the undated
 `SharesStats.SharesOutstanding` headline, which is today's. Pairing a correct June price with
-next quarter's share count is a look-ahead that produces an entirely plausible market
+next quarter's share count is a mismatch that produces an entirely plausible market
 capitalisation.
 
 ## Endpoints used

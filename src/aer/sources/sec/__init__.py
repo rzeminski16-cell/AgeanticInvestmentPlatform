@@ -1,9 +1,10 @@
 """SEC EDGAR: the primary US fundamentals source.
 
-Free, complete for US registrants, and — uniquely among free sources — genuinely
-point-in-time. Every fact EDGAR returns carries the accession number and the date of the
-filing that reported it, so "what did this company say its 2020 revenue was, as at March
-2021?" is a question with a determinate answer rather than an approximation.
+Free, complete for US registrants, and — uniquely among free sources — fully attributed.
+Every fact EDGAR returns carries the accession number and the date of the filing that
+reported it, so "which filing said this, and when?" is a question with a determinate
+answer rather than an approximation, and a restatement is a later filing's word on record
+beside the original's.
 
 Four endpoints are used:
 
@@ -22,8 +23,8 @@ adds a further pause between sequential requests — see the note there for why 
 
 **The aggregate endpoints are not citable documents.** ``companyfacts`` is generated on
 demand from whatever filings exist at that moment; it has no publication date of its own,
-so it is recorded with none and quarantined under point-in-time rules. That is correct
-rather than unfortunate: the citable thing is the *filing*, identified by its accession
+so the acquire step dates it by the newest filing it carries — the day this aggregate
+could first have existed. The citable thing is the *filing*, identified by its accession
 number, and every fact parsed out of the aggregate carries that accession with it.
 """
 

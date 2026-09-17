@@ -1,9 +1,10 @@
 """When a document was published, and how much to believe it.
 
-Look-ahead bias (threat T13) is the failure this exists to prevent, and it is a quiet one: a
-report that cites a document published after its own as-of date looks completely normal. Nothing
-about the prose gives it away. The only defence is knowing when each source was published, so
-the date has to be **extracted and scored rather than trusted**.
+A document's date is evidence about the document, and it is easy to get quietly wrong: a page's
+own date, its server's and a regulator's record of it can all differ, and a report that
+misdates a source looks completely normal. Nothing about the prose gives it away. So the date
+has to be **extracted and scored rather than trusted**, and a document nothing can date is
+recorded as undatable (ADR 0111) rather than given a guess.
 
 **Every candidate is kept, and the winner says why it won.** A confidence of 0.5 with no
 explanation is a number a reviewer cannot act on; "the filing index said 28 July, the PDF's own
@@ -29,18 +30,17 @@ that is wrong on the merits, so this module does not do it:
 
 ## Choosing conservatively, because the two questions differ
 
-The best estimate of a publication date and the answer to "can this be shown to predate the
-as-of date?" are not the same question, and this module answers both separately.
+The best estimate of a publication date and "how new might this document be?" are not the
+same question, and this module answers both separately.
 
 :attr:`PublicationDate.chosen` is the best estimate — the highest-trust candidate — and is what
 gets displayed and stored. :attr:`PublicationDate.latest` is the newest date any evidence
-supports, and is what the point-in-time rule uses. If a filing index says July and the document's
-own text says September, the honest position is that this document **might** be from September,
-and admitting it as at 31 July would be exactly the mistake the rule exists to prevent.
-
-Being wrong in that direction costs a quarantine an operator can override with a reason. Being
-wrong the other way costs a report that used information nobody had at the time, and says
-nothing about having done so.
+supports, stored beside it. If a filing index says July and the document's own text says
+September, the honest position is that this document **might** be from September, and a reader
+weighing it should see that the evidence disagrees rather than one date with a confidence figure
+they cannot act on. The later date decided admissibility while a run was dated against its
+sources; since ADR 0113 it is provenance, and it is kept because a reviewer asking how firmly
+a source is dated still wants the answer.
 """
 
 from __future__ import annotations
@@ -183,9 +183,9 @@ class PublicationDate:
     def latest(self) -> date:
         """The newest date any evidence supports.
 
-        **What the point-in-time rule uses.** The question there is not "when was this probably
-        published" but "can this be shown to predate the as-of date", and a document with any
-        evidence of being later cannot. See the module docstring.
+        **The conservative bound.** The question here is not "when was this probably
+        published" but "how new might this be", and a document with any evidence of being
+        later might be that new. See the module docstring.
         """
         return max(candidate.value for candidate in self.candidates)
 
@@ -224,9 +224,9 @@ def extract_publication_date(
             quarantine the document for a reason that is not true.
 
     Returns:
-        ``None`` when nothing yielded a date, which is the trigger for quarantine under
-        point-in-time rules. Distinct from a low-confidence date: "undatable" and "probably
-        July" need different responses from a reviewer.
+        ``None`` when nothing yielded a date, which is what the run's undated-sources policy
+        decides on (ADR 0111). Distinct from a low-confidence date: "undatable" and
+        "probably July" need different responses from a reviewer.
     """
     candidates: list[DateCandidate] = []
 
@@ -387,7 +387,7 @@ def _month_day_year(match: re.Match[str]) -> date | None:
 
 # **No all-numeric `dd/mm/yyyy` pattern, deliberately.** `03/04/2022` is 3 April to a UK filing
 # and 4 March to a US one, and this platform reads both. A date that could be either is not
-# evidence, and guessing at it would put a silent one-month error into a look-ahead check.
+# evidence, and guessing at it would put a silent one-month error into the record.
 _TEXT_PATTERNS: Final[tuple[tuple[re.Pattern[str], _Builder], ...]] = (
     (re.compile(r"\b(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\b"), _iso),
     (
