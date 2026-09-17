@@ -30,7 +30,7 @@ on all five runs because nothing published after the as-of date was ever offered
 is complexity with a zero in front of it.
 
 **How it works.** Acquisition stops filtering by date. The request form loses the as-of field.
-The evaluation suite loses two metrics and the blocking set shrinks by one. The planner, the
+The evaluation suite loses two metrics and the blocking set shrinks by two. The planner, the
 section writer and the plan critic lose the clause that describes the rule.
 
 **The one thing that stays.** Every artefact keeps its **retrieval timestamp**. That is
@@ -50,12 +50,13 @@ it stood on a past date, which nothing else in the system now provides.
 **Done when.** A full run produces a report with no as-of concept anywhere on it; the
 structural-absence scan in ADR 0113 — the enforcement's own names, with the surviving
 `as_of_date` readers allowlisted by name — returns only the ADR and the records that cite it;
-the blocking metric set is nine; every archived run still replays.
+the blocking metric set is eight; every archived run still replays.
 
 **Status, 17 September 2026.** Landed in code, £0. The report carries the run's date and no
 mode; the scan (`tests/test_point_in_time_is_gone.py`) returns only the records, over `src/`,
-`tests/`, `audit/`, `migrations/` and the behaviour documents; the blocking set is nine and
-the run-time set nine; migration 0076 dropped the column. Three pieces the spec did not name
+`tests/`, `audit/`, `migrations/` and the behaviour documents; the blocking set is eight
+(both temporal metrics were blocking — the earlier "nine" here and in the ADR assumed one
+was not) and the run-time set nine; migration 0076 dropped the column. Three pieces the spec did not name
 went with it (the validator's date-adjudication assist, a period bound in peer discovery, the
 full-text search's split of hits at the date — ADR 0113 records them). *Every archived run
 still replays* waits on the corpus, which is not in this container; ADR 0113 says so and

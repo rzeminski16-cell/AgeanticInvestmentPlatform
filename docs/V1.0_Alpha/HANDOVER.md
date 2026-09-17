@@ -155,7 +155,7 @@ construct (33 of 52); the 19 unconstructed rows are the harness's own backlog, n
 Phase 1½'s first half is done too (17 September): F1 landed under ADR 0113 — the
 structural-absence scan (`tests/test_point_in_time_is_gone.py`) is green over `src/`,
 `tests/`, `audit/`, `migrations/` and the behaviour documents; migration 0076 dropped
-`work_orders.point_in_time`; the blocking set is nine; the trigger's row left the journey
+`work_orders.point_in_time`; the blocking set is eight; the trigger's row left the journey
 inventory, which is now 51 rows (33 green, 18 unconstructed); the ADR is Accepted in code
 and says what it still waits for. What remains of 1½ is the corpus, the day the keys
 arrive: `aer preflight`, `pytest -m live_llm`, the QUICK run, the three re-seeded runs,

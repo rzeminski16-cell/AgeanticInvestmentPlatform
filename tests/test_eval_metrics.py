@@ -508,5 +508,5 @@ class TestEvaluateAll:
         )
 
         assert [result.metric for result in results] == list(BLOCKING)
-        assert len(results) == 10
+        assert len(results) == 8
         assert all(result.passed for result in results)

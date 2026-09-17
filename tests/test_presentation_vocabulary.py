@@ -149,7 +149,6 @@ class TestNothingIsMissing:
         """
         declared = {
             sources.NO_PUBLICATION_DATE,
-            sources.PUBLISHED_AFTER_AS_OF,
             sources.NOT_CITABLE,
             sources.EXCLUDED_BY_OPERATOR,
         }

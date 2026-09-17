@@ -540,9 +540,10 @@ class TestEachTriggerFiresAloneAndNamesItself:
 
 
 class TestTheBannerShape:
-    def test_all_nine_triggers_fire_together_in_the_tables_order(self) -> None:
+    def test_all_eight_triggers_fire_together_in_the_tables_order(self) -> None:
         """§2.4's own row order, pinned across the whole vocabulary — the operator scans
-        the banner top to bottom in the order the table taught them, every time."""
+        the banner top to bottom in the order the table taught them, every time. Eight
+        rows since ADR 0113 retired the third."""
         failing = tuple(
             MetricScore(
                 metric=row.metric,
@@ -583,11 +584,7 @@ class TestTheBannerShape:
                     skill_key="moat_durability", field="max_tier", requested="5", effective="4"
                 ),
             ),
-            sources=(
-                SourceScene(
-                    name="leak.html", admissible=True, injection_flagged=True
-                ),
-            ),
+            sources=(SourceScene(name="leak.html", admissible=True, injection_flagged=True),),
             cost=CostScene(cap_gbp=Decimal("10"), estimated_gbp=None, actual_gbp=Decimal("9")),
         )
         assert _kinds(scene) == list(TriggerKind)

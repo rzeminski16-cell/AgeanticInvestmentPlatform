@@ -309,7 +309,7 @@ carries it.
 
 | # | Feature | The test |
 |---|---|---|
-| F1 | Point-in-time removal | The structural absence scan (§3.2) — green, 17 September 2026; the blocking metric set is nine and `just eval` is green at that count; all five stored runs still replay — **open**, the runs are re-seeded in Phase 1½'s second half |
+| F1 | Point-in-time removal | The structural absence scan (§3.2) — green, 17 September 2026; the blocking metric set is eight (both temporal metrics were blocking) and `just eval` is green at that count; all five stored runs still replay — **open**, the runs are re-seeded in Phase 1½'s second half |
 | F2 | The adversary argues the opposite case | A seeded false challenge — a figure the calculation record refutes — is dropped before drafting; no run's disagreements section contains an unresolved item; the appendix is rewritten after a settle rather than at `validate` |
 | F3 | The closing section | Every figure in it is a recorded calculation with a footnote; `RESERVED_OUTPUT_FIELDS` is still refused; the section is absent, not empty, when the book is empty |
 | F4 | The refresh | A refresh of a stored run re-drafts between 3 and 6 of 18 sections, leaves the rest byte-identical, names every material move in the change summary, and makes no more model calls than the ceiling. Materiality is a table test: ≥2% relative, a sign change, and a premise-threshold crossing are always material |

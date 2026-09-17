@@ -58,7 +58,8 @@ against, no point-in-time mode, and no look-ahead check.**
   made the date a statement rather than a question; it now stops being printed as a
   constraint, because it constrains nothing.
 - **`temporal_compliance` and `look_ahead_recall` stop being computed.** The blocking set
-  shrinks from ten to nine.
+  shrinks from ten to eight — both were blocking; an earlier draft of this line said nine —
+  and the run-time set from eleven to nine.
 - **`aer.verify.citations` loses its look-ahead branch.** ADR 0021's second check was
   justified by acquisition not knowing what a claim would later rest on. With no date to
   compare against, there is nothing for it to find.

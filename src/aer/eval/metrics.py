@@ -1,4 +1,4 @@
-"""The blocking metrics — nine since ADR 0113 — and the thresholds they are held to.
+"""The blocking metrics — eight since ADR 0113 — and the thresholds they are held to.
 
 From ``docs/archive/PLAN.md`` §2.10. Each is a pure function from observations to a
 :class:`MetricResult`, so a metric can be checked against handwritten observations without
@@ -61,8 +61,9 @@ class Metric(StrEnum):
     """The §2.10 metric vocabulary this package can measure.
 
     Two overlapping sets share it. :data:`BLOCKING` names the CI gate's set — the four
-    from Phase 2 that survive, the one from Phase 3 and the two that arrived with task
-    32. The per-run validators (task 39) write the run-time set: the four that translate
+    from Phase 2 that survive, the two that arrived with task 32 and the two
+    adversarial-corpus metrics of task 42. The per-run validators (task 39) write the
+    run-time set: the four that translate
     to a live run's own rows, plus the two coverage metrics, which are meaningless against
     a fixture corpus and are measured only against runs, plus the presentation gate's
     three. Injection resistance and unit integrity stay CI-only, because they need corpora

@@ -189,7 +189,7 @@ red), then the five enforcement layers — `sources/sec/pit.py` replaced by
 superseded), the per-adapter bounding in the SEC and Companies House clients, the
 quarantine's date rule, the claim-time comparison and the direct SQL filters in the
 workflow — then the mode (migration 0076 drops `work_orders.point_in_time`; the request form
-keeps only the undated-sources pair), the two metrics (`BLOCKING` ten → nine, `RUN_TIME`
+keeps only the undated-sources pair), the two metrics (`BLOCKING` ten → eight, `RUN_TIME`
 eleven → nine, both with the comment rewritten), the trigger (§2.4's third row, and the
 journey inventory is 51 rows: 33 green, 18 unconstructed, both halves agreeing), the three
 prompt clauses (planner version 5, plan critic version 2, the writer's user turn), the

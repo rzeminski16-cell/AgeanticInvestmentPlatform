@@ -81,17 +81,6 @@ class TestTheColumnarUnpacking:
 
 
 class TestFiltering:
-    def test_filed_on_or_before_is_inclusive_of_the_date_itself(self, index):
-        on_the_day = index.filed_on_or_before(date(2020, 7, 30))
-
-        assert "0000789019-20-000039" in {f.accession for f in on_the_day}
-
-    def test_a_filing_accepted_after_the_as_of_date_is_excluded(self, index):
-        as_at_2021 = index.filed_on_or_before(date(2021, 1, 1))
-
-        assert all(f.filing_date <= date(2021, 1, 1) for f in as_at_2021)
-        assert "0000789019-22-000010" not in {f.accession for f in as_at_2021}
-
     def test_of_form_selects_by_form_type(self, index):
         annuals = index.of_form(ANNUAL_FORMS)
 

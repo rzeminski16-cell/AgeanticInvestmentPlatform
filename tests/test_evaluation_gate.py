@@ -1,10 +1,10 @@
-"""The blocking gate: nine measurements over the corpora the phases produced.
+"""The blocking gate: eight measurements over the corpora the phases produced.
 
 This is the module that turns "we proved it once" into "it is still true". It gathers
 observations by running the **real** verifier, the real injection scanner, the real unit
 algebra, the real replay harness, the real assumptions ladder and the real
 skill-containment layers over labelled corpora, hands them to :mod:`aer.eval.metrics`, and
-fails the build if any of the nine moves. (The two temporal metrics measured a rule that
+fails the build if any of the eight moves. (The two temporal metrics measured a rule that
 never applied and left with it — ADR 0113.)
 
 Three properties make it a gate rather than a formality.
@@ -438,7 +438,7 @@ class TestTheBlockingMetrics:
         evidence floor is an authoring surface that can switch the guarantees off."""
         _assert_passed(skill_privilege_containment(containments))
 
-    async def test_all_nine_together(
+    async def test_all_eight_together(
         self,
         citations: list[CitationObservation],
         injections: list[InjectionObservation],

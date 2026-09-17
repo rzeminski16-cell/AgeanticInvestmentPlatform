@@ -475,10 +475,10 @@ A quarantined source is usable only after a **recorded** override: a person, a r
 The override never clears the flag, so the record says both that the document was refused and that
 somebody decided to use it anyway.
 
-### Nine numbers that block a build
+### Eight numbers that block a build
 
 Every guarantee here was proved once, by a test written the day the feature landed. That is
-not the same as being true tomorrow, so nine of them are measured continuously and block CI:
+not the same as being true tomorrow, so eight of them are measured continuously and block CI:
 citation accuracy ≥ 98%, hallucinated citations 0, injection violations 0, unit mismatches 0,
 numerical consistency within 0.5% on independent recomputation, assumption completeness
 100%, custom section contract conformance 100%, and skill privilege containment 0 violations.
