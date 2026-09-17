@@ -1,0 +1,21 @@
+{
+  "page": "claims",
+  "url": "http://127.0.0.1:8000/runs/20da17ef-8dec-4199-8879-694d1fd4946a/claims",
+  "status": 200,
+  "title": "Claims \u00b7 MSFT",
+  "payload_hash": null,
+  "words": 3038,
+  "raw_tokens": [
+    "balance_sheet_liquidity",
+    "business_overview",
+    "cash_flow_analysis",
+    "executive_summary",
+    "forward_looking",
+    "historical_financial_analysis",
+    "investment_thesis",
+    "key_risks",
+    "valuation_dcf"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

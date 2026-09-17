@@ -169,6 +169,26 @@ class TestTheFinalGate:
         assert not verdict.approve
         assert verdict.stop_reason == "too many sections lost"
 
+    def test_a_whole_quick_draft_is_approved(self) -> None:
+        """QUICK mode writes nine sections, and nine of nine is a whole report.
+
+        The floor was a fixed seventeen — all but one of the eighteen a standard run
+        writes — so the first live QUICK run generated every section it had and the policy
+        called it "too many sections lost". The tolerance is one lost section, counted
+        against the sections the run actually has.
+        """
+        facts = FinalGateFacts(
+            sections=self._sections(9), triggers=(), escalations=(), revisions=()
+        )
+        assert decide_final(facts).approve
+
+    def test_a_quick_draft_that_lost_two_still_stops(self) -> None:
+        """The tolerance travels with the mode; it does not disappear with the floor."""
+        facts = FinalGateFacts(
+            sections=self._sections(7, failed=2), triggers=(), escalations=(), revisions=()
+        )
+        assert decide_final(facts).stop_reason == "too many sections lost"
+
     def test_a_failed_metric_stops(self) -> None:
         facts = FinalGateFacts(
             sections=self._sections(18),

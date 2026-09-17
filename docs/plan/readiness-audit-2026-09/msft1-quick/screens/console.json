@@ -1,0 +1,13 @@
+{
+  "page": "console",
+  "url": "http://127.0.0.1:8000/runs/20da17ef-8dec-4199-8879-694d1fd4946a",
+  "status": 200,
+  "title": "Run \u00b7 MSFT",
+  "payload_hash": null,
+  "words": 573,
+  "raw_tokens": [
+    "validation_failure"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

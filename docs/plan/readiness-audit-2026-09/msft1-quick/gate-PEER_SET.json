@@ -1,0 +1,58 @@
+{
+  "payload": {
+    "subject": "4c8d6ac7-da84-4ce6-8b56-ccc56cedf8b1",
+    "subject_period_end": "2026-09-17",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0001341439",
+        "name": "ORACLE CORP",
+        "rationale": "Diversified enterprise software and cloud infrastructure competitor overlapping with Azure and enterprise application businesses; scale and margin structure comparable.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001652044",
+        "name": "Alphabet Inc.",
+        "rationale": "Direct cloud infrastructure competitor via Google Cloud, plus productivity software overlap (Workspace vs Microsoft 365); different core ad-driven revenue mix limits full comparability.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001018724",
+        "name": "AMAZON COM INC",
+        "rationale": "AWS is the primary competitor to Azure in cloud infrastructure; broader e-commerce business is a partial mismatch but cloud segment economics are highly relevant for multiple comparison.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001108524",
+        "name": "Salesforce, Inc.",
+        "rationale": "Enterprise SaaS pure-play competing in CRM and business applications, overlapping with Microsoft's Dynamics and productivity suite; smaller scale but similar subscription economics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000796343",
+        "name": "ADOBE INC.",
+        "rationale": "Software subscription business with high margins and enterprise/creative tools overlap; comparable recurring-revenue model though narrower end-market focus.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001000184",
+        "name": "SAP SE",
+        "rationale": "Large enterprise software vendor with overlapping ERP and cloud application offerings versus Microsoft's business software; foreign filer but ADR-listed and broadly comparable in model.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000051143",
+        "name": "INTERNATIONAL BUSINESS MACHINES CORP",
+        "rationale": "Legacy enterprise IT and hybrid cloud/software competitor with overlapping enterprise customer base; larger services mix makes fit partial but still informative on enterprise software multiples.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "c83ebbc74e9aff4af6125655f636a9257209ad6b93f9d4e4fe26a17f8a16d54d",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "20da17ef-8dec-4199-8879-694d1fd4946a",
+    "reason": "gate_waiting"
+  }
+}

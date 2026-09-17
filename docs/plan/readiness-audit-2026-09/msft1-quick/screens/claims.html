@@ -1,0 +1,3104 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>
+  Claims · MSFT
+</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">1</span><span class="sr-only">1 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="7m4La1O--84Q7Hh74oUmGQ.1789636250.77eb69b788f2c5903d3eec8367b5f6e9034bc2ae66f121236358886cb2947821" style="">
+          <input type="hidden" name="next" value="/runs/20da17ef-8dec-4199-8879-694d1fd4946a/claims" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="7m4La1O--84Q7Hh74oUmGQ.1789636250.77eb69b788f2c5903d3eec8367b5f6e9034bc2ae66f121236358886cb2947821" style="">
+          <input type="hidden" name="next" value="/runs/20da17ef-8dec-4199-8879-694d1fd4946a/claims" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/20da17ef-8dec-4199-8879-694d1fd4946a" class="underline underline-offset-[3px] hover:text-verification">Run console</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">THE ASSERTIONS</p><h1 class="type-title-1 text-ink">Claims</h1><p class="type-body text-ink-muted">Every assertion this report makes, and whether anything checkable stands behind it.</p></header>
+
+
+  
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">WHAT THE REPORT ASSERTS</p>
+  <p class="mt-2 type-body-lg text-ink">131 claims recorded · 35 supported · 96 unsupported</p></section>
+
+
+  <p class="max-w-prose type-body-sm text-ink-muted">
+    Numeric and factual claims need a citation; a forward-looking statement or an opinion
+    needs a stated basis instead, and is not marked unsupported for lacking one.
+  </p>
+
+  <dl class="flex flex-wrap gap-x-10 gap-y-3">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Claims</dt>
+      <dd class="mt-1 type-data text-ink" id="claim-count">131</dd>
+    </div>
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Unsupported</dt>
+      <dd class="mt-1 type-data text-ink" id="unsupported-count">96</dd>
+    </div>
+  </dl>
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6"><div>
+    <ul class="flex flex-col divide-y divide-line" id="claims-list">
+      
+        <li class="py-4" data-claim="175eb3e4-ba53-42d0-92d7-97424eec66a4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/175eb3e4-ba53-42d0-92d7-97424eec66a4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Average debt used in the cost-of-debt work is $41.7225 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2a026b42-ec86-4709-9dab-8b9c7ea775f7">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2a026b42-ec86-4709-9dab-8b9c7ea775f7" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating expenses for the fiscal year ended June 2026 were $70.228 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2cb06642-47be-44fc-8f2b-2289e43020da">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2cb06642-47be-44fc-8f2b-2289e43020da" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement the beta and after-tax cost of debt inputs are period-sensitive, so modest revisions to either would shift the implied-growth reading of the valuation.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="859a8ede-3a0b-47ce-aaba-371db57792a6">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/859a8ede-3a0b-47ce-aaba-371db57792a6" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The historical revenue compound annual growth rate used as the growth anchor is 10.94%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="a6169ea0-98c5-45dc-905f-23abcf1ed6ac">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/a6169ea0-98c5-45dc-905f-23abcf1ed6ac" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The after-tax cost of debt used is 6.04%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b00d654d-52b6-49cc-95f8-15c3f69d5150">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b00d654d-52b6-49cc-95f8-15c3f69d5150" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Gross profit for the fiscal year ended June 2026 was $225.465 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b770013d-b96c-428e-ae4c-66e4a257b702">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b770013d-b96c-428e-ae4c-66e4a257b702" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement the fiscal 2026 figures should be read as company-reported pending the annual report for that year, and this is the largest disagreement carried forward.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b8d351a5-3bc8-45b2-8b33-b6eaf73a73df">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b8d351a5-3bc8-45b2-8b33-b6eaf73a73df" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating income for the fiscal year ended June 2026 was $155.237 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b9fa1b01-21c2-4691-89f7-a2b7786a0290">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b9fa1b01-21c2-4691-89f7-a2b7786a0290" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement concentration risk is present because the fiscal 2026 income statement rests on a single filing source without independent confirmation.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="bb3c49b9-4bbc-41c0-98a1-6b6f890d0a0e">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/bb3c49b9-4bbc-41c0-98a1-6b6f890d0a0e" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Book value per share is $59.56.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d7eceea8-e8af-451f-831d-413ac172fb5d">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d7eceea8-e8af-451f-831d-413ac172fb5d" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Interest expense for the fiscal year ended June 2026 was $3.051 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d8edbeb8-e67f-4f42-ba07-15b5a4a5ebd3">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d8edbeb8-e67f-4f42-ba07-15b5a4a5ebd3" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Research and development expense for the fiscal year ended June 2026 was $35.562 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dfc9fb6c-0b57-4798-aa42-95b8e8e33079">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dfc9fb6c-0b57-4798-aa42-95b8e8e33079" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement the contribution of AI to revenue is bounded by management characterisation rather than resolved, because no separately reported AI revenue line is available.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="e7b07608-4b65-4307-8730-51f057e3dbe0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/e7b07608-4b65-4307-8730-51f057e3dbe0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Microsoft reported revenue of $331.839 billion for the fiscal year ended June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="eda1f363-7913-4c28-91d4-65273e0df00e">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/eda1f363-7913-4c28-91d4-65273e0df00e" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The beta held fixed in the valuation work is 1.0682.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f3a29975-d4da-47c6-81ce-b59198cafc46">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f3a29975-d4da-47c6-81ce-b59198cafc46" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement a cloud-level operating margin cannot be derived from the segment disclosure available, and none should be published.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">executive_summary</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="03ec0e87-a351-4d5d-8802-d16ab93596ef">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/03ec0e87-a351-4d5d-8802-d16ab93596ef" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The recorded after-tax cost of debt is 6.04%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="30114e8e-bdb2-4655-9406-d36c70502a3f">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/30114e8e-bdb2-4655-9406-d36c70502a3f" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">We judge the thesis weakened if capital expenditure relative to revenue, as shown in the cash flow statement, continues to climb at both of the next two reporting dates rather than flattening.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="39eec3a9-2c76-4774-a2dd-9af0f7a49f13">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/39eec3a9-2c76-4774-a2dd-9af0f7a49f13" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">A recorded compound annual growth rate of 10.9% is used as the growth reference for the reported revenue line.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="3cf24af2-57bb-45e0-b64d-831400a24bb0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/3cf24af2-57bb-45e0-b64d-831400a24bb0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">We expect disclosure quality itself to be a swing factor, and would treat quantified AI-related revenue in the segment or revenue note as a positive confirmation, with continued qualitative description as a negative.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="5a57dd13-d022-4934-95d6-368e1fa9d19d">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/5a57dd13-d022-4934-95d6-368e1fa9d19d" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Basic earnings per share for the fiscal year ended June 2026 were $18.00.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="744112a0-73ba-4262-a9d6-542d3a95a54e">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/744112a0-73ba-4262-a9d6-542d3a95a54e" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The evidence available for this section carries no reportable-segment operating margin, capital expenditure, depreciation or remaining performance obligation detail, so those tests remain open rather than resolved.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="762cf738-70c8-43e4-802b-27206d9b632b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/762cf738-70c8-43e4-802b-27206d9b632b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cost of revenue for the fiscal year ended June 2026 was $106.4 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="795b7429-1880-4cdb-a82a-27eac960a843">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/795b7429-1880-4cdb-a82a-27eac960a843" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The recorded equity beta is 1.07.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="7e33fe28-d8f5-47f9-99bd-f8c935aa4fc8">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/7e33fe28-d8f5-47f9-99bd-f8c935aa4fc8" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">We judge the build-out to be earning its cost only if depreciation growth in the property and equipment note does not exceed segment revenue growth at the next two reporting dates.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="7f569536-dc28-4c12-99d1-b5641b65efc4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/7f569536-dc28-4c12-99d1-b5641b65efc4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating expenses for the fiscal year ended June 2026 were $70.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="856e66d7-0d4b-4158-b451-7aabdf960fa9">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/856e66d7-0d4b-4158-b451-7aabdf960fa9" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">A rising cost of debt alongside flat or falling segment operating margin would in our view compress the equity case regardless of headline earnings.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="af0b7cd6-d581-4783-be29-25c6acef8d5c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/af0b7cd6-d581-4783-be29-25c6acef8d5c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Recorded book value per share is $59.56.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="c11941d6-5a85-43c0-b6a7-d1ff2631a394">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/c11941d6-5a85-43c0-b6a7-d1ff2631a394" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Net income for the fiscal year ended June 2026 was $133.7 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d3cef3a2-60cb-4fc0-8f39-e2b9ea1d6d47">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d3cef3a2-60cb-4fc0-8f39-e2b9ea1d6d47" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Over the twelve months to September 2027, we judge the thesis confirmed if reportable-segment operating margin holds or rises at each of the next two reporting dates, using consolidated operating income as the fallback where no cloud margin is disclosed.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d4f0f9fb-3c01-4c5b-bb3f-295937cfe5d0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d4f0f9fb-3c01-4c5b-bb3f-295937cfe5d0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Recorded average debt is $41.7 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d4f8914d-68f0-4b11-bf39-ecb8f6010591">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d4f8914d-68f0-4b11-bf39-ecb8f6010591" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Research and development expense for the fiscal year ended June 2026 was $35.6 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dacca224-9863-4d32-ae75-e8a05ebabb23">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dacca224-9863-4d32-ae75-e8a05ebabb23" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">We judge demand momentum intact if remaining performance obligation growth disclosed in the revenue note exceeds reported revenue growth over the next two reporting periods.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="e6b9f4c3-2335-4fee-9f20-0783e1fa95d4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/e6b9f4c3-2335-4fee-9f20-0783e1fa95d4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Gross profit for the fiscal year ended June 2026 was $225.5 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f00cb24f-257b-4da6-96d5-934e673b7f4b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f00cb24f-257b-4da6-96d5-934e673b7f4b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Microsoft reported revenue of $331.8 billion for the fiscal year ended June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f22d69bc-ef80-44a0-83f9-9d42558bc482">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f22d69bc-ef80-44a0-83f9-9d42558bc482" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Microsoft filed a current report on Form 8-K with an earliest event date of September 2, 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f7303cd2-47cd-4fc6-a38b-13a400f6321d">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f7303cd2-47cd-4fc6-a38b-13a400f6321d" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The recorded cost of debt is 7.31%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f9948c4d-eb49-4264-abb5-e1d697650330">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f9948c4d-eb49-4264-abb5-e1d697650330" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating income for the fiscal year ended June 2026 was $155.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">investment_thesis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1403d9f1-ec7d-4183-894c-eabd93bdfc67">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1403d9f1-ec7d-4183-894c-eabd93bdfc67" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Research and development spending for fiscal year 2026 was 35.6 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1b3d04f6-043f-4e9f-a8b7-676397b211eb">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1b3d04f6-043f-4e9f-a8b7-676397b211eb" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Basic earnings per share for fiscal year 2026 were 18.00 dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="214617cb-ab08-493a-9519-d9c657a2dd6d">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/214617cb-ab08-493a-9519-d9c657a2dd6d" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Net income for fiscal year 2026 was 133.7 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="252825ef-6092-40d1-b906-acd8a51d95ff">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/252825ef-6092-40d1-b906-acd8a51d95ff" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating expenses for fiscal year 2026 were 70.2 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="407fc17d-80d3-4091-98cb-50106bb5ffe8">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/407fc17d-80d3-4091-98cb-50106bb5ffe8" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating income for fiscal year 2026 was 155.2 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="52bcf24d-1182-4e9a-aac0-73b0be055c21">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/52bcf24d-1182-4e9a-aac0-73b0be055c21" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Gross profit for fiscal year 2026 was 225.5 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="736bf217-438c-4e05-ab32-413aaa356ed4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/736bf217-438c-4e05-ab32-413aaa356ed4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Microsoft's total revenue for fiscal year 2026 (July 1, 2025 through June 30, 2026) was 331.8 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="7c33f703-6e17-445d-9fb1-65824948ff7e">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/7c33f703-6e17-445d-9fb1-65824948ff7e" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cost of revenue for fiscal year 2026 was 106.4 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="a459f01d-fa23-4f50-9ac8-79ddde406a0c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/a459f01d-fa23-4f50-9ac8-79ddde406a0c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Shares outstanding as of June 30, 2026 were approximately 7.427 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="a4f263ea-107c-4e68-9c1a-c52dcd732907">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/a4f263ea-107c-4e68-9c1a-c52dcd732907" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Pre-tax income for fiscal year 2026 was 165.9 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="c4e10f91-7c55-4999-9cc3-78fb0484e4ab">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/c4e10f91-7c55-4999-9cc3-78fb0484e4ab" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Income tax expense for fiscal year 2026 was 32.2 billion dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="de46f4b3-9f35-41a2-8939-87fefc5b9dd5">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/de46f4b3-9f35-41a2-8939-87fefc5b9dd5" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Diluted earnings per share for fiscal year 2026 were 17.95 dollars.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">business_overview</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="0146a980-6575-4dbf-b777-479d61f20fb9">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/0146a980-6575-4dbf-b777-479d61f20fb9" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cost of revenue for the fiscal year ended June 2026 was $106.4 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="0a083756-be37-4224-8642-e96004866348">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/0a083756-be37-4224-8642-e96004866348" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Gross margin percentage decreased, driven by continued investments in AI infrastructure and sales mix shift to Azure, offset in part by efficiency gains in Azure.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="0ce7634e-087e-4160-b394-d3d58945cf2a">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/0ce7634e-087e-4160-b394-d3d58945cf2a" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Revenue for the fiscal year ended June 2026 was $331.8 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1c76ae4e-58d8-4b3e-a8d0-1df5171bbbdb">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1c76ae4e-58d8-4b3e-a8d0-1df5171bbbdb" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating expenses for the fiscal year ended June 2026 were $70.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1cde2e6d-9cd8-4cdf-bd8b-602316d97af6">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1cde2e6d-9cd8-4cdf-bd8b-602316d97af6" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating expense growth was attributed to continued investments in research and development compute capacity, AI talent, and data supporting product development across the portfolio.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="30bb9115-9c9b-414f-a0f1-9c0098a7f334">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/30bb9115-9c9b-414f-a0f1-9c0098a7f334" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Enterprise and partner services revenue increased, driven by growth in Enterprise Support Services.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="46efd14c-34d6-438e-8ff9-8c36df956638">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/46efd14c-34d6-438e-8ff9-8c36df956638" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The annual report attributes the increase in cost of revenue to investments in AI infrastructure to support growing customer demand.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="504ec41a-c6e0-4375-a156-0c68f34271b2">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/504ec41a-c6e0-4375-a156-0c68f34271b2" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Gross profit for the fiscal year ended June 2026 was $225.5 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="531abcde-8cc9-4c59-b8ce-2ae8bd83d6f4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/531abcde-8cc9-4c59-b8ce-2ae8bd83d6f4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Operating income for the fiscal year ended June 2026 was $155.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="59130dd7-a615-4755-a5ca-165163a65291">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/59130dd7-a615-4755-a5ca-165163a65291" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Pre-tax income for the fiscal year ended June 2026 was $165.9 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="73a31084-649d-41c9-86e4-5ab05e728eac">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/73a31084-649d-41c9-86e4-5ab05e728eac" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Book value per share of $59.56 is a recorded calculation rather than a reported line item.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="87dde96a-211c-49dd-8db7-054948b28800">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/87dde96a-211c-49dd-8db7-054948b28800" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The annual report attributes the increase in server products and cloud services revenue to Azure and other cloud services, with growth across all workloads.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="8a42c7e1-97ff-4b40-b3f1-930cbd08286c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/8a42c7e1-97ff-4b40-b3f1-930cbd08286c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Diluted earnings per share for the fiscal year ended June 2026 were $17.95.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b53ca8ef-bce6-4cc5-a8b8-a249ce7df7cd">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b53ca8ef-bce6-4cc5-a8b8-a249ce7df7cd" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cash and equivalents at the June 2026 fiscal year end were $20.9 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="c7a1d5d6-afae-461f-89ff-606939fc0a12">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/c7a1d5d6-afae-461f-89ff-606939fc0a12" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Interest expense for the fiscal year ended June 2026 was $3.1 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="cb8e4e6c-d0dc-41a2-ab03-06caefe2eede">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/cb8e4e6c-d0dc-41a2-ab03-06caefe2eede" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Net income for the fiscal year ended June 2026 was $133.7 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dd15a6ae-1df9-49ea-b557-8369ee22a972">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dd15a6ae-1df9-49ea-b557-8369ee22a972" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Income tax expense for the fiscal year ended June 2026 was $32.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dd67be6b-f464-487f-bdd2-ad8f75b4b2f0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dd67be6b-f464-487f-bdd2-ad8f75b4b2f0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Basic earnings per share for the fiscal year ended June 2026 were $18.00.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="e345a919-69d1-4694-8293-8f1a2e39cfde">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/e345a919-69d1-4694-8293-8f1a2e39cfde" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cost of revenue included an unfavorable foreign currency impact.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="f2c8d3a5-bc0f-4406-8079-132ee1e10409">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/f2c8d3a5-bc0f-4406-8079-132ee1e10409" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Research and development expense for the fiscal year ended June 2026 was $35.6 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="fb4e7185-e98f-4662-a690-6098de304db0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/fb4e7185-e98f-4662-a690-6098de304db0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Server products revenue increased primarily on higher purchases of licenses running in multi-cloud environments, offset in part by continued customer shift to cloud.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="fe3755a2-bedd-4208-9b60-ada5fd41e2c0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/fe3755a2-bedd-4208-9b60-ada5fd41e2c0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Short-term investments at the June 2026 fiscal year end were $55.9 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="ffe6b60a-2f67-4e96-893b-25a0989503d7">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/ffe6b60a-2f67-4e96-893b-25a0989503d7" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The most recent annual report on record discusses fiscal 2026 full-year results, including increases in revenue, cost of revenue, gross margin and operating income, confirming that the annual figures used here come from that filing rather than from the prior-year annual report.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">historical_financial_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="03e6ec7c-dda4-4198-8d15-dda0ccfc960f">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/03e6ec7c-dda4-4198-8d15-dda0ccfc960f" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Average debt used in the capital-structure work is $41.7bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="092c179f-e19e-4975-b025-be6b73e769cd">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/092c179f-e19e-4975-b025-be6b73e769cd" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The FY2026 annual report states that existing cash, cash equivalents, short-term investments, cash flows from operations and access to capital markets are expected to be sufficient to fund operating activities and cash commitments including dividends, share repurchases, debt maturities and material capital expenditures for at least the next 12 months.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="18dfe645-4ec5-41d5-af92-98118abb0d81">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/18dfe645-4ec5-41d5-af92-98118abb0d81" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Short-term debt was $9.2bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="19901f8b-930e-4327-945a-2970f26469d2">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/19901f8b-930e-4327-945a-2970f26469d2" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The after-tax cost of debt is 6.0%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1da4185f-4575-4d17-af26-9083a46dc8af">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1da4185f-4575-4d17-af26-9083a46dc8af" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Total assets were $758.4bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="25c3ff2e-18c4-497c-99b3-e56cc6423c14">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/25c3ff2e-18c4-497c-99b3-e56cc6423c14" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Short-term investments were $55.9bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="4f4e8471-83e9-46d4-8eb8-88b24c1a92e3">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/4f4e8471-83e9-46d4-8eb8-88b24c1a92e3" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Lease liabilities were $16.5bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="4f8a8c01-c36c-4d24-a94d-8a4ce45bbceb">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/4f8a8c01-c36c-4d24-a94d-8a4ce45bbceb" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Book value per share is $59.56.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="649da9c8-f3df-427e-909f-36ab5b693d41">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/649da9c8-f3df-427e-909f-36ab5b693d41" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cash and equivalents were $20.9bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="7bb3b1bc-18b7-4031-996b-af694e676773">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/7bb3b1bc-18b7-4031-996b-af694e676773" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Long-term debt was $31.1bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="82318438-2e98-45e1-9158-0ae5d068d98a">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/82318438-2e98-45e1-9158-0ae5d068d98a" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Debt carries a weight of 8.3% in the capital structure.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="82331b68-afe1-4871-98fb-d554bc02be65">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/82331b68-afe1-4871-98fb-d554bc02be65" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Because property and equipment is available to this section on a net basis only — without gross cost, accumulated depreciation, construction in progress, useful lives or a depreciation charge — a capital-spending-to-depreciation comparison is not quoted here, and the absence should be read as a limit on measurement rather than as support for the balance sheet.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="8893ab60-76e7-412d-ac13-db29bc785b74">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/8893ab60-76e7-412d-ac13-db29bc785b74" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The pre-tax cost of debt is 7.3%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="9afbfbd4-abc7-492e-9c2c-5c6769deab03">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/9afbfbd4-abc7-492e-9c2c-5c6769deab03" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Current assets were $207.7bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="a24917eb-b643-4863-813b-4415c3115b55">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/a24917eb-b643-4863-813b-4415c3115b55" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Current liabilities were $168.8bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="df03fbe2-09e9-4d03-af5d-892963fd13f9">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/df03fbe2-09e9-4d03-af5d-892963fd13f9" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Deferred revenue was $73.0bn at the FY2026 year-end.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="e33956f6-b402-47fe-80b1-a2933905af83">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/e33956f6-b402-47fe-80b1-a2933905af83" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Property and equipment, net, stood at $313.1bn at the FY2026 year-end (30 June 2026).</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">balance_sheet_liquidity</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2d11d38c-111b-4c90-8cdc-e86cda588b0a">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2d11d38c-111b-4c90-8cdc-e86cda588b0a" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 additions to property and equipment (capital expenditure) were $115.9bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="3ddecbd9-7b05-44ad-9808-2f4cddd346f6">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/3ddecbd9-7b05-44ad-9808-2f4cddd346f6" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The FY2026 net change in cash and cash equivalents was -$9.3bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="3e76985a-7a97-4533-9418-49d5a4304f54">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/3e76985a-7a97-4533-9418-49d5a4304f54" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 net cash used in investing activities was -$139.5bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="5029124c-7914-4322-b9c0-791b1bae59a4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/5029124c-7914-4322-b9c0-791b1bae59a4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 net cash used in financing activities was -$52.5bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="52fffa15-60ea-475d-9abd-33393fd4c4c3">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/52fffa15-60ea-475d-9abd-33393fd4c4c3" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">In our judgement, with FY2026 additions to property and equipment of $115.9bn set against a $331.8bn revenue base, reported margin currently leads rather than lags the cash cost of capacity, and the recognised cost of that capacity should build in later periods as the assets enter service; a reader who sizes the gross property base and accumulated depreciation should treat this as the unfavourable reading of today's margin.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="77d5615f-5737-4354-bf41-b244162f4f4a">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/77d5615f-5737-4354-bf41-b244162f4f4a" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Management states it expects existing cash, cash equivalents, short-term investments, cash flows from operations and access to capital markets to be sufficient to fund operating activities and cash commitments including dividends, share repurchases, debt maturities and material capital expenditures for at least the coming year and thereafter for the foreseeable future.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="81606c01-70fd-4a64-8c5a-311b461e780d">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/81606c01-70fd-4a64-8c5a-311b461e780d" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 operating income was $155.2bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b11b4d78-10e7-4f36-ab27-31e5ae6c10a7">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b11b4d78-10e7-4f36-ab27-31e5ae6c10a7" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 share-based compensation, a non-cash charge added back in operating cash flow, was $12.4bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="c23c9049-f109-4075-9e1a-abaaa19beee4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/c23c9049-f109-4075-9e1a-abaaa19beee4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 dividends paid were $26.4bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d7364b2d-37b7-4aad-b39f-b46d9fffb82b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d7364b2d-37b7-4aad-b39f-b46d9fffb82b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Microsoft reported operating cash flow of $182.9bn for FY2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dc102856-d6b7-46f0-a901-80f6c94ddefa">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dc102856-d6b7-46f0-a901-80f6c94ddefa" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 revenue was $331.8bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="fae9bc57-63d8-48b6-aaee-3d3392aa825f">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/fae9bc57-63d8-48b6-aaee-3d3392aa825f" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">FY2026 share repurchases were $22.3bn.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">cash_flow_analysis</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="0234c56d-92b3-4d7c-b76b-97abd625e3ea">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/0234c56d-92b3-4d7c-b76b-97abd625e3ea" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The corresponding equity value is approximately $3.11 trillion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="1ea33b1b-c217-4f71-83c8-4cdbfd5d9de5">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/1ea33b1b-c217-4f71-83c8-4cdbfd5d9de5" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">No dated diluted share count is available to this section, so no value per share is asserted and the enterprise-value bridge cannot be itemised; the conclusion is a statement about aggregate value and its sensitivities rather than a price.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2287d1a0-1419-402e-8ce4-e0491352b85e">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2287d1a0-1419-402e-8ce4-e0491352b85e" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The company states that it expects existing cash, cash equivalents, short-term investments, cash flows from operations and access to capital markets to be sufficient to fund its operating activities and its investing and financing commitments, including dividends, share repurchases, debt maturities and material capital expenditures, for at least the next twelve months.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2bb30b42-38f6-4344-a86f-f767ff155fc0">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2bb30b42-38f6-4344-a86f-f767ff155fc0" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The after-tax cost of debt is 6.0%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="4a90774c-183f-4056-b98e-79ec22e153a5">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/4a90774c-183f-4056-b98e-79ec22e153a5" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Debt carries a weight of 8.3% in the capital structure used for discounting.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="4d49e9ce-4e6a-45e1-b739-f9f08da20a2c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/4d49e9ce-4e6a-45e1-b739-f9f08da20a2c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Fiscal 2026 capital expenditure was $115.9 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="4eaeb324-41bb-4e39-b2af-4b38a4c3e826">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/4eaeb324-41bb-4e39-b2af-4b38a4c3e826" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Capex intensity, rather than the operating margin, is the binding sensitivity in this valuation: holding it at the most recently disclosed level leaves materially less distributable cash than the margin alone would imply, and a lower assumed intensity would lift the value sharply.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="5b6d7a97-8ef3-43c7-9915-905c6e05e98b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/5b6d7a97-8ef3-43c7-9915-905c6e05e98b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">With debt weighted at only 8.3%, the blended cost of capital is governed overwhelmingly by the equity requirement, so shifts in the risk-free rate or the equity risk premium pass into the valuation almost undiluted while the cost of debt and tax rate inputs are second-order.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="84b036dd-3a75-4e33-ad6c-9df58bc1b2f2">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/84b036dd-3a75-4e33-ad6c-9df58bc1b2f2" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The pre-tax cost of debt is 7.3%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="9656b8c2-6e5f-402e-904e-7bc62bb2868c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/9656b8c2-6e5f-402e-904e-7bc62bb2868c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">With terminal growth and the discount rate held fixed, the majority of the value on both the Gordon growth and the exit multiple routes should be expected to sit beyond the explicit forecast, leaving the coming twelve months close to immaterial to the result.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="ab4c700b-8e32-494f-95d6-4f3b32d933af">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/ab4c700b-8e32-494f-95d6-4f3b32d933af" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The beta applied is 1.07, marginally above unity.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="ab9712f2-5700-4d4b-a817-119e97e3753b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/ab9712f2-5700-4d4b-a817-119e97e3753b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Fiscal 2026 operating income was $155.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b2224b80-7ce8-4398-a8f1-2587b26b9b62">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b2224b80-7ce8-4398-a8f1-2587b26b9b62" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Fiscal 2026 net cash from operating activities was $182.9 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="c638c8a9-f742-4194-9560-f7fde884c123">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/c638c8a9-f742-4194-9560-f7fde884c123" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The change in working capital carried into the cash flow build is $18.2 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="d408fd2f-95bd-478d-b04f-0756eebc0e7c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/d408fd2f-95bd-478d-b04f-0756eebc0e7c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Fiscal 2026 revenue, for the year ended June 2026, was $331.8 billion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="e8f10950-024f-4c33-bc61-8274f05c4380">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/e8f10950-024f-4c33-bc61-8274f05c4380" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The discounted cash flow solves to an enterprise value of approximately $3.13 trillion.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="eef5d193-f48e-46f5-9262-ae55566e32cb">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/eef5d193-f48e-46f5-9262-ae55566e32cb" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">The cost of equity used in the valuation is 9.8%.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="fd736821-5ecc-4f67-a26b-b58560cabefa">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/fd736821-5ecc-4f67-a26b-b58560cabefa" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Management estimates the fair value of each reporting unit primarily through a discounted cash flow methodology, and identifies the estimation of future cash flows, the long-term rate of growth and the determination of the weighted average cost of capital as significant judgements.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">valuation_dcf</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="04b92346-3856-4e23-b647-3a26e921e212">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/04b92346-3856-4e23-b647-3a26e921e212" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Intangible assets stood at $18,609 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="121fe739-2ebd-43f6-8b4e-62bad5050685">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/121fe739-2ebd-43f6-8b4e-62bad5050685" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Of the risks listed, depreciation timing and undisclosed commitment scale are judged the most material to the investment case, with disclosure comparability amplifying both.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="2d39e123-9f2a-4e3c-800e-55c5dc89096c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/2d39e123-9f2a-4e3c-800e-55c5dc89096c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Accounts receivable stood at $80,876 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="3d5ea132-8a61-4957-8280-6ab5f7046f09">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/3d5ea132-8a61-4957-8280-6ab5f7046f09" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Property, plant and equipment stood at $313,076 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="74a1556d-b6e1-484f-81e6-29709f6ab52b">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/74a1556d-b6e1-484f-81e6-29709f6ab52b" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Goodwill stood at $119,651 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="8764a2c2-70b7-4c70-b394-92060e7d3d31">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/8764a2c2-70b7-4c70-b394-92060e7d3d31" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Accounts payable stood at $42,416 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="9fdce610-2c63-4fc5-bda2-bdaf140598e4">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/9fdce610-2c63-4fc5-bda2-bdaf140598e4" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Cash and equivalents stood at $20,935 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="a5dd3689-bdc1-4f3b-99fb-43f280190188">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/a5dd3689-bdc1-4f3b-99fb-43f280190188" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Depreciation on recently completed capacity is likely to weigh on reported margin ahead of any cash effect if AI workload demand falls short of the installed base.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">forward_looking</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="b5b048da-4b5e-47bc-b750-c5df258db79c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/b5b048da-4b5e-47bc-b750-c5df258db79c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">An exhibit furnished under Regulation FD in September 2026 describes an updated reporting structure and presents summary financial information and historical data on a basis consistent with that updated structure.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">factual</span>
+            <span data-field="citations">
+              1/1 citation admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="bc05f154-d97c-4030-9de4-426a3038f17f">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/bc05f154-d97c-4030-9de4-426a3038f17f" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Counterparty concentration within AI contracting is treated here as an unverified exposure rather than an established fact, pending disclosure that identifies concentration in the receivable balance.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">opinion</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+          </p>
+        </li>
+      
+        <li class="py-4" data-claim="dffd7227-b987-457f-8633-186fc537113c">
+          <p class="max-w-prose type-body text-ink">
+            <a href="/claims/dffd7227-b987-457f-8633-186fc537113c" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="claim-link">Total assets stood at $758,376 million at the fiscal year end of June 2026.</a>
+          </p>
+          <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 type-body-sm text-ink-muted">
+            <span class="type-data-sm">key_risks</span>
+            <span class="type-data-sm">numeric</span>
+            <span data-field="citations">
+              0/0 citations admissible
+            </span>
+            
+              <span data-field="unsupported">
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Unsupported</span></span>
+</span>
+            
+          </p>
+        </li>
+      
+    </ul>
+  </div>
+</section>
+
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

@@ -97,15 +97,24 @@ def numeral_tokens(text: str) -> tuple[str, ...]:
 
 
 # `render.display` scales a dimensionless figure by a hundred for a percentage and renders
-# money in millions; a drafter writing longhand says billions. Nothing else is admitted: a
-# reading is a presentation this platform actually produces, not any factor that happens to
-# make two numbers meet.
+# money in millions; a drafter writing longhand says billions, and for the largest listed
+# companies, trillions. Nothing else is admitted: a reading is a presentation this platform
+# actually produces, not any factor that happens to make two numbers meet.
+#
+# **Trillions arrived with the first live QUICK run** (17 September 2026, Phase 0.5). The
+# table stopped at billions, Microsoft's equity value is $3.11tn, and the drafter wrote
+# "3.11" — so `cited_figure_agreement` reported two failures against a threshold of zero
+# and blocked a report whose figures were right. A blocking metric that fails every
+# large-cap valuation is a metric somebody switches off, which is the worse outcome: this
+# reading is admitted for the same reason billions is, because it is how the sentence says
+# the number.
 READINGS: Final[tuple[Decimal, ...]] = (
     Decimal(1),
     Decimal(100),
     Decimal("0.001"),
     Decimal("0.000001"),
     Decimal("0.000000001"),
+    Decimal("0.000000000001"),
 )
 
 

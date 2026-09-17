@@ -16,10 +16,11 @@ scanner must *not* read as a sign.
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
-from aer.core.figures import numeral_tokens, reads_as
+from aer.core.figures import READINGS, numeral_tokens, reads_as
 from aer.core.section_output import numeral_context, numerals_in, unsourced_numerals
 from aer.eval.observations import CitedFigureObservation
 from aer.eval.runtime import cited_figure_agreement
@@ -166,6 +167,57 @@ class TestTheAgreementQuestion:
             [self._row("In fiscal 2026 the cycle was -51.8 days.", "-51.790049338678")]
         )
         assert result.failures == ()
+
+
+class TestAFigureSaidInTrillions:
+    """The first live QUICK run, 17 September 2026, and the reading the table lacked.
+
+    Microsoft's equity value came out at $3,114,740,780,819.79 and the drafter wrote
+    "3.11". The readings stopped at billions, so the metric scored two failures against a
+    threshold of zero and the driver refused to approve a report whose figures were right.
+    A blocking check that fails every large-cap valuation is a check somebody switches off.
+    """
+
+    @staticmethod
+    def _row(text: str, value: str, name: str = "valuation_dcf/equity_value#269") -> Any:
+        return CitedFigureObservation(
+            name=name,
+            calculation="equity_value",
+            value=Decimal(value),
+            unit="USD",
+            text=text,
+        )
+
+    def test_the_run_that_found_this_now_agrees(self) -> None:
+        rows = [
+            self._row(
+                "Equity value of $3.11 trillion against the market's $3.09 trillion.",
+                "3114740780819.794301897679",
+            ),
+            self._row(
+                "Enterprise value reaches $3.13 trillion.",
+                "3134099780819.794301897679",
+                name="valuation_dcf/enterprise_value#267",
+            ),
+        ]
+
+        assert cited_figure_agreement(rows).failures == ()
+
+    def test_a_wrong_figure_in_trillions_is_still_caught(self) -> None:
+        """The reading is a presentation, not an amnesty: 4.2 over 3.11tn is wrong at
+        every scale the platform produces."""
+        result = cited_figure_agreement(
+            [self._row("Equity value of $4.2 trillion.", "3114740780819.794301897679")]
+        )
+
+        assert len(result.failures) == 1
+
+    def test_the_reading_is_declared_rather_than_inferred(self) -> None:
+        """A trillion, and nothing between billions and it: a factor admitted because it
+        is how a sentence says the number, not because it makes two numbers meet."""
+        assert Decimal("0.000000000001") in READINGS
+        assert reads_as(Decimal("3.11"), Decimal("3114740780819.79"))
+        assert not reads_as(Decimal("3.11"), Decimal("31147407808190.79"))
 
 
 class TestReadsAsCarriesTheSwitch:

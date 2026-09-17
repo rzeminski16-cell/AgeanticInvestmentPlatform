@@ -71,7 +71,16 @@ BOUNDS: Final[dict[str, tuple[Decimal, Decimal]]] = {
 }
 
 MAX_PEERS: Final = 8
-MIN_SECTIONS_GENERATED: Final = 17
+
+# How many of a run's own sections may be lost and the draft still approved. Counted
+# against the sections *this run has*, not against a fixed number of them.
+#
+# It was a fixed 17, which is all but one of the eighteen a standard run writes — and the
+# first live QUICK run (17 September 2026, Phase 0.5) generated nine of nine, because QUICK
+# mode drops nine sections by design, and the policy called a complete report "too many
+# sections lost". The tolerance was right and the floor was the standard spine written down
+# twice. `aer.services.acceptance` had the relative form all along.
+MAX_SECTIONS_LOST: Final = 1
 UNMAPPED_SHARE_WORTH_NOTING: Final = Decimal("0.05")
 
 
@@ -343,7 +352,7 @@ def decide_final(facts: FinalGateFacts) -> GateVerdict:
         return GateVerdict(
             False, "Sections are still pending.", tuple(findings), stop_reason="pending sections"
         )
-    if len(generated) < MIN_SECTIONS_GENERATED:
+    if facts.sections and len(generated) < len(facts.sections) - MAX_SECTIONS_LOST:
         return GateVerdict(
             False,
             f"Only {len(generated)} of {len(facts.sections)} sections generated ({len(failed)} failed).",

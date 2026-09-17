@@ -1,0 +1,100 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "1.068235043701",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-17, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.202619000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1205, 0.1326, 0.1814, 0.2291, 0.3494.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.087170000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.0736, 0.0637, 0.0816, 0.0994, 0.1175.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.441750000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.4206, 0.4177, 0.4464, 0.4562, 0.4678.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "13.000000000000",
+        "unit": "pure",
+        "justification": "Cross-check, not an independent view: at ~8-9% WACC and 3% growth, a terminal FCF/EBITDA of roughly two-thirds implies low-teens EV/EBITDA. That conversion reflects the derived 44% EBIT margin plus ~9% D&A intensity, less tax at 17.5% and capex settling near D&A \u2014 the derived 20% capex intensity (35% in FY26) is a buildout, not a steady state. Current MSFT trades well above this on spot EBITDA; the gap is growth I do not extend into perpetuity. The perpetuity-growth terminal value is the better estimate; treat 13x as a sanity band. Higher if terminal capex stays near D&A and rates fall; lower if leased AI capacity keeps capex above depreciation.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.137411000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2022-06-30 to 2026-06-30, over 4 year(s): revenue moved from 198,270,000,000 to 331,839,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.050000000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5% on 2026-09-15, as published by 2026-09-17 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.05.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.174698000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1311, 0.1898, 0.1823, 0.1763, 0.1940.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken as below a cost of capital of at least 8% (the derived 5% risk-free plus any ordinary equity premium for a beta-near-1 megacap), so it sits far under the eventual WACC. 3% is roughly long-run US nominal GDP at a 5% nominal 10-year yield: in perpetuity a company this large cannot exceed the economy, so I anchor there rather than on the derived 13.7% trailing growth or 43% Azure growth, which are cycle facts, not perpetuity facts. Raise toward 0.035 if you judge AI-era pricing power durable; cut to 0.02 if you assume nominal rates and nominal GDP fall back.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "0.237834000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from \u2014 or set a standing premium in settings, and every run will propose it for you to confirm."
+      }
+    ],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "9961b6a78acfb353cb5fd329e272c9b62da91a3ebe1b52fb516c18584981c02d",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "20da17ef-8dec-4199-8879-694d1fd4946a",
+    "reason": "gate_waiting"
+  }
+}

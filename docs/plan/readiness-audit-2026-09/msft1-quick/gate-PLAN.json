@@ -1,0 +1,273 @@
+{
+  "payload": {
+    "plan_id": "ef689714-7f06-4b11-bd79-cda8e2c5f715",
+    "workflow_version": "vertical_slice_v1",
+    "summary": "Quick-mode, 12-month review of MSFT as of 2026-09-17 answering three operator questions: (1) is cloud margin expansion economic or an artefact of capitalising infrastructure, (2) what must be true for the current multiple, (3) how much growth is AI revenue absent in FY2023. This plan states no figures; all numbers come from filed evidence and recorded calculations. Revised after review to add: ASC 606 revenue disaggregation, unearned revenue and remaining performance obligations (with disclosed recognition split) as the durability test; explicit enterprise-value bridge inputs (cash and short-term investments, total debt, operating and finance lease liabilities, equity-method carrying values, diluted share count, buybacks, stock-based compensation); a pre-committed reverse-DCF solve protocol so 'what would have to be true' is falsifiable; a fallback rule when no cloud-level operating margin is disclosed; and core/optional source tiering. Optional sources (peer 10-Ks, DEF 14A, full transcript series) are dropped before any core retrieval is abbreviated. Sections below are ordered by priority under a time box.",
+    "sections": [
+      {
+        "key": "executive_summary",
+        "focus": "Direct answers to the three operator questions, each tagged with its evidence class (audited filing, unaudited company disclosure, management assertion, unverified proposal). Where filings cannot settle a question, say so plainly: if no cloud-level operating margin is derivable from segment disclosure, state that it was not derivable rather than constructing one; if no audited AI revenue line exists, say the question is bounded, not resolved. Name the variables held fixed in the reverse DCF and where their values came from. Carry forward the single largest disagreement surfaced by validation."
+      },
+      {
+        "key": "historical_financial_analysis",
+        "focus": "FY2023-FY2026 consolidated and segment revenue, operating income and margin from the 10-Ks, as-reported and recast where disclosed. Retrieve the ASC 606 revenue disaggregation by product/service line as the closest audited proxy for which lines could contain AI offerings. Durability test: track remaining performance obligations and unearned revenue growth, with disclosed recognition-period split, against reported revenue growth across the same years. Retrieve D&A, cost of revenue composition, stock-based compensation as a recorded line, and any quantified effect of useful-life changes. Fallback rule: if no cloud-level operating margin is disclosed, report reportable-segment margin as presented plus any company-defined Microsoft Cloud gross margin percentage, labelled unaudited. Flag every derived ratio as a recorded calculation."
+      },
+      {
+        "key": "cash_flow_analysis",
+        "focus": "Core of the capitalisation question. Operating cash flow, additions to property and equipment, finance-lease additions, non-cash depreciation, stock-based compensation and share repurchases from FY2024-FY2026 cash flow statements and FY2026 10-Qs. Compare capex growth with depreciation growth and with reported cloud-related revenue growth to test whether margin leads or lags the cash cost of capacity. Show the quarterly trajectory annual figures smooth over. Record explicitly where filings do not split datacentre shell, land, leased capacity and server spend."
+      },
+      {
+        "key": "valuation_dcf",
+        "focus": "Reverse DCF of implied expectations, not a fair value. Pre-committed solve protocol: hold discount rate (date-stamped Treasury yield plus a documented ERP source) and terminal growth fixed at sourced values; fix capex intensity and operating margin at the most recent disclosed period levels; solve for one variable at a time and report a stated grid with every held value and its source named. Enterprise-value bridge from the FY2026 10-K balance sheet, debt and lease notes: cash and short-term investments, total debt, operating and finance lease liabilities, equity-method carrying values. Diluted shares govern; use the most recent date-stamped count available and disclose its date versus 2026-09-17. Note terminal value dominance versus the 12-month horizon."
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "focus": "Two jobs. First, the capitalised-infrastructure question: gross and net property and equipment, accumulated depreciation, construction in progress, disclosed useful lives, and operating versus finance lease liabilities and maturities from the FY2026 10-K notes, establishing how much infrastructure cost sits on the balance sheet awaiting depreciation. Second, supply the enterprise-value bridge items to valuation_dcf: cash and short-term investments, total and current debt with maturities, lease liabilities, and equity-method or unconsolidated investments with related commitments that sit outside consolidated margin."
+      },
+      {
+        "key": "business_overview",
+        "focus": "Define reportable segments exactly as presented in the FY2026 10-K segment note and identify every recast or reallocation versus FY2023-FY2025 presentation, since comparability is the crux of the AI-growth question. Map the ASC 606 disaggregation categories to segments and identify which disclosed revenue lines could contain AI offerings. Mark which metrics (Microsoft Cloud revenue, Azure growth rates, any AI run-rate) are company-defined, non-GAAP or unaudited, and note that no reportable segment maps one-to-one to 'Microsoft Cloud'."
+      },
+      {
+        "key": "investment_thesis",
+        "focus": "State the thesis as falsifiable conditions over the 12-month horizon, each linked to the filing line or note that would confirm or break it at the next two reporting dates: direction of reportable-segment operating margin (or the fallback metric if no cloud margin is disclosed), capex-to-revenue trajectory, depreciation growth relative to segment revenue growth, remaining performance obligation growth relative to reported revenue growth, and whether AI-related revenue disclosure improves. No price target."
+      },
+      {
+        "key": "key_risks",
+        "focus": "Risks to the investment case, ordered by materiality to the three operator questions: depreciation catch-up as capacity vintages mature, disclosed capex and purchase commitments, counterparty or customer concentration in AI arrangements, economics held in equity-method or unconsolidated vehicles, and disclosure risk if segment or metric definitions change again. Cite the filing source for each; label any risk not evidenced in filings as a proposal for verification."
+      },
+      {
+        "key": "validation_disagreements",
+        "focus": "Record conflicts between sources: audited 10-K figures versus press-release or slide-deck metrics, management characterisations of AI revenue scale versus what segment and ASC 606 disaggregation support, recast-versus-as-reported mismatches across FY2023-FY2026, and any inconsistency between RPO recognition-period disclosure and management commentary on backlog duration. State which source governs and why, and list the questions the evidence leaves open."
+      }
+    ],
+    "section_listing": [
+      {
+        "key": "executive_summary",
+        "title": "Executive Summary",
+        "position": "100.00",
+        "required": true,
+        "token_budget": 2000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0672"
+      },
+      {
+        "key": "investment_thesis",
+        "title": "Investment Thesis",
+        "position": "110.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "business_overview",
+        "title": "Business Overview",
+        "position": "120.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "historical_financial_analysis",
+        "title": "Historical Financial Analysis",
+        "position": "200.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "title": "Balance Sheet & Liquidity",
+        "position": "220.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "cash_flow_analysis",
+        "title": "Cash Flow Analysis",
+        "position": "230.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "valuation_dcf",
+        "title": "Valuation \u2014 Discounted Cash Flow",
+        "position": "300.00",
+        "required": true,
+        "token_budget": 5000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0790"
+      },
+      {
+        "key": "key_risks",
+        "title": "Key Risks",
+        "position": "400.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "validation_disagreements",
+        "title": "Validation & Disagreements",
+        "position": "910.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      }
+    ],
+    "planned_sources": [
+      {
+        "why": "Primary audited base for segment margin; disaggregation is the closest audited proxy for which lines could contain AI offerings, and RPO is the only filed forward-looking evidence on 12-month durability.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2026 Form 10-K (FY ended 30 June 2026): income statement, segment note, ASC 606 revenue disaggregation by product/service line, unearned revenue, and remaining performance obligations with disclosed recognition-period split.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Establishes how much infrastructure cost is capitalised and awaiting depreciation, and whether reported margin is supported by or ahead of the cash cost of capacity.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2026 10-K property and equipment note (gross, net, accumulated depreciation, construction in progress, disclosed useful lives and any change), lease note, commitments note, and cash flow statement including depreciation, capex additions and stock-based compensation.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Bridges market capitalisation to enterprise value so the reverse DCF is computed on a consistent basis rather than on price and share count alone.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2026 10-K enterprise-value bridge items: cash and short-term investments, total and current debt with maturities, operating and finance lease liabilities, equity-method and unconsolidated investment carrying values, share repurchases, cover-page and diluted share counts.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Supplies the immediate comparative and identifies presentation changes or estimate changes that would otherwise corrupt multi-year growth and margin comparisons.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2025 Form 10-K: prior-year segment revenue and operating income, ASC 606 disaggregation, unearned revenue and RPO, PP&E and lease notes, and any recast of segment presentation or change in estimated useful lives.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Mid-period anchor and the first year in which AI-related capacity spend and any useful-life revision are likely visible in filed disclosure.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2024 Form 10-K: segment results on the then-current basis, ASC 606 disaggregation, RPO, capex and depreciation, and disclosures on changes in accounting estimates affecting server and network equipment.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Establishes the pre-AI baseline three years before the as-of date, required to bound how much current growth and backlog is genuinely new.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2023 Form 10-K: segment revenue and operating income, ASC 606 revenue disaggregation, unearned revenue and RPO, capex, depreciation and disclosed useful-life assumptions.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Gives the intra-year capex-versus-depreciation trajectory that annual figures smooth over, and the most recent date-stamped share count for the EV bridge.",
+        "tier": "regulatory_primary",
+        "what": "CORE. MSFT FY2026 Forms 10-Q (Q1-Q3): quarterly segment revenue and operating income, additions to property and equipment, depreciation, finance-lease additions, unearned revenue and RPO, stock-based compensation, and cover-page share count with its date.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Date-stamped price input for the reverse DCF and implied-multiple work; must match the as-of date exactly and be stored as a retrieved fact.",
+        "tier": "market_data",
+        "what": "CORE. MSFT closing price on NASDAQ as of 2026-09-17 in USD, plus the trailing four-quarter dividend record.",
+        "provider": "Market data provider"
+      },
+      {
+        "why": "The solve protocol holds the discount rate fixed, so its inputs must be sourced and date-stamped rather than assumed for the implied conditions to be auditable.",
+        "tier": "market_data",
+        "what": "CORE. US Treasury yield curve as of 2026-09-17 and a documented, citable equity risk premium source for discount-rate construction.",
+        "provider": "Market data provider"
+      },
+      {
+        "why": "Only place company-defined cloud and AI metrics appear; required for the pre-committed fallback if no cloud-level operating margin is derivable. Reconciled to audited figures and labelled unaudited.",
+        "tier": "company_disclosure_unaudited",
+        "what": "CORE. MSFT FY2026 Q4 and full-year earnings press release, 8-K exhibit and results slides: Microsoft Cloud revenue and gross margin percentage, Azure growth percentages, any AI-related operating metrics.",
+        "provider": "Company investor relations"
+      },
+      {
+        "why": "Only articulation of AI revenue scale; usable as attributed assertion, never as an established fact or figure. Dropped before any core retrieval is abbreviated.",
+        "tier": "management_assertion",
+        "what": "OPTIONAL. MSFT quarterly earnings call transcripts, FY2026 quarters first and FY2024-FY2025 only if time permits: statements on AI revenue run-rate, capex mix between long-lived shell and shorter-lived servers, and backlog duration.",
+        "provider": "Earnings call transcript provider"
+      },
+      {
+        "why": "Tests whether MSFT's depreciation policy is an outlier among hyperscalers, bearing on the flattered-margin question. Dropped before any core retrieval is abbreviated.",
+        "tier": "regulatory_primary",
+        "what": "OPTIONAL. Most recent FY 10-Ks of Amazon.com and Alphabet: disclosed useful lives for server and network equipment, capex and depreciation.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Cross-check on the reverse-DCF implied conditions by showing the bar management is compensated against. Lowest priority; dropped first under the time box.",
+        "tier": "regulatory_primary",
+        "what": "OPTIONAL. MSFT FY2026 DEF 14A: performance metrics and targets used in executive incentive plans, particularly any cloud, capex or AI-linked measures.",
+        "provider": "SEC EDGAR"
+      }
+    ],
+    "known_risks": [
+      "No audited 'AI revenue' line exists in MSFT filings and the term has no standard definition. Operator question three can be bounded only by ASC 606 disaggregation and attributed management commentary, not resolved with a verified figure.",
+      "A reverse DCF is underdetermined: one observed price does not fix a unique combination of growth, margin, capex intensity, discount rate and terminal growth. The pre-committed protocol (fixed sourced discount rate and terminal growth, margin and capex intensity at disclosed recent levels, one variable solved at a time, held values named) makes the output falsifiable but still yields a grid of conditions, not one answer. Terminal value also dominates and extends far beyond the 12-month horizon.",
+      "No reportable segment maps to 'Microsoft Cloud' and depreciation may not be allocated to a cloud-level unit. Pre-committed fallback: report reportable-segment margin as presented plus any company-defined Microsoft Cloud gross margin percentage, labelled unaudited, and state in the executive summary that a cloud operating margin was not derivable. No constructed cloud margin will be published.",
+      "Segment presentation has been recast in recent fiscal years. If FY2023 figures are not restated onto the current basis in any available filing, three-year growth comparisons are partly non-comparable and must be reported as such.",
+      "Filings may not disaggregate capex between datacentre land and shell, leased capacity and server hardware. The attribution needed to fully separate mix from unit economics in the margin question may not be derivable from disclosed data.",
+      "RPO is an imperfect durability test: it may include non-cloud commitments, exclude cancellable and short-term contracts, carry no AI split, and disclose only a coarse recognition-period bucket. It bounds contracted revenue but cannot isolate AI or guarantee margin.",
+      "Effects of changes in estimated useful lives are typically quantified only in the year of change and not retrospectively restated, limiting how far the depreciation-policy effect on margin can be traced across FY2023-FY2026.",
+      "Share count staleness: no share count is date-stamped to 2026-09-17. Cover-page counts are dated at filing and diluted weighted-average counts are period figures, so the EV bridge will carry a dated count with its date and basis disclosed rather than an adjusted estimate.",
+      "If the FY2026 10-K is not yet filed or indexed on EDGAR as of 2026-09-17, the work falls back to the FY2025 10-K plus FY2026 10-Qs, leaving the most recent period unaudited and the fiscal-year picture incomplete.",
+      "Quick-mode time box: optional sources (peer 10-Ks, DEF 14A, the FY2024-FY2025 transcript series) are dropped before core retrieval is thinned. The approver should note this removes the peer depreciation-policy cross-check, weakening one line of evidence on the flattered-margin question."
+    ],
+    "prior_research": "",
+    "critique": {
+      "revised": true,
+      "consulted": true,
+      "challenges": [
+        {
+          "aspect": "coverage",
+          "severity": 4,
+          "statement": "The 10-K source entry lists income statement, segment, PP&E, lease, cash flow, commitments and cover page \u2014 but not the ASC 606 revenue disaggregation note, unearned revenue, or remaining performance obligations and their expected recognition period. Disaggregated product/service revenue is the closest audited proxy for 'which lines could contain AI offerings', and contracted backlog is the only filed forward-looking evidence bearing on whether growth and margin hold over the 12-month horizon. Neither is planned.",
+          "suggestion": "Add revenue disaggregation, unearned revenue and RPO (with disclosed duration/recognition split) to the FY2023-FY2026 10-K and FY2026 10-Q pulls, and give historical_financial_analysis an explicit task of tracking RPO growth against reported revenue growth as the durability test."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 4,
+          "statement": "The reverse DCF is specified with a price, a discount rate and a cover-page share count, but nothing bridges market capitalisation to enterprise value: cash and short-term investments, total debt, operating and finance lease liabilities, and equity-method carrying values are not listed as valuation inputs. The cover-page share count is also dated at filing, weeks before 2026-09-17, and basic versus diluted is unspecified while share repurchase and stock-based compensation are nowhere in the plan.",
+          "suggestion": "Name the EV bridge items explicitly as valuation_dcf inputs from the FY2026 10-K balance sheet and debt/lease notes, state whether diluted or basic shares govern, source the most recent date-stamped share count available, and require stock-based compensation to be shown as a recorded line in the cash-flow and margin work."
+        },
+        {
+          "aspect": "risks",
+          "severity": 3,
+          "statement": "No named risk covers the reverse DCF's central weakness: one observed price does not determine a unique combination of growth, margin, capex intensity, discount rate and terminal growth. Without pre-committing which variables are held fixed and at what sourced values, 'what would have to be true' produces an unfalsifiable family of answers, and the operator's second question is answered only in appearance.",
+          "suggestion": "Pre-specify the solve protocol in valuation_dcf: hold discount rate and terminal growth at date-stamped sourced values, fix capex intensity and margin at disclosed recent-period levels, solve for one variable at a time, and report the resulting implied conditions as a stated grid with the held values named."
+        },
+        {
+          "aspect": "focus",
+          "severity": 3,
+          "statement": "investment_thesis and historical_financial_analysis both demand 'cloud segment operating margin', while the plan's own risk list concedes depreciation may not be allocated to a cloud segment and that no reportable segment maps to 'Microsoft Cloud'. The risk is named but no fallback is defined, so sections are still committed to a figure the planned sources may not establish.",
+          "suggestion": "Add a pre-committed fallback rule: if no cloud-level operating margin is disclosed, report the reportable segment margin as presented plus any company-defined Microsoft Cloud gross margin percentage labelled unaudited, and state in the executive summary that a cloud operating margin was not derivable rather than constructing one."
+        },
+        {
+          "aspect": "feasibility",
+          "severity": 3,
+          "statement": "For a quick-mode review the plan commits to nine sections, four 10-Ks, three 10-Qs, three years of quarterly transcripts, an earnings release and slide deck, two peer 10-Ks, a DEF 14A, two market-data pulls and a reverse DCF with sensitivity analysis. Nothing is ranked, so a time-boxed run risks thinning the segment/PP&E/cash-flow work that actually answers the three questions in order to reach the peripheral sources.",
+          "suggestion": "Tier the source list into core (FY2023-FY2026 10-Ks, FY2026 10-Qs, price and discount-rate inputs) and optional (peer 10-Ks, DEF 14A, full transcript series), and state that optional items are dropped before any core retrieval is abbreviated."
+        },
+        {
+          "aspect": "sources",
+          "severity": 2,
+          "statement": "The peer check is specified only as 'most recent FY 10-Ks' of Amazon and Alphabet. Those issuers have different fiscal year-ends and may have changed server useful lives in years outside their latest filing, so a single-year comparison may compare non-coterminous periods and miss the policy-change year that the flattered-margin question turns on.",
+          "suggestion": "Specify the peer fiscal periods to be retrieved and require the filing in which each peer last changed estimated useful lives, with year-ends stated alongside every comparison so non-coterminous periods are visible on the face of the table."
+        }
+      ],
+      "coverage_note": "Attacked the plan only, on coverage of filed sources, valuation input completeness, unnamed methodological risk, section/source feasibility under quick mode, and peer comparability. The evidence discipline, source tiering and refusal to state an AI revenue figure are genuine strengths and I raise no objection to them. I hold no view on the company and assert no figures; each challenge is phrased as a question the plan should answer."
+    },
+    "estimated_cost_gbp": "9.2470",
+    "estimated_runtime_seconds": 2400,
+    "skills": []
+  },
+  "hash": "8284dbd2a8f70e9e34f7b53da94343ede8356daa2b59a7fa5748f642156fed9f",
+  "pause_context": {
+    "gate": "PLAN",
+    "job_id": "20da17ef-8dec-4199-8879-694d1fd4946a",
+    "reason": "gate_waiting"
+  }
+}

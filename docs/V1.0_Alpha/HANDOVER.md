@@ -38,12 +38,23 @@ Then `CLAUDE.md` at the repository root, which outranks everything above on conv
 [`12-the-ranked-backlog.md`](12-the-ranked-backlog.md), raw JSON committed to
 [`../plan/readiness-audit-2026-09/judges/`](../plan/readiness-audit-2026-09/judges/).
 
-**0.5, the QUICK-mode run, is not.** It is approved, costed at about £4, and has never been run
-in the platform's life. It drops nine of the eighteen sections and scales budgets to 0.6, and it
-answers the largest unasked question in the plan: whether eighteen sections is the right spine
-for one private investor.
+**0.5 is done** — 17 September, £4.95, the first QUICK run in the platform's life. The
+readout is [`../plan/readiness-audit-2026-09/quick-mode-readout.md`](../plan/readiness-audit-2026-09/quick-mode-readout.md)
+and the record is beside it in `msft1-quick/`.
 
-It needs the services up (§4) and then one command:
+Its answer to the spine question: **half the sections cost two thirds of the money**, £4.95
+against the standard run's £7.48, because the plan, the critic, the five research workers,
+the adversary and the revise pass do not vary with how many sections follow. A shorter
+report is worth having for the reader; it is not a cost lever. The lever is output tokens,
+£3.10 of the £4.95.
+
+It also found two defects in the checking layer, neither reachable without running the mode,
+both now fixed with tests: the agreement metric had no reading for a figure said in
+trillions and failed a correct $3.11tn valuation, and the driver's own policy carried the
+standard spine as a fixed floor of seventeen sections and called nine of nine "too many
+sections lost".
+
+The command, for the next time:
 
 ```bash
 uv run python -m audit.driver.run msft1 --mode quick --cap 6.00 --screenshots
