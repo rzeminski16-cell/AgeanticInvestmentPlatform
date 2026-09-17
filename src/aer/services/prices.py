@@ -176,13 +176,24 @@ async def record_bars(
 
     Nothing is ever updated. See the module docstring.
     """
+    # **The window covers every bar this call might insert, rather than the run's as-of
+    # date.** Defence rather than a fix: `sources/eodhd/client.py` already drops any row the
+    # provider returns beyond the bound and counts them in `discarded_after_as_of`, so in
+    # production the two are the same set. But this function's contract is "insert the bars
+    # this platform does not already hold", and reading a narrower window than it writes
+    # meant it could insert a row it had never compared — which surfaces as a
+    # `uq_price_bars_day` violation on the *second* acquisition of a security, not as a
+    # missing bar on the first. A service should not depend on its caller's filtering for
+    # its own correctness. `as_of` stays in the bound so an empty response still asks a
+    # well-formed question.
+    dates = [row.on for row in response.bars]
     held = {
         bar.bar_date: bar
         for bar in await _bars_between(
             session,
             security,
-            since=min((row.on for row in response.bars), default=response.as_of),
-            until=response.as_of,
+            since=min(dates, default=response.as_of),
+            until=max([*dates, response.as_of]),
         )
     }
 

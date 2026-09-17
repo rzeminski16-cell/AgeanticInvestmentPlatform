@@ -125,11 +125,18 @@ class StubPriceClient:
         self.bar_calls.append(symbol)
         # The proxy moves differently from the subject, so the regression is not degenerate.
         step = Decimal("0.5") if symbol.endswith(".INDX") else Decimal("1.25")
+        # **Bounded to the as-of date, because the real adapter is** — it drops any row the
+        # provider returns beyond the bound and counts them in `discarded_after_as_of`
+        # (`sources/eodhd/client.py`). The ladder runs past the bound whenever `months` is
+        # generous, and an unbounded stub hands the services under test a response shape they
+        # can never meet in production, which makes every assertion over it worth less.
+        rows = _bars(symbol, months=self._months, start=Decimal("100"), step=step)
+        inside = tuple(row for row in rows if row.on <= as_of)
         return PriceResponse(
             symbol=symbol,
             as_of=as_of,
-            bars=_bars(symbol, months=self._months, start=Decimal("100"), step=step),
-            discarded_after_as_of=0,
+            bars=inside,
+            discarded_after_as_of=len(rows) - len(inside),
             fetch=await _stored_fetch(
                 self._store,
                 f"https://eodhd.test/{symbol}",
@@ -329,6 +336,59 @@ class TestAcquiringTheSubjectAndItsMarket:
         assert "bars" in payload
         assert isinstance(payload["bars"], int), "a count, never the prices themselves"
         assert not any(isinstance(value, list) for value in payload.values())
+
+
+class TestASecondRunOverTheSameCompany:
+    """The bug that cost two audited runs their whole price layer.
+
+    `record_bars` inserts only what is new — re-running an acquisition is not news — and the
+    guard read that insert count as the state. On a warm database the second run inserted
+    nothing, already held everything, and was told *"the market-data provider returned no
+    prices"*: no price, no market capitalisation, no enterprise value, no multiple, and a
+    valuation discounted at book equity under a caveat saying so. AZN #2 and M&T were both
+    second runs, and both lost the layer this way.
+    """
+
+    async def test_the_layer_survives_a_warm_database(self, scene: dict[str, Any]) -> None:
+        first = await _acquire(scene, StubPriceClient(scene["store"]))
+        assert first.acquired is True
+
+        second = await _acquire(scene, StubPriceClient(scene["store"]))
+
+        assert second.acquired is True, second.reason
+        assert second.bars == first.bars, "the same series is held, however little was new"
+        assert second.market_capitalisation is not None
+
+    async def test_the_second_run_inserts_nothing_and_says_so(self, scene: dict[str, Any]) -> None:
+        """What changed is still a real question; it is simply not the one the guard asks."""
+        await _acquire(scene, StubPriceClient(scene["store"]))
+        before = len(list(await scene["session"].scalars(select(PriceBar))))
+
+        second = await _acquire(scene, StubPriceClient(scene["store"]))
+
+        after = list(await scene["session"].scalars(select(PriceBar)))
+        assert len(after) == before, "nothing is stored twice"
+        assert second.bars > 0
+
+    async def test_an_empty_response_is_still_refused(self, scene: dict[str, Any]) -> None:
+        """The other direction, so the fix does not turn the guard off: a provider that
+        genuinely returns nothing still produces the sentence rather than a price layer."""
+
+        class _Empty(StubPriceClient):
+            async def fetch_bars(self, symbol: str, **kwargs: Any) -> Any:
+                held = await super().fetch_bars(symbol, **kwargs)
+                return PriceResponse(
+                    symbol=held.symbol,
+                    as_of=held.as_of,
+                    bars=(),
+                    discarded_after_as_of=0,
+                    fetch=held.fetch,
+                )
+
+        outcome = await _acquire(scene, _Empty(scene["store"]))
+
+        assert outcome.acquired is False
+        assert "returned no prices" in outcome.reason
 
 
 class TestTheBeta:

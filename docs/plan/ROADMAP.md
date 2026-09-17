@@ -1024,6 +1024,16 @@ found rather than as scope that was always there.
    3.1 closed that at source. Recorded here because it is a fact about how this platform's
    adversary fails, and because it is the second plan-level claim this programme has had to
    correct by reading rows instead of prose.
+6. **A test stub that returns a shape the real client cannot, 17 September 2026.** The price
+   stub in `tests/test_price_acquisition.py` generated a monthly ladder running past the run's
+   as-of date; the real adapter drops exactly those rows and counts them in
+   `discarded_after_as_of` (`sources/eodhd/client.py`). Every assertion in that module was
+   therefore made against a response shape production never produces — and when a re-run test
+   was finally written, the stub's own surplus rows crashed it on `uq_price_bars_day` rather
+   than exercising the bug it was written for. The stub now filters as the adapter does.
+   Recorded because the failure mode generalises: a stub looser than the thing it stands in
+   for does not merely fail to catch bugs, it manufactures ones that cannot happen, and both
+   cost the same to debug. Worth a sweep of the other adapter stubs; not done here.
 
 ### Before this leaves one machine
 

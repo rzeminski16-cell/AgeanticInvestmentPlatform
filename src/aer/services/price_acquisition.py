@@ -258,6 +258,7 @@ async def acquire_prices(
         job_id=str(job_id),
         symbol=symbol,
         bars=subject.bars,
+        inserted=subject.inserted,
         actions=subject.actions,
         proxy=proxy.symbol,
         beta_proposed=beta_proposed,
@@ -372,8 +373,24 @@ async def acquire_peer_prices(
 
 @dataclass(frozen=True, slots=True)
 class _Listing:
+    """One listing after its bars have been fetched and stored.
+
+    **``bars`` is what the platform holds for the window, not what this call inserted**, and
+    the difference cost two audited runs their entire price layer. ``record_bars`` inserts
+    only what is new — re-running an acquisition is not news — so the second run of a company
+    inserts nothing and already holds everything. Reading the insert count as the state read
+    a warm database as *"the market-data provider returned no prices"*, and the run then had
+    no price, no market capitalisation, no enterprise value and no multiple, and discounted
+    its valuation at book equity while printing a caveat saying so. AZN #2 and M&T were both
+    second runs.
+
+    ``inserted`` is kept beside it because "what changed" is a real question and the run
+    record should still be able to answer it; it is simply not the question the guards ask.
+    """
+
     security: Security
     bars: int
+    inserted: int
     actions: int
 
 
@@ -474,7 +491,15 @@ async def _record_listing(
         )
         recorded_actions = stored_actions.splits_inserted + stored_actions.dividends_inserted
 
-    return _Listing(security=security, bars=stored.inserted, actions=recorded_actions)
+    return _Listing(
+        security=security,
+        # Inserted, already held, and in conflict: every date this response accounted for is
+        # a date the platform now has a bar on. A conflict counts because the stored bar
+        # stands — `record_bars` never updates — so the series is there to read.
+        bars=stored.inserted + stored.already_held + len(stored.conflicts),
+        inserted=stored.inserted,
+        actions=recorded_actions,
+    )
 
 
 async def _market_capitalisation(
