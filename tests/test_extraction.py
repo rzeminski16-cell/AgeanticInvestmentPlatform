@@ -21,6 +21,7 @@ import asyncio
 import inspect
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -520,7 +521,16 @@ class TestTheSandbox:
                     memory_limit_bytes=settings.max_parse_memory_bytes,
                 )
 
-        await asyncio.sleep(0.2)
+        # Polled to a deadline, not slept at. A fixed 200ms was the whole window the
+        # operating system had to reap three killed children, and on a machine running
+        # the suite as concurrent shards it sometimes was not enough — a failure that
+        # says "a process leaked" about a process that was about to be reaped. The
+        # assertion is unchanged; what it waits for is the condition rather than a
+        # guess at how long the condition takes.
+        deadline = time.monotonic() + 5.0
+        while _child_processes() > before and time.monotonic() < deadline:
+            await asyncio.sleep(0.05)
+
         assert _child_processes() <= before
 
     async def test_an_unextractable_document_keeps_its_own_error_across_the_boundary(
