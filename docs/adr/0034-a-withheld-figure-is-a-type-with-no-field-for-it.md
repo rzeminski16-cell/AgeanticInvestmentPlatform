@@ -1,9 +1,12 @@
 # ADR 0034 — A withheld figure is a type with no field for it
 
-**Status.** Accepted
+**Status.** Accepted — **amended 2026-09-17**, see the amendment at the foot. The decision
+stands; its second half, the renderer's signature, is superseded by ADR 0030's amendment of
+2026-08-09.
 **Date.** 2026-08-05
 **Implements.** ADR 0030 route 2 — the operator keeps the EODHD personal-use plan and builds
-for internal use, so nothing derived from market data may be published.
+for internal use, so nothing derived from market data may be published. *Route 2 was amended
+on 2026-08-09: a computed figure may now be published; the series may not.*
 **Follows.** ADR 0029, which made the sector block a type rather than a check.
 
 ## Context
@@ -104,3 +107,63 @@ The constraint is on publication, not on knowing.
 **One `render_markdown` that takes either type and branches.** The branch is the thing that
 gets inverted. A signature that cannot express the wrong call is stronger than a branch that
 currently makes the right one.
+
+## Amendment, 2026-09-17 — the renderer takes the union, and the branch is safe
+
+**The second decision above — "the Markdown renderer's signature accepts only the withheld
+form" — and the alternative rejected immediately above it are superseded.** ADR 0030's
+amendment of 2026-08-09 determined that figures *computed from* the licensed feed may be
+published, and stated the consequence in as many words: "the comps section of an exported
+report now shows the multiples where it previously showed a withholding paragraph". This
+ADR anticipated that day and named its own price — "one method and one signature, both in
+files named for the thing they do". The method changed in August. The signature did not, so
+for six weeks the determination was encoded everywhere except in the one place that decides
+what a reader sees.
+
+**What that cost is on the record, and it is not the withholding paragraph.** Every audited
+run printed the *other* branch, because ADR 0059 acquires no peer's prices and so every
+confirmed peer is excluded: "every one of the eight proposed peers was excluded … **No
+comparable figure was computed**, and there is no fuller version elsewhere." Measured across
+the eight committed run exports, every one of them had computed at least one of the
+subject's own multiples behind that sentence — MSFT #2 four (EV/EBITDA 19.0×, EV/Sales
+11.1×, P/E 27.6×, P/B 8.3×), AZN and M&T the P/E each — traced and replayed on every run.
+The sentence is defensible as a statement about
+*peer* comparables and is not how a reader takes it; the new wording says "There is no peer
+comparison", states the basis, and then prints the figures where they exist. The lesson is
+narrower than the licence: a disclosure written for the withheld case was doing duty for a
+case it was not written about.
+
+`assemble_document` now takes `CompsTable | WithheldComps | None`, which is exactly what
+`for_audience` returns, and the Markdown and HTML notations walk whichever arrived.
+
+**Why the branch this ADR rejected is now the right shape.** The rejected alternative was a
+renderer holding the figures and deciding not to print them; inverting that branch publishes
+licensed data. This branch holds whatever `for_audience` handed over, and the withheld arm
+*has no figures in it* — so a renderer that took the wrong branch prints nothing at all. The
+containment moved one call upstream rather than away, which is the same argument this ADR
+made for `for_audience` in the first place. `web/pages.py` has rendered the internal
+valuation surface through precisely this union since the page was written.
+
+**What still cannot cross.** The series and any chart of it, which ADR 0030's amendment
+scopes out explicitly. That is held where it always was: `Chart.exportable` is false for
+`price_relative` and `assemble_document` refuses a non-exportable chart outright (ADR 0043).
+A `CompsTable` contains no price, no market capitalisation and no series — only multiples,
+peer identities and exclusions — so admitting it to the assembler admits nothing the
+determination withholds.
+
+**A figure prints only with a footnote that resolves.** Each of the subject's multiples is a
+traced calculation, and the comps step now records the calculation id beside the figure, so
+the marker resolves to the formula, the inputs and the code version that struck it. A record
+written before that id was stored sources its multiples to the step, and citing the step
+would print the report's own broken-citation notice against a figure that is perfectly
+sound — so those records render as they did before: the disclosure, and no table.
+
+**`WithheldComps` keeps its job**, for the reason ADR 0030's amendment gives: the
+determination is dated and about one executed agreement, and a provider added tomorrow
+starts closed. The type is what the closed path returns, and it is still a type with no
+field for a figure.
+
+**One cost, recorded.** `WithheldComps.as_paragraph` carried Markdown emphasis on its
+withholding sentence, which the HTML notation converted by a special case. A fragment may
+not carry one notation's syntax, so the emphasis is gone and the sentence stands on its own
+words.

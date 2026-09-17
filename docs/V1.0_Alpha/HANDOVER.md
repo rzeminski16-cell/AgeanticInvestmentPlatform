@@ -259,6 +259,32 @@ descend from `gate_unmapped_concepts` and neither waited for the other — a WAC
 market-weighted on a fast day and book-weighted on a slow one would be worse than one always
 book. ROADMAP §3.19 carries the general trap as its seventh entry.
 
+**4.3 put the subject's own multiples in the document**, which the delivery plan expected to
+be a one-line change to a type annotation and was not — and which turned out to be fixing a
+sentence worse than the one the plan quoted. The audit read the withholding paragraph; every
+audited run printed the *other* branch, because ADR 0059 acquires no peer's prices and so
+every confirmed peer is excluded: "every one of the eight proposed peers was excluded … **No
+comparable figure was computed**, and there is no fuller version elsewhere." Every one of
+the eight committed run exports holds at least one of the subject's own multiples behind
+that sentence, MSFT #2 four of them. It is defensible as a
+statement about peer comparables and is not how a reader takes it (§3.19.11). The licence was
+never the obstacle:
+ADR 0030's amendment of 2026-08-09 had already decided this and had written the consequence
+down — "the comps section of an exported report now shows the multiples". What stopped it was
+three things, and only the first was the annotation. The render path hand-built a
+`WithheldComps` from two integers on the step's record while the valuation page read the row
+lists beside them, so there was no route for a figure even once the type permitted one; both
+now read the record back through one function and ask `for_audience` once. And the step had
+recorded each multiple's value without the calculation that produced it, so a footnote could
+only have named the step and would have rendered as the report's own broken-citation warning
+against a sound figure (§3.19.8). The rule that came out of it is worth carrying: **a figure
+prints only with a marker that resolves**, so the five stored runs re-render saying their
+multiples cannot be cited — which is true, and is why Phase 4's exit is now two exits
+(§3.19.9). One thing found by being wrong first: the paragraph above the table promised "the
+multiples below" and the offline full run printed it over an empty block, because only the
+renderer knows whether a figure follows. The promise is gone and the table's column carries
+the company's name instead.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

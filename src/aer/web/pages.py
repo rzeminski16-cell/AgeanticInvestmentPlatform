@@ -137,7 +137,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
     COMPS_STEP,
     SCALE_CONCEPTS,
     assumptions_gate_required,
-    comps_note_for,
+    comps_for,
     sector_note_for,
     unmapped_gate_required,
 )
@@ -1604,7 +1604,7 @@ async def _run_document(
             Company.exchange == research_request.exchange,
         )
     )
-    comps = await comps_note_for(session, job=job, request=research_request)
+    comps = await comps_for(session, job=job, request=research_request)
     return await assemble_document(
         session,
         job=job,
@@ -3369,7 +3369,7 @@ async def report_preview(
     company = (
         await session.get(Company, report.company_id) if report.company_id is not None else None
     )
-    comps = await comps_note_for(session, job=job, request=research_request)
+    comps = await comps_for(session, job=job, request=research_request)
     document = await assemble_document(
         session,
         job=job,

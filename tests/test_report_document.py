@@ -1510,7 +1510,7 @@ class TestTheOnePageSummary:
         document, summary = await self._summary(scene)
         assert [view.key for view in summary.sections] == ["golden_overview", "golden_warnings"]
         assert summary.charts == ()
-        assert summary.comps_paragraph is None
+        assert summary.comps == ()
         # The claim is data on the definition row, read into the view at assembly.
         assert [view.key for view in document.sections if view.one_pager] == [
             "golden_overview",

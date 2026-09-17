@@ -1121,12 +1121,20 @@ The subject against its **own history** is often the more honest comparison. A c
 against peers at 11x may be expensive, or may be a company that has traded at 14x for a decade
 against peers that have always been cheaper for a reason.
 
-**None of it leaves the machine.** Every multiple derives from a price, and the price arrives
-under a personal-use subscription with no derived-data exemption (ADR 0030). So a shareable
-report gets a `WithheldComps` — an object that says a comparison was performed against *n*
-peers and carries **no field that could hold a figure**. The Markdown renderer's signature
-accepts only that type, so putting the numbers into a report is not a matter of passing a
-different argument. See `docs/adr/0034-a-withheld-figure-is-a-type-with-no-field-for-it.md`.
+**What leaves the machine is decided once, by a type.** Every multiple derives from a price,
+and the price arrives under a subscription that prohibits displaying the information in
+original or repackaged form. ADR 0030 read those terms and found no derived-data exemption;
+the operator, who can read the executed agreement, determined on 2026-08-09 that a figure
+*computed from* the feed may be published, and that the series and any chart of it may not.
+
+So `CompsTable.for_audience(SHAREABLE)` asks the question once and returns one of two things:
+the table, where the determination permits it, or a `WithheldComps` — an object that says a
+comparison was performed against *n* peers and carries **no field that could hold a figure**.
+`assemble_document` takes exactly that union, so a renderer handed the withheld form could
+not print a multiple if it tried. The series stays out by a different gate: a licensed chart
+is `exportable=False` and the assembler refuses it (ADR 0043). See
+`docs/adr/0034-a-withheld-figure-is-a-type-with-no-field-for-it.md` and its 2026-09-17
+amendment.
 
 ### The valuation surface, and two clicks to an origin
 

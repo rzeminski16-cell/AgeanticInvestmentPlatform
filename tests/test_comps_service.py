@@ -21,16 +21,17 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from aer.calc import comps as calc
 from aer.calc.engine import CalculationContext
-from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef
+from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef, Unit
 from aer.config import HouseStyle
 from aer.core.enums import Decision, GateKind, JobStatus, Provider, SourceTier, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     Artefact,
+    Calculation,
     Company,
     FinancialFact,
     JobStep,
@@ -39,12 +40,15 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES
-from aer.render.document import assemble_document
-from aer.render.markdown import _comps_block, render_markdown
+from aer.render.document import CalculationFootnote, _comps_fragments, assemble_document
+from aer.render.markdown import render_markdown, serialise_markdown
+from aer.sections.render import markdown_lines
 from aer.services import approvals as approval_service
 from aer.services import comps as comps_service
 from aer.services import comps as service
-from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for, gate_payload
+from aer.services import comps_run
+from aer.services.calculations import persist_context
+from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_for, gate_payload
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
@@ -69,6 +73,53 @@ def result(key: str, value: str | None, *, absent: str = "") -> calc.MultipleRes
         basis=calc.MultipleBasis.TRAILING_TWELVE_MONTHS,
         period_end=PERIOD_END,
         absent_because=absent,
+    )
+
+
+STYLE = HouseStyle()
+
+
+def _subject_table(
+    values: dict[str, Decimal], *, publishable: bool, traced: bool = True
+) -> calc.CompsTable:
+    """A table holding only the subject's own multiples, each sourced as a run sources it.
+
+    ``traced`` off is what a record written before the comps step stored the calculation
+    id reads back as: the figure is real and the ledger holds its arithmetic, but the
+    reference names the step rather than the row.
+    """
+    labels = {definition.key: definition.label for definition in calc.MULTIPLE_DEFINITIONS}
+    step = SourceRef.calculation("comps:a-run", label="comps")
+    return calc.CompsTable(
+        subject=calc.PeerRow(
+            identifier="SUBJ",
+            name="Subject plc",
+            period_end=PERIOD_END,
+            multiples=tuple(
+                calc.MultipleResult(
+                    key=key,
+                    label=labels[key],
+                    quantity=Quantity.of(
+                        value,
+                        DIMENSIONLESS,
+                        source=(
+                            SourceRef.calculation(str(uuid.uuid4()), label=labels[key])
+                            if traced
+                            else step
+                        ),
+                    ),
+                    basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
+                    period_end=PERIOD_END,
+                )
+                for key, value in values.items()
+            ),
+        ),
+        peers=(),
+        excluded=(),
+        basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
+        as_of=AS_OF,
+        peer_set_confirmed=True,
+        derived_figures_publishable=publishable,
     )
 
 
@@ -662,46 +713,111 @@ class TestWhoConfirmedIt:
         assert await service.confirmed_by(db_session, scene["job"]) == ""
 
 
-# -- The report says something, or nothing, and never a figure -------------------------------
+# -- The report says something, or nothing, and a figure only where the licence allows -------
 
 
-class TestTheRenderedReportCarriesNoMultiple:
-    """A Markdown report is the shareable artefact: it gets exported, attached and sent."""
+class TestTheRenderedReportCarriesWhatTheLicencePermits:
+    """A report is the shareable artefact: it gets exported, attached and sent.
 
-    def test_the_renderer_cannot_be_handed_a_table(self):
-        """The assembly takes a `WithheldComps`. There is no argument that carries figures.
+    ADR 0034 gave the assembler a parameter that could only be a `WithheldComps`, because
+    ADR 0030 had read the terms and found no derived-data exemption. The operator's
+    determination of 2026-08-09 changed the answer, and ADR 0034's amendment changed the
+    signature to the union `for_audience` returns. What these tests hold is that the
+    containment moved *upstream* rather than away.
+    """
 
-        This is the ADR 0029 argument again: a rule enforced by a signature is one a later
-        template cannot forget. Since task 46 the guarantee lives on `assemble_document` -
-        the one walk every notation serialises - so a caller wanting the numbers in any
-        rendered report has to change the assembler, which is a change somebody reviews.
-        The serialisers downstream only ever see the already-written paragraph.
-        """
+    def test_the_renderer_takes_what_for_audience_returns(self):
+        """Both arms, and nothing wider: the union is the method's own return type."""
+        produced = str(inspect.signature(calc.CompsTable.for_audience).return_annotation)
         for entry in (assemble_document, render_markdown):
-            annotation = inspect.signature(entry).parameters["comps"].annotation
-            assert "WithheldComps" in str(annotation)
-            assert "CompsTable" not in str(annotation)
+            annotation = str(inspect.signature(entry).parameters["comps"].annotation)
+            for arm in ("CompsTable", "WithheldComps"):
+                assert arm in annotation
+                assert arm in produced
 
-    def test_a_run_with_no_peers_says_nothing(self):
+    def test_a_run_with_no_comparison_says_nothing(self):
         """ "No comps table" and "a comps table you are not shown" are different claims."""
-        assert _comps_block(None, style=HouseStyle()) == []
+        assert _comps_fragments(None, [], style=HouseStyle()) == ()
 
-    def test_a_run_with_peers_discloses_the_withholding(self):
+    def test_the_withheld_arm_discloses_and_prints_no_figure(self):
+        citations: list = []
         withheld = calc.WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF)
-        block = _comps_block(withheld.as_paragraph(), style=HouseStyle())
 
-        joined = "\n".join(block)
+        joined = "\n".join(markdown_lines(_comps_fragments(withheld, citations, style=STYLE)))
+
         assert "## Comparable companies" in joined
         assert "three peers" in joined
         assert "withheld" in joined
+        # No table, and nothing cited: there is no figure in the object to cite.
+        assert "|" not in joined
+        assert citations == []
 
-    def test_no_multiple_can_reach_the_block(self):
+    def test_no_multiple_can_reach_the_withheld_arm(self):
         """The type has no field that could carry one."""
         withheld = calc.WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF)
 
         assert not hasattr(withheld, "peers")
         assert not hasattr(withheld, "subject")
         assert not hasattr(withheld, "median_of")
+
+    def test_the_table_arm_prints_the_subject_s_own_multiples(self):
+        citations: list = []
+        table = _subject_table(
+            {"pe": Decimal("27.431"), "ev_ebitda": Decimal("18.925")}, publishable=True
+        )
+
+        joined = "\n".join(
+            markdown_lines(
+                _comps_fragments(
+                    table.for_audience(calc.Audience.SHAREABLE), citations, style=STYLE
+                )
+            )
+        )
+
+        assert "| P/E | 27.43\N{MULTIPLICATION SIGN}[^1] |" in joined
+        assert "| EV/EBITDA | 18.93\N{MULTIPLICATION SIGN}[^2] |" in joined
+        assert [ref.kind for ref in citations] == ["calculation", "calculation"]
+
+    def test_withdrawing_the_determination_withdraws_the_figures(self):
+        """The same table, the same renderer, the flag off: a disclosure and no number."""
+        citations: list = []
+        table = _subject_table({"pe": Decimal("27.431")}, publishable=False)
+
+        joined = "\n".join(
+            markdown_lines(
+                _comps_fragments(
+                    table.for_audience(calc.Audience.SHAREABLE), citations, style=STYLE
+                )
+            )
+        )
+
+        assert isinstance(table.for_audience(calc.Audience.SHAREABLE), calc.WithheldComps)
+        assert "27.43" not in joined
+        assert "no peer survived to be compared" in joined
+        assert citations == []
+
+    def test_a_multiple_with_no_calculation_behind_it_is_not_printed(self):
+        """A figure prints only with a marker that resolves — ADR 0034's amendment.
+
+        A record written before the comps step stored each multiple's calculation id
+        sources its figures to the step itself. Citing the step would resolve to nothing
+        and print the report's own broken-citation notice against a sound figure, so such
+        a record renders the way it always did: the disclosure, and no table.
+        """
+        citations: list = []
+        table = _subject_table({"pe": Decimal("27.431")}, publishable=True, traced=False)
+
+        joined = "\n".join(
+            markdown_lines(
+                _comps_fragments(
+                    table.for_audience(calc.Audience.SHAREABLE), citations, style=STYLE
+                )
+            )
+        )
+
+        assert "27.43" not in joined
+        assert "|" not in joined
+        assert citations == []
 
 
 class TestTheDeterministicProposal:
@@ -803,6 +919,41 @@ class TestTheNoteReportsWhatTheStepBuilt:
     """
 
     @staticmethod
+    def _outcome(*, peers: int, excluded: int) -> dict[str, Any]:
+        """What the step writes for a table of that shape — its own serialiser, not a guess.
+
+        Hand-written fixtures here used to carry the two counts and none of the rows they
+        are counts of, which is a shape `CompsOutcome.as_dict` cannot produce. The report
+        reads the rows now, so an unfaithful fixture would have hidden exactly the thing
+        this class exists to pin.
+        """
+        table = calc.CompsTable(
+            subject=subject_row(),
+            peers=tuple(
+                calc.PeerRow(
+                    identifier=f"PEER{index + 1}",
+                    name=f"Peer {index + 1} plc",
+                    period_end=PERIOD_END,
+                    multiples=(result("ev_ebitda", "11"),),
+                )
+                for index in range(peers)
+            ),
+            excluded=tuple(
+                calc.PeerExclusion(
+                    identifier=f"OUT{index + 1}",
+                    name=f"Left Out {index + 1} plc",
+                    reason="this research holds no price series for it",
+                    period_end=PERIOD_END,
+                )
+                for index in range(excluded)
+            ),
+            basis=calc.MultipleBasis.TRAILING_TWELVE_MONTHS,
+            as_of=AS_OF,
+            peer_set_confirmed=True,
+        )
+        return comps_run.CompsOutcome(built=True, table=table).as_dict()
+
+    @staticmethod
     async def _record_comps_outcome(
         session: Any, scene: dict[str, Any], output: dict[str, Any]
     ) -> None:
@@ -827,13 +978,9 @@ class TestTheNoteReportsWhatTheStepBuilt:
         """Both proposed peers share the subject's period end, so a date re-alignment
         would count two; the step's record says one made the table."""
         await self._confirmed(db_session, scene)
-        await self._record_comps_outcome(
-            db_session,
-            scene,
-            {"comps": True, "peers": 1, "excluded_count": 1, "as_of": AS_OF.isoformat()},
-        )
+        await self._record_comps_outcome(db_session, scene, self._outcome(peers=1, excluded=1))
 
-        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+        note = await comps_for(db_session, job=scene["job"], request=scene["request"])
 
         assert note is not None
         assert (note.peer_count, note.excluded_count) == (1, 1)
@@ -841,13 +988,9 @@ class TestTheNoteReportsWhatTheStepBuilt:
 
     async def test_an_empty_table_discloses_that_nothing_was_computed(self, db_session, scene):
         await self._confirmed(db_session, scene)
-        await self._record_comps_outcome(
-            db_session,
-            scene,
-            {"comps": True, "peers": 0, "excluded_count": 2, "as_of": AS_OF.isoformat()},
-        )
+        await self._record_comps_outcome(db_session, scene, self._outcome(peers=0, excluded=2))
 
-        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+        note = await comps_for(db_session, job=scene["job"], request=scene["request"])
 
         assert note is not None
         assert note.peer_count == 0
@@ -867,7 +1010,7 @@ class TestTheNoteReportsWhatTheStepBuilt:
         comparison was performed, and silence is that claim."""
         await self._confirmed(db_session, scene)
 
-        assert await comps_note_for(db_session, job=scene["job"], request=scene["request"]) is None
+        assert await comps_for(db_session, job=scene["job"], request=scene["request"]) is None
 
     async def test_a_step_that_built_no_table_yields_no_note(self, db_session, scene):
         await self._confirmed(db_session, scene)
@@ -875,23 +1018,164 @@ class TestTheNoteReportsWhatTheStepBuilt:
             db_session, scene, {"comps": False, "reason": "no annual period"}
         )
 
-        assert await comps_note_for(db_session, job=scene["job"], request=scene["request"]) is None
+        assert await comps_for(db_session, job=scene["job"], request=scene["request"]) is None
 
-    async def test_an_outcome_recorded_before_the_count_existed_uses_the_builds_identity(
-        self, db_session, scene
-    ):
-        """Older step outputs carry no `excluded_count`; every confirmed peer is in the
-        table or excluded, so the difference is the count."""
+    async def test_an_outcome_carrying_no_exclusions_claims_none(self, db_session, scene):
+        """A step output old enough to record no exclusions says less, never more.
+
+        This used to infer the count from the confirmed set — two confirmed, one in the
+        table, so one excluded — which is `build`'s invariant and also the kind of
+        render-time inference this class exists to forbid. The report now reads the rows
+        the step recorded, and a record holding none makes no claim about exclusions
+        rather than a correct guess at them.
+        """
         await self._confirmed(db_session, scene)
         await self._record_comps_outcome(
             db_session, scene, {"comps": True, "peers": 1, "as_of": AS_OF.isoformat()}
         )
 
-        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+        note = await comps_for(db_session, job=scene["job"], request=scene["request"])
 
         assert note is not None
-        # Two peers confirmed by the fixture; one in the table leaves one excluded.
-        assert note.excluded_count == 1
+        assert note.excluded_count == 0
+        assert "excluded" not in note.as_paragraph()
+
+
+class TestTheSubjectsOwnMultiplesReachTheDocument:
+    """Phase 4.3, end to end: what the step recorded, through the licence gate, into a
+    rendered report whose marker resolves to the arithmetic.
+
+    Every link was already built and one was not connected. The multiple was computed and
+    traced; the record carried the figure and not the calculation behind it; the assembler
+    would not accept a table; and ADR 0030's amendment had said six weeks earlier that the
+    figures should be in the document. This is the chain, asserted whole, because each
+    piece of it passed its own tests while the report said the figures were withheld.
+    """
+
+    @staticmethod
+    async def _run_the_comps_step(session: Any, scene: dict[str, Any]) -> tuple[str, Decimal]:
+        """Strike a real traced multiple, persist its ledger row, record the step output."""
+        context = CalculationContext(code_version="4point3test")
+        price = Quantity.of(Decimal("512.34"), Unit.currency("USD") / Unit.base("shares"))
+        earnings = Quantity.of(Decimal("18.55"), Unit.currency("USD") / Unit.base("shares"))
+        computed = calc.multiples_for(
+            context,
+            inputs={
+                "price_per_share": price.with_source(SourceRef.security("price-fact")),
+                "earnings_per_share": earnings.with_source(SourceRef.security("eps-fact")),
+            },
+            basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
+            period_end=PERIOD_END,
+        )
+        await persist_context(session, context, job_id=scene["job"].id)
+
+        table = calc.CompsTable(
+            subject=calc.PeerRow(
+                identifier="SUBJ", name="Subject plc", period_end=PERIOD_END, multiples=computed
+            ),
+            peers=(),
+            excluded=(
+                calc.PeerExclusion(
+                    identifier="PEER1",
+                    name="Peer One plc",
+                    reason=comps_service.UNACQUIRED_PEER_REASON,
+                    period_end=PERIOD_END,
+                ),
+            ),
+            basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
+            as_of=AS_OF,
+            peer_set_confirmed=True,
+            licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+            derived_figures_publishable=True,
+        )
+        record = comps_run.CompsOutcome(built=True, table=table).as_dict()
+        session.add(
+            JobStep(
+                job_id=scene["job"].id,
+                step_key=COMPS_STEP,
+                sequence=9,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"{scene['job'].id}:{COMPS_STEP}",
+                input_hash="0" * 64,
+                output_ref=record,
+            )
+        )
+        await session.flush()
+
+        row = next(item for item in record["subject_multiples"] if item["key"] == "pe")
+        return str(row["calculation"]), Decimal(str(row["value"]))
+
+    async def test_the_step_records_which_calculation_each_multiple_came_from(
+        self, db_session, scene
+    ):
+        """`@traced` puts the id on the quantity; recording it is one field."""
+        await confirm(db_session, scene, await record_proposal(db_session, scene))
+        identifier, value = await self._run_the_comps_step(db_session, scene)
+
+        stored = await db_session.get(Calculation, uuid.UUID(identifier))
+
+        assert stored is not None
+        # The step's record keeps the quotient at the calculation context's precision and
+        # the ledger column keeps twelve places, so they are the same figure rounded
+        # differently. Both round to the same thing at the two decimals a report prints.
+        assert stored.output_value == value.quantize(stored.output_value)
+        assert stored.formula == "multiple = numerator / denominator"
+
+    async def test_the_rendered_report_prints_the_multiple_and_resolves_its_marker(
+        self, db_session, scene
+    ):
+        await confirm(db_session, scene, await record_proposal(db_session, scene))
+        identifier, _ = await self._run_the_comps_step(db_session, scene)
+
+        comps = await comps_for(db_session, job=scene["job"], request=scene["request"])
+        document = await assemble_document(
+            db_session, job=scene["job"], request=scene["request"], comps=comps
+        )
+        rendered = serialise_markdown(document)
+
+        assert isinstance(comps, calc.CompsTable)
+        assert "| P/E | 27.62\N{MULTIPLICATION SIGN}[^1] |" in rendered
+        # Named, so a reader knows whose figures a one-column table holds without the
+        # paragraph promising them.
+        assert "| Multiple | Subject plc |" in rendered
+        # And the marker resolves to the arithmetic rather than to a broken-citation note.
+        footnote = document.footnotes[0]
+        assert isinstance(footnote, CalculationFootnote)
+        assert footnote.formula == "multiple = numerator / denominator"
+        assert document.citations[0].identifier == identifier
+
+    async def test_a_record_written_before_the_id_was_stored_shows_no_figure(
+        self, db_session, scene
+    ):
+        """The corpus's five stored runs. The figures are real and cannot be footnoted.
+
+        Said rather than passed over: a section that simply stopped would read as an
+        analysis nobody did.
+        """
+        await confirm(db_session, scene, await record_proposal(db_session, scene))
+        identifier, _ = await self._run_the_comps_step(db_session, scene)
+
+        step = await db_session.scalar(
+            select(JobStep).where(JobStep.job_id == scene["job"].id, JobStep.step_key == COMPS_STEP)
+        )
+        step.output_ref = {
+            **step.output_ref,
+            "subject_multiples": [
+                {**row, "calculation": None} for row in step.output_ref["subject_multiples"]
+            ],
+        }
+        await db_session.flush()
+
+        comps = await comps_for(db_session, job=scene["job"], request=scene["request"])
+        document = await assemble_document(
+            db_session, job=scene["job"], request=scene["request"], comps=comps
+        )
+        rendered = serialise_markdown(document)
+
+        assert identifier not in rendered
+        assert "27.62" not in rendered
+        assert "does not say which calculation produced each of them" in rendered
+        assert document.citations == []
 
 
 class TestTheOperatorMayAddAComparable:

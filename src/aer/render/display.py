@@ -29,7 +29,7 @@ from typing import Any, Final
 from aer.config import HouseStyle
 from aer.core.dates import format_date
 
-__all__ = ["cell", "date_text", "money", "prose", "scalar"]
+__all__ = ["cell", "date_text", "money", "multiple", "prose", "scalar"]
 
 _SYMBOLS: Final[dict[str, str]] = {"USD": "$", "GBP": "£", "EUR": "€"}
 
@@ -92,6 +92,21 @@ def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = 
 
     scaled = (value / _MILLION).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return f"{symbol}{_grouped(scaled)}m"
+
+
+def multiple(value: Decimal) -> str:
+    """A dimensionless multiple as a reader quotes it, with the multiplication sign.
+
+    No house style, because none of it applies — a multiple carries no currency, no scale
+    and no date, and the two decimals are what "a multiple" means when it is read aloud.
+    The multiplication sign rather than a letter ``x``, which is the typographic
+    convention and also stops the figure reading as an algebraic unknown.
+
+    :func:`_pure_reading` calls this rather than repeating it, so a figure recognised by
+    its label and one a caller states outright cannot round differently.
+    """
+    times = _trimmed(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return f"{times}\N{MULTIPLICATION SIGN}"
 
 
 def date_text(value: date, *, style: HouseStyle) -> str:
@@ -263,8 +278,7 @@ def _pure_reading(value: Decimal, *, label: str) -> str | None:
         scaled = (value * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
         return f"{_trimmed(scaled)}%"
     if any(word in lowered for word in _TIMES_WORDS):
-        times = _trimmed(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-        return f"{times}\N{MULTIPLICATION SIGN}"
+        return multiple(value)
     return None
 
 

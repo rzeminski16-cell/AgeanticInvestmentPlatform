@@ -49,7 +49,18 @@ __all__ = ["Worker"]
 
 # Bounded: the conditional gates are few, and a run that keeps pausing is a failure to
 # surface rather than to orbit.
-_MAX_INTERIM_GATES: Final = 4
+#
+# **Six, because four was the gate count of an unsubscribed machine.** A run with no
+# market-data key stops at the plan, the theme set and the assumptions — three interim
+# gates, and the fourth iteration reaches the final one. Configure a key and the peer-set
+# gate joins them (ADR 0059's second amendment proposes peers only where a peer's multiple
+# could be computed — the key's *presence* is the whole of it; no market-data client is
+# injected here, so nothing is fetched), so the loop ran out exactly one gate short and
+# every final-gate and budget row in the journey harness came back "no path constructed".
+# CI has no key and was
+# green throughout; the operator's own machine, which is the machine this platform is for,
+# could not run the shape half at all. Found on 17 September 2026.
+_MAX_INTERIM_GATES: Final = 6
 
 # The always-gates, in the shape `CONDITIONAL_GATES` uses: the gate and the step whose
 # output carries the hash its approval must echo. `gate_plan` is not in that mapping

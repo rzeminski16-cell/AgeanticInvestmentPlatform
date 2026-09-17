@@ -263,6 +263,12 @@ own obligations:
 - **Re-rendering all five is a CI job**, not a manual step, with the outcome asserted:
   zero contradictions, zero withheld figures the record can supply, and — after F8 — the
   multiples, segment figures and implied range that the runs already computed and threw away.
+  **With one limit, found on 17 September** (roadmap §3.19.9): a re-render proves what the
+  *render path* does, and proves nothing about a change to what a **step records**. Phase
+  4.3 is the case in point — the comps step now stores each multiple's calculation id, and
+  a run seeded before that holds no id to store, so re-rendering it correctly reports that
+  its multiples cannot be cited. Changes at the step boundary are proved on the offline
+  full-run fixture, which executes the workflow rather than replaying it.
 - **The corpus is never edited to make a test pass.** A test that needs different data needs a
   fixture, not a rewritten run. The runs are evidence of what the platform did in September,
   and evidence that gets tidied is not evidence.

@@ -9,12 +9,17 @@ nothing it may decide. The Markdown notation lives in :mod:`aer.render.markdown`
 HTML notation in :mod:`aer.render.html`, and neither can renumber a footnote or reorder a
 section because the numbers and the order arrive already fixed.
 
-**The comps parameter is a `WithheldComps` and cannot be a `CompsTable`.** A rendered
-report is the shareable artefact: it gets exported, attached and sent, and every multiple
-in a comps table derives from market data licensed for internal use with no derived-data
-exemption (ADR 0030 route 2). So the type this assembler accepts is the one that has no
-figures in it, and a caller wanting to put the numbers in a report cannot do it by
-passing a different argument — there is no argument that would carry them.
+**The comps parameter is whatever `CompsTable.for_audience` returned, and nothing else.**
+A rendered report is the shareable artefact — it gets exported, attached and sent — so
+ADR 0034 gave this assembler a parameter that could only be a `WithheldComps`, the type
+with no figures in it. ADR 0030's amendment of 2026-08-09 then determined that a figure
+*computed from* the licensed feed may be published, and said in as many words that the
+comps section of an exported report now shows the multiples. So the parameter widens to
+the union `for_audience` produces, and the containment moves upstream of it rather than
+away: the withheld arm still has no figures in it, so a renderer that took the wrong
+branch would print nothing at all. What the determination did **not** cover — the price
+series and any chart of it — is held where it always was, by `Chart.exportable` and the
+refusal a few lines into :func:`assemble_document` (ADR 0043). See ADR 0034's amendment.
 """
 
 from __future__ import annotations
@@ -29,7 +34,8 @@ from typing import Final
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.comps import WithheldComps
+from aer.calc.comps import CompsTable, WithheldComps
+from aer.calc.units import SourceKind
 from aer.charts import Chart
 from aer.config import HouseStyle
 from aer.core.section_output import (
@@ -51,13 +57,24 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.eval.metrics import spoken_metric
+from aer.render import display
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
-from aer.sections.render import CitationRef, Fragment, Heading, render_section
+from aer.sections.render import (
+    CitationRef,
+    Fragment,
+    Heading,
+    Paragraph,
+    Table,
+    TableRow,
+    render_section,
+)
 
 __all__ = [
+    "COMPS_TITLE",
     "DISCLAIMER",
+    "UNCITABLE_MULTIPLES",
     "UNDATED_MARKER",
     "UNDATED_NOTE",
     "AppendixRow",
@@ -88,6 +105,22 @@ UNDATED_NOTE = (
     f"{UNDATED_MARKER} Rests in part on a source without a stated publication date. Such a "
     "source is a weaker one than a dated document, so it is used with this caveat, and "
     "never as the primary source a section requires, rather than excluded."
+)
+
+# The comparables block's own heading, at the level a section takes, because that is what
+# it is: a block of the report the platform writes rather than a model.
+COMPS_TITLE = "Comparable companies"
+_COMPS_HEADING_LEVEL = 2
+
+# What a report says about multiples it holds and cannot footnote. Reachable only for a run
+# recorded before the comps step stored each figure's calculation id, and said rather than
+# passed over, because a section that simply stopped would read as an analysis that was
+# never done.
+UNCITABLE_MULTIPLES = (
+    "The subject's own multiples were computed and are in this run's record, but the "
+    "record does not say which calculation produced each of them. They are not shown "
+    "here: a figure in this report carries a note leading to the arithmetic behind it, "
+    "and one that led nowhere would be worth less than its absence."
 )
 
 # How much of an artefact digest a document prints. Enough to identify the file among a
@@ -378,7 +411,14 @@ class ReportDocument:
     header: HeaderView
     sector: SectorNote | None
     sections: tuple[SectionView, ...]
-    comps_paragraph: str | None
+
+    # The comparables block, already walked into fragments, empty when the run performed
+    # no comparison. Fragments rather than a paragraph string since Phase 4.3: the block
+    # now carries a table whose cells are footnoted figures, and a marker is a number the
+    # assembler assigns — so both notations receive it already numbered, exactly as they
+    # do the glance and every section.
+    comps: tuple[Fragment, ...]
+
     footnotes: tuple[Footnote, ...]
     appendix: tuple[AppendixRow, ...]
     citations: list[CitationRef]
@@ -422,7 +462,7 @@ async def assemble_document(
     request: ResearchRequest,
     company: Company | None = None,
     sector: SectorNote | None = None,
-    comps: WithheldComps | None = None,
+    comps: CompsTable | WithheldComps | None = None,
     charts: tuple[Chart, ...] = (),
     rating: str | None = None,
     confidence: float | None = None,
@@ -534,6 +574,10 @@ async def assemble_document(
             )
         )
 
+    # The comparables block sits after the analysis and before the exhibit pack, which is
+    # where its markers are taken: reading order decides the numbering, here as everywhere.
+    comps_fragments = _comps_fragments(comps, citations, style=active_style)
+
     # Whatever no section claimed keeps the pack at the back — a chart is never dropped
     # for want of a claim, only relocated by one.
     chart_views = [_chart_view(chart, citations) for chart in unclaimed.values()]
@@ -571,7 +615,7 @@ async def assemble_document(
         ),
         sector=sector,
         sections=tuple(views),
-        comps_paragraph=comps.as_paragraph() if comps is not None else None,
+        comps=comps_fragments,
         footnotes=footnotes,
         appendix=appendix,
         style=active_style,
@@ -636,6 +680,101 @@ def _declared_exhibits(definition: SectionDefinition | None) -> list[str]:
     if not isinstance(stated, list):
         return []
     return [str(item) for item in stated]
+
+
+def _comps_fragments(
+    comps: CompsTable | WithheldComps | None,
+    citations: list[CitationRef],
+    *,
+    style: HouseStyle,
+) -> tuple[Fragment, ...]:
+    """The comparables block: the disclosure always, the figures where they can be cited.
+
+    Two things decide what a reader sees, and neither is decided here. Whether a multiple
+    may be published at all was decided by the operator on 2026-08-09 and is enforced one
+    call upstream, by :meth:`~aer.calc.comps.CompsTable.for_audience`: a `WithheldComps`
+    arriving means the answer was no, and this function could not print a figure from one
+    if it wanted to, because there is none in it.
+
+    Whether a figure that *may* be published *is* published is decided by whether it can
+    be footnoted. Every multiple here is a traced calculation, and the run's record carries
+    the id — so the marker resolves to the formula, the inputs and the code version that
+    struck it. A record written before Phase 4.3 stored that id sources its multiples to
+    the comps step instead, and citing the step would resolve to nothing and print the
+    report's own broken-citation notice against a figure that is perfectly sound. Such a
+    record gets the disclosure, no table, and a sentence saying the figures exist and
+    cannot be cited — rather than silence, which reads as an analysis nobody did. No
+    figure in this document appears without a marker that resolves.
+
+    The block never promises a figure it has not printed. The disclosure describes the
+    analysis, the table's own column names the company, and what could not be computed is
+    said afterwards in labels. The first draft ended the paragraph "the multiples below
+    are the subject's own" and the offline full run printed it over nothing.
+    """
+    if comps is None:
+        return ()
+
+    # Formatted here, as every other fragment is: the walk applies the house style and the
+    # notations transcribe. A paragraph reaching a serialiser unformatted would print the
+    # as-of date in ISO in the one block the platform writes for itself.
+    fragments: list[Fragment] = [
+        Heading(level=_COMPS_HEADING_LEVEL, text=COMPS_TITLE),
+        Paragraph(text=display.prose(comps.as_paragraph(), style=style)),
+    ]
+    if not isinstance(comps, CompsTable):
+        return tuple(fragments)
+
+    cited = _cited_multiples(comps)
+    if cited:
+        # The company names the column, so the table says whose figures these are without
+        # the paragraph promising them. It is also where §4.6's peer columns go.
+        fragments.append(
+            Table(
+                columns=("Multiple", comps.subject.name),
+                rows=tuple(
+                    _multiple_row(label, value, identifier, citations)
+                    for label, value, identifier in cited
+                ),
+            )
+        )
+    elif comps.subject_has_a_figure:
+        fragments.append(Paragraph(text=UNCITABLE_MULTIPLES))
+
+    absent = comps.absent_note()
+    if absent:
+        fragments.append(Paragraph(text=display.prose(absent, style=style)))
+    return tuple(fragments)
+
+
+def _cited_multiples(table: CompsTable) -> tuple[tuple[str, Decimal, str], ...]:
+    """The subject's multiples that have both a value and a calculation row to point at.
+
+    **A calculation reference is not the same as a resolvable one.** The record's fallback
+    source is a `SourceRef.calculation` naming the comps *step* — the same kind, and an
+    identifier no `calculations` row carries. :func:`_uuids` already draws that line for the
+    footnote resolver, so this draws it in the same place: an id the resolver would drop is
+    one this must not print a figure against.
+    """
+    found: list[tuple[str, Decimal, str]] = []
+    for row in table.subject.multiples:
+        quantity = row.quantity
+        source = quantity.source if quantity is not None else None
+        if quantity is None or source is None or source.kind is not SourceKind.CALCULATION:
+            continue
+        try:
+            uuid.UUID(source.identifier)
+        except (ValueError, AttributeError, TypeError):
+            continue
+        found.append((row.label, quantity.value, source.identifier))
+    return tuple(found)
+
+
+def _multiple_row(
+    label: str, value: Decimal, identifier: str, citations: list[CitationRef]
+) -> TableRow:
+    """One multiple as a table row, its marker taken where the row lands."""
+    citations.append(CitationRef(kind="calculation", identifier=identifier, label=label))
+    return TableRow(cells=(label, display.multiple(value)), markers=(len(citations),))
 
 
 def _chart_view(chart: Chart, citations: list[CitationRef]) -> ChartView:

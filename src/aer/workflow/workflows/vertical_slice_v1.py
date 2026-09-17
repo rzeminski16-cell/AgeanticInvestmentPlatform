@@ -26,7 +26,7 @@ import asyncio
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Final
 
@@ -45,7 +45,7 @@ from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
 from aer.agents.verdict import VerdictAgent, VerdictInput
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
-from aer.calc.comps import MultipleBasis, WithheldComps
+from aer.calc.comps import Audience, CompsTable, MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.config import Settings
@@ -97,7 +97,6 @@ from aer.db.models.revision_note import SCOPE_PLAN as REVISION_SCOPE_PLAN
 from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.errors import AerError, BudgetExceededError, ValidationError
 from aer.extract import extract_bytes
-from aer.fetch.policy import DEFAULT_POLICIES
 from aer.providers.protocol import SpentButUnusableError
 from aer.render.document import assemble_document
 from aer.render.html import render_html
@@ -128,7 +127,7 @@ from aer.services.comps import (
     propose_peers_from_sic,
 )
 from aer.services.comps import payload_for_job as peer_payload_for_job
-from aer.services.comps_run import build_comps_table
+from aer.services.comps_run import build_comps_table, comps_table_from_record
 from aer.services.configuration import standing_assumptions
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
@@ -199,7 +198,7 @@ __all__ = [
     "assumptions_gate_refreshed",
     "assumptions_gate_required",
     "build_steps",
-    "comps_note_for",
+    "comps_for",
     "final_gate_payload",
     "gate_payload",
     "peer_gate_payload",
@@ -3744,9 +3743,9 @@ async def sector_note_for(session: AsyncSession, *, job: Job) -> SectorNote | No
     )
 
 
-async def comps_note_for(
+async def comps_for(
     session: AsyncSession, *, job: Job, request: ResearchRequest
-) -> WithheldComps | None:
+) -> CompsTable | WithheldComps | None:
     """What this run's comparables work obliges its report to say, or ``None``.
 
     ``None`` when no comparison was performed — no peer set confirmed, or the comps step
@@ -3754,17 +3753,27 @@ async def comps_note_for(
     comparison whose figures you are not being shown" are different claims and only the
     second needs saying.
 
-    **The counts are the comps step's own** (gap A53). This note used to re-align the
-    confirmed peers by date and count the survivors, and the first live run showed what
-    that does: the step's table held no peer — none could be priced — while the
-    render-time alignment counted one, so the report disclosed a comparison against one
-    peer that exists in no version anywhere. Date alignment is a necessary condition for
-    comparison, not the comparison; one step built the table, and its stored outcome is
-    the only honest source for what the table held.
+    **The table is read back from the step's record, and the licence question is asked
+    once** (gap A53, and ADR 0030's amendment). This used to hand-build a
+    :class:`~aer.calc.comps.WithheldComps` from two integers on the record while the
+    valuation page read the row lists beside them — two readings of one table that nothing
+    held together, and the ancestor of this function read neither: it re-aligned the
+    confirmed peers by date and counted the survivors, so the first live run's report
+    disclosed a comparison against one peer that exists in no version anywhere. Now both
+    surfaces go through :func:`~aer.services.comps_run.comps_table_from_record`, the
+    documented inverse of what the step wrote, and both ask
+    :meth:`~aer.calc.comps.CompsTable.for_audience` who is reading.
 
-    Returns a :class:`~aer.calc.comps.WithheldComps` and never a table. A rendered report is
-    the shareable artefact, and every multiple in it would derive from market data licensed
-    for internal use only — see `_comps_block` in :mod:`aer.render.markdown`.
+    So the return type is the union that method produces, and which arm arrives is the
+    licence determination rather than this function's opinion of it: a `WithheldComps`
+    where the provider's policy withholds derived figures, the table itself where the
+    operator has determined they may be published. The renderer cannot print a figure from
+    the first, because there is none in it.
+
+    The licence note comes off the record too, where it used to be read live from the
+    provider's policy. It is the note that was stamped when the data was fetched, which is
+    the one that answers "may we quote this?" about *this* run — a determination revised
+    next year would otherwise reprint itself over last year's data.
     """
     confirmed = await confirmed_peer_set(session, job)
     if not confirmed:
@@ -3774,26 +3783,15 @@ async def comps_note_for(
     if outcome is None or not outcome.get("comps"):
         return None
 
-    peers = int(outcome.get("peers", 0))
-    as_of_text = outcome.get("as_of")
-    return WithheldComps(
-        peer_count=peers,
-        # Outcomes recorded before the step stored its exclusion count fall back to the
-        # identity `build` maintains: every confirmed peer is in the table or excluded.
-        excluded_count=int(outcome.get("excluded_count", len(confirmed) - peers)),
-        as_of=date.fromisoformat(as_of_text) if as_of_text else request.work_order.as_of_date,
-        licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
-        # The reasons the step already grouped, so the report says why rather than "for
-        # want of usable data" (gap R20). Deduplicated again here because the grouping is
-        # by reason, and an older outcome that carries none simply says less.
-        exclusion_reasons=tuple(
-            dict.fromkeys(
-                str(row.get("reason", "")).strip()
-                for row in outcome.get("excluded", [])
-                if str(row.get("reason", "")).strip()
-            )
-        ),
+    table = comps_table_from_record(
+        outcome,
+        subject_identifier=request.ticker,
+        subject_name=await subject_name(session, request),
+        source_label=f"{COMPS_STEP}:{job.id}",
     )
+    if table is None:
+        return None
+    return table.for_audience(Audience.SHAREABLE)
 
 
 async def _comps_outcome_for(session: AsyncSession, job: Job) -> dict[str, Any] | None:
@@ -3825,7 +3823,7 @@ async def _render(context: StepContext) -> StepResult:
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
 
-    comps = await comps_note_for(context.session, job=context.job, request=request)
+    comps = await comps_for(context.session, job=context.job, request=request)
     document = await assemble_document(
         context.session,
         job=context.job,

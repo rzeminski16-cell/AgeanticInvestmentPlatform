@@ -235,10 +235,9 @@
   </section>
   {% endfor %}
 
-  {% if document.comps_paragraph %}
+  {% if comps_html %}
   <section class="report-section" id="section-comparable-companies">
-    <h2>Comparable companies</h2>
-    <p>{{ comps_html }}</p>
+    {{ comps_html }}
   </section>
   {% endif %}
 

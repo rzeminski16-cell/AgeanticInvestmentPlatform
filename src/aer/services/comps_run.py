@@ -39,7 +39,7 @@ from aer.calc import prices as calc_prices
 from aer.calc.engine import CalculationContext
 from aer.calc.ratios import ebitda as ebitda_of
 from aer.calc.ratios import net_debt as net_debt_of
-from aer.calc.units import Quantity, SourceRef
+from aer.calc.units import Quantity, SourceKind, SourceRef
 from aer.db.models import Company, Job, ResearchRequest, Security
 from aer.errors import AerError
 from aer.services.analysis import AnalysisOutcome, PeriodAnalysis, analyse_company
@@ -116,34 +116,52 @@ class CompsOutcome:
                 }
                 for row in self.table.excluded
             ],
-            "subject_multiples": [
-                {
-                    "key": row.key,
-                    "label": row.label,
-                    "value": str(row.quantity.value) if row.quantity is not None else None,
-                    "absent_because": row.absent_because,
-                }
-                for row in self.table.subject.multiples
-            ],
+            "subject_multiples": [_multiple_record(row) for row in self.table.subject.multiples],
             "peer_multiples": [
                 {
                     "identifier": peer.identifier,
                     "name": peer.name,
                     "period_end": peer.period_end.isoformat(),
-                    "multiples": [
-                        {
-                            "key": row.key,
-                            "label": row.label,
-                            "value": str(row.quantity.value) if row.quantity is not None else None,
-                            "absent_because": row.absent_because,
-                        }
-                        for row in peer.multiples
-                    ],
+                    "multiples": [_multiple_record(row) for row in peer.multiples],
                 }
                 for peer in self.table.peers
             ],
             "comps_band": self.band,
         }
+
+
+def _multiple_record(row: calc.MultipleResult) -> dict[str, Any]:
+    """One multiple as the step records it, carrying the calculation it came from.
+
+    **The calculation id is the point.** A figure in a shareable document needs a footnote
+    a reader can follow to the arithmetic, and `@traced` already attributes every multiple
+    to its own ledger row — so the id is on the quantity and recording it costs nothing.
+    Without it the report could print the number and cite only the step that held it,
+    which is a provenance chain one link short of the formula (ADR 0030's amendment
+    expects the multiples in the document; ADR 0034 as amended expects each one sourced).
+
+    ``None`` where the multiple was not computed, and where it was sourced to something
+    other than a calculation — a record read back and re-recorded, say. The reader below
+    then falls back to naming the step, and the report prints no figure it cannot cite.
+    """
+    quantity = row.quantity
+    source = quantity.source if quantity is not None else None
+    return {
+        "key": row.key,
+        "label": row.label,
+        "value": str(quantity.value) if quantity is not None else None,
+        "absent_because": row.absent_because,
+        # Which input was missing, where one was. "Not reported" and "not meaningful" are
+        # different findings — it is why :class:`~aer.calc.comps.MultipleResult` has both
+        # fields — and until this was recorded the read-back row carried an empty tuple, so
+        # every absence a record could describe came back as the second kind.
+        "missing": list(row.missing),
+        "calculation": (
+            source.identifier
+            if source is not None and source.kind is SourceKind.CALCULATION
+            else None
+        ),
+    }
 
 
 def comps_table_from_record(
@@ -167,9 +185,11 @@ def comps_table_from_record(
     grouped rows otherwise, where a joined name is still the truthful list of who was left
     out and why.
 
-    Each multiple's quantity is sourced to the step's own record: the ledger holds the
-    calculation behind it, and the record does not carry that id, so the reference names
-    the record rather than inventing one.
+    Each multiple's quantity is sourced to the calculation the step struck for it, which
+    is what lets a report footnote the figure and a reader follow the marker to the
+    formula. A record written before the id was stored falls back to naming the step, as
+    every record did until Phase 4.3: the ledger still holds the arithmetic, and a
+    reference to the step is the honest account of what that record can prove.
     """
     if not record.get("comps"):
         return None
@@ -183,13 +203,14 @@ def comps_table_from_record(
                 key=str(row["key"]),
                 label=str(row.get("label", row["key"])),
                 quantity=(
-                    Quantity.of(str(row["value"]), source=source)
+                    Quantity.of(str(row["value"]), source=_source_of(row, step=source))
                     if row.get("value") is not None
                     else None
                 ),
                 basis=basis,
                 period_end=period_end,
                 absent_because=str(row.get("absent_because", "")),
+                missing=tuple(str(name) for name in row.get("missing") or ()),
             )
             for row in rows or ()
         )
@@ -241,6 +262,14 @@ def comps_table_from_record(
         licence_note=str(record.get("licence_note", "")),
         derived_figures_publishable=bool(record.get("derived_figures_publishable", False)),
     )
+
+
+def _source_of(row: Mapping[str, Any], *, step: SourceRef) -> SourceRef:
+    """The calculation a recorded multiple came from, or the step that recorded it."""
+    identifier = row.get("calculation")
+    if not identifier:
+        return step
+    return SourceRef.calculation(str(identifier), label=str(row.get("label", row["key"])))
 
 
 def grouped_exclusions(excluded: Sequence[calc.PeerExclusion]) -> list[dict[str, str]]:

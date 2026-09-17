@@ -89,6 +89,9 @@ def render_html(document: ReportDocument, *, contents: bool = True) -> str:
         for section in document.sections
     ]
     custom = [section for section in sections if section["origin"] == "skill"]
+    # After the sections and before the exhibit pack, which is where the assembler took
+    # the block's markers: `seen` has to meet them in the same order both notations do.
+    comps_html = _blocks(document.comps, seen=seen, titles=titles) if document.comps else None
     return _ENV.get_template("report.html").render(
         document=document,
         glance_html=glance_html,
@@ -122,21 +125,22 @@ def render_html(document: ReportDocument, *, contents: bool = True) -> str:
         limitations=document.limitations,
         referenced=sorted(seen),
         disclaimer_html=_emphasise(document.disclaimer),
-        comps_html=(
-            _emphasise(display.prose(document.comps_paragraph, style=document.style))
-            if document.comps_paragraph
-            else None
-        ),
+        comps_html=comps_html,
     )
 
 
 def _emphasise(text: str) -> Markup:
     """Paired ``**`` emphasis as ``<strong>``, everything else escaped.
 
-    The disclaimer and the withheld-comps paragraph are written once, in prose modules
-    that predate the HTML notation, with Markdown emphasis in the string. Showing a
-    reader literal asterisks would be a notation leak in the other direction, so the one
-    Markdown convention those strings use is converted here — and only that one.
+    The disclaimer is written once, in a module that predates the HTML notation, with
+    Markdown emphasis in the string. Showing a reader literal asterisks would be a
+    notation leak in the other direction, so the one Markdown convention it uses is
+    converted here — and only that one.
+
+    It had a second caller, the withheld-comps paragraph, until Phase 4.3 walked the
+    comparables block into fragments like everything else; a fragment may not carry one
+    notation's syntax, so that paragraph dropped its emphasis rather than keeping a
+    special case in the serialiser.
     """
     pieces = text.split("**")
     # An odd piece count means every ** was paired; with an even count the final piece

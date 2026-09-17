@@ -89,7 +89,7 @@ What to know per step, beyond the diagram:
 | `extract` | `extract/` | no | Bytes → text with locators; iXBRL/PDF/HTML |
 | `calculate` | `calc/` via `services` | no | Statements, ratios, quality — all traced |
 | `research_*` (five, parallel) | `agents/worker` | yes (~£0.10 each) | Tool *requests* executed by code (ADR 0036); `web_search` returns a listing, metered per search (ADR 0092) |
-| `comps` | `calc/comps` | no | Withholds rather than publishes licensed rows |
+| `comps` | `calc/comps` | no | `for_audience` decides what a shareable surface gets: the table where the operator's determination permits a derived figure, a `WithheldComps` with no field for one otherwise (ADR 0034 as amended). The series and its chart stay internal either way |
 | `propose_assumptions` | `agents/assumptions` | yes (~£0.20) | Only the two numbers no filing answers (ADR 0046) |
 | `gate_assumptions` | `services/approvals` | no | The one gate that approves work not yet done |
 | `value` | `calc/wacc`, `calc/dcf` | no | Runs only on confirmed assumptions |

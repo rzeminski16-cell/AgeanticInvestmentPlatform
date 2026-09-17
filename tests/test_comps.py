@@ -15,6 +15,7 @@ of them is a wrong answer.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -31,6 +32,7 @@ from aer.calc.comps import (
     CompsTable,
     MultipleBasis,
     MultipleResult,
+    PeerExclusion,
     PeerRow,
     WithheldComps,
     align_peers,
@@ -50,6 +52,8 @@ from aer.calc.units import (
     UnitMismatchError,
 )
 from aer.services.comps import UNACQUIRED_PEER_REASON
+
+UNACQUIRED = UNACQUIRED_PEER_REASON
 
 PERIOD_END = date(2024, 6, 30)
 AS_OF = date(2024, 6, 28)
@@ -113,7 +117,10 @@ class TestAMultipleIsNotJustANumber:
         described = next(row for row in results if row.key == "ev_ebitda").describe()
 
         assert "12.0x" in described
-        assert "ttm" in described
+        # The basis in words, never the stored key: a multiple quoted without it is not a
+        # fact, so it has to be readable wherever it is quoted.
+        assert "trailing twelve-month" in described
+        assert "ttm" not in described
         assert "2024-06-30" in described
 
     def test_the_basis_reaches_the_calculation_record(self, context):
@@ -593,6 +600,145 @@ class TestNothingPriceDerivedLeavesTheMachine:
 
         assert withheld.peer_count == 4
         assert withheld.excluded_count == 0
+
+
+class TestTheDeterminationOpensTheTable:
+    """ADR 0030's amendment of 2026-08-09: a figure *computed from* the feed may be
+    published. The series may not, and nothing in a `CompsTable` is the series.
+
+    `for_audience` is where that is asked, and the flag arrives as data from the
+    provider's policy rather than being looked up here — so both answers are reachable
+    from a test without a provider existing.
+    """
+
+    def test_a_shareable_audience_gets_the_table_when_the_licence_permits(self):
+        table = replace(table_of(), derived_figures_publishable=True)
+        assert table.for_audience(Audience.SHAREABLE) is table
+
+    def test_withdrawing_the_determination_closes_it_again(self):
+        """The one-line change ADR 0030's amendment promises, exercised."""
+        table = replace(table_of(), derived_figures_publishable=False)
+        assert isinstance(table.for_audience(Audience.SHAREABLE), WithheldComps)
+
+    def test_the_published_paragraph_names_the_peers_and_the_basis_in_words(self):
+        paragraph = replace(table_of(peers=4), derived_figures_publishable=True).as_paragraph()
+
+        assert "against four peers" in paragraph
+        assert "a trailing twelve-month basis" in paragraph
+        assert "ttm" not in paragraph
+        # And promises no figure: only the renderer knows whether one will follow, and the
+        # first draft of this sentence printed "the multiples below" over an empty block.
+        assert "below" not in paragraph
+
+    def test_a_table_with_no_surviving_peer_promises_no_peer_comparison(self):
+        """The commonest live shape: eight confirmed peers, none priced, ADR 0059.
+
+        The subject's own multiples may still be real and publishable, so "attempted"
+        must not read as "nothing was computed" — but the paragraph states the peer
+        position and stops, because whether a figure follows is the renderer's to know.
+        """
+        table = replace(
+            table_of(peers=0),
+            derived_figures_publishable=True,
+            excluded=tuple(
+                PeerExclusion(identifier=f"P{index}", name=f"Peer {index}", reason=UNACQUIRED)
+                for index in range(8)
+            ),
+        )
+        paragraph = table.as_paragraph()
+
+        assert "every one of the eight proposed peers was excluded" in paragraph
+        assert "no filings and no price series" in paragraph
+        assert "There is no peer comparison" in paragraph
+        assert "below" not in paragraph
+
+    def test_the_absent_multiples_are_named_in_labels_not_concept_keys(self):
+        """The stored reason quotes the concept it wanted; a concept key is not a word."""
+        table = replace(
+            table_of(),
+            subject=PeerRow(
+                identifier="SUBJ",
+                name="Subject plc",
+                period_end=PERIOD_END,
+                multiples=(
+                    MultipleResult(
+                        key="p_tbv",
+                        label="P/TBV",
+                        quantity=None,
+                        basis=MultipleBasis.TRAILING_TWELVE_MONTHS,
+                        period_end=PERIOD_END,
+                        absent_because="the filing does not report tangible_book_value_per_share",
+                        missing=("tangible_book_value_per_share",),
+                    ),
+                    MultipleResult(
+                        key="p_ffo",
+                        label="P/FFO",
+                        quantity=None,
+                        basis=MultipleBasis.TRAILING_TWELVE_MONTHS,
+                        period_end=PERIOD_END,
+                        absent_because="the filing does not report ffo_per_share",
+                        missing=("ffo_per_share",),
+                    ),
+                ),
+            ),
+        )
+        note = table.absent_note()
+
+        assert note is not None
+        assert "P/TBV and P/FFO were not computed" in note
+        # A price is not in a filing, and one of these multiples wants one: the
+        # sentence says what this research holds, not what a filing reported.
+        assert "this research does not hold the figures they need" in note
+        assert "tangible_book_value_per_share" not in note
+
+    def test_a_meaningless_multiple_is_a_different_finding_from_an_unreported_one(self):
+        """A negative denominator and a figure nobody filed are not the same absence."""
+        table = replace(
+            table_of(),
+            subject=PeerRow(
+                identifier="SUBJ",
+                name="Subject plc",
+                period_end=PERIOD_END,
+                multiples=(
+                    MultipleResult(
+                        key="ev_ebitda",
+                        label="EV/EBITDA",
+                        quantity=None,
+                        basis=MultipleBasis.TRAILING_TWELVE_MONTHS,
+                        period_end=PERIOD_END,
+                        absent_because="the denominator is -40",
+                    ),
+                ),
+            ),
+        )
+        note = table.absent_note()
+
+        assert note == "EV/EBITDA was not meaningful on this period's figures."
+
+    def test_a_table_whose_multiples_all_computed_has_nothing_to_note(self):
+        assert table_of().absent_note() is None
+
+    def test_the_paragraph_never_denies_a_figure_the_table_holds(self):
+        """Roadmap §3.19.11, and the regression that item is worth.
+
+        Every audited run printed "No comparable figure was computed" over four of the
+        subject's own multiples, because the disclosure written for the withheld case was
+        doing duty for the every-peer-excluded case. A neighbouring state reusing a
+        sentence is the cheapest thing in a codebase to write and the hardest to see.
+        """
+        table = replace(
+            table_of(peers=0),
+            derived_figures_publishable=True,
+            excluded=tuple(
+                PeerExclusion(identifier=f"P{index}", name=f"Peer {index}", reason=UNACQUIRED)
+                for index in range(8)
+            ),
+        )
+        paragraph = table.as_paragraph()
+
+        assert table.subject_has_a_figure
+        assert "No comparable figure was computed" not in paragraph
+        assert "no fuller version elsewhere" not in paragraph
 
 
 class TestWithholdingNothingIsNotWithholding:

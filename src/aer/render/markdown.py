@@ -40,7 +40,7 @@ from aer.sections.render import CitationRef, markdown_lines
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from aer.calc.comps import WithheldComps
+    from aer.calc.comps import CompsTable, WithheldComps
     from aer.charts import Chart
     from aer.db.models import Company, Job, ResearchRequest
 
@@ -69,7 +69,7 @@ async def render_markdown(
     request: ResearchRequest,
     company: Company | None = None,
     sector: SectorNote | None = None,
-    comps: WithheldComps | None = None,
+    comps: CompsTable | WithheldComps | None = None,
     charts: tuple[Chart, ...] = (),
     rating: str | None = None,
     confidence: float | None = None,
@@ -130,7 +130,7 @@ def serialise_markdown(document: ReportDocument) -> str:
             *_coverage_block(document.coverage),
             *_sector_block(document.sector),
             *body,
-            *_comps_block(document.comps_paragraph, style=document.style),
+            *(markdown_lines(document.comps) if document.comps else []),
             *_exhibits_block(document.charts),
             *_limitations_block(document.limitations),
             *_undated_block(document.undated_note),
@@ -211,20 +211,6 @@ def _sector_block(sector: SectorNote | None) -> list[str]:
 
     lines.extend(["---", ""])
     return lines
-
-
-def _comps_block(paragraph: str | None, *, style: HouseStyle) -> list[str]:
-    """The comparables disclosure — that one was done, and that its figures are not here.
-
-    The paragraph arrives from :class:`~aer.calc.comps.WithheldComps` via the assembler,
-    which is the type-level guarantee that no figure can be in it (ADR 0034). Empty when
-    no comparison was performed, because "no comps table" and "a comps table you are not
-    being shown" are different claims and only the second needs saying.
-    """
-    if paragraph is None:
-        return []
-
-    return ["## Comparable companies", "", display.prose(paragraph, style=style), ""]
 
 
 def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:

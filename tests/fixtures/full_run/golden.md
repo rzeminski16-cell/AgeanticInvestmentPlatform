@@ -318,7 +318,9 @@ The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. 
 
 ## Comparable companies
 
-A comparable-company analysis was attempted as at 30 June 2022, but its single proposed peer was excluded, because this research holds no filings and no price series for it, and a peer multiple needs both. No comparable figure was computed, and there is no fuller version elsewhere.
+A comparable-company analysis was attempted as at 30 June 2022, but its single proposed peer was excluded, because this research holds no filings and no price series for it, and a peer multiple needs both. There is no peer comparison. The analysis was struck on a last-reported-year basis to 30 June 2022.
+
+EV/EBITDA, EV/Sales, P/E, P/B, P/TBV and P/FFO were not computed, because this research does not hold the figures they need.
 
 ## Scope and limitations
 

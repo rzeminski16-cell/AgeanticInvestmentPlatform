@@ -46,7 +46,7 @@ def summary_document(document: ReportDocument) -> ReportDocument:
         document,
         sections=tuple(kept),
         charts=(),
-        comps_paragraph=None,
+        comps=(),
         footnotes=footnotes,
         appendix=tuple(row for row in document.appendix if row.url in cited_urls),
         limitations=tuple(

@@ -105,6 +105,26 @@ class MultipleBasis(StrEnum):
     is an assumption wearing a multiple's clothes, and it is only ever as good as the estimate
     behind it."""
 
+    @property
+    def spoken(self) -> str:
+        """The basis as a reader meets it, with its article.
+
+        ``"lfy"`` is how the ledger stores it and how code reads it back; it is not a word.
+        A multiple quoted without its basis is not a fact (see the module docstring), so the
+        basis reaches every reader — which means it has to exist in the register they read
+        in, rather than as the key beside it.
+        """
+        return _BASIS_WORDS[self]
+
+
+# The article is part of each phrase, because the surrounding sentence says "on <basis>
+# basis" and "on a forward" and "on trailing twelve-month" are not the same repair.
+_BASIS_WORDS: Final[dict[MultipleBasis, str]] = {
+    MultipleBasis.TRAILING_TWELVE_MONTHS: "a trailing twelve-month",
+    MultipleBasis.LAST_FISCAL_YEAR: "a last-reported-year",
+    MultipleBasis.FORWARD: "a forward",
+}
+
 
 class Audience(StrEnum):
     """Who a comps table may be shown to.
@@ -165,7 +185,7 @@ class MultipleResult:
         if self.quantity is None:
             return f"{self.label}: not meaningful — {self.absent_because}"
         return (
-            f"{self.label}: {self.quantity.value:.1f}x on a {self.basis.value} basis to "
+            f"{self.label}: {self.quantity.value:.1f}x on {self.basis.spoken} basis to "
             f"{self.period_end.isoformat()}"
         )
 
@@ -341,6 +361,93 @@ class CompsTable:
             return None
         return _median(values)
 
+    def as_paragraph(self) -> str:
+        """The disclosure a shareable surface prints above whatever it prints.
+
+        The counterpart of :meth:`WithheldComps.as_paragraph`, and written here for the
+        same reason: the two are one decision about what the reader is told, and a
+        template free to compose either from parts is free to compose a third.
+
+        **It describes the analysis and promises no figure.** The first draft ended "the
+        multiples below are the subject's own", and the offline full run printed that
+        sentence over nothing at all — which is the exact defect this phase exists to
+        remove, reproduced by the sentence meant to fix it. Only the renderer knows
+        whether a figure will follow; whose figures they are belongs in the table's own
+        heading, where it is true or the table is absent.
+
+        What this does say is which of three situations the reader is in: a comparison
+        against peers, a comparison every peer fell out of (the common shape — ADR 0059
+        acquires no peer's filings and no peer's prices, so on most runs every confirmed
+        peer is excluded by design), or, from the withheld counterpart, figures that
+        exist and are not being shown.
+        """
+        as_of = self.as_of.isoformat()
+        struck = f"on {self.basis.spoken} basis to {self.subject.period_end.isoformat()}"
+        if self.peers:
+            peers = "one peer" if len(self.peers) == 1 else f"{_spelled(len(self.peers))} peers"
+            excluded = (
+                ""
+                if not self.excluded
+                else f", with {_spelled(len(self.excluded))} proposed "
+                f"{'peer' if len(self.excluded) == 1 else 'peers'} excluded"
+            )
+            return (
+                f"A comparable-company analysis was performed against {peers} as at "
+                f"{as_of}{excluded}, {struck}."
+            )
+
+        if len(self.excluded) == 1:
+            left_out = "its single proposed peer was excluded"
+        elif self.excluded:
+            left_out = (
+                f"every one of the {_spelled(len(self.excluded))} proposed peers was excluded"
+            )
+        else:
+            left_out = "no peer survived to be compared"
+        reasons = _joined(tuple(dict.fromkeys(row.reason for row in self.excluded if row.reason)))
+        because = f", because {reasons}" if reasons else ""
+        return (
+            f"A comparable-company analysis was attempted as at {as_of}, but {left_out}"
+            f"{because}. There is no peer comparison. The analysis was struck {struck}."
+        )
+
+    @property
+    def subject_has_a_figure(self) -> bool:
+        """Whether the subject's own row holds a multiple that computed."""
+        return any(row.present for row in self.subject.multiples)
+
+    def absent_note(self) -> str | None:
+        """Which of the subject's multiples were not computed, in labels and in words.
+
+        Said rather than omitted, for the reason :class:`MultipleResult` exists: a table
+        showing four multiples and silently dropping two reads as a company for which
+        only four are defined. Said in *labels* — "P/TBV" — because the stored reason
+        names the concept key it wanted, and a concept key is not a word (ADR 0056's
+        register). The two states stay apart: a figure whose inputs this research never
+        acquired and a figure whose denominator makes it meaningless are different
+        findings.
+        """
+        unreported = tuple(row.label for row in self.subject.multiples if row.missing)
+        meaningless = tuple(
+            row.label for row in self.subject.multiples if not row.present and not row.missing
+        )
+        sentences: list[str] = []
+        if unreported:
+            verb, it = _agreeing(len(unreported))
+            # "This research does not hold" rather than "the filing does not report",
+            # which is what the stored reason says: a P/E wants a share price, and a
+            # price is not in a filing. The sentence has to be true of both inputs.
+            sentences.append(
+                f"{_listed(unreported)} {verb} not computed, because this research does "
+                f"not hold the figures {it} {'needs' if len(unreported) == 1 else 'need'}."
+            )
+        if meaningless:
+            verb, _ = _agreeing(len(meaningless))
+            sentences.append(
+                f"{_listed(meaningless)} {verb} not meaningful on this period's figures."
+            )
+        return " ".join(sentences) or None
+
 
 @dataclass(frozen=True, slots=True)
 class WithheldComps:
@@ -376,6 +483,12 @@ class WithheldComps:
         the attempted-and-empty state names no "operator's own copy" — in a personal
         research tool that is the document the reader is already holding, and the clause
         earns its place only where a fuller version genuinely exists.
+
+        **No Markdown emphasis**, since Phase 4.3. This paragraph is now walked into a
+        fragment like everything else in the report, and a fragment may not carry one
+        notation's syntax (see :class:`aer.sections.render.Paragraph`): the HTML would
+        have shown a reader literal asterisks. The withholding sentence stands on its own
+        words, which is where its force was.
         """
         if self.peer_count == 0:
             if self.excluded_count == 1:
@@ -409,7 +522,7 @@ class WithheldComps:
         return (
             f"A comparable-company analysis was performed against {peers} "
             f"as at {self.as_of.isoformat()}, with {excluded_clause}. "
-            "**The figures are withheld from this version.** They derive from "
+            "The figures are withheld from this version. They derive from "
             "market data licensed for internal use only, under terms that grant no "
             "derived-data exemption, so no multiple computed from it appears in anything "
             "shareable. The analysis is available in full on the operator's own copy."
@@ -453,6 +566,26 @@ def _joined(reasons: Sequence[str]) -> str:
     if len(kept) == 1:
         return kept[0]
     return f"{'; '.join(kept[:-1])}; and {kept[-1]}"
+
+
+def _listed(names: Sequence[str]) -> str:
+    """Short names as a reader lists them — commas, "and", and no Oxford comma.
+
+    Distinct from :func:`_joined`, which separates whole clauses with semicolons because
+    each one is a sentence's worth of reason. "P/TBV; and P/FFO" applies that punctuation
+    to two words and reads as a citation.
+    """
+    kept = [name.strip() for name in names if name.strip()]
+    if not kept:
+        return ""
+    if len(kept) == 1:
+        return kept[0]
+    return f"{', '.join(kept[:-1])} and {kept[-1]}"
+
+
+def _agreeing(count: int) -> tuple[str, str]:
+    """The verb and the subject pronoun a list of that length takes."""
+    return ("was", "it") if count == 1 else ("were", "they")
 
 
 # -- The definitions --------------------------------------------------------------------------

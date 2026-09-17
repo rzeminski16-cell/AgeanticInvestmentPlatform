@@ -1046,6 +1046,65 @@ found rather than as scope that was always there.
    **What does not exist is the guard**: `StepContext.output_of` could refuse a key the
    running step did not declare, which would make the whole class unrepresentable rather than
    something each author has to remember. Not built here; it touches every step.
+8. **A step's record kept the figure and threw away the arithmetic behind it, 17 September
+   2026.** `CompsOutcome.as_dict` recorded each multiple's key, label, value and reason and
+   not the calculation that produced it, though `@traced` had already put that id on the
+   quantity — so the record's own reader said, in a docstring, that "the ledger holds the
+   calculation behind it, and the record does not carry that id". The report could therefore
+   have printed MSFT's 27.6× P/E only with a footnote naming the *step*, which resolves to no
+   `calculations` row and renders as the document's own broken-citation warning against a
+   figure that is perfectly sound. One field fixed it. **The class is what is worth the
+   number**: a step output is the only thing a re-render sees, so anything it drops is
+   permanently unrecoverable for every run already recorded — and this one also dropped
+   `MultipleResult.missing`, which is the whole distinction between a figure nobody filed and
+   a figure whose denominator makes it meaningless, so every absence a stored record could
+   describe came back as the second kind. Neither loss was visible while nothing read the
+   record. **Not swept**: the other step serialisers were not audited for the same shape.
+9. **Phase 4's exit criterion assumes every item is render-only, 17 September 2026.** It
+   reads "re-render MSFT #1 and AZN #2 from stored rows", and 4.1, 4.2 and 4.3 each change
+   what a *step* records rather than how a record is drawn — a second run's bar count, the
+   capital structure the WACC weighs, the calculation id beside a multiple. None of the three
+   can be proved by re-rendering a run seeded before it, and 4.3's is the sharpest case: a
+   stored run re-rendered today states, correctly, that its multiples cannot be cited. The
+   criterion is not wrong so much as split, and the split is worth naming before Phase 4's
+   exit is claimed: what the render path does is provable on the corpus, what a step records
+   is provable only on a run made after the change. The offline full-run fixture is where the
+   second half is proved for £0, and Phase 7's verdict round is where it is proved on real
+   filings.
+10. **The journey harness could not run on a subscribed machine, 17 September 2026.** Its
+    worker advances a run through the interim gates to reach the final one, bounded at four
+    iterations because "the conditional gates are few". Four is the gate count of a machine
+    with **no market-data key**: plan, theme set, assumptions, then the final gate on the
+    fourth pass. Configure a key and the peer-set gate joins them — ADR 0059's second
+    amendment proposes peers only where a peer's multiple could be computed — so the loop
+    ran out exactly one gate short, and all four `gate.FINAL.*` rows and all three
+    `budget.*` rows came back "no path constructed" rather than measured. CI has no key and
+    has been green on this step throughout; the operator's own machine, which is the machine
+    the platform is built for, could not run the shape half at all. The bound is now six.
+    **The class**: a harness constant sized to the environment the harness usually runs in
+    is a harness that stops measuring the moment the environment it was built for is
+    configured properly — and it fails by reporting *nothing*, which reads like silence
+    rather than like red. Found by running the instrument rather than by reading it, which
+    is the third time in this programme that has been the difference.
+11. **Every audited report said no comparable figure was computed, over figures it had, 17
+    September 2026.** The comparables disclosure has two branches, and the one the audit
+    never looked at is the one every run took. ADR 0059 acquires no peer's prices, so every
+    confirmed peer is excluded and the report prints: "every one of the eight proposed peers
+    was excluded … **No comparable figure was computed**, and there is no fuller version
+    elsewhere." Measured across the eight committed run exports: **every one holds at least
+    one of the subject's own multiples behind that sentence** — MSFT #2 four of them
+    (EV/EBITDA 19.0×, EV/Sales 11.1×, P/E 27.6×, P/B 8.3×), its re-run two, and AZN and M&T
+    the P/E each. The sentence is defensible as a
+    statement about *peer* comparables and is not how a reader takes it, and the delivery
+    plan's own diagnosis had recorded the licence as the reason the figures were missing,
+    which was true of the other branch and not of this one. Fixed in §4.3: the paragraph
+    states the peer position, the table prints what was computed. **The class, and it
+    generalises past comps**: a disclosure written for one state is the cheapest thing in a
+    codebase to reuse for a neighbouring state, and reuse is invisible — the second state
+    never gets a sentence of its own, so nothing reads wrong until somebody checks the
+    figures it is standing in front of. Worth noting too that ADR 0125's denial scan could
+    not have caught this: it reads model-written sections, and the comparables block is
+    written by the platform.
 
 ### Before this leaves one machine
 
