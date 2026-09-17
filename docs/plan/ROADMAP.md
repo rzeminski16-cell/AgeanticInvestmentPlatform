@@ -1011,6 +1011,19 @@ found rather than as scope that was always there.
    the report's calculation appendix — and a reader that groups by name alone will show a
    person three figures under one heading. A number here because it is a finding about the
    platform rather than about the check that found it.
+5. **The eight false AstraZeneca challenges quoted nothing false, 17 September 2026.** ADR
+   0115 argued that a challenge asserting a value the record contradicts should be dropped
+   before drafting, and called that "the direct fix" for them. Measured: **33 of 33** numerals
+   across the three severity-4-and-5 challenges are real recorded values, resolved by
+   `reads_as` against that run's own ledger. The record refuted nothing, so the rule would
+   have dropped none of them. What they actually do is quote FY2025 *and* FY2021 of one
+   figure — interest cover 8.11 beside 0.812, gross margin 81.9 beside 0.668, return on
+   invested capital 15.6 beside 0.0823 — and call the pair a contradiction. **The adversary
+   was doing by hand what `services/consistency.py` forbids the platform's own document**,
+   because the pack it was handed carried one name at several periods with no labels; Phase
+   3.1 closed that at source. Recorded here because it is a fact about how this platform's
+   adversary fails, and because it is the second plan-level claim this programme has had to
+   correct by reading rows instead of prose.
 
 ### Before this leaves one machine
 

@@ -175,6 +175,17 @@ class ResolutionRule(StrEnum):
     THESIS_CONFLICT = "thesis_conflict"
     DOCUMENT_CONTRADICTS_ITSELF = "document_contradicts_itself"
 
+    @property
+    def spoken(self) -> str:
+        """The rung as the report's own appendix says it, never ``later_filing_wins``.
+
+        The published document printed *"Resolved by rule 'later_filing_wins': position A
+        selected"* — an enum value and a positional letter, in the section whose whole job
+        is to make the rest of the report trustworthy. A reader meets these words; the
+        value is for counting.
+        """
+        return _RULE_WORDS.get(self, self.value.replace("_", " "))
+
 
 class UnresolvableDisagreementError(AerError):
     """The ladder reached the end without a rung firing.
@@ -217,6 +228,22 @@ _CREDIBLE_TIER_LIMIT: Final = 4
 # under this unit and never compares it. Named because four surfaces have to recognise it,
 # and a literal repeated four times is a rule nobody owns (gap A68).
 THESIS_UNIT: Final = "thesis"
+
+
+# Each rung as the appendix says it, phrased to sit after a colon and before the position
+# that won. Only the rungs that *decide* need a winner's clause; the ones that escalate are
+# rendered by their own branch, which says nothing won.
+_RULE_WORDS: Final[dict[ResolutionRule, str]] = {
+    ResolutionRule.UNIT_MISMATCH: "the two are measured in different units",
+    ResolutionRule.VALUES_AGREE: "the two agree",
+    ResolutionRule.SUSPECTED_SCALE_ERROR: "the two are a clean power of ten apart",
+    ResolutionRule.LOWER_TIER_WINS: "the more authoritative source was preferred",
+    ResolutionRule.BASIS_MISMATCH: "one is as reported and the other a restatement",
+    ResolutionRule.LATER_FILING_WINS: "the same publisher's later filing was preferred",
+    ResolutionRule.SAME_TIER_SAME_DATE: "the two are equally authoritative and equally dated",
+    ResolutionRule.THESIS_CONFLICT: "a challenge to the draft's own conclusion",
+    ResolutionRule.DOCUMENT_CONTRADICTS_ITSELF: "this report disagrees with itself",
+}
 
 
 def position_figure(position: Mapping[str, Any]) -> str:

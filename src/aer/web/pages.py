@@ -83,6 +83,7 @@ from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.render.summary import summary_document
+from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.registry import section_outcomes
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
@@ -1794,6 +1795,13 @@ async def settle_disagreement_page(
             actor=user,
             rationale=_rationale_or_default(submitted.get("rationale", "")),
         )
+        # Between the settle and the seal, and in that order (ADR 0115). The appendix was
+        # assembled at `validate` and never rewritten, so every challenge in every
+        # published report read "escalated for human decision at approval" whatever became
+        # of it — the defect all three AstraZeneca judges marked the document down for.
+        # Refilling here and re-sealing after means the payload the operator approves is
+        # the payload as they settled it, rather than one about to change.
+        await _refill_the_record(session, job=job)
         await gates_service.reseal_final_gate(
             session,
             job=job,
@@ -1827,6 +1835,26 @@ SETTLED_WITHOUT_COMMENT: Final = "Settled without further comment."
 
 def _rationale_or_default(written: str) -> str:
     return written.strip() or SETTLED_WITHOUT_COMMENT
+
+
+async def _refill_the_record(session: AsyncSession, *, job: Job) -> None:
+    """Re-derive the run's deterministic record sections from the rows as they now stand.
+
+    Called between a settle and the re-seal that follows it (ADR 0115). The validate step
+    fills these and the red-team step refills them; nothing refilled them after a person
+    acted, so the report's own appendix described an open conflict for the rest of time.
+
+    A run that has reached gate 2 has a request by construction — the gate is rendered from
+    it — so a missing one is a broken row rather than a state to handle, and the filler is
+    simply not called. Doing nothing here restores the old behaviour for that one run; the
+    alternative is a 500 on the settle, which loses the operator's decision as well.
+    """
+    research_request = await session.get(ResearchRequest, job.work_order_id)
+    if research_request is None:  # pragma: no cover -- a job at gate 2 has a request
+        return
+    await fill_deterministic_sections(
+        session, job=job, request=research_request, stage=SectionStage.VALIDATE
+    )
 
 
 @router.post(

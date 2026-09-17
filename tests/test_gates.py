@@ -15,6 +15,7 @@ stuck run's seal to its own record and says whether the approval now matches.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from typing import Any
@@ -26,7 +27,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from aer.config import Settings
 from aer.core.disagreement import ResolutionOutcome
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
-from aer.db.models import AuditEvent, Disagreement, Job, User
+from aer.db.models import AuditEvent, Disagreement, Job, ReportSection, User
 from aer.errors import ConflictError, ValidationError
 from aer.services import approvals as approval_service
 from aer.services.approvals import payload_hash_for
@@ -212,6 +213,48 @@ class TestSettlingBeforeTheDecision:
         assert event is not None
         assert event.payload["from"] != event.payload["to"]
         assert "settled by hand" in event.payload["reason"]
+
+    async def test_the_report_says_what_was_settled_rather_than_that_it_is_pending(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        """ADR 0115, and the defect all three AstraZeneca judges named.
+
+        The disagreements appendix was assembled at `validate` and never rewritten, so
+        every challenge in every published report read "Escalated for human decision at
+        approval" whatever became of it — a reader could not tell an accepted challenge
+        from a rejected one from an open one. The settle path now refills the section
+        before the seal moves, so the sentence is what happened and the payload the
+        operator approves is the payload as they settled it.
+        """
+        job_id = await _at_the_final_gate_with_a_challenge(api, committed, driver, db_engine)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+
+        async def appendix() -> str:
+            async with factory() as session:
+                row = await session.scalar(
+                    select(ReportSection).where(
+                        ReportSection.job_id == job_id,
+                        ReportSection.section_key == "validation_disagreements",
+                    )
+                )
+            assert row is not None
+            assert row.content is not None
+            return json.dumps(row.content)
+
+        before = await appendix()
+        assert "Open at approval" in before
+        assert "open at approval, with both sides published" in before
+
+        await _settle_on_the_page(api, job_id)
+
+        after = await appendix()
+        assert "Open at approval" not in after
+        assert "Settled at approval in favour of" in after
+        # The operator's own reason reaches the reader; the address recorded beside it
+        # does not, because a report has no business printing an email.
+        assert "The fade sits inside the peer range once the outlier is dropped." in after
+        assert "@" not in after
+        assert "every one of them is settled" in after
 
 
 class TestSettlingAfterTheDecision:

@@ -23,16 +23,22 @@ operator approves already contains them.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.core.disagreement import challenge_heading
+from aer.core.disagreement import (
+    DisagreementKind,
+    ResolutionOutcome,
+    ResolvedBy,
+    challenge_heading,
+)
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.eval.metrics import spoken_metric
@@ -148,11 +154,14 @@ async def _validation_disagreements(
     job: Job,
     request: ResearchRequest,  # noqa: ARG001 -- the builder signature is uniform
 ) -> dict[str, Any]:
-    """What the validators measured and what the sources disagreed about, as a record.
+    """What the validators measured and what this run disagreed about, as a record.
 
-    Escalated disagreements are described as *escalated for human decision at approval* —
-    a statement about what the run did, which stays true after the human decides. The
-    decision itself is recorded in ``approvals``, not rewritten into this content.
+    **Filled three times, and the third is the point (ADR 0115).** Once at `validate`, once
+    after the red team so the challenges are in their own denominator, and once more
+    whenever the operator settles a conflict — before the seal moves, so the payload they
+    approve is the payload as settled. It used to be filled twice and never again, which is
+    how every challenge in every published report came to read *"escalated for human
+    decision at approval"* whatever became of it.
     """
     evaluations = list(
         await session.scalars(
@@ -249,18 +258,42 @@ def _summary(evaluations: list[Evaluation], disagreements: list[Disagreement]) -
         "evaluation gate against adversarial fixtures rather than against any one run."
     ]
     if disagreements:
-        escalated = sum(1 for row in disagreements if row.resolution == "escalated")
-        parts.append(
-            f"{len(disagreements)} disagreement(s) between sources were recorded"
-            + (
-                f", of which {escalated} were escalated for human decision at approval."
-                if escalated
-                else ", all settled by the deterministic resolution ladder."
-            )
-        )
+        parts.append(_disagreement_summary(disagreements))
     else:
-        parts.append("No disagreements between sources were recorded.")
+        parts.append("Nothing this run recorded disagreed with anything else it recorded.")
     return " ".join(parts)
+
+
+def _disagreement_summary(disagreements: list[Disagreement]) -> str:
+    """How many conflicts, of what kind, and how many nobody has settled.
+
+    **"Disagreement(s) between sources" was wrong about two of the three kinds.** A red
+    team challenge is the adversary against the draft and a self-contradiction (ADR 0125)
+    is the document against itself; in neither does one source differ from another. The
+    sentence counted all three and described them all as the first.
+    """
+    open_rows = sum(1 for row in disagreements if row.resolution is ResolutionOutcome.ESCALATED)
+    challenges = sum(1 for row in disagreements if row.kind is DisagreementKind.THESIS_CONFLICT)
+    contradictions = sum(
+        1 for row in disagreements if row.kind is DisagreementKind.SELF_CONTRADICTION
+    )
+    sources = len(disagreements) - challenges - contradictions
+
+    counted = [
+        f"{count} {noun}"
+        for count, noun in (
+            (sources, "conflict(s) between sources"),
+            (challenges, "challenge(s) from the red team"),
+            (contradictions, "place(s) where this report disagreed with itself"),
+        )
+        if count
+    ]
+    settled = (
+        f"{open_rows} of them are open at approval, with both sides published"
+        if open_rows
+        else "every one of them is settled"
+    )
+    return f"This run recorded {_spoken_list(counted)}, and {settled}."
 
 
 def _spoken_list(names: list[str]) -> str:
@@ -306,6 +339,58 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
     }
 
 
+def _resolution_sentence(row: Disagreement) -> str:
+    """What became of one conflict, in the words a reader meets (ADR 0115).
+
+    **The string this replaces was the defect.** Every challenge in every published report
+    read *"Escalated for human decision at approval."* whatever became of it, because the
+    appendix was assembled at `validate` and never rewritten after the operator settled
+    anything. A reader could not tell an accepted challenge from a rejected one from an
+    open one, and all three judges of the AstraZeneca run marked the document down for it.
+    The settle path now refills this section before it re-seals, so what is written here is
+    what actually happened.
+
+    Two smaller repairs ride with it. The rule is spoken rather than named — the document
+    printed *"Resolved by rule 'later_filing_wins': position A selected"* — and the winner
+    is named by its label rather than by a positional letter, because "position A" is a
+    fact about this row's column order and not about the evidence.
+
+    An **open** conflict is still possible and is described as what it is. ADR 0115 argues
+    that it should not be, and the refusal that makes it impossible is a separate change;
+    until then the honest sentence is that nobody preferred either side, which is at least
+    true of a document that prints both.
+    """
+    if row.resolution is ResolutionOutcome.AGREED:  # pragma: no cover -- never recorded
+        return "The two positions agree."
+
+    if row.resolution is ResolutionOutcome.ESCALATED:
+        return (
+            "Open at approval: no rule settled this and nobody preferred either side, so "
+            "both are published here and the reader decides."
+        )
+
+    winner = row.position_a if row.resolution is ResolutionOutcome.CHOSE_A else row.position_b
+    stands = str(winner.get("label") or "the preferred position")
+    if row.resolved_by is ResolvedBy.HUMAN:
+        # The service appends "Settled by <email>: <reason>" to the rule's own rationale,
+        # and the email is an identifier a report has no business printing. The reason is
+        # the part a reader needs, and it is what the operator wrote.
+        return f"Settled at approval in favour of {stands}. {_settlement_reason(row)}"
+    return f"Settled by rule — {row.rule.spoken} — in favour of {stands}."
+
+
+# How `services.disagreements.settle_by_hand` joins the operator's reason onto the rule's
+# own rationale. Split on here so the appendix prints the reason without the address.
+_SETTLED_BY: Final = re.compile(r"\n\nSettled by [^:]+: (?P<reason>.+)\Z", re.DOTALL)
+
+
+def _settlement_reason(row: Disagreement) -> str:
+    """The operator's own words, without the address the service records beside them."""
+    found = _SETTLED_BY.search(row.resolution_rationale or "")
+    reason = found["reason"].strip() if found else ""
+    return reason or "No further reason was given."
+
+
 def _disagreement_blocks(row: Disagreement) -> list[dict[str, str]]:
     """One recorded conflict as a short run of prose blocks — an argument, not a table row.
 
@@ -320,12 +405,7 @@ def _disagreement_blocks(row: Disagreement) -> list[dict[str, str]]:
     blob reaches a reader. The lead-ins carry no trailing punctuation — both serialisers
     append the colon themselves.
     """
-    resolution = {
-        "chose_a": f"Resolved by rule '{row.rule.value}': position A selected.",
-        "chose_b": f"Resolved by rule '{row.rule.value}': position B selected.",
-        "escalated": "Escalated for human decision at approval.",
-        "agreed": "The positions agree.",
-    }.get(row.resolution.value, f"{row.resolution.value}.")
+    resolution = _resolution_sentence(row)
 
     detail = row.detail or {}
     challenge = detail.get("challenge")

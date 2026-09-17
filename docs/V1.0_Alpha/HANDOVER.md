@@ -217,6 +217,22 @@ factor takes its year as a parameter rather than an input. Either would have flo
 on every run. Both are fixed by keying on the question a calculation answers — its identity in
 `aer.calc.engine` minus its output.
 
+**3.3's appendix half is done too** (17 September, £0), under ADR 0115, which is now
+**Accepted in part**. The settle path refills the disagreements section before it re-seals,
+so the report says what was settled and why instead of printing *"Escalated for human
+decision at approval"* over every challenge whatever became of it — the defect all three
+AstraZeneca judges marked the document down for. The rule is spoken rather than named, the
+winner is its label rather than "position A", and the summary counts the three kinds of
+conflict separately instead of calling a red-team challenge a disagreement between sources.
+
+**3.3's re-check half is withdrawn as ADR 0115 specified it, and re-specified there.**
+Measuring it against the run it was argued from refuted its premise: all **33 of 33** numerals
+in AZN #2's three false challenges are real recorded values. They quote FY2025 *and* FY2021 of
+one figure side by side — interest cover 8.11 beside 0.812 — and call the pair a
+contradiction, which is the comparison `services/consistency.py` forbids the platform's own
+document. Phase 3.1's period-labelled index already closed that at source. The rule worth
+building is named in the ADR and waits to be measured first, as ADR 0125's was.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

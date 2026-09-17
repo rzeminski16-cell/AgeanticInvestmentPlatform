@@ -300,7 +300,7 @@ This is the first research run for MICROSOFT CORP (MSFT). No prior approved repo
 
 ### Summary
 
-The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
+The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. Nothing this run recorded disagreed with anything else it recorded.
 
 ### Validation Metrics
 

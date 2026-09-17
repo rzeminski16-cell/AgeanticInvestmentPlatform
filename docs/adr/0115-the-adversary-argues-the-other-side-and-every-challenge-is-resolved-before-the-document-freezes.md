@@ -1,6 +1,10 @@
 # ADR 0115 — The adversary argues the other side, and every challenge is resolved before the document freezes
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** **Accepted in part — 17 September 2026 (Phase 3.3).** Decision 4 has landed: the
+appendix is assembled after the settle and says what happened. Decisions 1, 2 and 5 wait on
+ADR 0117, because there is nothing to argue against until the report states a view. **Decision
+3 does not stand as written** and is corrected below, against a measurement of the run it was
+argued from. This record becomes Accepted outright when the remaining decisions land.
 **Date.** 2026-09-14
 **Amends.** ADR 0095 (an escalated challenge is briefed, never decided). The brief, its
 advisory status and its exclusion from every rendered report are untouched; what changes is
@@ -65,13 +69,54 @@ are two arguments, but £180 and £12 are two numbers.
 
 ### 3. A challenge that the record refutes is dropped before drafting, by code
 
-Before any challenge reaches the writer, every figure it names is checked against the
-calculation record and the fact store — the same readings `cited_figure_agreement` uses. A
-challenge asserting a value the record contradicts is **dropped, with its reason recorded**,
-and never drafted.
+*As first written:* before any challenge reaches the writer, every figure it names is checked
+against the calculation record and the fact store — the same readings `cited_figure_agreement`
+uses. A challenge asserting a value the record contradicts is **dropped, with its reason
+recorded**, and never drafted. *"This is the direct fix for the eight false AstraZeneca
+challenges."*
 
-This is the direct fix for the eight false AstraZeneca challenges, and it is deterministic
-rather than a better prompt, because a better prompt is a hope and this is a test.
+**Corrected, 17 September 2026, and the correction is a measurement.** Every numeral in the
+AstraZeneca challenges was run through `reads_as` against that run's own eight hundred
+recorded calculations. **Thirty-three of thirty-three are real recorded values.** The record
+refuted nothing, so this rule would have dropped none of the eight, and the sentence claiming
+otherwise was written from the ADR's own description of the failure rather than from the
+rows.
+
+What the challenges actually did is visible once the figures are resolved:
+
+| Challenge | Quotes | Which is | Beside | Which is |
+|---|---|---|---|---|
+| profitability | 81.9 | gross margin, FY2025 | 0.668 | gross margin, FY2021 |
+| balance sheet | 8.11 | interest cover, FY2025 | 0.812 | interest cover, FY2021 |
+| valuation | 15.6 | return on invested capital, FY2025 | 0.0823 | return on invested capital, FY2022 |
+
+**Two periods of one figure, called a contradiction.** That is precisely the comparison
+`aer.services.consistency` has forbidden the platform's own document since gap C6, and which
+ADR 0125 has now extended to calculations: same name, *different* period, not a disagreement.
+The adversary was doing by hand what the platform forbids in code, because the evidence pack
+handed it one name carrying several periods and no labels.
+
+**That cause is already closed, structurally, and not by this rule.** Phase 3.1 made the
+evidence index one row per name at its newest period with the period stated
+(`aer.services.calculations.indexed_calculations`), and `_unresolvable_evidence` already
+refuses a challenge citing any id outside that index. The adversary can no longer be handed
+the FY2021 row, so it can no longer quote it.
+
+**So the drop rule is withdrawn as specified**, for a second reason beyond being aimed at the
+wrong target: it is not safely implementable. A legitimate challenge may quote only the
+*draft's* figures — "the draft claims 81.9% and no recorded calculation supports it" — and a
+rule dropping any challenge whose numerals miss its cited evidence would delete that argument.
+Deleting a true objection is a worse failure than publishing a false one, because nobody ever
+sees what was deleted.
+
+**What replaces it, when it is built**, is the rule the measurement points at: a challenge
+that quotes two values of *one* calculation name at *two* periods and asserts the record
+contradicts the draft is comparing periods, not finding an error. That is deterministic, it is
+the platform's own existing rule turned on the adversary, and it would have refused all three
+challenges above. It is specified here and deliberately **not built in this change**, because
+ADR 0125's lesson is that a prose rule is measured against real prose before it is allowed to
+delete anything — and the corpus to measure it against is the same seven records this
+correction came from.
 
 ### 4. Every challenge is resolved before the document is frozen
 
@@ -128,6 +173,17 @@ would restore exactly the behaviour this removes.
 **The disagreements renderer and the appendix assembly move** from `validate` to after the
 settle. The final gate's payload hash is computed over the settled state, which is the state
 the operator is approving — today it is computed over a state that is about to change.
+
+**Landed 17 September 2026, and it needed no new machinery.** The settle route already
+refused a settle after a decision and already re-sealed the gate afterwards (ADR 0123); what
+it did not do was refill the section in between, so the seal moved to cover an appendix that
+still said the conflict was open. One call, in that gap, in that order. The sentences
+changed with it: a settled conflict names the side that stands and prints the operator's own
+reason without the address recorded beside it, a rule-settled one speaks its rung instead of
+printing `later_filing_wins` and *"position A selected"*, and one nobody has settled says it
+is open rather than that it is escalated. The summary above them counted everything as a
+"disagreement between sources", which was wrong about a red-team challenge and wrong about a
+self-contradiction; it now counts the three kinds separately and says how many are open.
 
 **The acceptance test is a seeded false challenge**: a figure the calculation record refutes,
 injected, and asserted to be dropped before drafting. Plus the judges' own read — three

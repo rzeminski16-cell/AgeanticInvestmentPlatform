@@ -639,7 +639,7 @@ class TestTheDeterministicSections:
         """
         await _to_second_gate(scene)
         before = await _section(scene, "validation_disagreements")
-        assert "No disagreements" in before.content["summary"]
+        assert "Nothing this run recorded disagreed" in before.content["summary"]
 
         scene["session"].add(
             Disagreement(
@@ -667,7 +667,10 @@ class TestTheDeterministicSections:
 
         assert "validation_disagreements" in refilled
         after = await _section(scene, "validation_disagreements")
-        assert "1 disagreement(s)" in after.content["summary"]
+        assert "1 challenge(s) from the red team" in after.content["summary"]
+        # And it says the challenge is unsettled, which is what a reader needs to know
+        # about an accusation the document is publishing against itself (ADR 0115).
+        assert "1 of them are open at approval" in after.content["summary"]
         assert after.content["disagreements"], "the recorded challenge never reached the section"
 
     def test_the_red_team_step_refills_after_recording_and_the_revise_step_seals(self) -> None:
@@ -694,8 +697,8 @@ class TestTheDeterministicSections:
         row = Disagreement(
             topic="Revenue FY2021",
             kind=DisagreementKind.SOURCE_CONFLICT,
-            position_a={},
-            position_b={},
+            position_a={"label": "the 2024 annual report"},
+            position_b={"label": "a trade press summary"},
             resolution=ResolutionOutcome.CHOSE_A,
             rule=ResolutionRule.LOWER_TIER_WINS,
             resolved_by=ResolvedBy.RULE,
@@ -706,12 +709,43 @@ class TestTheDeterministicSections:
         assert blocks[0]["text"] == "Tier 1 beats tier 3."
         assert blocks[-1] == {
             "lead_in": "Resolution",
-            "text": "Resolved by rule 'lower_tier_wins': position A selected.",
+            "text": (
+                "Settled by rule \N{EM DASH} the more authoritative source was preferred "
+                "\N{EM DASH} in favour of the 2024 annual report."
+            ),
         }
 
-    def test_an_escalated_disagreement_is_described_in_terms_that_cannot_go_stale(self) -> None:
-        """ "Escalated for human decision at approval" states what the run did — still true
-        after the human decides, unlike any wording that claimed it was undecided."""
+    def test_a_rule_is_spoken_and_a_winner_is_named(self) -> None:
+        """The published document said "Resolved by rule 'lower_tier_wins': position A
+        selected" — an enum value and a column letter, in the section whose whole job is to
+        make the rest of the report trustworthy. "Position A" is a fact about this row's
+        storage; the label is a fact about the evidence."""
+        row = Disagreement(
+            topic="Revenue FY2021",
+            kind=DisagreementKind.SOURCE_CONFLICT,
+            position_a={"label": "the 2024 annual report"},
+            position_b={"label": "a trade press summary"},
+            resolution=ResolutionOutcome.CHOSE_B,
+            rule=ResolutionRule.LATER_FILING_WINS,
+            resolved_by=ResolvedBy.RULE,
+            resolution_rationale="The later filing is the same publisher's own correction.",
+        )
+        text = deterministic_sections._disagreement_blocks(row)[-1]["text"]
+        assert "later_filing_wins" not in text
+        assert "position B" not in text
+        assert text == (
+            "Settled by rule \N{EM DASH} the same publisher's later filing was preferred "
+            "\N{EM DASH} in favour of a trade press summary."
+        )
+
+    def test_an_open_disagreement_says_it_is_open(self) -> None:
+        """ADR 0115. The old wording — "Escalated for human decision at approval" — was
+        chosen because the appendix was assembled at `validate` and never rewritten, so it
+        had to be a sentence that stayed true after the operator decided. All three
+        AstraZeneca judges marked the document down for exactly that: a reader could not
+        tell an accepted challenge from a rejected one from an open one. The settle path
+        now refills this section, so the sentence can say what happened — and for one
+        nobody has settled, what happened is nothing."""
         row = Disagreement(
             topic="Operating margin basis",
             kind=DisagreementKind.SOURCE_CONFLICT,
@@ -719,11 +753,40 @@ class TestTheDeterministicSections:
             position_b={},
             resolution=ResolutionOutcome.ESCALATED,
             rule=ResolutionRule.SAME_TIER_SAME_DATE,
-            resolved_by=ResolvedBy.HUMAN,
+            resolved_by=ResolvedBy.RULE,
             resolution_rationale="Same tier, same date, different value.",
         )
-        blocks = deterministic_sections._disagreement_blocks(row)
-        assert blocks[-1]["text"] == "Escalated for human decision at approval."
+        text = deterministic_sections._disagreement_blocks(row)[-1]["text"]
+        assert "escalated" not in text.lower()
+        assert text == (
+            "Open at approval: no rule settled this and nobody preferred either side, so "
+            "both are published here and the reader decides."
+        )
+
+    def test_a_settled_challenge_names_the_side_and_the_operators_reason(self) -> None:
+        """What the appendix could never say before. The operator's own words reach the
+        reader; the address `settle_by_hand` records beside them does not."""
+        row = Disagreement(
+            topic="Red team (valuation): the terminal growth is unsupportable",
+            kind=DisagreementKind.THESIS_CONFLICT,
+            position_a={"label": "Base thesis (the draft's recorded claims)"},
+            position_b={"label": "Red team challenge (valuation, severity 4/5)"},
+            resolution=ResolutionOutcome.CHOSE_A,
+            rule=ResolutionRule.THESIS_CONFLICT,
+            resolved_by=ResolvedBy.HUMAN,
+            resolution_rationale=(
+                "Opposing conclusions; both are published.\n\nSettled by "
+                "owner@example.invalid: The challenge reads the terminal rate as nominal "
+                "when the forecast is real."
+            ),
+            detail={"challenge": "Terminal growth is unsupportable above 1%."},
+        )
+        text = deterministic_sections._disagreement_blocks(row)[-1]["text"]
+        assert "owner@example.invalid" not in text
+        assert text == (
+            "Settled at approval in favour of Base thesis (the draft's recorded claims). "
+            "The challenge reads the terminal rate as nominal when the forecast is real."
+        )
 
     def test_a_red_team_challenge_is_laid_out_once_with_footnotes_never_uuids(self) -> None:
         """Gap R5: the statement appears once, the evidence ids become citation keys the
@@ -758,7 +821,7 @@ class TestTheDeterministicSections:
         assert blocks[0]["lead_in"] == "Red team \N{EM DASH} competitive position, severity 4/5"
         assert blocks[0]["text"] == statement
         assert blocks[1] == {"lead_in": "Basis", "text": row.detail["basis"]}
-        assert blocks[-1]["text"] == "Escalated for human decision at approval."
+        assert blocks[-1]["text"].startswith("Open at approval:")
         # The evidence rides the citation key the renderer turns into a footnote; no id
         # appears in any text a reader sees, and the blob fields are gone.
         assert blocks[0]["source_document_id"] == source_id
@@ -823,7 +886,7 @@ class TestTheDeterministicSections:
             "The trajectory is asserted, not evidenced." in rendered.markdown
         )
         assert "**Basis:** No disclosed period supports the slope." in rendered.markdown
-        assert "**Resolution:** Escalated for human decision at approval." in rendered.markdown
+        assert "**Resolution:** Open at approval:" in rendered.markdown
         assert "[^1]" in rendered.markdown
         assert "| Topic |" not in rendered.markdown, "the appendix went back to columns"
         assert source_id not in rendered.markdown
