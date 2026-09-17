@@ -210,7 +210,21 @@ async def _reset(database_url: str) -> None:
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.begin() as connection:
-            await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+            # Long enough for a loaded runner, short enough that a genuine wedge still says
+            # so rather than hanging the suite — the A17 failure mode `tests/db_cleanup.py`
+            # names, where it uses 10s for its deletes.
+            #
+            # **Five seconds was not enough on a shared runner.** CI run 476 errored nine
+            # times out of 225 here, every one of them this statement timing out in fixture
+            # setup and no test failing, while the same commit passed locally with 216. The
+            # runner's own log has checkpoints taking 135 seconds and repeated "lock not
+            # available"; the TRUNCATE was waiting, not working.
+            #
+            # The deeper fix is to stop taking an exclusive lock at all: `db_cleanup.delete_all`
+            # uses row-level deletes for exactly this reason, and this is the one reset that
+            # still truncates. That is a change to the fixture every browser test runs through,
+            # so it is named here rather than made in passing.
+            await connection.execute(text("SET LOCAL statement_timeout = '30s'"))
             # Everything a run produces, by cascade. `section_definitions` is deliberately
             # absent: those rows come from the migration and are what a report is built
             # from, so truncating them would empty every report rather than reset the test.
