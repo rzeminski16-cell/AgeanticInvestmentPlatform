@@ -878,7 +878,7 @@ authority on sequencing within this item.
 
 | | Feature | Needs |
 |---|---|---|
-| F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted in code; the replay acceptance waits on the corpus |
+| F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
 | F3 | The closing section reads the operator's own book | F12 |
 | F4 | The refresh | ADR 0116, F7 |
@@ -996,6 +996,21 @@ found rather than as scope that was always there.
    live payload (assumptions, peers, themes) have no seal to drift, so F-16's seal-drift case
    exists only at the plan and final gates, which is where Phase 1.2's re-seal control
    belongs. The measured lists are the record (`tests/journey_inventory.py`).
+4. **A stored calculation's `name` is the name of its *function*, not of its figure, 17
+   September 2026.** Found by measuring ADR 0125's cross-section check against the committed
+   records before letting it record anything. `days_outstanding` is one traced function serving
+   days sales outstanding, days inventory outstanding and days payable outstanding, so three
+   genuinely different figures share one `calculations.name` and are told apart only by their
+   inputs — on the MSFT #2 record they read 115.2, 90.6 and 3.9 days for FY2025. A discount
+   factor is the same shape in the other direction: its year is a *parameter*, not an input, so
+   ten forecast years are ten rows with one name, one absent period and identical inputs.
+   Neither is a defect in the ledger, which records exactly what it should; both are a trap for
+   anything that reads a run *by name*. The consistency check is fixed by keying on
+   `aer.calc.engine`'s own identity minus the output. **What has not been checked** is every
+   other by-name reader — the footnote resolver, the evidence index the adversary is handed,
+   the report's calculation appendix — and a reader that groups by name alone will show a
+   person three figures under one heading. A number here because it is a finding about the
+   platform rather than about the check that found it.
 
 ### Before this leaves one machine
 

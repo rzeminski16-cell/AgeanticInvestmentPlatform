@@ -319,13 +319,20 @@ def _credible_source_conflict(conflicts: tuple[ConflictScene, ...]) -> FiredTrig
     from the tier limit and the 2% threshold — so this reads the recorded verdict rather
     than re-deriving it. A conflict a person has already settled does not re-raise the
     banner: the point of the trigger is that somebody looks, and somebody did.
+
+    **Two kinds are excluded, for one reason.** §2.4's row is about *sources*, and neither
+    the red team arguing with the draft nor the document arguing with itself (ADR 0125) is
+    two sources: in both, the sentence this trigger raises — "credible sources disagree
+    materially about a figure" — is false of what was found. Both reach the operator as
+    ``disagreements`` rows on the review page and in the report's own appendix, which is
+    where a reader can weigh them; see the note on ``TriggerKind.THESIS_DISAGREEMENT``,
+    removed for appending a ninth row to an eight-row table.
     """
+    silent = (DisagreementKind.THESIS_CONFLICT, DisagreementKind.SELF_CONTRADICTION)
     evidence = [
         row.topic
         for row in conflicts
-        if row.kind is not DisagreementKind.THESIS_CONFLICT
-        and row.material
-        and not row.settled_by_human
+        if row.kind not in silent and row.material and not row.settled_by_human
     ]
     if not evidence:
         return None

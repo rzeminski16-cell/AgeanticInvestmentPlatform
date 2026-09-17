@@ -258,7 +258,9 @@ ones — read the ADR before touching its territory:
   server-rendered HTML, progressively enhanced with htmx), 0077 (JavaScript may own chrome
   and never a figure — and what a provenance badge is), 0056 (house style is configuration
   applied at render), 0013 (report sections are data, not code), 0023 (the disagreement
-  ladder decides, or says it cannot), 0024 (the evidence chain is a surface, not a schema),
+  ladder decides, or says it cannot), 0125 (the document is checked against itself, and a
+  contradiction is not a source conflict — so the ladder is not run for one),
+  0024 (the evidence chain is a surface, not a schema),
   0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
   not a figure), 0096 (a malformed claim costs the claim, not the section), 0097 (a numeral

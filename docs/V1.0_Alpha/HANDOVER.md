@@ -195,6 +195,28 @@ total-revenue caption were left to stand, and in all three that caption equals t
 the dollar. ADR 0114 carries the reading; the record is in
 [`../plan/readiness-audit-2026-09/mtb-rerun/`](../plan/readiness-audit-2026-09/mtb-rerun/).
 
+Phase 3 is under way. **3.1 is done** (17 September, £0): the red team's calculation index
+moved to `services/calculations.py` and both callers read it, so the adversary and the
+sections can no longer disagree about what the run computed. **3.2 is done the same day**,
+under **ADR 0125**: `services/consistency.py` now makes three passes rather than one —
+published facts down the ladder as before, published calculations, and a scan for a sentence
+denying a figure the document prints. A contradiction is its own kind of disagreement,
+because both sides are the run's own output and there is no tier to prefer; the ladder is not
+run and the rationale says so instead of describing a tier contest that never happened. **It
+reports and refuses nothing.** The promotion to blocking is a separate decision the ADR
+specifies and does not take: through the final gate's own evidence rule, never through
+`eval/metrics.py`, after two consecutive clean live runs.
+
+It was measured offline first, over the committed records, and the readout is in
+[`../plan/readiness-audit-2026-09/cross-section-check-dry-run.md`](../plan/readiness-audit-2026-09/cross-section-check-dry-run.md):
+**one contradiction across seven runs, and it is real** — AZN #2 denies an interest cover it
+computes, footnotes and quotes at 8.11× in three other sections. That measurement found two
+defects in the check before it could ship: `Calculation.name` is the *function's* name, so
+`days_outstanding` serves days sales, days inventory and days payable at once; and a discount
+factor takes its year as a parameter rather than an input. Either would have flooded gate 2
+on every run. Both are fixed by keying on the question a calculation answers — its identity in
+`aer.calc.engine` minus its output.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

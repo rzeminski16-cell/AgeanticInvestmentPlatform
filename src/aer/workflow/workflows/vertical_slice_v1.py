@@ -1745,11 +1745,12 @@ async def _validate(context: StepContext) -> StepResult:
     )
     rows = await evaluate_run(agent_context, job=context.job, request=request)
 
-    # Same concept, same period, two published values: caught here by arithmetic, as a
-    # disagreements row the gate-2 banner shows — not left for the red team to notice
-    # with a model call, which is how the live report's self-contradiction was found
-    # (gap C6). Before the deterministic fill, so the disagreements the check records
-    # are part of what the payload the operator approves already carries.
+    # Same figure, same period, two published values — and, under ADR 0125, a sentence
+    # denying a figure this document prints. Caught here by arithmetic and by string
+    # comparison, as disagreements rows the review page shows, rather than left for the red
+    # team to notice with a model call, which is how the live report's self-contradiction
+    # was found (gap C6). Before the deterministic fill, so what the check records is part
+    # of the payload the operator approves. It reports; it refuses nothing.
     conflicts = await check_report_consistency(context.session, job_id=context.job.id)
 
     # After the metric rows, before the red team: the validation record becomes a report
@@ -1763,7 +1764,11 @@ async def _validate(context: StepContext) -> StepResult:
     return StepResult(
         output={
             "deterministic_sections": deterministic,
-            "consistency_conflicts": conflicts,
+            # The total keeps its name and its meaning, so a run recorded before ADR 0125
+            # is still comparable with one recorded after; the breakdown beside it is what
+            # says which of the three passes found what.
+            "consistency_conflicts": conflicts.total,
+            "consistency": conflicts.as_dict(),
             "metrics": {
                 row.metric: {
                     "value": str(row.value) if row.value is not None else None,

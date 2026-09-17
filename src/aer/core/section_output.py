@@ -54,6 +54,7 @@ __all__ = [
     "editorial_notes_in",
     "gap_sentences",
     "numerals_in",
+    "prose_sentences",
     "prose_word_count",
     "reader_warning",
     "reporting_calendar_entries",
@@ -916,20 +917,20 @@ def reporting_calendar_entries(content: dict[str, Any]) -> list[str]:
     return found
 
 
-def gap_sentences(content: dict[str, Any]) -> list[str]:
-    """Every sentence in the content's prose whose subject is missing evidence.
+def prose_sentences(content: dict[str, Any]) -> list[str]:
+    """Every sentence in the content's prose, in document order.
 
-    Deterministic and phrase-based, like the numeral rule beside it. A sentence matching
-    none of the phrases is about the company however hedged its verbs; matching one, it
-    is about the disclosure — which the reader needs once, not per paragraph.
+    The walk :func:`gap_sentences` used to own, separated from its filter because a second
+    rule now reads the same sentences and asks a different question of them: ADR 0125's
+    denial scan looks for a sentence saying one named figure is not here, where this
+    module's own predicate looks for a sentence *about* the disclosure. Two questions, one
+    splitter — a second splitter would disagree with this one about where "U.S." ends.
     """
     found: list[str] = []
 
     def walk(value: Any) -> None:
         if isinstance(value, str):
-            for sentence in _SENTENCES.split(value):
-                if _is_gap_sentence(sentence):
-                    found.append(sentence.strip())
+            found.extend(sentence.strip() for sentence in _SENTENCES.split(value))
         elif isinstance(value, dict):
             for item in value.values():
                 walk(item)
@@ -938,7 +939,17 @@ def gap_sentences(content: dict[str, Any]) -> list[str]:
                 walk(item)
 
     walk(content)
-    return found
+    return [sentence for sentence in found if sentence]
+
+
+def gap_sentences(content: dict[str, Any]) -> list[str]:
+    """Every sentence in the content's prose whose subject is missing evidence.
+
+    Deterministic and phrase-based, like the numeral rule beside it. A sentence matching
+    none of the phrases is about the company however hedged its verbs; matching one, it
+    is about the disclosure — which the reader needs once, not per paragraph.
+    """
+    return [sentence for sentence in prose_sentences(content) if _is_gap_sentence(sentence)]
 
 
 def without_unsourced_numeral_sentences(

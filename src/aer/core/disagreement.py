@@ -52,6 +52,15 @@ which filing's figure stands for a period; this decides between figures from dif
 sources that already stand. Feeding it a restatement is possible — hence rung 4 — but that
 is a safety net, not the intended input.
 
+**The ladder decides between sources, and two of this run's own outputs are not two
+sources.** A red team challenging the draft, two published values for one calculated figure,
+and a sentence denying a figure the document prints are all comparisons in which no
+publisher differs from another, so none of them descends the rungs: each has its own
+constructor here — :func:`thesis_conflict`, :func:`figure_contradiction`,
+:func:`denied_figure` — which escalates by construction and states its own real reason. A
+rung's rationale is the only part of a stored disagreement a reader of the report meets, and
+it may not describe a tier contest that never happened. See ADR 0125.
+
 It is **not** a judgement about whether a figure matters. See :attr:`Resolution.material`.
 
 Pure and side-effect free: no I/O, no clock, no database. The service layer in
@@ -83,6 +92,8 @@ __all__ = [
     "UnresolvableDisagreementError",
     "canonical_unit",
     "challenge_heading",
+    "denied_figure",
+    "figure_contradiction",
     "position_figure",
     "relative_difference",
     "resolve",
@@ -102,6 +113,14 @@ class DisagreementKind(StrEnum):
 
     THESIS_CONFLICT = "thesis_conflict"
     """The red team's conclusion against the base thesis. Never auto-resolved."""
+
+    SELF_CONTRADICTION = "self_contradiction"
+    """The assembled document disagrees with itself (ADR 0125).
+
+    Two published values for one figure at one period, or a sentence denying a figure the
+    document prints. Distinct from every kind above because **both sides are this run's own
+    output**: there is no second source, so there is nothing to prefer one by, and the
+    remedy is a redraft rather than a choice."""
 
 
 class ResolvedBy(StrEnum):
@@ -154,6 +173,7 @@ class ResolutionRule(StrEnum):
     LATER_FILING_WINS = "later_filing_wins"
     SAME_TIER_SAME_DATE = "same_tier_same_date"
     THESIS_CONFLICT = "thesis_conflict"
+    DOCUMENT_CONTRADICTS_ITSELF = "document_contradicts_itself"
 
 
 class UnresolvableDisagreementError(AerError):
@@ -216,8 +236,17 @@ def position_figure(position: Mapping[str, Any]) -> str:
     """
     unit = str(position.get("unit", ""))
     tier = str(position.get("tier", ""))
+    computed = bool(position.get("computed"))
     if unit == THESIS_UNIT:
-        return f"tier {tier}"
+        # The run's own draft denying a figure has neither a quantity nor a publisher, so
+        # there is nothing here but the absence itself (ADR 0125). The red team's side of a
+        # thesis conflict does have a publisher behind its evidence, and keeps its tier.
+        return "no figure" if computed else f"tier {tier}"
+    if computed:
+        # A calculation has no publisher, so there is no tier to print (ADR 0125). Printing
+        # one would attribute this platform's own arithmetic to a regulator, on the page
+        # where the operator decides whether to publish it.
+        return f"{position.get('value', '')} {unit} (this run's own arithmetic)".strip()
     return f"{position.get('value', '')} {unit} ({tier})".strip()
 
 
@@ -267,6 +296,14 @@ class Position:
     # reviewer what each document actually said.
     scale: int = 0
 
+    # This platform's own arithmetic rather than something a publisher said (ADR 0125). The
+    # ladder never reads it — a calculation conflict does not reach the ladder — but the
+    # *page* does: see `position_figure`, which must not print a tier beside a figure no
+    # source ever published. `tier` and `filed_date` stay required because the type is
+    # shared, and a computed position fills them with the run's own scene; nothing reads
+    # them once this is set.
+    computed: bool = False
+
     def as_record(self) -> dict[str, object]:
         """The form stored in ``disagreements.position_a`` / ``position_b``.
 
@@ -282,6 +319,7 @@ class Position:
             "filed_date": self.filed_date.isoformat(),
             "basis": self.basis.value,
             "scale": self.scale,
+            "computed": self.computed,
         }
 
 
@@ -553,6 +591,103 @@ def thesis_conflict(
     )
 
 
+def figure_contradiction(*, first: Position, second: Position, topic: str) -> Resolution:
+    """One figure, one period, two values the same document published (ADR 0125).
+
+    **The ladder is deliberately not run.** It decides between two *sources* by tier, basis
+    and filing date, and neither side here is a source: both are this run's own output,
+    struck by the same code from the same evidence on the same day. Rung 6 would escalate,
+    which is the right outcome reached by an argument that is false at every step, and the
+    rationale it wrote would tell a reader that two numbers no regulator ever saw were
+    filed by one. A rationale is the only part of this row a reader of the report meets.
+
+    Agreement within :data:`AGREEMENT_TOLERANCE` records nothing, exactly as rung 1 does,
+    so a caller can run this over every group without doing the arithmetic itself.
+
+    The two are put into the same canonical order :func:`resolve` uses, so the same pair
+    compared twice names the same side A.
+    """
+    position_a, position_b = _canonical_order(first, second)
+    comparable = canonical_unit(position_a.unit) == canonical_unit(position_b.unit)
+
+    if not comparable:
+        return Resolution(
+            outcome=ResolutionOutcome.ESCALATED,
+            rule=ResolutionRule.DOCUMENT_CONTRADICTS_ITSELF,
+            rationale=(
+                f"This report publishes {topic} twice, in {position_a.unit} and in "
+                f"{position_b.unit}. One figure measured two ways is a defect in the run "
+                "rather than a difference of opinion, and nothing here converts between "
+                "them."
+            ),
+            position_a=position_a,
+            position_b=position_b,
+            relative_difference=None,
+            material=True,
+        )
+
+    difference = relative_difference(position_a.value, position_b.value)
+    if difference <= AGREEMENT_TOLERANCE:
+        return _resolution(
+            ResolutionOutcome.AGREED,
+            ResolutionRule.VALUES_AGREE,
+            (
+                f"Every published figure for {topic} agrees on {position_a.value} "
+                f"{position_a.unit} to within {AGREEMENT_TOLERANCE:.2%}."
+            ),
+            position_a,
+            position_b,
+            difference=difference,
+            material=False,
+        )
+
+    return _resolution(
+        ResolutionOutcome.ESCALATED,
+        ResolutionRule.DOCUMENT_CONTRADICTS_ITSELF,
+        (
+            f"This report publishes {topic} as {position_a.value} in "
+            f"{position_a.label} and as {position_b.value} in {position_b.label}. Both "
+            "are this run's own arithmetic, so there is no more authoritative source to "
+            "prefer and no later filing to take: one of the two is wrong, and a reader "
+            "cannot tell which."
+        ),
+        position_a,
+        position_b,
+        difference=difference,
+        material=True,
+    )
+
+
+def denied_figure(
+    *, denial: Position, published: Position, topic: str, sentence: str
+) -> Resolution:
+    """A sentence saying a figure is unavailable, in a document that prints it (ADR 0125).
+
+    The commonest self-contradiction the readiness audit found, and the one every judge
+    named: an executive summary denying a discounted cash flow thirty lines above the
+    valuation table, a risks section calling operating cash flow unavailable while six
+    sections cite it.
+
+    Asymmetric by construction, as :func:`thesis_conflict` is: the denial is always A and
+    the figure it denies is always B. There is no numeric distance between a sentence and a
+    number, so there is no relative difference to report — a zero would read as agreement.
+    """
+    return Resolution(
+        outcome=ResolutionOutcome.ESCALATED,
+        rule=ResolutionRule.DOCUMENT_CONTRADICTS_ITSELF,
+        rationale=(
+            f'{denial.label} states: "{sentence.strip()}" — while this report publishes '
+            f"{topic} as {published.value} {published.unit} in {published.label}. A "
+            "document that denies a figure it prints tells its reader not to believe "
+            "either place."
+        ),
+        position_a=denial,
+        position_b=published,
+        relative_difference=None,
+        material=True,
+    )
+
+
 def _canonical_order(first: Position, second: Position) -> tuple[Position, Position]:
     """Order two positions so the comparison is a function of the pair, not the call.
 
@@ -572,7 +707,7 @@ def _canonical_order(first: Position, second: Position) -> tuple[Position, Posit
     return (first, second) if key(first) <= key(second) else (second, first)
 
 
-def _ordering_key(position: Position) -> tuple[int, date, str, str, str, str, int, str]:
+def _ordering_key(position: Position) -> tuple[int, date, str, str, str, str, int, str, bool]:
     return (
         position.tier.rank,
         position.filed_date,
@@ -582,6 +717,7 @@ def _ordering_key(position: Position) -> tuple[int, date, str, str, str, str, in
         position.basis.value,
         position.scale,
         position.label,
+        position.computed,
     )
 
 

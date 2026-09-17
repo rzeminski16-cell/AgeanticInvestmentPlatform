@@ -144,14 +144,15 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
 
 ## Reference
 
-- [`adr/`](adr/) — 124 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 125 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 were drafted Proposed** —
   the ten V1.0 features that change a recorded decision or an invariant, argued before the
-  code lands rather than after; 0116 (report supersession), 0123 (Phase 1.2's approvals
-  model) and 0124 (a standing operator assumption, Phase 1.6) are Accepted, each with its
-  code, on 16 September 2026; 0113 (a run reads the filings as they stand) is Accepted in
-  code on 17 September, with its replay acceptance waiting on the re-seeded corpus.
+  code lands rather than after. Accepted since, each with its code: 0116 (report supersession),
+  0123 (Phase 1.2's approvals model) and 0124 (a standing operator assumption, Phase 1.6) on
+  16 September 2026; 0113 (a run reads the filings as they stand) and 0114 (a bank's revenue is
+  derived) on 17 September, 0113 outright once the re-seeded corpus replayed; and 0125 (the
+  document is checked against itself, Phase 3.2) the same day.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.

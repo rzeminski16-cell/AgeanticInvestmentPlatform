@@ -277,7 +277,7 @@
       {{ ui.callout(
         "warning",
         (escalations | length) ~ (" unresolved disagreement" if escalations | length == 1 else " unresolved disagreements"),
-        "Two sources conflict and no rule decides between them. Both positions are kept and both appear in the report's disagreement appendix whatever you do here — settling one records which you preferred and why, beside the rule that escalated it. The red team's challenges are not counted here; they have their own section.",
+        "Something this run found cannot be settled by rule: two sources conflicting, or the draft contradicting itself — printing one figure twice with different values, or denying a figure it prints. Both positions are kept and both appear in the report's disagreement appendix whatever you do here; settling one records which you preferred and why, beside the rule that escalated it. The red team's challenges are not counted here; they have their own section.",
       ) }}
       <ul class="mt-4 flex flex-col divide-y divide-line">
         {% for escalation in escalations %}
