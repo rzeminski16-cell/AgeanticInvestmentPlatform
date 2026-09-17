@@ -1,0 +1,292 @@
+[
+  {
+    "step": "plan",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.1623",
+    "started_at": "2026-09-17T10:27:40.640241+00:00",
+    "finished_at": "2026-09-17T10:29:22.744341+00:00",
+    "error": null
+  },
+  {
+    "step": "critique_plan",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.2940",
+    "started_at": "2026-09-17T10:29:22.749832+00:00",
+    "finished_at": "2026-09-17T10:31:47.235274+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_plan",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:31:53.621775+00:00",
+    "finished_at": "2026-09-17T10:31:53.625694+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:31:53.630688+00:00",
+    "finished_at": "2026-09-17T10:32:00.426223+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire_macro",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:00.431967+00:00",
+    "finished_at": "2026-09-17T10:32:02.320286+00:00",
+    "error": null
+  },
+  {
+    "step": "classify",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:02.324925+00:00",
+    "finished_at": "2026-09-17T10:32:02.329598+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_sector_specialist",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:02.333756+00:00",
+    "finished_at": "2026-09-17T10:32:02.335353+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_peers",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.0153",
+    "started_at": "2026-09-17T10:32:02.340005+00:00",
+    "finished_at": "2026-09-17T10:32:11.872692+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_peer_set",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:15.908530+00:00",
+    "finished_at": "2026-09-17T10:32:15.913780+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_themes",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.0139",
+    "started_at": "2026-09-17T10:32:15.917970+00:00",
+    "finished_at": "2026-09-17T10:32:24.556103+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_theme_set",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:28.935431+00:00",
+    "finished_at": "2026-09-17T10:32:28.940982+00:00",
+    "error": null
+  },
+  {
+    "step": "extract",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:32:28.945330+00:00",
+    "finished_at": "2026-09-17T10:33:02.472383+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_unmapped_concepts",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:33:06.531230+00:00",
+    "finished_at": "2026-09-17T10:33:06.534667+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire_prices",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:33:06.759083+00:00",
+    "finished_at": "2026-09-17T10:33:09.328824+00:00",
+    "error": null
+  },
+  {
+    "step": "calculate",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:33:06.730562+00:00",
+    "finished_at": "2026-09-17T10:33:07.237233+00:00",
+    "error": null
+  },
+  {
+    "step": "research_company",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.3029",
+    "started_at": "2026-09-17T10:33:06.768801+00:00",
+    "finished_at": "2026-09-17T10:34:07.656602+00:00",
+    "error": null
+  },
+  {
+    "step": "research_industry",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.4235",
+    "started_at": "2026-09-17T10:33:06.773662+00:00",
+    "finished_at": "2026-09-17T10:34:13.061787+00:00",
+    "error": null
+  },
+  {
+    "step": "research_macro",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.2658",
+    "started_at": "2026-09-17T10:33:06.779703+00:00",
+    "finished_at": "2026-09-17T10:34:03.205426+00:00",
+    "error": null
+  },
+  {
+    "step": "research_recent_developments",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.1849",
+    "started_at": "2026-09-17T10:33:06.794514+00:00",
+    "finished_at": "2026-09-17T10:34:08.634842+00:00",
+    "error": null
+  },
+  {
+    "step": "research_technical_context",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.2004",
+    "started_at": "2026-09-17T10:33:06.809409+00:00",
+    "finished_at": "2026-09-17T10:33:57.210647+00:00",
+    "error": null
+  },
+  {
+    "step": "comps",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:34:13.077851+00:00",
+    "finished_at": "2026-09-17T10:34:13.534690+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_assumptions",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.0505",
+    "started_at": "2026-09-17T10:34:13.085483+00:00",
+    "finished_at": "2026-09-17T10:34:33.441448+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_assumptions",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:34:39.750658+00:00",
+    "finished_at": "2026-09-17T10:34:39.765053+00:00",
+    "error": null
+  },
+  {
+    "step": "value",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:34:39.777154+00:00",
+    "finished_at": "2026-09-17T10:34:40.311684+00:00",
+    "error": null
+  },
+  {
+    "step": "draft",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "3.0241",
+    "started_at": "2026-09-17T10:34:40.324082+00:00",
+    "finished_at": "2026-09-17T10:42:13.823895+00:00",
+    "error": null
+  },
+  {
+    "step": "validate",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:42:13.834808+00:00",
+    "finished_at": "2026-09-17T10:42:18.664319+00:00",
+    "error": null
+  },
+  {
+    "step": "red_team",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.7094",
+    "started_at": "2026-09-17T10:42:18.674114+00:00",
+    "finished_at": "2026-09-17T10:47:52.076408+00:00",
+    "error": null
+  },
+  {
+    "step": "revise",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "1.3291",
+    "started_at": "2026-09-17T10:47:52.087400+00:00",
+    "finished_at": "2026-09-17T10:58:46.587690+00:00",
+    "error": null
+  },
+  {
+    "step": "verdict",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.0024",
+    "started_at": "2026-09-17T10:58:46.599702+00:00",
+    "finished_at": "2026-09-17T10:58:48.943631+00:00",
+    "error": null
+  },
+  {
+    "step": "brief_challenges",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0.0237",
+    "started_at": "2026-09-17T10:58:48.954132+00:00",
+    "finished_at": "2026-09-17T10:59:42.552706+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_final",
+    "attempt": 0,
+    "status": "AWAITING_APPROVAL",
+    "cost_gbp": "0",
+    "started_at": "2026-09-17T10:59:42.563241+00:00",
+    "finished_at": "2026-09-17T10:59:46.701155+00:00",
+    "error": {
+      "code": "step_paused",
+      "context": {
+        "gate": "FINAL",
+        "job_id": "14c8d2bf-cafc-43b2-8497-c5ef613b196b",
+        "reason": "final_triggers_fired",
+        "triggers": [
+          "validation_failure"
+        ]
+      },
+      "message": "This run is waiting for the final gate, and 1 escalation trigger raised the banner: validation_failure. Nothing further happens, and nothing further is spent, until somebody approves or rejects it with the banner in view."
+    }
+  }
+]

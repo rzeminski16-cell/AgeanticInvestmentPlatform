@@ -1,0 +1,58 @@
+{
+  "payload": {
+    "subject": "5e7481b0-1e1d-44f4-aac3-34f7535f0b1c",
+    "subject_period_end": "2026-09-17",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000091576",
+        "name": "KEYCORP /NEW/",
+        "rationale": "Super-regional bank with similar commercial and consumer banking mix and comparable asset size to MTB, both Northeast/Midwest footprint lenders.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000759944",
+        "name": "CITIZENS FINANCIAL GROUP INC/RI",
+        "rationale": "Northeast-based super-regional bank with overlapping commercial banking and retail branch footprint comparable to MTB's Mid-Atlantic/Northeast presence.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000035527",
+        "name": "FIFTH THIRD BANCORP",
+        "rationale": "Similarly sized regional bank with diversified commercial and consumer lending, useful for multiple comparison though footprint skews more Midwest.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000049196",
+        "name": "HUNTINGTON BANCSHARES INC /MD/",
+        "rationale": "Comparable-scale regional bank with strong commercial banking focus and overlapping Midwest/Northeast markets relevant to MTB's lending mix.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001281761",
+        "name": "REGIONS FINANCIAL CORP",
+        "rationale": "Super-regional bank of similar size with diversified commercial and retail banking, though its Southeast focus differs from MTB's Northeast base.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000109380",
+        "name": "ZIONS BANCORPORATION, NATIONAL ASSOCIATION /UT/",
+        "rationale": "Regional commercial bank with comparable community/commercial banking economics, though smaller scale and Western footprint reduce direct overlap.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000713676",
+        "name": "PNC FINANCIAL SERVICES GROUP, INC.",
+        "rationale": "Larger super-regional bank with overlapping Mid-Atlantic footprint and similar diversified commercial/consumer banking model, useful upper-end comparable.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "5cf93709cf09dbc91aebb3179ba3960aede3ca279bbbe3550190b209f682f4a3",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca",
+    "reason": "gate_waiting"
+  }
+}

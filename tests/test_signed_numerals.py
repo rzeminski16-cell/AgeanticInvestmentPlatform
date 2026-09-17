@@ -169,6 +169,65 @@ class TestTheAgreementQuestion:
         assert result.failures == ()
 
 
+class TestASignBehindACurrencyMark:
+    """The first live AstraZeneca run, 17 September 2026, and the four sentences it lost.
+
+    The draft wrote the change in working capital correctly, four times over — "-$386.6m",
+    "negative $387 million", "negative $386.6m", "-$0.39bn" — of a stored
+    -386,552,205.83. The sign sat behind a "$", the scanner read the digits unsigned, and
+    the agreement metric reported three dropped signs that were never dropped and stopped
+    the run at its final gate.
+    """
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("The recorded change in working capital is -$386.6m.", ("-386.6",)),
+            ("It is a negative $387 million for the period.", ("-387",)),
+            ("The recorded change is negative $386.6m.", ("-386.6",)),
+            ("The forecast change in working capital is -$0.39bn.", ("-0.39",)),
+            ("A charge of -£12.4m against the year.", ("-12.4",)),
+            ("A movement of minus €9,307 on the quarter.", ("-9307",)),
+        ],
+    )
+    def test_the_money_symbol_does_not_break_the_sign(
+        self, text: str, expected: tuple[str, ...]
+    ) -> None:
+        assert numeral_tokens(text) == expected
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("Revenue of $198,270 million", ("198270",)),
+            ("a range of 2020-2026", ("2020", "2026")),
+            ("between 12%-14%", ("12", "14")),
+            ("FY22Q4", ()),
+        ],
+    )
+    def test_what_it_must_not_change(self, text: str, expected: tuple[str, ...]) -> None:
+        """A currency mark is admitted between a sign and its digits, and nothing else is:
+        an unsigned figure stays unsigned and a range's dash stays a dash."""
+        assert numeral_tokens(text) == expected
+
+    def test_the_run_that_found_this_now_agrees(self) -> None:
+        rows = [
+            CitedFigureObservation(
+                name="executive_summary/change_in_working_capital#600",
+                calculation="change_in_working_capital",
+                value=Decimal("-386552205.830311889804"),
+                unit="USD",
+                text=text,
+            )
+            for text in (
+                "The recorded change in working capital is -$386.6m.",
+                "The change carried for the period is a negative $387 million.",
+                "The recorded change in working capital is negative $386.6m.",
+            )
+        ]
+
+        assert cited_figure_agreement(rows).failures == ()
+
+
 class TestAFigureSaidInTrillions:
     """The first live QUICK run, 17 September 2026, and the reading the table lacked.
 

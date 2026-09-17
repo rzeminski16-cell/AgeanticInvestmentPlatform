@@ -1,0 +1,11 @@
+{
+  "page": "console",
+  "url": "http://127.0.0.1:8000/runs/2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca",
+  "status": 200,
+  "title": "Run \u00b7 MTB",
+  "payload_hash": null,
+  "words": 381,
+  "raw_tokens": [],
+  "uuids": 0,
+  "approve_control": 0
+}

@@ -168,9 +168,17 @@ structural-absence scan (`tests/test_point_in_time_is_gone.py`) is green over `s
 `tests/`, `audit/`, `migrations/` and the behaviour documents; migration 0076 dropped
 `work_orders.point_in_time`; the blocking set is eight; the trigger's row left the journey
 inventory, which is now 51 rows (33 green, 18 unconstructed); the ADR is Accepted in code
-and says what it still waits for. What remains of 1½ is the corpus, the day the keys
-arrive: `aer preflight`, `pytest -m live_llm`, the QUICK run, the three re-seeded runs,
-`aer backup`, and ADR 0113's replay acceptance on those runs.
+and says what it still waits for. **Phase 1½ closed the same day, 17 September**, when the
+keys arrived: preflight ready, the live wiring test passed, the QUICK run (§3), and three
+re-seeded commissions — M&T £8.40, AstraZeneca £7.00, Microsoft £7.57. ADR 0113 is
+**Accepted outright**: all four archived runs replay, 3,431 calculations and 189 citations
+reproducing, with 496 artefacts intact and the audit chain whole over 30 events. `aer
+backup` took and verified the corpus at schema 0077, 576 artefacts, 98.8 MiB.
+
+**That backup is in `var/`, which is git-ignored, and this container is ephemeral.** The
+committed run exports under `../plan/readiness-audit-2026-09/*-rerun/` survive; the
+replayable corpus does not. Copy `var/backup-2026-09-17/` off the machine, or the next
+session re-seeds it again at about £23.
 
 Phase 2's offline half is done as well (17 September): the plausibility guard's turnover
 relation had never fired, because it asked for a concept named `total_assets` where the
@@ -179,9 +187,13 @@ before ADR 0114 removes them. Then ADR 0114 itself, Accepted: a confirmed bank's
 caption is stored as `revenue_from_contracts` before selection, and revenue is derived from
 net interest income plus non-interest income as a fact with `basis = derived` carrying its
 formula, its inputs by id and the code version (migration 0077, under a check constraint
-that makes the pair inseparable). M&T's FY2025 margin reads 29.4% on the fixture, against
-the 172.1% the live run published. Phase 2's live half — one M&T run to an approved report,
-and the stored run's re-render — waits on the keys with everything else.
+that makes the pair inseparable). **Phase 2's exit was met the same day**: one live M&T
+commission, £8.40, to an approved and immutable report with all nine exercised blocking
+metrics passing and `figure_plausibility` 0 of 0. FY2025 revenue is the derived $9,690m and
+the margin reads 29.4%, against September's 172.1%. Three years where M&T tagged its own
+total-revenue caption were left to stand, and in all three that caption equals this sum to
+the dollar. ADR 0114 carries the reading; the record is in
+[`../plan/readiness-audit-2026-09/mtb-rerun/`](../plan/readiness-audit-2026-09/mtb-rerun/).
 
 ## 6. Standing constraints on any session doing this work
 

@@ -1,0 +1,32 @@
+{
+  "page": "report",
+  "url": "http://127.0.0.1:8000/reports/ad4c7e82-7614-4ffa-8adf-0ae745f78601",
+  "status": 200,
+  "title": "MTB \u00b7 Research note",
+  "payload_hash": null,
+  "words": 13800,
+  "raw_tokens": [
+    "assumption_proposals",
+    "charge_t",
+    "closing_book_value",
+    "cost_income_ratio",
+    "cost_of_equity",
+    "dcf_fcff",
+    "diluted_shares_outstanding",
+    "income_t",
+    "loan_loss_provisions",
+    "net_income_from_roe",
+    "net_interest_margin",
+    "payout_t",
+    "period_end",
+    "premium_to_book",
+    "rate_from_percent",
+    "residual_income_equity_value",
+    "residual_income_per_share_perpetual_growth",
+    "tangible_book_value_per_share",
+    "terminal_growth",
+    "value_t"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

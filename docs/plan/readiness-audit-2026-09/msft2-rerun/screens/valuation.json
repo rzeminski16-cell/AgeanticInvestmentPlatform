@@ -1,0 +1,16 @@
+{
+  "page": "valuation",
+  "url": "http://127.0.0.1:8000/runs/960a85b8-4250-4579-b93a-b66cd08058f3/valuation",
+  "status": 200,
+  "title": "Valuation \u00b7 Tracework Invest",
+  "payload_hash": null,
+  "words": 523,
+  "raw_tokens": [
+    "exit_multiple",
+    "terminal_growth",
+    "value_per_share_exit_multiple",
+    "value_per_share_gordon_growth"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

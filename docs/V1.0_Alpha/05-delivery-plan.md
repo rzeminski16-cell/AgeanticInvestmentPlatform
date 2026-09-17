@@ -248,11 +248,20 @@ Proved on M&T's own figures without a model call or a network request: the extra
 bank companyfacts fixture derives two years, and FY2025's margin reads 29.4% against the 172.1%
 the live run published.
 
-**Still to do, and both need the keys:** one live M&T run to an approved report, and the
-re-render of the stored MTB run with its diff (ADR 0114's own acceptance proof).
+**Exit met — 17 September 2026, £8.40.** One live M&T commission reached an approved,
+immutable report of 13,590 words, 18 of 18 sections, 59 of 59 citations verified, and every
+one of the nine exercised blocking metrics passing. `figure_plausibility` scored 0 of 0 with
+the fixed guard evaluating all three of its relations for the first time: asset turnover
+reads 0.0454, inside the range a bank runs on genuine total revenue, where the ASC 606
+caption would have given 0.0076. FY2025 revenue is the derived $9,690m and the net margin is
+29.4%, against the 172.1% September published. The record is in
+[`../plan/readiness-audit-2026-09/mtb-rerun/`](../plan/readiness-audit-2026-09/mtb-rerun/)
+and ADR 0114 carries the reading.
 
-**Exit:** one live M&T run reaches an approved, rendered report; `figure_plausibility` 0 of 0
-including the two findings the fixed guard now adds.
+The stored run's re-render, which this phase also listed, cannot happen: that run is not in
+this container and there is no backup of it. A fresh live run on the same subject read
+against the committed September figures is the evidence instead, and the ADR says so rather
+than quietly dropping the criterion.
 
 ## 7. Phase 3 — The document stops contradicting itself
 

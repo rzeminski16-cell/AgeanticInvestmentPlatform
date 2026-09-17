@@ -1,0 +1,96 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "capex_intensity",
+        "value": "0.202619000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1205, 0.1326, 0.1814, 0.2291, 0.3494.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.087170000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.0736, 0.0637, 0.0816, 0.0994, 0.1175.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.441750000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.4206, 0.4177, 0.4464, 0.4562, 0.4678.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "13.000000000000",
+        "unit": "pure",
+        "justification": "Anchored on two things pulling opposite ways. Upward: EBIT margin 0.4418 and rising (0.4678 in FY2026), plus D&A of 0.0872 of revenue, describe an unusually high-margin franchise that has historically traded at a premium EV/EBITDA to the market. Downward: capex intensity has trebled to 0.3494 in FY2026 against a 0.2026 mean, and finance lease interest roughly doubled FY2025-FY2026 \u2014 EBITDA is becoming a much poorer proxy for cash at Microsoft, and a 0.05 risk-free rate is far above the regime in which MSFT's historical high-teens/low-20s multiples were set. 13x is below those historical levels for that reason, and I flag that any exit multiple is market-convention-anchored rather than filing-derived. Consistency: paired with 0.03 growth and the capex intensity above, I regard the perpetuity-growth terminal value as the better estimate; this multiple is the cross-check, and it would need to rise toward 16-18x only if you believe capex reverts toward the 0.2026 mean. If FY2027 capex stays near 0.35, 10-11x is the more defensible figure.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.137411000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2022-06-30 to 2026-06-30, over 4 year(s): revenue moved from 198,270,000,000 to 331,839,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.050000000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5% on 2026-09-15, as published by 2026-09-17 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.05.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.174698000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1311, 0.1898, 0.1823, 0.1763, 0.1940.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken to sit below any ordinary cost of capital here: with the derived risk-free rate at 0.05, an equity-financed megacap WACC would plausibly land near 0.085-0.095, so 0.03 leaves ample spread and stays inside the platform's 0.04 cap. Grounding: a dominant software/cloud franchise in a still-expanding category should hold pricing and volume roughly with long-run nominal GDP forever, but not above it \u2014 the 0.1374 trailing revenue CAGR and the AI/'Agents and Infra' concentration are cyclical drivers, not perpetual ones. The 5% risk-free suggests a higher nominal-growth regime, which argues against 0.02. Lower it toward 0.02-0.025 if the confirmed discount rate falls below ~0.07, or if you judge cloud/AI pricing to deflate in the terminal year.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "0.237834000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "beta",
+        "reason": "No price history has been acquired for this run, so no beta could be regressed. Enter one and say what it is measured against \u2014 beta is a first-class assumption here, and a documented, confirmed figure is more defensible than a regression nobody inspected."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from \u2014 or set a standing premium in settings, and every run will propose it for you to confirm."
+      }
+    ],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "7e2e3f262a1786466d4bc132e44f5afabdcc5333c56cdfaf7055d4c74721c39f",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "960a85b8-4250-4579-b93a-b66cd08058f3",
+    "reason": "gate_waiting"
+  }
+}

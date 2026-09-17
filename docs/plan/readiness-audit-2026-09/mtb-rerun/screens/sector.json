@@ -1,0 +1,17 @@
+{
+  "page": "sector",
+  "url": "http://127.0.0.1:8000/runs/2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca/sector",
+  "status": 200,
+  "title": "Confirm what kind of business this is? \u00b7 Tracework Invest",
+  "payload_hash": "728e26ce33249183f70742d51ae2e48884d7094ab0827260aa473d61cd613f34",
+  "words": 343,
+  "raw_tokens": [
+    "comps_multiples",
+    "dcf_fcff",
+    "dividend_discount",
+    "residual_income",
+    "sic_lookup"
+  ],
+  "uuids": 0,
+  "approve_control": 1
+}

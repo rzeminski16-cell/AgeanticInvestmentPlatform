@@ -1,0 +1,1467 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Confirm the numbers the valuation will use? · Tracework Invest</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">2</span><span class="sr-only">2 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+          <input type="hidden" name="next" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+          <input type="hidden" name="next" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  <div class="flex flex-col gap-6">
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b" class="underline underline-offset-[3px] hover:text-verification">The run</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">RESEARCH RUN — A DECISION</p><h1 class="type-title-1 text-ink">Confirm the numbers the valuation will use?</h1><p class="type-body text-ink-muted">AstraZeneca PLC · AZN · as at 2026-09-17</p>
+  <div class="flex flex-wrap items-center gap-3"></div>
+  </header>
+
+
+  
+  
+  
+    
+  
+  
+
+<section class="border-l-[3px] p-5 border-warning-ink bg-decision-wash">
+  <p class="type-eyebrow text-ink-muted">WHAT THIS ASKS</p>
+  <p class="mt-2 type-body-lg text-ink">2 inputs still have no value at all, and 9 values await your confirmation.</p>
+  <p class="mt-2 type-body text-ink-muted">This is the one gate that approves work which has not happened yet: everything below is an input to a discounted cash flow that has not been run, and agreeing to these figures is agreeing to the forecast built from them.</p>
+  </section>
+
+
+
+  
+  <nav aria-label="Where this decision sits in the run">
+    <ol class="flex flex-wrap gap-x-5 gap-y-2">
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PLAN" data-journey-state="decided">
+          <span class="type-label text-ink">The plan</span>
+          <span class="type-body-sm text-ink-subtle">approved</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="SECTOR_SPECIALIST" data-journey-state="not_needed">
+          <span class="type-label text-ink-muted">The sector</span>
+          <span class="type-body-sm text-ink-subtle">not needed</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="PEER_SET" data-journey-state="decided">
+          <span class="type-label text-ink">The peers</span>
+          <span class="type-body-sm text-ink-subtle">approved</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="THEME_SET" data-journey-state="decided">
+          <span class="type-label text-ink">The themes</span>
+          <span class="type-body-sm text-ink-subtle">approved</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="UNMAPPED_CONCEPTS" data-journey-state="decided">
+          <span class="type-label text-ink">The financials</span>
+          <span class="type-body-sm text-ink-subtle">approved</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="ASSUMPTIONS" data-journey-state="current">
+          <span class="type-label text-warning-ink">The assumptions</span>
+          <span class="type-body-sm text-warning-ink">now</span>
+        </li>
+      
+        <li class="flex items-baseline gap-2" data-journey-gate="FINAL" data-journey-state="upcoming">
+          <span class="type-label text-ink-muted">The report</span>
+          <span class="type-body-sm text-ink-subtle">to come</span>
+        </li>
+      
+    </ol>
+    <p class="mt-2 type-body-sm text-ink-muted">Two more decisions.</p>
+  </nav>
+
+  
+    
+    <p class="min-[80rem]:hidden">
+      <a href="#decision" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Jump to the decision</a>
+    </p>
+  
+
+  <div class="min-[80rem]:grid min-[80rem]:grid-cols-[minmax(0,1fr)_19rem] min-[80rem]:items-start min-[80rem]:gap-8">
+    <div class="flex min-w-0 flex-col gap-6">
+      
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Proposed assumptions</h2>
+  <div class="mt-4">
+      
+      
+        <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/confirm-all" class="mb-4 flex flex-wrap items-center gap-3 border-b border-line pb-4">
+          <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+          <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+          <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+          <button type="submit" id="confirm-all" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Confirm all 9 remaining values</button>
+          <p class="type-body-sm text-ink-muted">
+            Agrees to every value below as it now stands. Read them first: this is the one
+            gate that approves work which has not happened yet.
+          </p>
+        </form>
+      
+      <ul class="flex flex-col divide-y divide-line" id="proposed-assumptions">
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="beta">Beta</span>
+                —
+                <span class="type-data text-ink tabular-nums">0.276218247742</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">Regressed against S&amp;P 500 on monthly total returns to 2026-09-17, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/b1cb410f-325e-4946-aa40-a9ad7e99e11e/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/b1cb410f-325e-4946-aa40-a9ad7e99e11e/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-b1cb410f-325e-4946-aa40-a9ad7e99e11e" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-b1cb410f-325e-4946-aa40-a9ad7e99e11e" name="value" value="0.276218247742" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-b1cb410f-325e-4946-aa40-a9ad7e99e11e" class="block type-label text-ink">Unit</label>
+                      <select id="unit-b1cb410f-325e-4946-aa40-a9ad7e99e11e" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-b1cb410f-325e-4946-aa40-a9ad7e99e11e" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-b1cb410f-325e-4946-aa40-a9ad7e99e11e" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="capex_intensity">Capex intensity</span>
+                —
+                <span class="type-data text-ink tabular-nums">3.3377%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.033377000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The mean of capital expenditure over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0292, 0.0246, 0.0297, 0.0356, 0.0478.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/6ef07850-cd1f-4551-a043-fdfb83ce00e9/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/6ef07850-cd1f-4551-a043-fdfb83ce00e9/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-6ef07850-cd1f-4551-a043-fdfb83ce00e9" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-6ef07850-cd1f-4551-a043-fdfb83ce00e9" name="value" value="0.033377000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-6ef07850-cd1f-4551-a043-fdfb83ce00e9" class="block type-label text-ink">Unit</label>
+                      <select id="unit-6ef07850-cd1f-4551-a043-fdfb83ce00e9" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-6ef07850-cd1f-4551-a043-fdfb83ce00e9" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-6ef07850-cd1f-4551-a043-fdfb83ce00e9" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="depreciation_intensity">Depreciation intensity</span>
+                —
+                <span class="type-data text-ink tabular-nums">11.4739%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.114739000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/5a960292-f418-4202-8fe0-6816edc5b917/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/5a960292-f418-4202-8fe0-6816edc5b917/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-5a960292-f418-4202-8fe0-6816edc5b917" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-5a960292-f418-4202-8fe0-6816edc5b917" name="value" value="0.114739000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-5a960292-f418-4202-8fe0-6816edc5b917" class="block type-label text-ink">Unit</label>
+                      <select id="unit-5a960292-f418-4202-8fe0-6816edc5b917" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-5a960292-f418-4202-8fe0-6816edc5b917" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-5a960292-f418-4202-8fe0-6816edc5b917" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="ebit_margin">EBIT margin</span>
+                —
+                <span class="type-data text-ink tabular-nums">14.2147%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.142147000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/6ca80188-77ce-43e2-b1be-069af2400ec0/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/6ca80188-77ce-43e2-b1be-069af2400ec0/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-6ca80188-77ce-43e2-b1be-069af2400ec0" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-6ca80188-77ce-43e2-b1be-069af2400ec0" name="value" value="0.142147000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-6ca80188-77ce-43e2-b1be-069af2400ec0" class="block type-label text-ink">Unit</label>
+                      <select id="unit-6ca80188-77ce-43e2-b1be-069af2400ec0" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-6ca80188-77ce-43e2-b1be-069af2400ec0" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-6ca80188-77ce-43e2-b1be-069af2400ec0" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="exit_multiple">Exit multiple</span>
+                —
+                <span class="type-data text-ink tabular-nums">12.000000000000</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the assumptions model,
+              confidence 40%.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">Grounded in the derived intensities: mean EBIT margin 14.2% plus D&amp;A intensity 11.5% implies an EBITDA margin near 26%, of which capex (3.3%) and cash tax absorb a modest share, so a mature diversified pharma converting most EBITDA to cash supports a low-double-digit multiple. 12x is broadly consistent with 2.5% perpetual growth at a 8-8.5% discount rate. It is partly a sector convention and I flag that. Of the two, I regard the perpetual-growth figure as the better terminal-value estimate here, because AZN's amortisation intensity (11.5% of revenue) is largely acquired-intangible cost that EV/EBITDA ignores, flattering the multiple. A clearer post-2030 patent-cliff picture would move this either way.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/489e36f2-9661-499f-8688-7abf1c9c266e/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/489e36f2-9661-499f-8688-7abf1c9c266e/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-489e36f2-9661-499f-8688-7abf1c9c266e" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-489e36f2-9661-499f-8688-7abf1c9c266e" name="value" value="12.000000000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-489e36f2-9661-499f-8688-7abf1c9c266e" class="block type-label text-ink">Unit</label>
+                      <select id="unit-489e36f2-9661-499f-8688-7abf1c9c266e" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-489e36f2-9661-499f-8688-7abf1c9c266e" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-489e36f2-9661-499f-8688-7abf1c9c266e" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="revenue_growth">Revenue growth</span>
+                —
+                <span class="type-data text-ink tabular-nums">11.9346%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.119346000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/9055bb71-9c81-4db4-9bbb-0634d06f7647/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/9055bb71-9c81-4db4-9bbb-0634d06f7647/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-9055bb71-9c81-4db4-9bbb-0634d06f7647" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-9055bb71-9c81-4db4-9bbb-0634d06f7647" name="value" value="0.119346000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-9055bb71-9c81-4db4-9bbb-0634d06f7647" class="block type-label text-ink">Unit</label>
+                      <select id="unit-9055bb71-9c81-4db4-9bbb-0634d06f7647" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-9055bb71-9c81-4db4-9bbb-0634d06f7647" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-9055bb71-9c81-4db4-9bbb-0634d06f7647" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="risk_free_rate">Risk-free rate</span>
+                —
+                <span class="type-data text-ink tabular-nums">5%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.050000000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by a published series.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The US 10-year Treasury constant maturity yield was 5% on 2026-09-15, as published by 2026-09-17 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.05.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/95108777-89cd-4e85-b2bc-dd6649fc5ea1/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/95108777-89cd-4e85-b2bc-dd6649fc5ea1/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-95108777-89cd-4e85-b2bc-dd6649fc5ea1" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-95108777-89cd-4e85-b2bc-dd6649fc5ea1" name="value" value="0.050000000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-95108777-89cd-4e85-b2bc-dd6649fc5ea1" class="block type-label text-ink">Unit</label>
+                      <select id="unit-95108777-89cd-4e85-b2bc-dd6649fc5ea1" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-95108777-89cd-4e85-b2bc-dd6649fc5ea1" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-95108777-89cd-4e85-b2bc-dd6649fc5ea1" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="terminal_growth">Terminal growth</span>
+                —
+                <span class="type-data text-ink tabular-nums">2.5%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as 0.025000000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the assumptions model,
+              confidence 55%.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">Taken as below a cost of capital of at least 7.5-8% (5.0% derived risk-free plus any ordinary equity premium for a large-cap pharma), so it holds below any plausible discount rate for this run. 2.5% reflects nominal global healthcare spend rather than AZN's trailing 11.9% revenue CAGR, which is launch-driven and cannot persist: the filings show newer patent-protected brands (Enhertu, Tagrisso, Imfinzi) alongside off-patent Nexium/Crestor/Pulmicort, i.e. perpetual reinvestment merely to replace eroding revenue. The SERENA-4 primary-endpoint miss is a reminder that pipeline replacement is uncertain. Evidence of durable pricing power or a structurally broader label set would support a higher figure; sustained US/EU reimbursement pressure a lower one.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/631d0923-86de-43bb-9ff2-8d231ba4a90c/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/631d0923-86de-43bb-9ff2-8d231ba4a90c/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-631d0923-86de-43bb-9ff2-8d231ba4a90c" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-631d0923-86de-43bb-9ff2-8d231ba4a90c" name="value" value="0.025000000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-631d0923-86de-43bb-9ff2-8d231ba4a90c" class="block type-label text-ink">Unit</label>
+                      <select id="unit-631d0923-86de-43bb-9ff2-8d231ba4a90c" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-631d0923-86de-43bb-9ff2-8d231ba4a90c" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-631d0923-86de-43bb-9ff2-8d231ba4a90c" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+          
+          <li class="py-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              
+              <p class="type-body text-ink">
+                <span class="type-body text-ink" data-assumption="working_capital_intensity">Working capital intensity</span>
+                —
+                <span class="type-data text-ink tabular-nums">-3.5125%</span>
+                
+                  <span class="type-body-sm text-ink-muted">(stored as -0.035125000000)</span>
+                
+              </p>
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>Not yet confirmed</span></span>
+
+              
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by the platform's own rules.
+            </p>
+            
+              <p class="mt-2 max-w-prose type-body text-ink">The mean of net working capital — current assets less current liabilities — over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.</p>
+            
+
+            
+              
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/fde3e515-bcb0-4886-b37c-d59d1b8602fd/confirm" class="mt-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="payload_hash" value="0dcffaaf22d435f6ba03d06748a8f227c4d7ea3678e02d1e82fd90b30d6e6d63" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm this value</button>
+              </form>
+
+              
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    Amend it instead
+  </summary>
+  <div class="pb-4">
+                <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/fde3e515-bcb0-4886-b37c-d59d1b8602fd/amend" class="flex flex-col gap-3">
+                  <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                  <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-fde3e515-bcb0-4886-b37c-d59d1b8602fd" class="block type-label text-ink">Your value</label>
+                      <input type="text" inputmode="decimal" id="value-fde3e515-bcb0-4886-b37c-d59d1b8602fd" name="value" value="-0.035125000000" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" style="">
+                    </div>
+                    <div>
+                      <label for="unit-fde3e515-bcb0-4886-b37c-d59d1b8602fd" class="block type-label text-ink">Unit</label>
+                      <select id="unit-fde3e515-bcb0-4886-b37c-d59d1b8602fd" name="unit" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                        
+                          <option value="pure" selected="">pure</option>
+                        
+                          <option value="USD">USD</option>
+                        
+                          <option value="GBP">GBP</option>
+                        
+                          <option value="EUR">EUR</option>
+                        
+                          <option value="shares">shares</option>
+                        
+                          <option value="USD/shares">USD/shares</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-fde3e515-bcb0-4886-b37c-d59d1b8602fd" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea id="why-fde3e515-bcb0-4886-b37c-d59d1b8602fd" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter." style=""></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
+                  </label>
+                  <p>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Amend</button>
+                  </p>
+                </form>
+              </div>
+</details>
+
+            
+          </li>
+        
+      </ul>
+    </div>
+</section>
+
+  
+
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Still outstanding</h2>
+  
+  <p class="mt-1 type-body text-ink-muted">No number could be put against these, and none was invented.</p>
+  <div class="mt-4">
+      <p class="type-body-sm text-ink-muted">
+        Supply a value and it appears in the list above, saved and waiting on your
+        confirmation. Creating a value and agreeing that the valuation may rely on it are
+        separate decisions.
+      </p>
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="outstanding-assumptions">
+        
+          <li class="py-4">
+            <p class="type-body text-ink" data-assumption="tax_rate">Tax rate</p>
+            <p class="mt-1 max-w-prose type-body-sm text-ink">Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand.</p>
+
+            
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/create" class="mt-3 flex flex-col gap-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <input type="hidden" name="name" value="tax_rate" style="">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label for="supply-value-tax_rate" class="block type-label text-ink">Value</label>
+                    <input type="text" id="supply-value-tax_rate" name="value" required="" inputmode="decimal" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" placeholder="0.042" style="">
+                  </div>
+                  <div>
+                    <label for="supply-unit-tax_rate" class="block type-label text-ink">Unit</label>
+                    <select id="supply-unit-tax_rate" name="unit" required="" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                      
+                        <option value="pure" selected="">pure</option>
+                      
+                        <option value="USD">USD</option>
+                      
+                        <option value="GBP">GBP</option>
+                      
+                        <option value="EUR">EUR</option>
+                      
+                        <option value="shares">shares</option>
+                      
+                        <option value="USD/shares">USD/shares</option>
+                      
+                    </select>
+                  </div>
+                </div>
+                <p class="type-body-sm text-ink-muted">
+                  Rates and ratios are decimal fractions: a 4.5% risk-free rate is
+                  <span class="type-data-sm">0.045</span>, not <span class="type-data-sm">4.5</span>.
+                </p>
+                <div>
+                  <label for="supply-why-tax_rate" class="block type-label text-ink">Where this number comes from</label>
+                  <textarea id="supply-why-tax_rate" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026." style=""></textarea>
+                </div>
+                <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                  <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                  <span>I mean this figure, even if it falls outside the usual range.</span>
+                </label>
+                <p>
+                  <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong">Save this value</button>
+                </p>
+              </form>
+            
+          </li>
+        
+          <li class="py-4">
+            <p class="type-body text-ink" data-assumption="equity_risk_premium">Equity risk premium</p>
+            <p class="mt-1 max-w-prose type-body-sm text-ink">The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from — or set a standing premium in settings, and every run will propose it for you to confirm.</p>
+
+            
+              <form method="post" action="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions/create" class="mt-3 flex flex-col gap-3">
+                <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+                <input type="hidden" name="return_to" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/assumptions" style="">
+                <input type="hidden" name="name" value="equity_risk_premium" style="">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label for="supply-value-equity_risk_premium" class="block type-label text-ink">Value</label>
+                    <input type="text" id="supply-value-equity_risk_premium" name="value" required="" inputmode="decimal" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" placeholder="0.042" style="">
+                  </div>
+                  <div>
+                    <label for="supply-unit-equity_risk_premium" class="block type-label text-ink">Unit</label>
+                    <select id="supply-unit-equity_risk_premium" name="unit" required="" class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink">
+                      
+                        <option value="pure" selected="">pure</option>
+                      
+                        <option value="USD">USD</option>
+                      
+                        <option value="GBP">GBP</option>
+                      
+                        <option value="EUR">EUR</option>
+                      
+                        <option value="shares">shares</option>
+                      
+                        <option value="USD/shares">USD/shares</option>
+                      
+                    </select>
+                  </div>
+                </div>
+                <p class="type-body-sm text-ink-muted">
+                  Rates and ratios are decimal fractions: a 4.5% risk-free rate is
+                  <span class="type-data-sm">0.045</span>, not <span class="type-data-sm">4.5</span>.
+                </p>
+                <div>
+                  <label for="supply-why-equity_risk_premium" class="block type-label text-ink">Where this number comes from</label>
+                  <textarea id="supply-why-equity_risk_premium" name="justification" rows="2" maxlength="4000" required="" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026." style=""></textarea>
+                </div>
+                <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                  <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" style="">
+                  <span>I mean this figure, even if it falls outside the usual range.</span>
+                </label>
+                <p>
+                  <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong">Save this value</button>
+                </p>
+              </form>
+            
+          </li>
+        
+      </ul>
+    </div>
+</section>
+
+  
+
+  
+
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Not derived</h2>
+  <div class="mt-4">
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="skipped-assumptions">
+        <li>Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand.</li>
+      </ul>
+    </div>
+</section>
+
+  
+
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6"><div>
+      <div id="approval-consequence" role="status">
+        
+
+<div class="aer-callout rounded-sm border-l-[3px] p-4 border-warning-ink bg-warning-wash">
+  <div class="flex items-start gap-3">
+    <span class="mt-0.5 text-warning-ink">
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+</span>
+    <div class="min-w-0">
+      <p class="type-subheading text-warning-ink">Approving now produces no discounted cash flow</p>
+      <p class="mt-1 type-body text-ink">With unresolved inputs there is no forecast to build: no scenario bridge, no sensitivity grid, and no valuation section beyond an explanation of what was missing. The run will finish, but the forecast it exists to gate will not be built.</p></div>
+  </div>
+</div>
+
+      </div>
+    </div>
+</section>
+
+  
+
+  <p>
+    <a href="/requests/b25117ff-2007-4bb2-930e-b6991e34e3bd/assumptions" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2" id="amend-assumptions">The full assumptions surface, with every value's history</a>
+  </p>
+
+    </div>
+
+    <aside id="decision" class="mt-6 min-[80rem]:sticky min-[80rem]:top-6 min-[80rem]:mt-0">
+      
+        
+
+<section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-surface">
+  <div class="rounded-t-md bg-decision-wash px-5 py-3">
+    <p class="type-eyebrow text-warning-ink">DECISION REQUIRED</p>
+    <h2 class="mt-1 type-title-2 text-ink">The assumptions</h2>
+  </div>
+  <div class="flex flex-col gap-4 p-5">
+    <p class="type-body text-ink">Approving lets the valuation rest on every value shown here. It is the last stop before the figures are built.</p>
+    
+          <form method="post" action="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/gates/ASSUMPTIONS" id="gate-form" class="flex flex-col gap-4">
+            <input type="hidden" name="csrf_token" value="RiOKPYFhNTiisiiTZ7ifSw.1789641278.d4db39eb52d9dd11b8b2f72b31c950187937e5de5c211f15e98ad965e4d0b34d" style="">
+            
+            <input type="hidden" name="payload_hash" id="payload-hash" value="c91e1037e900765be40f2ab86eba5d41de9417f072c202e08b0cc379ba08fe62" style="">
+
+            
+
+            <p class="type-body-sm text-ink-muted">
+              <span class="type-data text-ink">£1.91 of £12.00</span> spent so far.
+            </p>
+
+            <div>
+              <label for="notes" class="block type-label text-ink">Notes (optional)</label>
+              <textarea id="notes" name="notes" rows="3" maxlength="4000" class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink" placeholder="Why you approved or rejected this. Recorded in the audit trail." style=""></textarea>
+            </div>
+
+            
+            <div class="flex flex-col gap-3">
+              <button type="submit" name="decision" value="APPROVED" id="approve" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Approve and continue</button>
+              <button type="submit" name="decision" value="REJECTED" id="reject" class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reject and stop this run</button>
+            </div>
+
+            
+            
+
+<details class="group border-t border-line open:border-line-strong">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 type-label text-ink marker:content-none">
+    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 3l5 5-5 5"></path>
+    </svg>
+    What this decision proves
+  </summary>
+  <div class="pb-4">
+              <p class="type-body-sm text-ink-muted">
+                Your approval records the exact content of this page, by its fingerprint,
+                so it can never be transferred to a different proposal. If the proposal
+                changes before the server records your choice, the approval is refused and
+                you decide again over the current version.
+              </p>
+              <p class="mt-2 break-all type-data-sm text-ink-muted">c91e1037e900765be40f2ab86eba5d41de9417f072c202e08b0cc379ba08fe62</p>
+            </div>
+</details>
+
+
+            <p>
+              <a href="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+            </p>
+          </form>
+        
+    <p class="type-body-sm text-ink-muted">You are deciding on exactly the evidence shown here.</p>
+    </div>
+</section>
+
+      
+    </aside>
+  </div>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

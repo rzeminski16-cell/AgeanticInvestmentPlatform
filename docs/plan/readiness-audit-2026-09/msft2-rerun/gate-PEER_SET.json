@@ -1,0 +1,64 @@
+{
+  "payload": {
+    "subject": "4c8d6ac7-da84-4ce6-8b56-ccc56cedf8b1",
+    "subject_period_end": "2026-09-17",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000320193",
+        "name": "Apple Inc.",
+        "rationale": "Large-scale diversified technology platform with hardware, software, and services; overlaps in ecosystem/cloud/productivity but different revenue mix skewed to devices.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001652044",
+        "name": "Alphabet Inc.",
+        "rationale": "Direct competitor in cloud infrastructure (Azure vs GCP), productivity/AI tools, and enterprise software; differs in ad-driven core revenue base.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001018724",
+        "name": "AMAZON COM INC",
+        "rationale": "AWS competes directly with Azure in cloud infrastructure; broader business includes retail, which dilutes comparability outside cloud segment.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001341439",
+        "name": "ORACLE CORP",
+        "rationale": "Enterprise software and cloud infrastructure competitor with overlapping database, ERP, and cloud services offerings to similar corporate customers.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001108524",
+        "name": "Salesforce, Inc.",
+        "rationale": "Pure-play enterprise SaaS company competing with Microsoft's business applications and productivity software lines like Dynamics 365.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000796343",
+        "name": "ADOBE INC.",
+        "rationale": "Subscription-based software company with strong creative and document cloud products; comparable margin structure and SaaS transition economics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001000184",
+        "name": "SAP SE",
+        "rationale": "Global enterprise software and ERP leader competing with Microsoft Dynamics and cloud offerings; similar large-enterprise customer base.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000051143",
+        "name": "INTERNATIONAL BUSINESS MACHINES CORP",
+        "rationale": "Enterprise software, cloud, and AI services competitor with overlapping hybrid cloud and consulting offerings, though weighted more to legacy hardware/services.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "e2212b6c865ceed13622f36995fd2463db818577023e2b66097353935106ee1f",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "960a85b8-4250-4579-b93a-b66cd08058f3",
+    "reason": "gate_waiting"
+  }
+}

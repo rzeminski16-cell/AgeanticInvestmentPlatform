@@ -1,0 +1,64 @@
+{
+  "payload": {
+    "subject": "d62d1d5a-1060-4612-b5d7-60b9421e20b7",
+    "subject_period_end": "2026-09-17",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000078003",
+        "name": "PFIZER INC",
+        "rationale": "Large-cap diversified pharma with broad oncology, vaccines, and specialty portfolios overlapping AstraZeneca's therapeutic areas; comparable global scale and R&D-driven model.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000310158",
+        "name": "Merck & Co., Inc.",
+        "rationale": "Global pharma with strong oncology (Keytruda) and vaccines overlap with AstraZeneca's oncology and biologics focus; similar patent-cliff and pipeline dynamics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000014272",
+        "name": "BRISTOL MYERS SQUIBB CO",
+        "rationale": "Oncology and immunology-heavy major pharma comparable to AstraZeneca's core therapeutic focus, with similar biologics and specialty drug economics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000059478",
+        "name": "ELI LILLY & Co",
+        "rationale": "Large pharma with overlapping diabetes and immunology franchises, though Lilly's obesity/GLP-1 weighting differs somewhat from AstraZeneca's mix.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001131399",
+        "name": "GSK plc",
+        "rationale": "UK-based global pharma with overlapping respiratory, vaccines, and oncology businesses; similar geographic mix and ADR-listed comparable multinational structure.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001121404",
+        "name": "Sanofi",
+        "rationale": "European multinational pharma with overlapping immunology, vaccines, and specialty care segments; comparable global commercial footprint and R&D intensity.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001114448",
+        "name": "NOVARTIS AG",
+        "rationale": "Swiss-based innovative pharma with overlapping oncology and biologics pipeline, comparable scale and international revenue mix to AstraZeneca.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000200406",
+        "name": "JOHNSON & JOHNSON",
+        "rationale": "Pharma segment overlaps in oncology and immunology, but J&J's medtech and consumer divisions dilute comparability, so multiple reflects a partial fit.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "e9139a3c268ea04be20d3391a7ef512ec993f974b3b69125258f3c47153c079b",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "14c8d2bf-cafc-43b2-8497-c5ef613b196b",
+    "reason": "gate_waiting"
+  }
+}

@@ -1,0 +1,356 @@
+{
+  "payload": {
+    "plan_id": "dc7a2dfb-3a73-4acc-806c-1e8544cabb66",
+    "workflow_version": "vertical_slice_v1",
+    "summary": "Revised plan for a 12-month standard note on Microsoft (MSFT, NASDAQ), as-of 2026-09-17, USD. Fiscal year ends 30 June, so the FY2026 10-K should be the anchor; the September 2026 quarter is unreported. Changes after review: (1) cash_flow_analysis now carries a recorded step-forward calculation converting disclosed construction-in-progress, leases signed but not yet commenced and purchase commitments into future depreciation and lease cost, flagged as arithmetic on disclosure rather than a forecast, and feeding scenarios_sensitivities; (2) earnings_quality pre-commits which relationships it computes and which direction of movement would support or undercut the flattering hypothesis, before evidence is seen; (3) every source line is marked CONFIRMED or PRESUMED with a named fallback; (4) the proxy source and the catalysts section are dropped, peer 10-Ks narrowed to stated useful lives, transcripts narrowed to quarters containing useful-life, capex or AI run-rate statements; (5) segment_analysis and capital_allocation now ask whether disclosed cloud/AI revenue is transacted with counterparties Microsoft has funded. This plan states no figures and asserts no facts; it names the source that would establish each.",
+    "sections": [
+      {
+        "key": "earnings_quality",
+        "focus": "Question (a), with the test pre-committed before evidence is gathered. Compute and record: (i) depreciation and amortisation over average gross PP&E plus finance-lease right-of-use assets, FY2024-FY2026; (ii) construction-in-progress as a share of gross PP&E; (iii) stated useful lives for server and network equipment across the three filings; (iv) segment operating margin trend against operating cash flow margin trend. The flattering hypothesis is supported if (i) falls while (ii) rises, or lives lengthen, or (iv) diverges with accrual margin rising and cash margin flat or falling; it is undercut if (i) is stable or rising while margin expands. Disclosure gaps go to validation_disagreements."
+      },
+      {
+        "key": "cash_flow_analysis",
+        "focus": "Two parts. Backward: operating cash flow, capex including finance-lease-funded additions, and free cash flow FY2024-FY2026, reconciling reported margin expansion to cash conversion. Forward: a recorded calculation stepping disclosed construction-in-progress, leases signed but not yet commenced, and multi-year capacity purchase commitments by maturity year into the depreciation and lease expense that lands inside the 12-month horizon, citing the filed note for each input and each timing or life assumption. Labelled arithmetic on disclosure, not a forecast; presented as a range where in-service timing is not disclosed."
+      },
+      {
+        "key": "valuation_dcf",
+        "focus": "Question (b). Build the DCF from filed financials and market data as-of 2026-09-17, then invert it: state the revenue growth, operating margin and reinvestment path the prevailing enterprise value requires. Terminal assumptions, WACC inputs, share count and net debt must each trace to a stored fact or recorded calculation. The forward cost path from cash_flow_analysis enters as the near-term depreciation and lease expense input rather than a smoothed margin assumption."
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "focus": "Bound the inverted DCF over the inputs it is most sensitive to: cloud revenue deceleration, shortening of assumed equipment useful lives, and the step-forward depreciation and lease cost path running at the high end of its disclosed range with capex sustained but revenue not following. Present as a grid; state which cell corresponds to the as-of enterprise value. No single implied value is the output."
+      },
+      {
+        "key": "segment_analysis",
+        "focus": "Question (c). Segment revenue and operating income from the FY2026 10-K with FY2025 and FY2024 comparatives, noting any recast that breaks the series. Identify which AI-related revenue is separately disclosed versus only described qualitatively, and state explicitly where an AI revenue figure cannot be sourced from filed disclosure. Additionally ask whether the revenue and related-party notes disclose revenue from counterparties Microsoft has funded or committed capital to, and record that the disclosure is silent if it is."
+      },
+      {
+        "key": "growth_outlook",
+        "focus": "Durability of the growth mix over the horizon: remaining performance obligations and their disclosed recognition window, commercial bookings commentary, and capacity constraints described in risk factors and calls. Separate contracted backlog from expectation. Because no separate catalysts section is planned, list here the dated reporting events inside the horizon (Q1-Q3 FY2027 releases and 10-Qs, any disclosed capex guidance update) and the disclosure each would move."
+      },
+      {
+        "key": "capital_allocation",
+        "focus": "Capex versus buyback and dividend FY2024-FY2026 and the authorised repurchase status. Then the investment side of the funded-counterparty question: disclosed funding commitments, equity-method interests and partner arrangements, and whether their results sit inside or outside segment operating income. Assess whether reinvestment intensity is consistent with the returns the inverted DCF requires."
+      },
+      {
+        "key": "key_risks",
+        "focus": "Company and position risks, each sourced: depreciation- and lease-driven margin reversal as committed capacity comes into service, concentration of cloud or AI revenue in a small set of customers or funded partners, antitrust and other regulatory proceedings, and litigation or contingencies disclosed in the FY2026 commitments note."
+      },
+      {
+        "key": "investment_thesis",
+        "focus": "State the thesis as a small number of falsifiable claims, each tied to the evidence that would confirm or break it within 12 months, and each keyed to the pre-committed tests in earnings_quality and the grid cells in scenarios_sensitivities. No claim may rest on a figure not stored by another section."
+      },
+      {
+        "key": "validation_disagreements",
+        "focus": "Record where sources conflict or a figure could not be sourced: management-described AI revenue versus filed segment disclosure, constant-currency growth versus reported dollars, vendor share counts versus filed counts, and every PRESUMED source line that did not materialise together with the weaker relationship used instead."
+      },
+      {
+        "key": "executive_summary",
+        "focus": "Condense the answers to the three operator questions and the resulting 12-month stance, including an explicit statement of which questions the filed evidence could not answer. Written last from facts and calculations already stored; no source of its own."
+      }
+    ],
+    "section_listing": [
+      {
+        "key": "executive_summary",
+        "title": "Executive Summary",
+        "position": "100.00",
+        "required": true,
+        "token_budget": 2000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0672"
+      },
+      {
+        "key": "investment_thesis",
+        "title": "Investment Thesis",
+        "position": "110.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "business_overview",
+        "title": "Business Overview",
+        "position": "120.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "segment_analysis",
+        "title": "Segment Analysis",
+        "position": "130.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "industry_landscape",
+        "title": "Industry & Competitive Positioning",
+        "position": "140.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "management_governance",
+        "title": "Management & Governance",
+        "position": "150.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "historical_financial_analysis",
+        "title": "Historical Financial Analysis",
+        "position": "200.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "earnings_quality",
+        "title": "Earnings Quality",
+        "position": "210.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "title": "Balance Sheet & Liquidity",
+        "position": "220.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "cash_flow_analysis",
+        "title": "Cash Flow Analysis",
+        "position": "230.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "capital_allocation",
+        "title": "Capital Allocation",
+        "position": "240.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "growth_outlook",
+        "title": "Growth Outlook",
+        "position": "250.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "valuation_dcf",
+        "title": "Valuation \u2014 Discounted Cash Flow",
+        "position": "300.00",
+        "required": true,
+        "token_budget": 5000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0790"
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "title": "Scenarios & Sensitivities",
+        "position": "310.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "key_risks",
+        "title": "Key Risks",
+        "position": "400.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "catalysts",
+        "title": "Catalysts",
+        "position": "410.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "prior_research_comparison",
+        "title": "Prior Research Comparison",
+        "position": "900.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      },
+      {
+        "key": "validation_disagreements",
+        "title": "Validation & Disagreements",
+        "position": "910.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      }
+    ],
+    "planned_sources": [
+      {
+        "why": "Anchor for every reported figure and the only filed source for useful lives, lease and RPO detail. If not yet filed, the run anchors on the FY2025 10-K plus FY2026 8-K releases and says so in the report.",
+        "tier": "primary_filing",
+        "what": "[PRESUMED FILED] MSFT FY2026 Form 10-K (FY ended 2026-06-30): income statement, segment note, PP&E note with stated useful lives, leases note, revenue and RPO note, cash flow statement. Filing-index check is the first step.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Detects any segment recast or useful-life change that breaks comparability, and supplies the trend against which the pre-committed flattering tests are run.",
+        "tier": "primary_filing",
+        "what": "[CONFIRMED CLASS] MSFT FY2025 and FY2024 Form 10-K filings: same notes, for three-year comparatives and for segment presentation as originally reported.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Inputs to the depreciation-over-gross-PP&E and CIP-share tests. Fallback if class or roll-forward detail is absent: cash-flow-statement D&A over balance-sheet gross PP&E, with the gap logged in validation_disagreements.",
+        "tier": "primary_filing",
+        "what": "[PRESUMED] FY2026 10-K property-and-equipment detail: gross PP&E by class, accumulated depreciation, construction-in-progress and capitalised software balances.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Contracted third-party capacity not yet on balance sheet is the offset to an owned-capex margin story and a direct input to the step-forward cost calculation. Fallback: aggregate lease cost and maturities only.",
+        "tier": "primary_filing",
+        "what": "[PRESUMED at required granularity] FY2026 10-K leases note: finance and operating lease cost, right-of-use assets, maturity schedule, and leases signed but not yet commenced.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Second input to the forward cost path and the sourced basis for key_risks. If commitments are aggregated without maturity detail, the step-forward calculation is presented as a range.",
+        "tier": "primary_filing",
+        "what": "[PRESUMED] FY2026 10-K commitments and contingencies note: multi-year datacentre, capacity and compute purchase commitments by maturity year, plus legal proceedings.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Quarterly path within the fiscal year and the only place certain cloud and AI metrics are quantified; establishes what is disclosed versus only narrated.",
+        "tier": "primary_filing",
+        "what": "[CONFIRMED CLASS] MSFT 8-K earnings releases and furnished exhibits for the four quarters of FY2026, including Microsoft Cloud revenue and Azure growth disclosures.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Answers the funded-counterparty revenue question and whether AI economics sit outside segment operating income. If the notes are silent or aggregated, the silence is recorded rather than inferred around.",
+        "tier": "primary_filing",
+        "what": "[PRESUMED] FY2026 10-K equity investments, related-party and revenue notes: partner and OpenAI-related funding commitments, equity-method results, and any disclosed revenue from related parties.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Supplies management's own framing so it can be tested against filed disclosure in validation_disagreements. Never a source for a stated figure.",
+        "tier": "company_disclosure",
+        "what": "[PRESUMED CONTENT] Transcripts restricted to those FY2025-FY2026 quarters whose text contains management statements on server useful lives, capex trajectory or AI revenue run-rate, located by keyword search rather than read in full.",
+        "provider": "Earnings call transcripts"
+      },
+      {
+        "why": "Required inputs for the inverted DCF that answers what the prevailing multiple demands.",
+        "tier": "market_data",
+        "what": "[CONFIRMED CLASS] MSFT closing price, diluted share count and enterprise value inputs as-of 2026-09-17, plus sovereign yield and credit-spread inputs used in the WACC calculation.",
+        "provider": "Market data provider"
+      },
+      {
+        "why": "Benchmarks the useful-life assumption comparatively rather than by assertion. Fleet composition and workload mix are undisclosed, so the benchmark is indicative only.",
+        "tier": "primary_filing",
+        "what": "[CONFIRMED CLASS, narrowed per review] Amazon and Alphabet most recent 10-K accounting-policy notes: stated useful lives for server and network equipment only. Cloud-margin comparison dropped.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Comparison point against the inverted DCF only. Dropped if licence-restricted or unavailable, rather than substituted from memory.",
+        "tier": "secondary",
+        "what": "[OPTIONAL] Sell-side consensus revenue, operating margin and capex estimates for FY2027 and FY2028 as of the as-of date.",
+        "provider": "Consensus estimates provider"
+      },
+      {
+        "why": "Reconciles constant-currency to reported growth where the 10-K does not reproduce the detail; used only alongside the filed source.",
+        "tier": "company_disclosure",
+        "what": "[CONFIRMED CLASS] MSFT quarterly financial statements and earnings slides posted to the investor relations site for FY2026.",
+        "provider": "Company IR"
+      }
+    ],
+    "known_risks": [
+      "Microsoft is not known to report AI revenue as a separate segment line. Question (c) may be answerable only as a bounded range from RPO, Microsoft Cloud and management commentary, or not at all from filed evidence. This must be stated as a limitation, never resolved by estimation.",
+      "Three source lines are PRESUMED, not confirmed: PP&E class and construction-in-progress detail, related-party and partner funding disclosure, and leases-not-yet-commenced granularity. If any is absent, the named fallback is weaker evidence (ratio-level, aggregate, or silence recorded) and the quantitative core of question (a) becomes indirect.",
+      "The step-forward cost calculation requires in-service timing and asset-class lives that may not be disclosed. It is arithmetic on disclosure with stated assumptions and must be presented as a range, or dropped, if timing is not disclosable. It is not a forecast and must not be read as one.",
+      "Useful lives are a policy disclosure, not a reconciliation, and no asset-age detail is expected. A no-change disclosure leaves the depreciation-to-gross-PP&E relationship as the only test, which cannot separate fleet ageing from life assumptions.",
+      "If the FY2026 related-party and revenue notes are silent on revenue from funded counterparties, the independence of AI revenue cannot be established or refuted from filed evidence, and the section must record the silence.",
+      "Segment presentation has been recast in recent years. A further FY2026 recast would leave prior periods available only in restated form, breaking the as-originally-reported series.",
+      "The September 2026 quarter closes after the as-of date and is unreported, so the latest interim datapoint is the FY2026 10-K or its Q3. Intra-quarter deterioration is invisible to this run.",
+      "Inverting the DCF produces a required-assumption set, not a valuation conclusion, and is sensitive to terminal growth and WACC. The sensitivity grid, not any single implied value, is the output.",
+      "Deliberate narrowing, for the approver to accept or reject: the DEF 14A source and the catalysts section are dropped and the peer comparison cut to useful lives. The cost is no compensation-metric evidence on whether capitalisation choices are incentive-driven, and no standalone dated event calendar (reporting dates are folded into growth_outlook).",
+      "Constant-currency growth rates are not additive with reported dollar figures; any cross-use is invalid as a derived number and must be flagged in validation_disagreements."
+    ],
+    "prior_research": "",
+    "critique": {
+      "revised": true,
+      "consulted": true,
+      "challenges": [
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "Question (a) asks whether margin expansion is *durable*, which is forward-looking, but no section is tasked with converting the already-disclosed commitments into a forward cost path. earnings_quality and cash_flow_analysis both look backwards over FY2024-FY2026, and scenarios_sensitivities only flexes assumed useful lives. Construction-in-progress, leases signed but not yet commenced and multi-year capacity purchase commitments all become depreciation or lease expense inside the horizon, and nothing in the plan asks what that trajectory looks like.",
+          "suggestion": "Add to cash_flow_analysis or scenarios_sensitivities an explicit recorded calculation stepping disclosed CIP, not-yet-commenced leases and purchase commitments into future depreciation and lease cost, with the filed note cited for each input and the calculation flagged as arithmetic on disclosure, not a forecast."
+        },
+        {
+          "aspect": "sources",
+          "severity": 3,
+          "statement": "Several source lines presuppose disclosures whose existence is not established: an accumulated depreciation roll-forward with construction-in-progress detail, a related-party note covering the OpenAI arrangement with funding commitment and equity-method loss detail, and asset-age information. The named risks concede the useful-life disclosure may be policy-only, but the plan still routes the quantitative core of question (a) through schedules it may not find, with no stated fallback.",
+          "suggestion": "Mark each source line as confirmed-to-exist or presumed, and state for the presumed ones what the section does instead: which weaker relationship it falls back to, and that the gap is recorded in validation_disagreements rather than filled by judgement."
+        },
+        {
+          "aspect": "risks",
+          "severity": 3,
+          "statement": "The plan commits to testing whether capitalisation flatters cloud margin but never states what result would count as flattering. With no pre-committed threshold or direction for the depreciation-to-gross-PP&E relationship, the accrual-versus-cash margin gap, or a useful-life change, the answer to question (a) becomes a narrative judgement built after the figures are seen. That is a risk to this plan, and it is not among the named risks.",
+          "suggestion": "Have earnings_quality state, before evidence is gathered, the specific relationships it will compute and what direction and rough magnitude of movement in each would support or undercut the flattering hypothesis, so the conclusion is testable rather than assembled retrospectively."
+        },
+        {
+          "aspect": "focus",
+          "severity": 3,
+          "statement": "For a standard-mode note the source list is wide: twelve sections, thirteen source lines including eight quarters of transcripts, two peer 10-Ks and the proxy. The proxy's compensation metrics and the peer cloud-margin comparison are the loosest links to the three operator questions, and the peer benchmark is already conceded to be indicative only. Breadth here competes directly with depth on the depreciation mechanics and the DCF inversion, which are where the operator's questions actually live.",
+          "suggestion": "Drop or demote the proxy source and narrow the peer 10-K use to stated useful lives alone; restrict transcripts to the specific quarters containing management statements on useful lives, capex trajectory or AI run-rate, and reallocate that effort to earnings_quality and valuation_dcf."
+        },
+        {
+          "aspect": "sources",
+          "severity": 2,
+          "statement": "valuation_dcf inverts the prevailing enterprise value into a required assumption set, but no planned source lets a reviewer judge whether that required path is unusual. Market data covers price, share count and WACC inputs as-of the date; consensus is secondary and may be dropped. Nothing establishes where the as-of multiple sits against Microsoft's own multiple history or against peer cloud-exposed multiples, which is how the plausibility of the implied path is normally assessed.",
+          "suggestion": "Add a market-data source for the historical EV and multiple range over a stated lookback and for peer multiples on the same basis, used only as a comparison point against the inverted assumption set and never as evidence for a valuation conclusion."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "The plan tests the cost side of AI thoroughly but not the revenue side's independence. capital_allocation examines partner arrangements as an investment, and key_risks names customer concentration, yet no section is asked whether disclosed cloud or AI revenue is transacted with counterparties Microsoft has itself funded or committed capital to, or whether any such revenue is disclosed as related-party. That bears directly on question (c), since revenue of recent origin funded by one's own commitments is a different fact than third-party demand.",
+          "suggestion": "Extend segment_analysis or capital_allocation to ask explicitly whether the FY2026 related-party and revenue notes disclose revenue from funded counterparties, and to record that the disclosure is silent if it is, rather than leaving the linkage unexamined."
+        }
+      ],
+      "coverage_note": "Attacked coverage, sources, plan risks and scope. The plan is unusually disciplined: as-of dating, the unreported September quarter, segment recast and constant-currency contamination are all named, and it correctly refuses to resolve question (c) by estimation. Challenges concentrate on forward-looking cost dynamics, unverified source assumptions, missing decision rules and scope width. No view on the company is expressed or implied."
+    },
+    "estimated_cost_gbp": "9.2313",
+    "estimated_runtime_seconds": 2843,
+    "skills": []
+  },
+  "hash": "747ef9812b2ec91300e4daa46897fa6c7bd8a37ac9eabd5044f550de679777ce",
+  "pause_context": {
+    "gate": "PLAN",
+    "job_id": "960a85b8-4250-4579-b93a-b66cd08058f3",
+    "reason": "gate_waiting"
+  }
+}

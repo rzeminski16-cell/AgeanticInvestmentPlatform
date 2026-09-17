@@ -1,0 +1,18 @@
+{
+  "page": "valuation",
+  "url": "http://127.0.0.1:8000/runs/2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca/valuation",
+  "status": 200,
+  "title": "Valuation \u00b7 Tracework Invest",
+  "payload_hash": null,
+  "words": 550,
+  "raw_tokens": [
+    "cost_of_equity",
+    "dcf_fcff",
+    "residual_income_per_share_fade_to_nothing",
+    "residual_income_per_share_perpetual_growth",
+    "return_on_equity",
+    "terminal_growth"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

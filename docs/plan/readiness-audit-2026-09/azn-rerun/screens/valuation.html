@@ -1,0 +1,958 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Valuation · Tracework Invest</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">2</span><span class="sr-only">2 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="abTp9_LtdkmPqKgBFUy3wg.1789642808.9c80a089da7564e39a88ccc108b3f4b05e0c1414e19e89d8809065cd48cce588" style="">
+          <input type="hidden" name="next" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/valuation" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="abTp9_LtdkmPqKgBFUy3wg.1789642808.9c80a089da7564e39a88ccc108b3f4b05e0c1414e19e89d8809065cd48cce588" style="">
+          <input type="hidden" name="next" value="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b/valuation" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b" class="underline underline-offset-[3px] hover:text-verification">Run console</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">WHAT THE RUN PRODUCED</p><h1 class="type-title-1 text-ink">Valuation</h1><p class="type-body text-ink-muted">Every figure links to the calculation that produced it; every calculation lists the facts and assumptions it rests on.</p></header>
+
+
+  
+
+  
+
+<section class="border-l-[3px] p-5 border-verification bg-transparent">
+  <p class="type-eyebrow text-ink-muted">THE VALUATION</p>
+  <p class="mt-2 type-body-lg text-ink">$262.69 per share by Gordon growth; $200.27 per share by Exit multiple.</p></section>
+
+
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Both terminal methods</h2>
+  
+  <p class="mt-1 type-body text-ink-muted">Two terminal assumptions, carried through separately. Where they disagree, that disagreement is the finding.</p>
+  <div class="mt-4">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse" id="terminal-methods">
+          <caption class="sr-only">
+            Both terminal methods, carried to a value per share, each figure a link to its
+            recorded calculation.
+          </caption>
+          <thead>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Figure</th>
+              
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Gordon growth</th>
+              
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Exit multiple</th>
+              
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line">
+            
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left type-body text-ink">Enterprise value</th>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/9c4e637f-8ff7-4ae8-8f97-d92ded800eb2" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-gordon_growth-enterprise_value" title="434225012431.704581636206 USD">$434,225m</a>
+                      
+                    
+                  </td>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/e374fd36-af55-4a33-aaf1-2233312ae845" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-exit_multiple-enterprise_value" title="336734980968.533591126775 USD">$336,735m</a>
+                      
+                    
+                  </td>
+                
+              </tr>
+            
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left type-body text-ink">Equity value</th>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/a89a49a5-0439-4e01-a68f-f26b3f459a2d" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-gordon_growth-equity_value" title="410314012431.704581636206 USD">$410,314m</a>
+                      
+                    
+                  </td>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/ce420b6a-6e1a-4839-9518-526bfe10fe57" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-exit_multiple-equity_value" title="312823980968.533591126775 USD">$312,824m</a>
+                      
+                    
+                  </td>
+                
+              </tr>
+            
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left type-body text-ink">Terminal value share</th>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/9c5d2d0b-ad9e-4c4d-8cae-b3d69ec66dfe" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-gordon_growth-terminal_share" title="0.843835561315 pure">84.4%</a>
+                      
+                        <span class="ml-1" id="high-terminal-gordon_growth">
+                          
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>over 75% terminal value</span></span>
+
+                        </span>
+                      
+                    
+                  </td>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/4466f5fb-1e1c-45c1-968a-9f96b99bba46" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-exit_multiple-terminal_share" title="0.798623519498 pure">79.9%</a>
+                      
+                        <span class="ml-1" id="high-terminal-exit_multiple">
+                          
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-warning-ink bg-warning-wash text-warning-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5l2 1.5"></path></svg>
+
+  <span>over 75% terminal value</span></span>
+
+                        </span>
+                      
+                    
+                  </td>
+                
+              </tr>
+            
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left type-body text-ink">Value per share</th>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/f52a8372-3fa0-4e02-9d89-13b9a29a6551" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-gordon_growth-value_per_share" title="262.685027164984 USD/shares">$262.69</a>
+                      
+                    
+                  </td>
+                
+                  
+                  <td class="py-3 pr-4">
+                    
+                      
+                      <a href="/calculations/5c5fbdbe-56ff-4507-97b1-dfdc984b0211" class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong" id="figure-exit_multiple-value_per_share" title="200.271434678959 USD/shares">$200.27</a>
+                      
+                    
+                  </td>
+                
+              </tr>
+            
+          </tbody>
+        </table>
+      </div>
+
+      
+        
+        <p class="mt-4 max-w-prose type-body-sm text-ink-muted" id="high-terminal-note">
+          More than three quarters of the enterprise value is terminal value. The explicit forecast is contributing little, so the answer rests almost entirely on the terminal assumption rather than on the projected years a reader can check.
+        </p>
+      
+
+      
+        <p class="mt-4 type-body text-ink" id="method-disagreement">
+          The two methods differ by
+          <span class="type-data">31.2%</span>
+          of the lower figure.
+        </p>
+      
+    </div>
+</section>
+
+  
+
+  
+    
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Sensitivity</h2>
+  <div class="mt-4">
+      
+        
+        <figure id="sensitivity-heatmap">
+          <div class="overflow-x-auto">
+            <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj4KPHN2ZyB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjM5NS4wMTkzODRwdCIgaGVpZ2h0PSIyMjcuMzYyNDM3cHQiIHZpZXdCb3g9IjAgMCAzOTUuMDE5Mzg0IDIyNy4zNjI0MzciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIj4KIDxtZXRhZGF0YT4KICA8cmRmOlJERiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOmNjPSJodHRwOi8vY3JlYXRpdmVjb21tb25zLm9yZy9ucyMiIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgIDxjYzpXb3JrPgogICAgPGRjOnR5cGUgcmRmOnJlc291cmNlPSJodHRwOi8vcHVybC5vcmcvZGMvZGNtaXR5cGUvU3RpbGxJbWFnZSIvPgogICAgPGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+CiAgICA8ZGM6Y3JlYXRvcj4KICAgICA8Y2M6QWdlbnQ+CiAgICAgIDxkYzp0aXRsZT5NYXRwbG90bGliIHYzLjExLjEsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvPC9kYzp0aXRsZT4KICAgICA8L2NjOkFnZW50PgogICAgPC9kYzpjcmVhdG9yPgogICA8L2NjOldvcms+CiAgPC9yZGY6UkRGPgogPC9tZXRhZGF0YT4KIDxkZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+KntzdHJva2UtbGluZWpvaW46IHJvdW5kOyBzdHJva2UtbGluZWNhcDogYnV0dH08L3N0eWxlPgogPC9kZWZzPgogPGcgaWQ9ImZpZ3VyZV8xIj4KICA8ZyBpZD0icGF0Y2hfMSI+CiAgIDxwYXRoIGQ9Ik0gMCAyMjcuMzYyNDM3IApMIDM5NS4wMTkzODQgMjI3LjM2MjQzNyAKTCAzOTUuMDE5Mzg0IDAgCkwgMCAwIAp6CiIgc3R5bGU9ImZpbGw6ICNmZmZmZmYiLz4KICA8L2c+CiAgPGcgaWQ9ImF4ZXNfMSI+CiAgIDxnIGlkPSJwYXRjaF8yIj4KICAgIDxwYXRoIGQ9Ik0gNTQuNjkzMTY0IDE5Mi42NjI0MzcgCkwgMzQwLjM4OTE2NCAxOTIuNjYyNDM3IApMIDM0MC4zODkxNjQgMjAuNzk4NDM3IApMIDU0LjY5MzE2NCAyMC43OTg0MzcgCnoKIiBzdHlsZT0iZmlsbDogI2ZmZmZmZiIvPgogICA8L2c+CiAgIDxnIGNsaXAtcGF0aD0idXJsKCNwNzljNmUzZDljMCkiPgogICAgPGltYWdlIHhsaW5rOmhyZWY9ImRhdGE6aW1hZ2UvcG5nO2Jhc2U2NCwKaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQVgwQUFBRGxDQVlBQUFDL095ZkxBQUFEOWtsRVFWUjRuTzNXUFdvVVlCU0dVWDhtaVRNajVNY3FpWVdnYlJiZytseVduUXV3RnNkT0JMRVNCSXNRbzF2UXhzdkhjODRLWG03eGNCKytlWHY0L1lDLzl2cjUyZlNFcFZ5ZmJxY25MT1Y4Znp3OVlUbW51NlBwQ1V0NU5EMEFnUDlIOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnWkhQNDluTjZ3MUplUGR0T1Qxakt4Zlo0ZXNKU2RpZjMweE9XYzN2blp2L0NwdzhRSXZvQUlhSVBFQ0w2QUNHaUR4QWkrZ0Fob2c4UUl2b0FJYUlQRUNMNkFDR2lEeEFpK2dBaG9nOFFJdm9BSWFJUEVDTDZBQ0dpRHhBaStnQWhvZzhRSXZvQUlhSVBFQ0w2QUNHaUR4QWkrZ0Fob2c4UUl2b0FJYUlQRUNMNkFDR2lEeEFpK2dBaG9nOFFJdm9BSWFJUEVDTDZBQ0dpRHhBaStnQWhvZzhRSXZvQUlhSVBFQ0w2QUNHaUR4QWkrZ0Fob2c4UUl2b0FJYUlQRUxMNTlPWDc5SWFsZkw3YVQwOVl5dFYrT3oxaEtVK2ZiS1luTE9mMjd2SDBoS1g0OUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFqYUhEMStuTnl6bDhPSmllc0pTWHA3dnBpY3M1V3g3TkQxaE9idmpYOU1UbHVMVEJ3Z1JmWUFRMFFjSUVYMkFFTkVIQ0JGOWdCRFJCd2dSZllBUTBRY0lFWDJBRU5FSENCRjlnQkRSQndnUmZZQVEwUWNJRVgyQUVORUhDQkY5Z0JEUkJ3Z1JmWUFRMFFjSUVYMkFFTkVIQ0JGOWdCRFJCd2dSZllBUTBRY0lFWDJBRU5FSENCRjlnQkRSQndnUmZZQVEwUWNJRVgyQUVORUhDQkY5Z0JEUkJ3Z1JmWUFRMFFjSUVYMkFFTkVIQ0JGOWdCRFJCd2dSZllBUTBRY0kyZng0LzI1NncxSSszbHhQVDFqS3plVitlc0pTTHZmYjZRbkwyWi9jVDA5WWlrOGZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVSkVIeUJFOUFGQ1JCOGdSUFFCUWtRZklFVDBBVUpFSHlCRTlBRkNSQjhnUlBRQlFrUWZJRVQwQVVKRUh5QkU5QUZDUkI4Z1JQUUJRa1FmSUVUMEFVTCtBTk5uSFIyaEM1UW5BQUFBQUVsRlRrU3VRbUNDIiBpZD0iaW1hZ2U3OWQwNGU2OTdiIiB0cmFuc2Zvcm09InNjYWxlKDEgLTEpIHRyYW5zbGF0ZSgwIC0xNzEuNzUpIiB4PSI1NC43NSIgeT0iLTIxLjExMjQzNyIgd2lkdGg9IjI4NS43NSIgaGVpZ2h0PSIxNzEuNzUiLz4KICAgPC9nPgogICA8ZyBpZD0ibWF0cGxvdGxpYi5heGlzXzEiPgogICAgPGcgaWQ9Inh0aWNrXzEiPgogICAgIDxnIGlkPSJsaW5lMmRfMSI+CiAgICAgIDxkZWZzPgogICAgICAgPHBhdGggaWQ9Im02OWQwZTk2MWYwIiBkPSJNIDAgMCAKTCAwIDMuNSAKIiBzdHlsZT0ic3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2RlZnM+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5ZDBlOTYxZjAiIHg9IjgzLjI2Mjc2NCIgeT0iMTkyLjY2MjQzNyIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8xIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzVjNjE2NiIgeD0iODMuMjYyNzY0IiB5PSIyMDUuNzQwNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCA4My4yNjI3NjQgMjA1Ljc0MDU2MikiPjAuMDQ2NTg5NDY0ODg1PC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja18yIj4KICAgICA8ZyBpZD0ibGluZTJkXzIiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSIxNDAuNDAxOTY0IiB5PSIxOTIuNjYyNDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzIiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIxNDAuNDAxOTY0IiB5PSIyMDUuNzQwNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAxNDAuNDAxOTY0IDIwNS43NDA1NjIpIj4wLjA1MTU4OTQ2NDg4NTwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieHRpY2tfMyI+CiAgICAgPGcgaWQ9ImxpbmUyZF8zIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjlkMGU5NjFmMCIgeD0iMTk3LjU0MTE2NCIgeT0iMTkyLjY2MjQzNyIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8zIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzVjNjE2NiIgeD0iMTk3LjU0MTE2NCIgeT0iMjA1Ljc0MDU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMTk3LjU0MTE2NCAyMDUuNzQwNTYyKSI+MC4wNTY1ODk0NjQ4ODU8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inh0aWNrXzQiPgogICAgIDxnIGlkPSJsaW5lMmRfNCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5ZDBlOTYxZjAiIHg9IjI1NC42ODAzNjQiIHk9IjE5Mi42NjI0MzciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfNCI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICM1YzYxNjYiIHg9IjI1NC42ODAzNjQiIHk9IjIwNS43NDA1NjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDI1NC42ODAzNjQgMjA1Ljc0MDU2MikiPjAuMDYxNTg5NDY0ODg1PC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja181Ij4KICAgICA8ZyBpZD0ibGluZTJkXzUiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSIzMTEuODE5NTY0IiB5PSIxOTIuNjYyNDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzUiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIzMTEuODE5NTY0IiB5PSIyMDUuNzQwNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzMTEuODE5NTY0IDIwNS43NDA1NjIpIj4wLjA2NjU4OTQ2NDg4NTwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0idGV4dF82Ij4KICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4LjVweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICM1YzYxNjYiIHg9IjE5Ny41NDExNjQiIHk9IjIxOC4xMjA0NDUiIHRyYW5zZm9ybT0icm90YXRlKC0wIDE5Ny41NDExNjQgMjE4LjEyMDQ0NSkiPndhY2M8L3RleHQ+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9Im1hdHBsb3RsaWIuYXhpc18yIj4KICAgIDxnIGlkPSJ5dGlja18xIj4KICAgICA8ZyBpZD0ibGluZTJkXzYiPgogICAgICA8ZGVmcz4KICAgICAgIDxwYXRoIGlkPSJtODQ1MDJhMWZkYSIgZD0iTSAwIDAgCkwgLTMuNSAwIAoiIHN0eWxlPSJzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZGVmcz4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNTQuNjkzMTY0IiB5PSIxNzUuNDc2MDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzciPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSI0Ny42OTMxNjQiIHk9IjE3OC41MTUxIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCA0Ny42OTMxNjQgMTc4LjUxNTEpIj4wLjAyPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18yIj4KICAgICA8ZyBpZD0ibGluZTJkXzciPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI204NDUwMmExZmRhIiB4PSI1NC42OTMxNjQiIHk9IjE0MS4xMDMyMzciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfOCI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBlbmQ7IGZpbGw6ICM1YzYxNjYiIHg9IjQ3LjY5MzE2NCIgeT0iMTQ0LjE0MjMiIHRyYW5zZm9ybT0icm90YXRlKC0wIDQ3LjY5MzE2NCAxNDQuMTQyMykiPjAuMDIyNTwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMyI+CiAgICAgPGcgaWQ9ImxpbmUyZF84Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNTQuNjkzMTY0IiB5PSIxMDYuNzMwNDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzkiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSI0Ny42OTMxNjQiIHk9IjEwOS43Njk1IiB0cmFuc2Zvcm09InJvdGF0ZSgtMCA0Ny42OTMxNjQgMTA5Ljc2OTUpIj4wLjAyNTwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNCI+CiAgICAgPGcgaWQ9ImxpbmUyZF85Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNTQuNjkzMTY0IiB5PSI3Mi4zNTc2MzciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTAiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSI0Ny42OTMxNjQiIHk9Ijc1LjM5NjciIHRyYW5zZm9ybT0icm90YXRlKC0wIDQ3LjY5MzE2NCA3NS4zOTY3KSI+MC4wMjc1PC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja181Ij4KICAgICA8ZyBpZD0ibGluZTJkXzEwIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNTQuNjkzMTY0IiB5PSIzNy45ODQ4MzciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTEiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSI0Ny42OTMxNjQiIHk9IjQxLjAyMzkiIHRyYW5zZm9ybT0icm90YXRlKC0wIDQ3LjY5MzE2NCA0MS4wMjM5KSI+MC4wMzwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0idGV4dF8xMiI+CiAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOC41cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIxMy42NTg2NzIiIHk9IjEwNi43MzA0MzciIHRyYW5zZm9ybT0icm90YXRlKC05MCAxMy42NTg2NzIgMTA2LjczMDQzNykiPnRlcm1pbmFsX2dyb3d0aDwvdGV4dD4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0icGF0Y2hfMyI+CiAgICA8cGF0aCBkPSJNIDU0LjY5MzE2NCAxOTIuNjYyNDM3IApMIDU0LjY5MzE2NCAyMC43OTg0MzcgCiIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2M5Y2NkMDsgc3Ryb2tlLXdpZHRoOiAwLjg7IHN0cm9rZS1saW5lam9pbjogbWl0ZXI7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgPC9nPgogICA8ZyBpZD0icGF0Y2hfNCI+CiAgICA8cGF0aCBkPSJNIDU0LjY5MzE2NCAxOTIuNjYyNDM3IApMIDM0MC4zODkxNjQgMTkyLjY2MjQzNyAKIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utd2lkdGg6IDAuODsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzEzIj4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjgzLjI2Mjc2NCIgeT0iMTc3LjU1NDE2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgODMuMjYyNzY0IDE3Ny41NTQxNjIpIj40MzI8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMTQiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMTQwLjQwMTk2NCIgeT0iMTc3LjU1NDE2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMTQwLjQwMTk2NCAxNzcuNTU0MTYyKSI+MzYwPC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzE1Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjE5Ny41NDExNjQiIHk9IjE3Ny41NTQxNjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDE5Ny41NDExNjQgMTc3LjU1NDE2MikiPjMwODwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8xNiI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjMWExYzFlIiB4PSIyNTQuNjgwMzY0IiB5PSIxNzcuNTU0MTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAyNTQuNjgwMzY0IDE3Ny41NTQxNjIpIj4yNjg8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMTciPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMzExLjgxOTU2NCIgeT0iMTc3LjU1NDE2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzExLjgxOTU2NCAxNzcuNTU0MTYyKSI+MjM2PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzE4Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjgzLjI2Mjc2NCIgeT0iMTQzLjE4MTM2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgODMuMjYyNzY0IDE0My4xODEzNjIpIj40NzU8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMTkiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMTQwLjQwMTk2NCIgeT0iMTQzLjE4MTM2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMTQwLjQwMTk2NCAxNDMuMTgxMzYyKSI+Mzg5PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzIwIj4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjE5Ny41NDExNjQiIHk9IjE0My4xODEzNjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDE5Ny41NDExNjQgMTQzLjE4MTM2MikiPjMyOTwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8yMSI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjMWExYzFlIiB4PSIyNTQuNjgwMzY0IiB5PSIxNDMuMTgxMzYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAyNTQuNjgwMzY0IDE0My4xODEzNjIpIj4yODQ8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMjIiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMzExLjgxOTU2NCIgeT0iMTQzLjE4MTM2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzExLjgxOTU2NCAxNDMuMTgxMzYyKSI+MjQ5PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzIzIj4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICNmZmZmZmYiIHg9IjgzLjI2Mjc2NCIgeT0iMTA4LjgwODU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgODMuMjYyNzY0IDEwOC44MDg1NjIpIj41Mjc8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMjQiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMTQwLjQwMTk2NCIgeT0iMTA4LjgwODU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMTQwLjQwMTk2NCAxMDguODA4NTYyKSI+NDI0PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzI1Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjE5Ny41NDExNjQiIHk9IjEwOC44MDg1NjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDE5Ny41NDExNjQgMTA4LjgwODU2MikiPjM1MzwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8yNiI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjMWExYzFlIiB4PSIyNTQuNjgwMzY0IiB5PSIxMDguODA4NTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAyNTQuNjgwMzY0IDEwOC44MDg1NjIpIj4zMDI8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMjciPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMzExLjgxOTU2NCIgeT0iMTA4LjgwODU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzExLjgxOTU2NCAxMDguODA4NTYyKSI+MjYzPC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzI4Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICNmZmZmZmYiIHg9IjgzLjI2Mjc2NCIgeT0iNzQuNDM1NzYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCA4My4yNjI3NjQgNzQuNDM1NzYyKSI+NTk0PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzI5Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjE0MC40MDE5NjQiIHk9Ijc0LjQzNTc2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMTQwLjQwMTk2NCA3NC40MzU3NjIpIj40NjY8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMzAiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMTk3LjU0MTE2NCIgeT0iNzQuNDM1NzYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAxOTcuNTQxMTY0IDc0LjQzNTc2MikiPjM4MjwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8zMSI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjMWExYzFlIiB4PSIyNTQuNjgwMzY0IiB5PSI3NC40MzU3NjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDI1NC42ODAzNjQgNzQuNDM1NzYyKSI+MzIyPC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzMyIj4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjMxMS44MTk1NjQiIHk9Ijc0LjQzNTc2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzExLjgxOTU2NCA3NC40MzU3NjIpIj4yNzg8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMzMiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogI2ZmZmZmZiIgeD0iODMuMjYyNzY0IiB5PSI0MC4wNjI5NjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDgzLjI2Mjc2NCA0MC4wNjI5NjIpIj42ODA8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMzQiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogI2ZmZmZmZiIgeD0iMTQwLjQwMTk2NCIgeT0iNDAuMDYyOTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAxNDAuNDAxOTY0IDQwLjA2Mjk2MikiPjUxNzwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8zNSI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjMWExYzFlIiB4PSIxOTcuNTQxMTY0IiB5PSI0MC4wNjI5NjIiIHRyYW5zZm9ybT0icm90YXRlKC0wIDE5Ny41NDExNjQgNDAuMDYyOTYyKSI+NDE2PC90ZXh0PgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzM2Ij4KICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxYTFjMWUiIHg9IjI1NC42ODAzNjQiIHk9IjQwLjA2Mjk2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMjU0LjY4MDM2NCA0MC4wNjI5NjIpIj4zNDY8L3RleHQ+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMzciPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzFhMWMxZSIgeD0iMzExLjgxOTU2NCIgeT0iNDAuMDYyOTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzMTEuODE5NTY0IDQwLjA2Mjk2MikiPjI5NjwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8zOCI+CiAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiAxMHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzE2MzI0ZiIgeD0iMTk3LjU0MTE2NCIgeT0iMTQuNzk4NDM4IiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAxOTcuNTQxMTY0IDE0Ljc5ODQzOCkiPldBQ0MgYWdhaW5zdCB0ZXJtaW5hbCBncm93dGg8L3RleHQ+CiAgIDwvZz4KICA8L2c+CiAgPGcgaWQ9ImF4ZXNfMiI+CiAgIDxnIGlkPSJwYXRjaF81Ij4KICAgIDxwYXRoIGQ9Ik0gMzU4LjI0NTE2NCAxNzkuNzcyNjM3IApMIDM2NS41NDkzODQgMTc5Ljc3MjYzNyAKTCAzNjUuNTQ5Mzg0IDMzLjY4ODIzNyAKTCAzNTguMjQ1MTY0IDMzLjY4ODIzNyAKegoiIHN0eWxlPSJmaWxsOiAjZmZmZmZmIi8+CiAgIDwvZz4KICAgPGltYWdlIHhsaW5rOmhyZWY9ImRhdGE6aW1hZ2UvcG5nO2Jhc2U2NCwKaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUFrQUFBRERDQVlBQUFCUTRqdkNBQUFBL1VsRVFWUjRuTzNZU3c2RE1BeUVZVmZLL2EvYlJTSDBDUGtXSXd0UVdGdnorelZKeE9mN3U2NWFmR01kVWpXdVdrZWhVZ3dITVRYbVU2dmJPSnRkNWFwYng5U1lJR1didVhFYmw4U2hnOFV0RzBlenk5MHRwRVE1NVhDbU5FRnBCbThFeWFrYkIwcTBtZTA0VU1LbEE2V1RsSEk1aWRJQlBjQ2NaT2xPY2t1c3VsT3F3eTBRWE8rQW01dEp2c3QxbkJ4OFNBdnNMRmdMMVpoV1hhempPZHlhaHJPekYwYk1uTjBQbXR4eEdNTWwzeXF0NXNRQnAzQzUyZUdPM3krbmpRdWVUK2FXM0lIUlc1MHBCWE9pWnE1dllmeGY4RlFjS2RsLzMxN2N1MXZRN0phaW9IbUtFdTA0NFk2VUV1VmsxY1Z3elIyWFZYbDV4KytIK3dPa3A3bTdTd1FZd3dBQUFBQkpSVTVFcmtKZ2dnPT0iIGlkPSJpbWFnZWI2YzgyNGQyZWIiIHRyYW5zZm9ybT0ic2NhbGUoMSAtMSkgdHJhbnNsYXRlKDAgLTE0Ni4yNSkiIHg9IjM1OC41IiB5PSItMzMuNzUiIHdpZHRoPSI2Ljc1IiBoZWlnaHQ9IjE0Ni4yNSIvPgogICA8ZyBpZD0ibWF0cGxvdGxpYi5heGlzXzMiLz4KICAgPGcgaWQ9Im1hdHBsb3RsaWIuYXhpc180Ij4KICAgIDxnIGlkPSJ5dGlja182Ij4KICAgICA8ZyBpZD0ibGluZTJkXzExIj4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0ibTY5MmU0ZWVhMmMiIGQ9Ik0gMCAwIApMIDMuNSAwIAoiIHN0eWxlPSJzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZGVmcz4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjkyZTRlZWEyYyIgeD0iMzY1LjU0OTM4NCIgeT0iMTc1LjMyNTczNSIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8zOSI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBzdGFydDsgZmlsbDogIzVjNjE2NiIgeD0iMzcyLjU0OTM4NCIgeT0iMTc4LjM2NDc5OCIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzcyLjU0OTM4NCAxNzguMzY0Nzk4KSI+MjUwPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja183Ij4KICAgICA8ZyBpZD0ibGluZTJkXzEyIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjkyZTRlZWEyYyIgeD0iMzY1LjU0OTM4NCIgeT0iMTU4Ljg3MDAxIiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzQwIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IHN0YXJ0OyBmaWxsOiAjNWM2MTY2IiB4PSIzNzIuNTQ5Mzg0IiB5PSIxNjEuOTA5MDczIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNzIuNTQ5Mzg0IDE2MS45MDkwNzMpIj4zMDA8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzgiPgogICAgIDxnIGlkPSJsaW5lMmRfMTMiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OTJlNGVlYTJjIiB4PSIzNjUuNTQ5Mzg0IiB5PSIxNDIuNDE0Mjg1IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzQxIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IHN0YXJ0OyBmaWxsOiAjNWM2MTY2IiB4PSIzNzIuNTQ5Mzg0IiB5PSIxNDUuNDUzMzQ4IiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNzIuNTQ5Mzg0IDE0NS40NTMzNDgpIj4zNTA8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzkiPgogICAgIDxnIGlkPSJsaW5lMmRfMTQiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OTJlNGVlYTJjIiB4PSIzNjUuNTQ5Mzg0IiB5PSIxMjUuOTU4NTYxIiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzQyIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IHN0YXJ0OyBmaWxsOiAjNWM2MTY2IiB4PSIzNzIuNTQ5Mzg0IiB5PSIxMjguOTk3NjIzIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNzIuNTQ5Mzg0IDEyOC45OTc2MjMpIj40MDA8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzEwIj4KICAgICA8ZyBpZD0ibGluZTJkXzE1Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjkyZTRlZWEyYyIgeD0iMzY1LjU0OTM4NCIgeT0iMTA5LjUwMjgzNiIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF80MyI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBzdGFydDsgZmlsbDogIzVjNjE2NiIgeD0iMzcyLjU0OTM4NCIgeT0iMTEyLjU0MTg5OCIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzcyLjU0OTM4NCAxMTIuNTQxODk4KSI+NDUwPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xMSI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xNiI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5MmU0ZWVhMmMiIHg9IjM2NS41NDkzODQiIHk9IjkzLjA0NzExMSIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF80NCI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBzdGFydDsgZmlsbDogIzVjNjE2NiIgeD0iMzcyLjU0OTM4NCIgeT0iOTYuMDg2MTczIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNzIuNTQ5Mzg0IDk2LjA4NjE3MykiPjUwMDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMTIiPgogICAgIDxnIGlkPSJsaW5lMmRfMTciPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OTJlNGVlYTJjIiB4PSIzNjUuNTQ5Mzg0IiB5PSI3Ni41OTEzODYiIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfNDUiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogc3RhcnQ7IGZpbGw6ICM1YzYxNjYiIHg9IjM3Mi41NDkzODQiIHk9Ijc5LjYzMDQ0OCIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzcyLjU0OTM4NCA3OS42MzA0NDgpIj41NTA8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzEzIj4KICAgICA8ZyBpZD0ibGluZTJkXzE4Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjkyZTRlZWEyYyIgeD0iMzY1LjU0OTM4NCIgeT0iNjAuMTM1NjYxIiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzQ2Ij4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IHN0YXJ0OyBmaWxsOiAjNWM2MTY2IiB4PSIzNzIuNTQ5Mzg0IiB5PSI2My4xNzQ3MjQiIHRyYW5zZm9ybT0icm90YXRlKC0wIDM3Mi41NDkzODQgNjMuMTc0NzI0KSI+NjAwPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xNCI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xOSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5MmU0ZWVhMmMiIHg9IjM2NS41NDkzODQiIHk9IjQzLjY3OTkzNiIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF80NyI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBzdGFydDsgZmlsbDogIzVjNjE2NiIgeD0iMzcyLjU0OTM4NCIgeT0iNDYuNzE4OTk5IiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNzIuNTQ5Mzg0IDQ2LjcxODk5OSkiPjY1MDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9IkxpbmVDb2xsZWN0aW9uXzEiLz4KICAgPGcgaWQ9InBhdGNoXzYiPgogICAgPHBhdGggZD0iTSAzNTguMjQ1MTY0IDE3OS43NzI2MzcgCkwgMzYxLjg5NzI3NCAxNzkuNzcyNjM3IApMIDM2NS41NDkzODQgMTc5Ljc3MjYzNyAKTCAzNjUuNTQ5Mzg0IDMzLjY4ODIzNyAKTCAzNjEuODk3Mjc0IDMzLjY4ODIzNyAKTCAzNTguMjQ1MTY0IDMzLjY4ODIzNyAKTCAzNTguMjQ1MTY0IDE3OS43NzI2MzcgCnoKIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utd2lkdGg6IDAuODsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgPC9nPgogPC9nPgogPGRlZnM+CiAgPGNsaXBQYXRoIGlkPSJwNzljNmUzZDljMCI+CiAgIDxyZWN0IHg9IjU0LjY5MzE2NCIgeT0iMjAuNzk4NDM4IiB3aWR0aD0iMjg1LjY5NiIgaGVpZ2h0PSIxNzEuODY0Ii8+CiAgPC9jbGlwUGF0aD4KIDwvZGVmcz4KPC9zdmc+Cg==" alt="value_per_share_gordon_growth (USD/shares) across wacc and terminal_growth. Each cell is a recorded calculation, not an interpolation." class="w-full max-w-3xl rounded-sm border border-line bg-surface">
+          </div>
+          <figcaption class="mt-2 max-w-prose type-body-sm text-ink-muted">
+            value_per_share_gordon_growth (USD/shares) across wacc and terminal_growth. Each cell is a recorded calculation, not an interpolation.
+          </figcaption>
+        </figure>
+      
+      
+        <h3 class="mt-6 type-subheading text-ink">WACC against terminal growth</h3>
+        <p class="mt-1 type-body-sm text-ink-muted">
+          value_per_share_gordon_growth (USD/shares),
+          <span class="type-data-sm">terminal_growth</span> down against
+          <span class="type-data-sm">wacc</span> across.
+          Every cell is a valuation of its own and links to it.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="min-w-full border-collapse" id="grid-0">
+            <caption class="sr-only">WACC against terminal growth, every cell a recorded calculation.</caption>
+            <thead>
+              <tr class="border-b border-line-strong text-left">
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">
+                  terminal_growth \ wacc
+                </th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.046589464885">4.7%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.051589464885">5.2%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.056589464885">5.7%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.061589464885">6.2%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.066589464885">6.7%</th>
+                
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="0.020000000000">2%</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/c52d8078-bec5-45f6-9c55-b49a860d4832" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="432.108836947208 USD/shares">$432.11</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/8f841f4b-efea-4853-bdc8-aebcc8487e77" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="359.943224725200 USD/shares">$359.94</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/893c2aeb-1903-4443-9e6c-137de04a0830" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="307.523063660237 USD/shares">$307.52</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/2f96d99e-e72f-428d-8002-d4a607ef686a" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="267.726306207181 USD/shares">$267.73</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/ff3d7529-2076-4258-93ec-c125d23315c6" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="236.488281919884 USD/shares">$236.49</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="0.022500000000">2.3%</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/49325202-cefb-4d97-a6fc-4389c605255a" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="474.848920760748 USD/shares">$474.85</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/d8d92cd8-dae5-4d03-9d1f-8c8853747e6d" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="389.172271135077 USD/shares">$389.17</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/dc6e9f3f-48b9-4ab5-b765-6ce926095306" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="328.651930603460 USD/shares">$328.65</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/5da9bb47-bf9a-4d20-95f4-c1c0ec70039b" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="283.634032023644 USD/shares">$283.63</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/de67b083-0855-4f93-b5fb-7f8f91cda111" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="248.843938983475 USD/shares">$248.84</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="0.025000000000">2.5%</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/3cf9ea69-8512-4070-afeb-850fdb86faa3" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="527.487370291291 USD/shares">$527.49</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/c49f8f99-ce96-47fa-9053-3d685ec7366e" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="423.897676071934 USD/shares">$423.90</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/354f1677-1a64-49bd-80ff-1b1fee600d85" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="353.125087647834 USD/shares">$353.13</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/daa92a23-7c64-4dd0-97ca-fe24a666a4d3" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="301.715570147337 USD/shares">$301.72</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/f283435c-60a6-48c4-988c-dbba737c38f7" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="262.685027164984 USD/shares">$262.69</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="0.027500000000">2.8%</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/82e54ddb-4072-4f1a-bd62-46dc9a812463" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="593.913123407138 USD/shares">$593.91</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/9cdecaa4-56be-4f7d-84e9-0d277c7e09fc" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="465.830672605865 USD/shares">$465.83</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/69141f68-866a-4d8e-b1fa-774a7869ea60" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="381.804777390728 USD/shares">$381.80</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/d2efcdfc-d4d7-44ac-9257-a0cf00366154" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="322.449179546512 USD/shares">$322.45</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/6148583d-156f-4d37-8f09-71fd7527296c" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="278.296552499082 USD/shares">$278.30</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="0.030000000000">3%</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/424b69c4-5a70-488c-8b74-27bc6591e6bb" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="680.359339381695 USD/shares">$680.36</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/0f5b8ad5-48e8-472c-97e5-56b0f934a10f" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="517.475117931367 USD/shares">$517.48</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/51b69064-c082-403e-a6f9-59857f6c6270" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="415.877522215166 USD/shares">$415.88</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/f442a980-73b6-4ac7-9c56-7e62038e25a8" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="346.464517438801 USD/shares">$346.46</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/35105458-d669-41ed-bea3-11c7409227eb" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="296.041413942782 USD/shares">$296.04</a>
+                    </td>
+                  
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      
+        <h3 class="mt-6 type-subheading text-ink">WACC against exit multiple</h3>
+        <p class="mt-1 type-body-sm text-ink-muted">
+          value_per_share_exit_multiple (USD/shares),
+          <span class="type-data-sm">exit_multiple</span> down against
+          <span class="type-data-sm">wacc</span> across.
+          Every cell is a valuation of its own and links to it.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="min-w-full border-collapse" id="grid-1">
+            <caption class="sr-only">WACC against exit multiple, every cell a recorded calculation.</caption>
+            <thead>
+              <tr class="border-b border-line-strong text-left">
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">
+                  exit_multiple \ wacc
+                </th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.046589464885">4.7%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.051589464885">5.2%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.056589464885">5.7%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.061589464885">6.2%</th>
+                
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="0.066589464885">6.7%</th>
+                
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="10.000000000000">10×</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/709fa717-45ad-460b-b127-62279011dc2f" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="165.921721456776 USD/shares">$165.92</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/aa6f80bf-9b12-490d-bef3-eff513a4828b" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="162.057702910602 USD/shares">$162.06</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/4e899806-f135-45c4-a1df-e11d0e533876" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="158.298448949052 USD/shares">$158.30</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/0ba02493-a88e-40ca-b4be-e187f8dd1907" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="154.640603186108 USD/shares">$154.64</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/01fe46fa-232b-4da7-b097-371e1259c0c1" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="151.080932458482 USD/shares">$151.08</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="11.000000000000">11×</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/bfa87b8d-98c5-4c8f-ba4f-919ec05aec7d" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="179.440140976394 USD/shares">$179.44</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/22e10591-d9b0-4e3a-bcb9-39d350b35276" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="175.257783442191 USD/shares">$175.26</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/e33b3a08-9c8d-4fdb-af99-1cb355a49696" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="171.189143959048 USD/shares">$171.19</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/6027dc42-d523-4d19-bbb6-112dc29a25bb" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="167.230573722219 USD/shares">$167.23</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/9d095b49-9952-4a49-bbbf-e7e58967b54f" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="163.378558013601 USD/shares">$163.38</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="12.000000000000">12×</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/316cbcc3-2646-4b55-b496-1b12fde79780" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="192.958560496013 USD/shares">$192.96</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/12cffeda-deb1-48a7-a2d1-89d8817951f9" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="188.457863973779 USD/shares">$188.46</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/55936306-e079-4053-88c4-a2df192506ab" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="184.079838969045 USD/shares">$184.08</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/8943f4bb-9d86-456b-af0f-d8fcfa4e2b53" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="179.820544258330 USD/shares">$179.82</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/fff80736-61d0-4681-8161-063e07c12332" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="175.676183568720 USD/shares">$175.68</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="13.000000000000">13×</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/a5891ff8-e60c-48e5-a9fb-8882c7cf40f6" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="206.476980015632 USD/shares">$206.48</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/d05c47c3-c989-4761-8ab0-4b304918100f" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="201.657944505368 USD/shares">$201.66</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/bf6e9254-53a2-4f46-ab0c-e59338ada00b" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="196.970533979041 USD/shares">$196.97</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/0ab4ed90-c1ff-4f5f-924c-fb7a50f6dcda" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="192.410514794441 USD/shares">$192.41</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/23f3fcee-9c78-4c62-b524-b23d85572c06" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="187.973809123840 USD/shares">$187.97</a>
+                    </td>
+                  
+                </tr>
+              
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="14.000000000000">14×</th>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/8772cd65-c7c7-4e91-b465-6337e0fbdee4" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="219.995399535250 USD/shares">$220</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/c1e9f1bd-eab4-4260-817b-4e1105065fea" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="214.858025036957 USD/shares">$214.86</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/66c44074-ff49-49a6-ace6-77d2a5605826" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="209.861228989037 USD/shares">$209.86</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/5d74eeb4-9b9c-4f4a-968b-3bcf4b1394d9" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="205.000485330552 USD/shares">$205</a>
+                    </td>
+                  
+                    <td class="py-2 pr-4 text-right">
+                      <a href="/calculations/5c5fbdbe-56ff-4507-97b1-dfdc984b0211" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" title="200.271434678959 USD/shares">$200.27</a>
+                    </td>
+                  
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      
+    </div>
+</section>
+
+  
+
+  
+
+<section class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Comparable companies</h2>
+  <div class="mt-4">
+    
+      <p class="max-w-prose type-body-sm text-ink-muted">
+        Against
+        1 peer a person
+        confirmed, on a <span class="type-data-sm">lfy</span> basis as at
+        2026-09-17.
+      </p>
+      <div class="mt-3 rounded-sm border border-line bg-surface-sunken p-3 type-body-sm text-ink" role="note" id="internal-only">
+        <strong>Internal only.</strong> These figures derive from market data licensed for
+        internal use with no derived-data exemption. They appear on this page and in no
+        exported report.
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[40rem] border-collapse" id="comps-table">
+          <caption class="sr-only">
+            Confirmed peers and the subject, one column per multiple, with the peer median.
+          </caption>
+          <thead>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Company</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">EV/EBITDA</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">EV/Sales</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">P/E</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">P/B</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">P/TBV</th>
+              
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">P/FFO</th>
+              
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line">
+            
+              <tr>
+                <th scope="row" class="py-2 pr-4 text-left type-body text-ink">
+                  ASTRAZENECA PLC
+                  
+                    <span class="ml-1 type-label text-verification">subject</span>
+                  
+                </th>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-body-sm text-ink-muted" title="the filing does not report enterprise_value for this period">n/m</span>
+                    
+                  </td>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-body-sm text-ink-muted" title="the filing does not report enterprise_value for this period">n/m</span>
+                    
+                  </td>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-data-sm text-ink">24.9x</span>
+                      
+                    
+                  </td>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-body-sm text-ink-muted" title="the filing does not report book_value_per_share for this period">n/m</span>
+                    
+                  </td>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-body-sm text-ink-muted" title="the filing does not report tangible_book_value_per_share for this period">n/m</span>
+                    
+                  </td>
+                
+                  
+                  <td class="py-2 pr-4 text-right">
+                    
+                      <span class="type-body-sm text-ink-muted" title="the filing does not report ffo_per_share for this period">n/m</span>
+                    
+                  </td>
+                
+              </tr>
+            
+            <tr class="border-t-2 border-line-strong">
+              <th scope="row" class="py-2 pr-4 text-left type-body-strong text-ink">Peer median</th>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+                
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
+                  —
+                </td>
+              
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      
+        <h3 class="mt-4 type-subheading text-ink">Excluded, and why</h3>
+        <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="comps-excluded">
+          
+            <li><strong>PFIZER INC, Merck &amp; Co., Inc., BRISTOL MYERS SQUIBB CO, ELI LILLY &amp; Co, GSK plc, Sanofi, NOVARTIS AG, JOHNSON &amp; JOHNSON</strong> — this research holds no filings and no price series for it, and a peer multiple needs both</li>
+          
+        </ul>
+      
+    
+  </div>
+</section>
+
+
+  
+    
+
+<section id="internal-charts" class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  <h2 class="type-title-2 text-ink">Internal charts</h2>
+  
+  <p class="mt-1 type-body text-ink-muted">Drawn from licensed market data for internal review; none of this appears in any exportable report.</p>
+  <div class="mt-4">
+      
+      
+        <figure class="mt-4 first:mt-0" id="internal-chart-price_relative">
+          <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj4KPHN2ZyB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjQwNi4yOTA2NjRwdCIgaGVpZ2h0PSIxOTQuNzc0NDM3cHQiIHZpZXdCb3g9IjAgMCA0MDYuMjkwNjY0IDE5NC43NzQ0MzciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmVyc2lvbj0iMS4xIj4KIDxtZXRhZGF0YT4KICA8cmRmOlJERiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOmNjPSJodHRwOi8vY3JlYXRpdmVjb21tb25zLm9yZy9ucyMiIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgIDxjYzpXb3JrPgogICAgPGRjOnR5cGUgcmRmOnJlc291cmNlPSJodHRwOi8vcHVybC5vcmcvZGMvZGNtaXR5cGUvU3RpbGxJbWFnZSIvPgogICAgPGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+CiAgICA8ZGM6Y3JlYXRvcj4KICAgICA8Y2M6QWdlbnQ+CiAgICAgIDxkYzp0aXRsZT5NYXRwbG90bGliIHYzLjExLjEsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvPC9kYzp0aXRsZT4KICAgICA8L2NjOkFnZW50PgogICAgPC9kYzpjcmVhdG9yPgogICA8L2NjOldvcms+CiAgPC9yZGY6UkRGPgogPC9tZXRhZGF0YT4KIDxkZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+KntzdHJva2UtbGluZWpvaW46IHJvdW5kOyBzdHJva2UtbGluZWNhcDogYnV0dH08L3N0eWxlPgogPC9kZWZzPgogPGcgaWQ9ImZpZ3VyZV8xIj4KICA8ZyBpZD0icGF0Y2hfMSI+CiAgIDxwYXRoIGQ9Ik0gMCAxOTQuNzc0NDM3IApMIDQwNi4yOTA2NjQgMTk0Ljc3NDQzNyAKTCA0MDYuMjkwNjY0IDAgCkwgMCAwIAp6CiIgc3R5bGU9ImZpbGw6ICNmZmZmZmYiLz4KICA8L2c+CiAgPGcgaWQ9ImF4ZXNfMSI+CiAgIDxnIGlkPSJwYXRjaF8yIj4KICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDE3Mi41NzQ0MzcgCkwgMzk5LjA5MDY2NCAxNzIuNTc0NDM3IApMIDM5OS4wOTA2NjQgMjAuNzk4NDM3IApMIDQxLjk3MDY2NCAyMC43OTg0MzcgCnoKIiBzdHlsZT0iZmlsbDogI2ZmZmZmZiIvPgogICA8L2c+CiAgIDxnIGlkPSJtYXRwbG90bGliLmF4aXNfMSI+CiAgICA8ZyBpZD0ieHRpY2tfMSI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xIj4KICAgICAgPHBhdGggZD0iTSA0My45MzI4NjIgMTcyLjU3NDQzNyAKTCA0My45MzI4NjIgMjAuNzk4NDM3IAoiIGNsaXAtcGF0aD0idXJsKCNwNzM4MTNiMTdjMCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNjOWNjZDA7IHN0cm9rZS1vcGFjaXR5OiAwLjY7IHN0cm9rZS13aWR0aDogMC41OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMiI+CiAgICAgIDxkZWZzPgogICAgICAgPHBhdGggaWQ9Im02OWQwZTk2MWYwIiBkPSJNIDAgMCAKTCAwIDMuNSAKIiBzdHlsZT0ic3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2RlZnM+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5ZDBlOTYxZjAiIHg9IjQzLjkzMjg2MiIgeT0iMTcyLjU3NDQzNyIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8xIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzVjNjE2NiIgeD0iNDMuOTMyODYyIiB5PSIxODUuNjUyNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCA0My45MzI4NjIgMTg1LjY1MjU2MikiPjIwMjUtMDk8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inh0aWNrXzIiPgogICAgIDxnIGlkPSJsaW5lMmRfMyI+CiAgICAgIDxwYXRoIGQ9Ik0gOTguMzM5MjU1IDE3Mi41NzQ0MzcgCkwgOTguMzM5MjU1IDIwLjc5ODQzNyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzQiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSI5OC4zMzkyNTUiIHk9IjE3Mi41NzQ0MzciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMiI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICM1YzYxNjYiIHg9Ijk4LjMzOTI1NSIgeT0iMTg1LjY1MjU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgOTguMzM5MjU1IDE4NS42NTI1NjIpIj4yMDI1LTExPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja18zIj4KICAgICA8ZyBpZD0ibGluZTJkXzUiPgogICAgICA8cGF0aCBkPSJNIDE1Mi43NDU2NDkgMTcyLjU3NDQzNyAKTCAxNTIuNzQ1NjQ5IDIwLjc5ODQzNyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzYiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSIxNTIuNzQ1NjQ5IiB5PSIxNzIuNTc0NDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzMiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIxNTIuNzQ1NjQ5IiB5PSIxODUuNjUyNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAxNTIuNzQ1NjQ5IDE4NS42NTI1NjIpIj4yMDI2LTAxPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja180Ij4KICAgICA8ZyBpZD0ibGluZTJkXzciPgogICAgICA8cGF0aCBkPSJNIDIwNS4zNjgyMjcgMTcyLjU3NDQzNyAKTCAyMDUuMzY4MjI3IDIwLjc5ODQzNyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzgiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSIyMDUuMzY4MjI3IiB5PSIxNzIuNTc0NDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzQiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIyMDUuMzY4MjI3IiB5PSIxODUuNjUyNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAyMDUuMzY4MjI3IDE4NS42NTI1NjIpIj4yMDI2LTAzPC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja181Ij4KICAgICA8ZyBpZD0ibGluZTJkXzkiPgogICAgICA8cGF0aCBkPSJNIDI1OS43NzQ2MiAxNzIuNTc0NDM3IApMIDI1OS43NzQ2MiAyMC43OTg0MzcgCiIgY2xpcC1wYXRoPSJ1cmwoI3A3MzgxM2IxN2MwKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2M5Y2NkMDsgc3Ryb2tlLW9wYWNpdHk6IDAuNjsgc3Ryb2tlLXdpZHRoOiAwLjU7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8xMCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTY5ZDBlOTYxZjAiIHg9IjI1OS43NzQ2MiIgeT0iMTcyLjU3NDQzNyIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF81Ij4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzVjNjE2NiIgeD0iMjU5Ljc3NDYyIiB5PSIxODUuNjUyNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAyNTkuNzc0NjIgMTg1LjY1MjU2MikiPjIwMjYtMDU8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inh0aWNrXzYiPgogICAgIDxnIGlkPSJsaW5lMmRfMTEiPgogICAgICA8cGF0aCBkPSJNIDMxNC4xODEwMTQgMTcyLjU3NDQzNyAKTCAzMTQuMTgxMDE0IDIwLjc5ODQzNyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzEyIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNjlkMGU5NjFmMCIgeD0iMzE0LjE4MTAxNCIgeT0iMTcyLjU3NDQzNyIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF82Ij4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IG1pZGRsZTsgZmlsbDogIzVjNjE2NiIgeD0iMzE0LjE4MTAxNCIgeT0iMTg1LjY1MjU2MiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzE0LjE4MTAxNCAxODUuNjUyNTYyKSI+MjAyNi0wNzwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieHRpY2tfNyI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xMyI+CiAgICAgIDxwYXRoIGQ9Ik0gMzY5LjQ3OTMxNSAxNzIuNTc0NDM3IApMIDM2OS40NzkzMTUgMjAuNzk4NDM3IAoiIGNsaXAtcGF0aD0idXJsKCNwNzM4MTNiMTdjMCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNjOWNjZDA7IHN0cm9rZS1vcGFjaXR5OiAwLjY7IHN0cm9rZS13aWR0aDogMC41OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMTQiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI202OWQwZTk2MWYwIiB4PSIzNjkuNDc5MzE1IiB5PSIxNzIuNTc0NDM3IiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzciPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIzNjkuNDc5MzE1IiB5PSIxODUuNjUyNTYyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNjkuNDc5MzE1IDE4NS42NTI1NjIpIj4yMDI2LTA5PC90ZXh0PgogICAgIDwvZz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0ibWF0cGxvdGxpYi5heGlzXzIiPgogICAgPGcgaWQ9Inl0aWNrXzEiPgogICAgIDxnIGlkPSJsaW5lMmRfMTUiPgogICAgICA8cGF0aCBkPSJNIDQxLjk3MDY2NCAxNTkuMTc2NzE2IApMIDM5OS4wOTA2NjQgMTU5LjE3NjcxNiAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzE2Ij4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0ibTg0NTAyYTFmZGEiIGQ9Ik0gMCAwIApMIC0zLjUgMCAKIiBzdHlsZT0ic3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2RlZnM+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTg0NTAyYTFmZGEiIHg9IjQxLjk3MDY2NCIgeT0iMTU5LjE3NjcxNiIgc3R5bGU9ImZpbGw6ICM1YzYxNjY7IHN0cm9rZTogIzVjNjE2Njsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF84Ij4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IGVuZDsgZmlsbDogIzVjNjE2NiIgeD0iMzQuOTcwNjY0IiB5PSIxNjIuMjE1Nzc5IiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNC45NzA2NjQgMTYyLjIxNTc3OSkiPjE1MDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMiI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xNyI+CiAgICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDEzNy4wNzE5MTMgCkwgMzk5LjA5MDY2NCAxMzcuMDcxOTEzIAoiIGNsaXAtcGF0aD0idXJsKCNwNzM4MTNiMTdjMCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNjOWNjZDA7IHN0cm9rZS1vcGFjaXR5OiAwLjY7IHN0cm9rZS13aWR0aDogMC41OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMTgiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI204NDUwMmExZmRhIiB4PSI0MS45NzA2NjQiIHk9IjEzNy4wNzE5MTMiIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfOSI+CiAgICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBlbmQ7IGZpbGw6ICM1YzYxNjYiIHg9IjM0Ljk3MDY2NCIgeT0iMTQwLjExMDk3NiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzQuOTcwNjY0IDE0MC4xMTA5NzYpIj4xNjA8L3RleHQ+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzMiPgogICAgIDxnIGlkPSJsaW5lMmRfMTkiPgogICAgICA8cGF0aCBkPSJNIDQxLjk3MDY2NCAxMTQuOTY3MTEgCkwgMzk5LjA5MDY2NCAxMTQuOTY3MTEgCiIgY2xpcC1wYXRoPSJ1cmwoI3A3MzgxM2IxN2MwKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2M5Y2NkMDsgc3Ryb2tlLW9wYWNpdHk6IDAuNjsgc3Ryb2tlLXdpZHRoOiAwLjU7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8yMCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTg0NTAyYTFmZGEiIHg9IjQxLjk3MDY2NCIgeT0iMTE0Ljk2NzExIiBzdHlsZT0iZmlsbDogIzVjNjE2Njsgc3Ryb2tlOiAjNWM2MTY2OyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzEwIj4KICAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOHB4OyBmb250LWZhbWlseTogJ0RlamFWdSBTYW5zJzsgdGV4dC1hbmNob3I6IGVuZDsgZmlsbDogIzVjNjE2NiIgeD0iMzQuOTcwNjY0IiB5PSIxMTguMDA2MTcyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMCAzNC45NzA2NjQgMTE4LjAwNjE3MikiPjE3MDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNCI+CiAgICAgPGcgaWQ9ImxpbmUyZF8yMSI+CiAgICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDkyLjg2MjMwNyAKTCAzOTkuMDkwNjY0IDkyLjg2MjMwNyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzIyIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNDEuOTcwNjY0IiB5PSI5Mi44NjIzMDciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTEiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSIzNC45NzA2NjQiIHk9Ijk1LjkwMTM2OSIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzQuOTcwNjY0IDk1LjkwMTM2OSkiPjE4MDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNSI+CiAgICAgPGcgaWQ9ImxpbmUyZF8yMyI+CiAgICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDcwLjc1NzUwMyAKTCAzOTkuMDkwNjY0IDcwLjc1NzUwMyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzI0Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNDEuOTcwNjY0IiB5PSI3MC43NTc1MDMiIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTIiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSIzNC45NzA2NjQiIHk9IjczLjc5NjU2NiIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzQuOTcwNjY0IDczLjc5NjU2NikiPjE5MDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNiI+CiAgICAgPGcgaWQ9ImxpbmUyZF8yNSI+CiAgICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDQ4LjY1MjcgCkwgMzk5LjA5MDY2NCA0OC42NTI3IAoiIGNsaXAtcGF0aD0idXJsKCNwNzM4MTNiMTdjMCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNjOWNjZDA7IHN0cm9rZS1vcGFjaXR5OiAwLjY7IHN0cm9rZS13aWR0aDogMC41OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMjYiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI204NDUwMmExZmRhIiB4PSI0MS45NzA2NjQiIHk9IjQ4LjY1MjciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTMiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSIzNC45NzA2NjQiIHk9IjUxLjY5MTc2MyIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzQuOTcwNjY0IDUxLjY5MTc2MykiPjIwMDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNyI+CiAgICAgPGcgaWQ9ImxpbmUyZF8yNyI+CiAgICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDI2LjU0Nzg5NyAKTCAzOTkuMDkwNjY0IDI2LjU0Nzg5NyAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuNTsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzI4Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtODQ1MDJhMWZkYSIgeD0iNDEuOTcwNjY0IiB5PSIyNi41NDc4OTciIHN0eWxlPSJmaWxsOiAjNWM2MTY2OyBzdHJva2U6ICM1YzYxNjY7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTQiPgogICAgICA8dGV4dCBzdHlsZT0iZm9udC1zaXplOiA4cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogZW5kOyBmaWxsOiAjNWM2MTY2IiB4PSIzNC45NzA2NjQiIHk9IjI5LjU4Njk1OSIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMzQuOTcwNjY0IDI5LjU4Njk1OSkiPjIxMDwvdGV4dD4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0idGV4dF8xNSI+CiAgICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogOC41cHg7IGZvbnQtZmFtaWx5OiAnRGVqYVZ1IFNhbnMnOyB0ZXh0LWFuY2hvcjogbWlkZGxlOyBmaWxsOiAjNWM2MTY2IiB4PSIxMy42NTg2NzIiIHk9Ijk2LjY4NjQzNyIgdHJhbnNmb3JtPSJyb3RhdGUoLTkwIDEzLjY1ODY3MiA5Ni42ODY0MzcpIj5BZGp1c3RlZCBjbG9zZSwgVVNEPC90ZXh0PgogICAgPC9nPgogICA8L2c+CiAgIDxnIGlkPSJsaW5lMmRfMjkiPgogICAgPHBhdGggZD0iTSA1OC4yMDMzOTEgMTQ3LjI4NDMzMiAKTCA1OS4wOTUyOTkgMTUwLjAyNTMyOCAKTCA1OS45ODcyMDggMTUzLjUxNzg4NyAKTCA2Mi42NjI5MzIgMTQ4LjEyNDMxNSAKTCA2My41NTQ4NCAxNTQuODg4Mzg0IApMIDY0LjQ0Njc0OCAxNTcuNTg1MTcgCkwgNjUuMzM4NjU2IDE2NS42NzU1MjggCkwgNjYuMjMwNTY0IDE2NC42NTg3MDcgCkwgNjguOTA2Mjg4IDE2My4wMjI5NTIgCkwgNjkuNzk4MTk3IDE1MS41NzI2NjQgCkwgNzAuNjkwMTA1IDExNy43OTY1MjUgCkwgNzEuNTgyMDEzIDEyMC45MzU0MDcgCkwgNzIuNDczOTIxIDExMy41OTY2MTIgCkwgNzUuMTQ5NjQ1IDExMi44MDA4MzkgCkwgNzYuMDQxNTUzIDExMS4xMjA4NzQgCkwgNzYuOTMzNDYxIDExMy4yODcxNDUgCkwgNzcuODI1MzY5IDExNC43OTAyNzEgCkwgNzguNzE3Mjc3IDExNy4wNDQ5NjEgCkwgODEuMzkzMDAyIDExNy4xMzMzOCAKTCA4Mi4yODQ5MSAxMTQuNDM2NTk1IApMIDgzLjE3NjgxOCAxMTUuNzE4NjczIApMIDg0LjA2ODcyNiAxMjAuMTM5NjM0IApMIDg0Ljk2MDYzNCAxMTYuMzM3NjA4IApMIDg3LjYzNjM1OCAxMTkuOTYyNzk1IApMIDg4LjUyODI2NiAxMjIuODM2NDIgCkwgODkuNDIwMTc1IDEyMS45MDgwMTggCkwgOTAuMzEyMDgzIDEyMi4wNDA2NDcgCkwgOTEuMjAzOTkxIDEyMi41MjY5NTIgCkwgOTMuODc5NzE1IDExOS4xMjI4MTMgCkwgOTQuNzcxNjIzIDEyNS41MzMyMDYgCkwgOTUuNjYzNTMxIDEyNy4yMTMxNzEgCkwgOTYuNTU1NDM5IDEyNi43MjY4NjUgCkwgOTcuNDQ3MzQ3IDEyNi40NjE2MDcgCkwgMTAwLjEyMzA3MiAxMjkuNDY3ODYxIApMIDEwMS4wMTQ5OCAxMjguMDk3MzYzIApMIDEwMS45MDY4ODggMTMxLjk4NzgwOCAKTCAxMDIuNzk4Nzk2IDEyMC40MDQ4OTEgCkwgMTAzLjY5MDcwNCAxMTYuODIzOTEzIApMIDEwNi4zNjY0MjggMTA0LjAwMzEyNyAKTCAxMDcuMjU4MzM2IDk2Ljg4NTM4MSAKTCAxMDguMTUwMjQ0IDEwMy4xMTg5MzUgCkwgMTA5LjA0MjE1MyA5OS4wMDc0NDIgCkwgMTA5LjkzNDA2MSA5Ni44NDExNzEgCkwgMTEyLjYwOTc4NSA5NS41MTQ4ODMgCkwgMTEzLjUwMTY5MyA5NC44NTE3MzkgCkwgMTE0LjM5MzYwMSA5Ny4zMjc0NzcgCkwgMTE1LjI4NTUwOSA5OC42OTc5NzUgCkwgMTE2LjE3NzQxNyA4OC40NDEzNDYgCkwgMTE4Ljg1MzE0MiA4Ni4xNDI0NDYgCkwgMTE5Ljc0NTA1IDc4LjUzODM5NCAKTCAxMjAuNjM2OTU4IDc4LjE4NDcxNyAKTCAxMjIuNDIwNzc0IDgwLjgzNzI5NCAKTCAxMjUuMDk2NDk4IDkwLjU2MzQwNyAKTCAxMjUuOTg4NDA2IDkyLjExMDc0MyAKTCAxMjYuODgwMzE0IDg5LjEwNDQ5IApMIDEyNy43NzIyMjMgOTIuNzI5Njc4IApMIDEyOC42NjQxMzEgOTIuMDY2NTM0IApMIDEzMS4zMzk4NTUgODcuMjAzNDc3IApMIDEzMi4yMzE3NjMgOTMuNjU4MDc5IApMIDEzMy4xMjM2NzEgODYuMTg2NjU2IApMIDEzNC4wMTU1NzkgOTEuNTgwMjI4IApMIDEzNC45MDc0ODcgOTMuNjEzODcgCkwgMTM3LjU4MzIxMiA4NS45NjU2MDggCkwgMTM4LjQ3NTEyIDg2Ljg5NDAxIApMIDEzOS4zNjcwMjggOTMuNDgxMjQxIApMIDE0MS4xNTA4NDQgODYuODQ5OCAKTCAxNDMuODI2NTY4IDg2LjAwOTgxOCAKTCAxNDQuNzE4NDc2IDgzLjQwMTQ1MSAKTCAxNDUuNjEwMzg0IDgyLjAzMDk1MyAKTCAxNDcuMzk0MjAxIDgwLjA0MTUyMSAKTCAxNTAuMDY5OTI1IDgxLjcyMTQ4NiAKTCAxNTAuOTYxODMzIDgxLjc2NTY5NSAKTCAxNTEuODUzNzQxIDg0LjMyOTg1MiAKTCAxNTMuNjM3NTU3IDg1LjkyMTM5OCAKTCAxNTYuMzEzMjgxIDg3LjQ2ODczNSAKTCAxNTcuMjA1MTkgNzAuOTM0MzQyIApMIDE1OC4wOTcwOTggNzAuMDUwMTUgCkwgMTU4Ljk4OTAwNiA3NS4xMzQyNTQgCkwgMTU5Ljg4MDkxNCA3Mi4zMDQ4NCAKTCAxNjIuNTU2NjM4IDc2LjgxNDIxOSAKTCAxNjMuNDQ4NTQ2IDcyLjkyMzc3NCAKTCAxNjQuMzQwNDU0IDY0LjgzMzQxNiAKTCAxNjUuMjMyMzYyIDc1LjIyMjY3NCAKTCAxNjYuMTI0MjcgNzMuNDU0Mjg5IApMIDE2OS42OTE5MDMgOTMuMTI3NTY0IApMIDE3MC41ODM4MTEgOTAuNDc0OTg4IApMIDE3Mi4zNjc2MjcgNzkuODIwNDczIApMIDE3NS4wNDMzNTEgNzQuMTYxNjQzIApMIDE3NS45MzUyNTkgNjguMTA0OTI3IApMIDE3Ni44MjcxNjggNzguNjI2ODEzIApMIDE3Ny43MTkwNzYgODEuNDEyMDE4IApMIDE3OC42MTA5ODQgODAuNjE2MjQ2IApMIDE4MS4yODY3MDggNzQuMjcyMTY3IApMIDE4Mi4xNzg2MTYgODMuMzEzMDMyIApMIDE4My4wNzA1MjQgNzYuMzk0MjI4IApMIDE4My45NjI0MzIgNzcuMDM1MjY3IApMIDE4NC44NTQzNCA2NC4wNTk3NDggCkwgMTg3LjUzMDA2NSA3NS4xNTYzNTkgCkwgMTg4LjQyMTk3MyA2My4yNDE4NyAKTCAxODkuMzEzODgxIDM4LjEzMDgxNCAKTCAxOTAuMjA1Nzg5IDM4LjY2MTMyOSAKTCAxOTEuMDk3Njk3IDM2LjM4NDUzNCAKTCAxOTQuNjY1MzI5IDI3LjY5NzM0NyAKTCAxOTUuNTU3MjM3IDI5LjQ4NzgzNiAKTCAxOTYuNDQ5MTQ2IDI5LjU5ODM2IApMIDE5Ny4zNDEwNTQgMzkuMzY4NjgzIApMIDIwMC4wMTY3NzggMzcuNzMyOTI3IApMIDIwMC45MDg2ODYgMzQuMDQxNDI1IApMIDIwMS44MDA1OTQgMzUuODU0MDE5IApMIDIwMi42OTI1MDIgMzkuODU0OTg4IApMIDIwMy41ODQ0MSAyOS45NzQxNDEgCkwgMjA2LjI2MDEzNSA0MC40MDc2MDggCkwgMjA3LjE1MjA0MyA0NC43NjIyNTUgCkwgMjA4LjA0Mzk1MSA0NS4yNzA2NjUgCkwgMjA4LjkzNTg1OSA1NC4xMzQ2OTEgCkwgMjA5LjgyNzc2NyA2MS40MjkyNzYgCkwgMjEyLjUwMzQ5MSA1OS44MTU2MjYgCkwgMjEzLjM5NTM5OSA1OS43MjcyMDYgCkwgMjE0LjI4NzMwNyA2My40NDA4MTMgCkwgMjE1LjE3OTIxNiA2NS4yMzEzMDIgCkwgMjE2LjA3MTEyNCA3MC45Nzg1NTEgCkwgMjE4Ljc0Njg0OCA2Ni4zMTQ0MzggCkwgMjE5LjYzODc1NiA2Ny45MDU5ODQgCkwgMjIwLjUzMDY2NCA3NC4yNTAwNjIgCkwgMjIxLjQyMjU3MiA3My4xMjI3MTcgCkwgMjIyLjMxNDQ4IDg0LjkwNDU3NyAKTCAyMjQuOTkwMjA1IDgzLjg2NTY1MiAKTCAyMjUuODgyMTEzIDgwLjA4NTczIApMIDIyNi43NzQwMjEgNzcuMDc5NDc3IApMIDIyNy42NjU5MjkgODUuMzQ2NjczIApMIDIyOC41NTc4MzcgNzQuMjUwMDYyIApMIDIzMS4yMzM1NjEgNjIuMTgwODQgCkwgMjMzLjkwOTI4NSA0MC45MzgxMjQgCkwgMjM3LjQ3NjkxOCA0Mi4zOTcwNDEgCkwgMjM4LjM2ODgyNiA0Ni44NjIyMTEgCkwgMjM5LjI2MDczNCAzOS4yMTM5NDkgCkwgMjQwLjE1MjY0MiAzNy42MjI0MDMgCkwgMjQxLjA0NDU1IDM5Ljc0NDQ2NCAKTCAyNDMuNzIwMjc0IDQzLjcwMTIyNCAKTCAyNDQuNjEyMTgzIDM4Ljk3MDc5NiAKTCAyNDUuNTA0MDkxIDQ1Ljk3ODAxOSAKTCAyNDYuMzk1OTk5IDQ3LjYxMzc3NCAKTCAyNDcuMjg3OTA3IDM4LjA0MjM5NSAKTCAyNDkuOTYzNjMxIDQ3LjEyNzQ2OSAKTCAyNTAuODU1NTM5IDU3Ljk4MDkyNyAKTCAyNTEuNzQ3NDQ3IDYwLjEyNTA5MyAKTCAyNTMuNTMxMjYzIDcxLjMxMDEyMyAKTCAyNTcuMDk4ODk2IDc4LjA5NjI5OCAKTCAyNTcuOTkwODA0IDgxLjM2NzgwOSAKTCAyNTguODgyNzEyIDc2LjU3MTA2NyAKTCAyNTkuNzc0NjIgODIuMzg0NjMgCkwgMjYyLjQ1MDM0NCA4NS4yMTQwNDUgCkwgMjYzLjM0MjI1MiA5MC4xMjEzMTEgCkwgMjY0LjIzNDE2MSA4MS45ODY3NDMgCkwgMjY1LjEyNjA2OSA4Ny4yOTE4OTYgCkwgMjY2LjAxNzk3NyA4Ni41NjI0MzggCkwgMjY4LjY5MzcwMSA4OC43NTA4MTMgCkwgMjY5LjU4NTYwOSA4Mi44MjY3MjYgCkwgMjcwLjQ3NzUxNyA3NS43OTczOTggCkwgMjcxLjM2OTQyNSA4MS44OTgzMjQgCkwgMjcyLjI2MTMzMyA4OS4zNjk3NDggCkwgMjc1LjgyODk2NiA4Mi42MDU2NzggCkwgMjc2LjcyMDg3NCA3Ni4zNzIxMjMgCkwgMjc3LjYxMjc4MiA3MS4zMTAxMjMgCkwgMjc4LjUwNDY5IDc3LjMyMjYzIApMIDI4Mi4wNzIzMjIgNzYuOTY4OTUzIApMIDI4Mi45NjQyMyA4MC4zNzMwOTMgCkwgMjgzLjg1NjEzOSA4MS4wODA0NDYgCkwgMjg0Ljc0ODA0NyA4MC4zMjg4ODMgCkwgMjg3LjQyMzc3MSA5My41MDMzNDYgCkwgMjg4LjMxNTY3OSA5OC40OTkwMzEgCkwgMjg5LjIwNzU4NyAxMDEuMDg1MjkzIApMIDI5MC4wOTk0OTUgODguODgzNDQyIApMIDI5MC45OTE0MDMgNzkuNzA5OTQ5IApMIDI5My42NjcxMjggODkuNDM2MDYyIApMIDI5NC41NTkwMzYgODUuMjgwMzU5IApMIDI5NS40NTA5NDQgOTUuMTYxMjA2IApMIDI5Ni4zNDI4NTIgODcuODIyNDExIApMIDI5Ny4yMzQ3NiA5NS42MjU0MDcgCkwgMjk5LjkxMDQ4NCA5OC44OTY5MTggCkwgMzAwLjgwMjM5MiA5NS43MTM4MjYgCkwgMzAxLjY5NDMgOTcuNTI2NDIgCkwgMzAyLjU4NjIwOSAxMDQuMDY5NDQyIApMIDMwNi4xNTM4NDEgMTAwLjc1MzcyMSAKTCAzMDcuMDQ1NzQ5IDkwLjYwNzYxNyAKTCAzMDcuOTM3NjU3IDg2LjE4NjY1NiAKTCAzMDkuNzIxNDczIDc0LjI3MjE2NyAKTCAzMTIuMzk3MTk4IDY4LjY1NzU0NyAKTCAzMTMuMjg5MTA2IDcxLjU5NzQ4NiAKTCAzMTQuMTgxMDE0IDg0LjMyOTg1MiAKTCAzMTUuMDcyOTIyIDU5LjM3MzUzIApMIDMxOC42NDA1NTQgNzAuNDAzODI2IApMIDMxOS41MzI0NjIgNjMuODYwODA1IApMIDMyMC40MjQzNyA3Mi4zNDkwNDkgCkwgMzIxLjMxNjI3OCA5Ni4yMDAxMzIgCkwgMzIyLjIwODE4NyAxMTEuNDA4MjM2IApMIDMyNC44ODM5MTEgMTE2LjEzODY2NCAKTCAzMjUuNzc1ODE5IDEyNy4xMjQ3NTIgCkwgMzI2LjY2NzcyNyAxMTguNTcwMTkzIApMIDMyNy41NTk2MzUgMTE2LjUzNjU1MSAKTCAzMjguNDUxNTQzIDExNy4zOTg2MzggCkwgMzMxLjEyNzI2NyAxMjcuMDgwNTQyIApMIDMzMi4wMTkxNzYgMTE2LjQyNjAyNyAKTCAzMzIuOTExMDg0IDExNS41NjM5MzkgCkwgMzMzLjgwMjk5MiAxMTguNzkxMjQxIApMIDMzNC42OTQ5IDExNi42MDI4NjUgCkwgMzM3LjM3MDYyNCAxMTUuNzYyODgzIApMIDMzOC4yNjI1MzIgMTA5LjQ4NTExOSAKTCAzMzkuMTU0NDQgMTA3LjY3MjUyNSAKTCAzNDAuMDQ2MzQ4IDExMi4wMDUwNjYgCkwgMzQwLjkzODI1NiAxMTUuNzYyODgzIApMIDM0My42MTM5ODEgMTQxLjU1OTE4OCAKTCAzNDQuNTA1ODg5IDE0Ni43NTM4MTcgCkwgMzQ1LjM5Nzc5NyAxMzMuNzU2MTkzIApMIDM0Ni4yODk3MDUgMTM0LjcwNjY5OSAKTCAzNDcuMTgxNjEzIDEzMy45MzMwMzEgCkwgMzQ5Ljg1NzMzNyAxMzIuODQ5ODk2IApMIDM1MC43NDkyNDUgMTM5LjgzNTAxMyAKTCAzNTEuNjQxMTU0IDE0MC4zODc2MzQgCkwgMzUyLjUzMzA2MiAxNDMuMTcyODM5IApMIDM1My40MjQ5NyAxNDQuOTE5MTE4IApMIDM1Ni4xMDA2OTQgMTQzLjk0NjUwNyAKTCAzNTYuOTkyNjAyIDEzNi44NTA4NjUgCkwgMzU3Ljg4NDUxIDEyNi4xMzAwMzUgCkwgMzU4Ljc3NjQxOCAxMjcuMTQ2ODU2IApMIDM1OS42NjgzMjYgMTIzLjg1MzI0MSAKTCAzNjIuMzQ0MDUxIDEyMi4yMzk1OSAKTCAzNjMuMjM1OTU5IDExNS43MTg2NzMgCkwgMzY0LjEyNzg2NyAxMjMuMjEyMjAxIApMIDM2NS45MTE2ODMgMTMxLjEwMzYxNiAKTCAzNjguNTg3NDA3IDEzMi4zNjM1OSAKTCAzNjkuNDc5MzE1IDEzMS42MTIwMjcgCkwgMzcwLjM3MTIyNCAxMzMuNDY4ODMgCkwgMzcxLjI2MzEzMiAxMjYuNTI3OTIyIApMIDM3Mi4xNTUwNCAxMzEuMTAzNjE2IApMIDM3NS43MjI2NzIgMTM2Ljk4MzQ5NCAKTCAzNzYuNjE0NTggMTQzLjgzNTk4MyAKTCAzNzcuNTA2NDg4IDEzNy44Njc2ODYgCkwgMzc4LjM5ODM5NiAxMzYuNjk2MTMxIApMIDM4MS4wNzQxMjEgMTI4LjcxNjI5NyAKTCAzODEuOTY2MDI5IDEzMi45ODI1MjQgCkwgMzgyLjg1NzkzNyAxMzAuNjgzNjI1IApMIDM4Mi44NTc5MzcgMTMwLjY4MzYyNSAKIiBjbGlwLXBhdGg9InVybCgjcDczODEzYjE3YzApIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjMTYzMjRmOyBzdHJva2Utd2lkdGg6IDEuMjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgIDxnIGlkPSJwYXRjaF8zIj4KICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDE3Mi41NzQ0MzcgCkwgNDEuOTcwNjY0IDIwLjc5ODQzNyAKIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjYzljY2QwOyBzdHJva2Utd2lkdGg6IDAuODsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgIDxnIGlkPSJwYXRjaF80Ij4KICAgIDxwYXRoIGQ9Ik0gNDEuOTcwNjY0IDE3Mi41NzQ0MzcgCkwgMzk5LjA5MDY2NCAxNzIuNTc0NDM3IAoiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNjOWNjZDA7IHN0cm9rZS13aWR0aDogMC44OyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMTYiPgogICAgPHRleHQgc3R5bGU9ImZvbnQtc2l6ZTogMTBweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBtaWRkbGU7IGZpbGw6ICMxNjMyNGYiIHg9IjIyMC41MzA2NjQiIHk9IjE0Ljc5ODQzNyIgdHJhbnNmb3JtPSJyb3RhdGUoLTAgMjIwLjUzMDY2NCAxNC43OTg0MzcpIj5QcmljZSBhbmQgcmVsYXRpdmUgcGVyZm9ybWFuY2UgKGludGVybmFsKTwvdGV4dD4KICAgPC9nPgogICA8ZyBpZD0ibGVnZW5kXzEiPgogICAgPGcgaWQ9ImxpbmUyZF8zMCI+CiAgICAgPHBhdGggZD0iTSA0OS4xNzA2NjQgMzEuMjc3MTg3IApMIDU3LjE3MDY2NCAzMS4yNzcxODcgCkwgNjUuMTcwNjY0IDMxLjI3NzE4NyAKIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjMTYzMjRmOyBzdHJva2Utd2lkdGg6IDEuMjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgPC9nPgogICAgPGcgaWQ9InRleHRfMTciPgogICAgIDx0ZXh0IHN0eWxlPSJmb250LXNpemU6IDhweDsgZm9udC1mYW1pbHk6ICdEZWphVnUgU2Fucyc7IHRleHQtYW5jaG9yOiBzdGFydDsgZmlsbDogIzFhMWMxZSIgeD0iNzEuNTcwNjY0IiB5PSIzNC4wNzcxODciIHRyYW5zZm9ybT0icm90YXRlKC0wIDcxLjU3MDY2NCAzNC4wNzcxODcpIj5BWk48L3RleHQ+CiAgICA8L2c+CiAgIDwvZz4KICA8L2c+CiA8L2c+CiA8ZGVmcz4KICA8Y2xpcFBhdGggaWQ9InA3MzgxM2IxN2MwIj4KICAgPHJlY3QgeD0iNDEuOTcwNjY0IiB5PSIyMC43OTg0MzciIHdpZHRoPSIzNTcuMTIiIGhlaWdodD0iMTUxLjc3NiIvPgogIDwvY2xpcFBhdGg+CiA8L2RlZnM+Cjwvc3ZnPgo=" alt="Price and relative performance (internal)" class="w-full rounded-sm border border-line bg-surface">
+          <figcaption class="mt-1 type-body-sm text-ink-muted">
+            Price and relative performance (internal)
+          </figcaption>
+        </figure>
+      
+    </div>
+</section>
+
+  
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

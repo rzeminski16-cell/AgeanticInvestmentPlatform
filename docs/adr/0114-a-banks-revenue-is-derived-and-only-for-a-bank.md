@@ -1,9 +1,8 @@
 # ADR 0114 — A bank's revenue is derived, and only for a bank
 
-**Status.** Accepted — 17 September 2026, when the change landed (Phase 2, offline half).
-What it still waits for is named in *What landed* below: the live M&T run and the re-render
-of the stored run are Phase 2's exit and need the corpus and the keys, neither of which is
-in this container.
+**Status.** Accepted — 17 September 2026. The change landed that morning and a live M&T run
+that afternoon met Phase 2's exit criterion; *What the live run showed* records it. One item
+is closed differently from the way this ADR imagined, and says so there.
 **Date.** 2026-09-14
 **Extends.** ADR 0101 (a bank's grid varies the spread), which established that a bank is a
 different kind of filer and gets a different valuation path. This extends the same reasoning
@@ -191,9 +190,38 @@ excerpt of its own, which is the safe direction: a writer is given no quotation 
 it, and one invented anyway is refused by the verifier rather than published. The note
 belongs with Phase 4's printing work, and is listed there rather than folded in here.
 
-**Still outstanding, and both need the corpus:** one live M&T run to an approved, rendered
-report, and the re-render of the stored MTB run with the diff as the acceptance criterion
-(the §Consequences proof). Phase 2's exit criterion is unchanged.
+## What the live run showed, 17 September 2026
+
+One M&T commission, £8.40, forty-five minutes, to an approved and immutable report of 13,590
+words. Every one of the nine exercised blocking metrics passed, 59 of 59 citations verified,
+and the run replays whole: 888 calculations, 59 citations, 16 artefacts, 61 model calls. The
+record is in [`../plan/readiness-audit-2026-09/mtb-rerun/`](../plan/readiness-audit-2026-09/mtb-rerun/).
+
+**The figure this ADR predicted, to the dollar.** FY2025 revenue is $9,690m, `basis =
+derived`, from $6,948m of net interest income and $2,742m of non-interest income. Net income
+of $2,851m over it is a **29.4% net margin**, against the **172.1%** the September run
+published. Sixty derived rows were written across the filing history, annual and quarterly.
+
+**The third refusal fired on three years, and vindicated the formula.** M&T tagged
+`RevenuesNetOfInterestExpense` for FY2021, FY2022 and FY2023, so those years kept their
+as-reported total and nothing was derived. In all three the filer's own caption equals the
+sum this ADR computes, to the dollar: 5,992 = 3,825 + 2,167; 8,179 = 5,822 + 2,357; 9,643 =
+7,115 + 2,528. Where the bank states the line, it states exactly these two components added
+together — which is the strongest evidence available that the derivation is the right one,
+and it came from declining to derive rather than from deriving.
+
+**The plausibility guard now looks, and is satisfied.** Asset turnover reads 0.0454 for
+FY2025, inside the 0.03–0.10 a bank runs on genuine total revenue and well above the 0.01
+floor. On the ASC 606 caption the same relation would have read 0.0076. `figure_plausibility`
+scored 0 of 0 with the guard evaluating all three of its relations for the first time.
+
+**The re-render of the stored run is closed differently, and honestly.** §Consequences asked
+for the September MTB run to be re-rendered from its own record, with the diff as the
+acceptance criterion. That run is not in this container and there is no backup of it (the
+operator confirmed as much on 16 September), so it cannot be re-rendered. What replaces it is
+better evidence rather than a substitute: a fresh live run on the same subject under the new
+rule, read against the September figures which *are* committed. The old report keeps its
+172.1% at its own address, as this ADR asks.
 
 ## Alternatives considered
 

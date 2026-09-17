@@ -63,9 +63,16 @@ __all__ = ["NUMERAL", "READINGS", "numeral_matches", "numeral_tokens", "reads_as
 # A unit glued to the digits is part of how a note writes a figure — "0.09x", "3.5" with
 # a U+00D7 after it, "$331,839m", "12bn" — and the closed set is what keeps the word-boundary guard
 # meaning what it says: "FY22Q4" still sheds no "22", because "Q" is not a unit.
+# **A currency mark may stand between the sign and the digits**, and until the first live
+# AstraZeneca run it broke the reading. The draft wrote "-$386.6m" and "negative $386.6m" of
+# a stored -386,552,205.83 \u2014 the figure said correctly, twice \u2014 and because the sign sat
+# behind a "$" the scanner read "386.6" unsigned. `cited_figure_agreement` then reported
+# three dropped signs that were never dropped, and stopped the run. The money symbol is part
+# of how a figure is written, not a break in it.
 NUMERAL: Final[re.Pattern[str]] = re.compile(
     r"(?<![\w.])"
     r"(?:(?P<word>(?:negative|minus)\s+)|(?P<mark>[-\u2212\u2013]))?"
+    r"(?P<currency>[$\u00a3\u20ac\u00a5]\s?)?"
     r"(?P<digits>\d[\d,]*(?:\.\d+)?)(?:%|bn|mn|m|k|x|\u00d7)?(?!\w)(?!\.\d)",
     re.IGNORECASE,
 )

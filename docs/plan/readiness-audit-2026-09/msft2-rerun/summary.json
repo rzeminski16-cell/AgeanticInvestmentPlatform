@@ -1,0 +1,35 @@
+{
+  "subject": "msft2",
+  "label": "msft2",
+  "started_at": "2026-09-17T11:02:22.609364+00:00",
+  "request_id": "6b1c411d-077f-461f-b784-20379cc3f1c4",
+  "job_id": "960a85b8-4250-4579-b93a-b66cd08058f3",
+  "as_of_date": "2026-09-17",
+  "cap_gbp": "12.00",
+  "stop_reason": null,
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-17T11:42:22.327232+00:00",
+  "status": "SUCCEEDED",
+  "spend_gbp": "7.568417",
+  "acceptance_passed": true,
+  "replay": {
+    "calculations_checked": 850,
+    "citations_checked": 75,
+    "artefacts_checked": 12,
+    "model_calls_checked": 59
+  },
+  "report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3",
+  "report_hash": "f2df299ed7102ed7f983626da08ed83d9545bba3bce110cca30ce14de85800e2",
+  "report_immutable": true,
+  "report_words": 14271,
+  "ledger": {
+    "platform_gbp": "27.923015",
+    "baseline_gbp": "0",
+    "other_gbp": "0",
+    "total_gbp": "27.923015",
+    "ceiling_gbp": "100.00",
+    "remaining_gbp": "72.076985"
+  }
+}

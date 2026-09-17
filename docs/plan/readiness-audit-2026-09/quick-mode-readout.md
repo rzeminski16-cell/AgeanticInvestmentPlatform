@@ -1,9 +1,13 @@
-# Phase 0.5 — the QUICK-mode run, and what it answered
+# Phase 0.5 — the QUICK-mode run, and the three defects the live runs found
 
 *17 September 2026. `uv run python -m audit.driver.run msft1 --mode quick --cap 6.00
 --screenshots`. £4.95, thirty-one minutes, 48 model calls. The record is in
 [`msft1-quick/`](msft1-quick/); the screenshots were dropped and the pages kept as HTML,
 which is what a png of a page shows plus its text.*
+
+*The third defect below came from the AstraZeneca corpus run the same afternoon
+([`azn-rerun/`](azn-rerun/)). It is recorded here because it is the same kind of thing: a
+blocking check failing prose that was right.*
 
 QUICK mode had never been run in the platform's life. It was approved, costed at about £4,
 and it exists to answer the largest unasked question in the delivery plan: **whether
@@ -85,6 +89,29 @@ sections was more than three times what they cost.
 That is the cap doing its job in the safe direction. It is also worth calibrating: a £6 cap
 stops a run that finishes at £4.95, so an operator setting a cap near the expected cost will
 be interrupted by arithmetic rather than by spending.
+
+## A third defect, found the same afternoon by the AstraZeneca run
+
+The corpus runs that followed found one more of the same kind, and it is recorded here
+because it belongs with the other two: **a sign separated from its digits by a currency mark
+was not read.**
+
+AstraZeneca's draft stated the change in working capital four times and correctly every
+time — "-$386.6m", "a negative $387 million", "negative $386.6m", "-$0.39bn" — over a stored
+−386,552,205.83. The scanner in `aer.core.figures` reads a sign from a word ("negative",
+"minus") or a mark glued to the digits, and in all four the "$" stood between the two. So it
+read "386.6" unsigned, `cited_figure_agreement` scored three dropped signs that were never
+dropped, and the run stopped at its final gate with every section written and 41 of 41
+citations verified.
+
+The money symbol is part of how a figure is written, not a break in it. The scanner now
+admits one between the sign and the digits, and nothing else: an unsigned figure stays
+unsigned, and a range's dash stays a dash.
+
+**That run is left refused.** It is the evidence for the defect, and re-measuring it after
+the fix would erase the record that makes the finding legible. The fix is proved by tests
+over the run's own four sentences, at no cost, rather than by spending £7 to produce a
+different draft.
 
 ## What is not in this record
 

@@ -1,6 +1,13 @@
 # ADR 0113 — A run reads the filings as they stand, and point-in-time is retired
 
-**Status.** Accepted in code, 17 September 2026 — every layer below is gone and the structural
+**Status.** **Accepted, 17 September 2026.** The enforcement went that morning and the
+acceptance condition below was met the same afternoon: the corpus was re-seeded with three
+live commissions and **every archived run replays** — 3,431 calculations, 189 citations, 55
+artefacts and 226 model calls, across four runs, all reproducing under the code that has no
+point-in-time layer in it. The original status note follows, and is kept because it records
+what was outstanding and for how long.
+
+**Status as first written.** Accepted in code, 17 September 2026 — every layer below is gone and the structural
 absence test holds. The one acceptance condition that needs the real corpus, *every archived
 run still replays*, waits on it: the five stored runs lived in the audit's container and are
 re-seeded in Phase 1½ (the fake-scene run replays under the new code, `tests/test_backup.py`
@@ -128,10 +135,25 @@ anywhere, which no tree that keeps those readers could satisfy. The test carries
 by name so that a new `as_of` reader is a deliberate addition, not a silent one. It is the
 first thing F1 lands and it is how F1 is known to be done.
 
-**Every archived run still replays.** That is the acceptance condition, not a hope: the five
+**Every archived run still replays.** That is the acceptance condition, not a hope: the
 stored runs re-derive from their own records with the new code, and the replay reads each
-run's own stamp exactly as before. (Deferred at landing, not waived: the runs are not in
-this container — see Status.)
+run's own stamp exactly as before.
+
+**Met, 17 September 2026.** The September corpus was not in this container and there was no
+backup of it, so the condition was satisfied by re-seeding rather than by re-reading: three
+live commissions that afternoon (M&T £8.40, AstraZeneca £7.00, Microsoft £7.57) beside the
+morning's QUICK run. `aer replay-run` over all four:
+
+| Run | Calculations | Citations | Artefacts | Model calls |
+|---|---|---|---|---|
+| MSFT, quick | 858 | 14 | 15 | 48 |
+| MTB | 888 | 59 | 16 | 61 |
+| AZN | 835 | 41 | 12 | 58 |
+| MSFT | 850 | 75 | 12 | 59 |
+
+All four reproduce. Beside them, 496 artefacts verify against their hashes and the audit
+chain is intact over 30 events. The corpus was backed up the same hour and the backup
+verified: schema 0077, 576 artefacts, 98.8 MiB.
 
 **Three more pieces of the apparatus turned up on the way and went with it**, recorded here
 so nobody looks for them: the validator's *date-adjudication* assist, which advised the

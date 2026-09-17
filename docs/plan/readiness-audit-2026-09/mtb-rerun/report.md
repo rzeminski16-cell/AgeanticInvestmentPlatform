@@ -1,0 +1,708 @@
+# M&T BANK CORP — Research Note
+
+**Ticker:** MTB (NYSE)  
+**As-of date:** 17 September 2026  
+**Base currency:** USD  
+**Generated:** 17 September 2026, 10:26 UTC  
+**Non-binding view:** no view reached  
+
+> This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.
+
+---
+
+## At a glance
+
+### Latest reported figures
+
+| Label | Period | Value |
+|---|---|---|
+| Revenue | Q2 FY2026 | $2,532m[^1] |
+| Net income | Q2 FY2026 | $818m[^2] |
+| EPS (diluted) | Q2 FY2026 | $5.32[^3] |
+
+### Revenue history
+
+|  | FY2021 | FY2022 | FY2023 | FY2024 | FY2025 |
+|---|---|---|---|---|---|
+| Revenue | $5,992m[^4] | $8,179m[^4] | $9,643m[^4] | $9,279m[^4] | $9,690m[^4] |
+
+### Headline figures
+
+| Label | Period | Value |
+|---|---|---|
+| Net margin | FY2025 | 29.4%[^5] |
+| Free cash flow | FY2023 | $3,649m[^6] |
+
+> **Coverage notice:** sentences whose figures could not be traced to a recorded source were removed from 2 sections. The evidence this report rests on is listed in [Sources](#sources).
+
+## Sector: Banks
+
+**This report does not run dcf_fcff.** The model is blocked for this sector rather than discouraged: it was not run and no figure below came from it.
+
+> Enterprise value and free cash flow to the firm are not meaningful for a bank: deposits and debt are raw material, not financing.
+
+> Capital adequacy, net interest margin and provisioning govern the valuation. The residual-income model offered here values the excess return earned on book value, and equals a dividend discount only under clean surplus: a bond book carrying unrealised losses through other comprehensive income is treated as fully earning.
+
+This report does not carry 5 of the 5 metrics this platform requires for banks: net_interest_margin, cet1_ratio, cost_income_ratio, loan_loss_provisions, tangible_book_value_per_share. They are absent rather than estimated, and a conclusion drawn without them rests on less than a complete picture of this business.
+
+---
+
+## Executive Summary
+
+### Thesis
+
+Second-quarter 2026 delivery is sound and capital return heavy, but the assembled valuation does not settle whether the shares are cheap: its output turns on a discount rate and a book base that filed statements do not corroborate. We treat the earnings record as the supportable part of the case, the valuation as indicative only, and hold a neutral stance.
+
+### Key Points
+
+- Quarter ended 30 June 2026: revenue USD 2,532 million, pre-tax income USD 1,063 million, net income USD 818 million, diluted EPS USD 5.32.
+- First half of 2026: operating cash flow USD 2,280 million, investing USD -8,150 million, financing USD 4,539 million, alongside USD 1,698 million of buybacks and USD 445 million of dividends.
+- Valuation unresolved: market capitalisation of USD 32.64 billion sits against a modelled closing book value of USD 40.76 billion — a roll-forward inside the valuation, not reported common equity. No discount-to-book conclusion is drawn.
+- The discount rate dominates and is thinly supported: a 7.59% cost of equity rests on a beta of 0.57 and a covariance of 0.00113, with no estimation window or index period recorded — low for a levered depository.
+- Excess return is not shown on delivered earnings: an equity charge of USD 3.27 billion against an explicit residual value of USD 2.39 billion leaves the conclusion resting on normalised earnings above reported results.
+- Since the second-quarter report filed in early August 2026, the record holds current reports dated September 2026 whose substance is not documented here; no interim disclosure is audited, the last audited figures being those in the annual report filed February 2026.
+- A July 2026 current report records a depositary-receipt deposit agreement and Series L preferred dividends accruing at a fixed rate.
+
+### Key Risks
+
+- Discount-rate sensitivity: raising a cost of equity built on a low beta would cut the modelled value sharply.
+- Book-value basis: the valuation's book anchor is not reconciled to reported or tangible common equity, so premium or discount language is unreliable.
+- Funding mix: first-half investing outflows were met by financing inflows, not operations.
+
+### Headline Figures
+
+| Label | Value |
+|---|---|
+| Net income, Q2 2026 | 818 USD million[^7] |
+| Diluted EPS, Q2 2026 | 5.32 USD per share[^8] |
+| Market capitalisation | 32.64 USD billion[^9] |
+| Cost of equity | 7.59%[^10] |
+
+## Investment Thesis
+
+### Thesis Statement
+
+Our stance on M&T is neutral, and deliberately so: of the three legs that would justify a directional call, only one is validated by the evidence in hand. Recorded profitability clears a low recorded cost of equity, and first-half capital return was covered by internal cash generation. But the disclosed commercial real estate book cannot be assessed for reserve coverage or concentration from anything available here, and margin direction over the coming four quarters has no supporting asset-repricing, hedge-maturity or deposit-cost evidence behind it. We therefore underwrite the earnings-power leg and hold the credit and margin legs explicitly open.
+
+### Supporting Pillars
+
+| Pillar | Evidence |
+|---|---|
+| Earnings power clears the recorded cost of equity | Second-quarter fiscal 2026 revenue of $2,532 million produced pre-tax income of $1,063 million, net income of $818 million and diluted earnings per share of $5.32. Against a recorded cost of equity of 7.6%, the sustainable net income implied by the return-on-equity input, $3,973 million, sits above the recorded equity charge of $3,273 million. On those inputs the hurdle is cleared. That is a judgement about the level of the inputs, not about their durability: no multi-year credit-cost or segment series is available to test through-cycle returns on tangible equity.[^11][^12] |
+| Capital return is funded from operations | In the six months to 30 June 2026 the company generated operating cash flow of $2,280 million while repurchasing $1,698 million of stock and paying $445 million of dividends; each distribution was individually smaller than operating cash generated. Distribution capacity, on this evidence, does not depend on access to funding markets.[^11] |
+| Balance-sheet growth leaned on debt, which weakens rather than supports the margin leg | Investing cash flow over the same half was negative $8,150 million, against financing inflows of $4,539 million that included debt proceeds of $3,203 million versus repayments of $463 million. The annual report's risk factors state that if the company is unable to maintain or grow deposits it may be subject to paying higher funding costs. Asset growth funded at the margin with borrowings, with no deposit-cost, repricing or hedge-maturity evidence before us, is not a basis for forecasting margin expansion.[^13] |
+| Reserve coverage and CRE concentration are unevidenced | Total assets of $219,261 million and goodwill of $8,465 million at 30 June 2026 are the only balance-sheet detail available; there is no allowance, non-accrual, charge-off or property-type concentration data. The quarterly report filed in August 2026 does carry a provision for credit losses discussion and a market risk and interest rate sensitivity section within its management discussion, but their substance is not before us. We take no view on reserve adequacy for the commercial real estate book, and no part of our stance rests on one.[^14] |
+| The valuation anchor is weak | Market capitalisation is recorded at $32.6 billion on a multiple of 13.3, against a recorded closing book value of $40.8 billion — that is, below the recorded book figure. We treat this as a low-confidence anchor rather than a signal, because the market and book inputs here are not reconciled to a tangible common equity basis, and a multiple alone cannot distinguish a credit discount from a rate-cycle discount.[^15] |
+
+### What Would Change The View
+
+- Credit leg: allowance coverage and non-accrual or criticised-asset trends for the commercial real estate portfolio that show coverage falling while criticised balances rise, or a concentration ratio to capital at the upper end of the peer range, would turn the open credit leg into a negative one.
+- Returns leg: a realised return on tangible common equity that settles below the recorded 7.6% cost of equity once provisioning normalises — or a downward revision to the return-on-equity input behind the $3,973 million sustainable earnings figure — would remove the only validated leg.
+- Margin leg: deposit-cost disclosure showing continued repricing upward alongside hedge maturities that reprice earning assets lower would confirm compression; the mirror evidence, fixed-asset repricing into higher yields with stable deposit costs, would let us take the margin leg positively.
+- Funding leg: further quarters in which asset growth is financed predominantly by debt proceeds rather than deposits, at widening spreads, would weight the funding-cost risk factor more heavily.
+- Capital return: repurchases falling below the recorded first-half pace, or distributions exceeding operating cash generation, would undercut the internal-funding argument.
+
+## Business Overview
+
+### Commentary
+
+M&T Bank Corporation operates as a diversified regional bank holding company serving consumers, small businesses and larger commercial and institutional clients through a branch network supplemented by digital and telephone banking and ATMs. Its Retail Bank segment sells deposit products (demand, savings and time accounts) and a range of credit services, including automobile and recreational finance loans originated mainly through dealers, home equity loans and lines of credit, credit cards, and residential mortgage loans that are either sold into the secondary market or held for investment. The same segment also serves small businesses and professionals with government-guaranteed lending, business credit cards, cash management, payroll, merchant card processing and letters of credit. Beyond retail banking, the company's broader institutional services and wealth management activities originate and service residential mortgage loans on behalf of that segment, indicating a multi-segment model in which fee income supplements traditional net interest income. For the second quarter of fiscal 2026 (three months ended June 30, 2026), the company reported total revenue of approximately 2,532,000,000 dollars, pre-tax income of about 1,063,000,000 dollars, and net income of roughly 818,000,000 dollars, translating into basic earnings per share of about 5.35 dollars and diluted earnings per share of about 5.32 dollars, alongside a quarterly dividend of about 1.50 dollars per share. The bank compensates providers of capital through interest paid on deposits and borrowings while earning interest and fee income from lending, wealth management and transaction services, a structure typical of a diversified regional bank. The available evidence does not detail the precise proportion of revenue derived from interest income versus fee-based businesses at the consolidated level, nor does it specify total employee counts, branch counts, or the full geographic breaddown of operations beyond the Retail Bank segment's stated footprint, so this section limits itself to what the record supports.
+
+### Revenue Streams
+
+| Label | Value |
+|---|---|
+| Total revenue, Q2 fiscal 2026 (three months ended June 30, 2026) | $2,532m[^16] |
+
+### Operating Footprint
+
+- Domestic banking offices primarily in the Northeastern and Mid-Atlantic regions of the U.S., including the District of Columbia
+
+## Segment Analysis
+
+### Commentary
+
+M&T reports operating results through segments including a Commercial Bank, though the evidence available for this note only supports discussion of that Commercial Bank segment; balance, income, and return detail for the company's other reported segments (retail banking, wealth management/institutional services) is not present in what was retrieved, so this analysis is necessarily partial and confidence in it should be held low. Within the Commercial Bank segment, the credit and margin story diverges from the consolidated total. Net interest income there declined, reflecting a narrowing deposit margin together with a reduction in average loan balances, even as average deposit balances rose. The loan mix shift is the more telling detail: average commercial real estate loans fell while commercial and industrial loans, including lending to financial and insurance companies and to motor vehicle and recreational finance dealers, increased. That pattern indicates the Commercial Bank segment is where M&T's commercial real estate exposure is concentrated, and where any deterioration in CRE credit quality would first surface, even as the segment simultaneously reduces that exposure in favor of C&I growth. Provision expense in the segment increased, driven by a higher provision for unfunded credit commitments rather than by realized charge-offs, a distinction worth noting when assessing whether credit cost pressure reflects reserve building against undrawn exposure versus deteriorating funded assets. On the fee side, the segment's noninterest income rose on several rate-insensitive or transaction-driven streams: credit-related fees, gains on sales of a loan portfolio and equipment leases, commercial mortgage banking revenue, trading and non-hedging derivative gains tied to an increase in interest rate swap agreements with commercial customers, and service charges on commercial deposit accounts. These fee lines are largely activity- and volume-driven rather than net-interest-margin-driven, which means the segment's revenue mix provides some offset to net interest income pressure from rate and mix effects, though the interest rate swap and trading gains component is less purely fee-like and can vary with market conditions. Noninterest expense in the segment rose modestly on centrally-allocated support costs and data processing and software spend, a cost trend that appears structural rather than segment-specific. Net income for the Commercial Bank segment increased overall, implying the noninterest income gains and expense discipline more than offset the net interest income decline and higher unfunded-commitment provisioning. Without comparable detail for the other segments, it is not possible from the available evidence to say how the consolidated margin and credit picture are apportioned across the full segment set, or whether the CRE reduction underway in the Commercial Bank segment is being redeployed elsewhere in the balance sheet. That gap should be kept in mind when interpreting consolidated-level margin and credit commentary elsewhere in this report.
+
+### Segment mix
+
+Revenue by reported segment, FY2025.[^17][^18][^19]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Industry & Competitive Positioning
+
+### Commentary
+
+M&T operates in a financial services industry that the company itself describes as highly competitive, with rivals spanning traditional commercial banks and thrifts as well as private credit funds, insurance companies, mutual funds, hedge funds, securities brokers and financial technology firms. Competition turns on capital strength, access to capital, product breadth, execution, innovation, reputation and price, and the company notes that non-bank competitors often operate under lighter regulatory burdens, giving them pricing and product flexibility that banks lack. Consolidation has been a persistent theme: as institutions merge or are acquired, surviving competitors accumulate greater capital, broader product sets and wider geographic reach, intensifying pricing pressure on incumbents. Growth of marketplace lenders and other technology-enabled entrants has added a further competitive layer in consumer and small-business lending in particular. Macro conditions — inflation volatility, interest-rate uncertainty, geopolitical and trade disruption, and the possibility of recessionary conditions — are flagged as risks that could compress demand and pressure asset quality across the sector broadly, not specific to M&T.
+
+A structured peer comparison against Citizens Financial Group, KeyCorp and Huntington Bancshares across CRE-plus-construction concentration to total loans, CRE-plus-construction to regulatory capital, allowance coverage of CRE loans, interest-bearing deposit cost, ROTCE and price-to-tangible-book would normally anchor this section's positioning discussion. That comparison cannot be completed here: the figures needed for each peer from their respective latest 10-Q, 10-K or call report were not available in the material reviewed for this note, and no such table is presented rather than approximated. This is a material gap for assessing M&T's relative CRE concentration and funding-cost position among large regional depositories, and readers should treat any positioning conclusions below as directional rather than benchmarked.
+
+### Competitive Position
+
+Within that landscape, M&T presents as a large regional bank holding company with a scale that supports diversified lending and deposit-gathering relative to community-bank peers, while remaining smaller than the money-center and super-regional institutions that compete most aggressively on technology spend and capital markets breadth. The company's public market capitalization, as recently calculated, stood at approximately 32.6 billion dollars, a scale marker consistent with the large-regional-bank tier rather than the money-center tier. Absent the peer-specific CRE, deposit-cost and profitability metrics needed to rank M&T against Citizens, KeyCorp and Huntington on comparable terms, this note characterizes M&T's position qualitatively: a well-capitalized regional franchise operating in a consolidating, price-competitive industry where both non-bank entrants and larger consolidated peers exert continuing margin pressure. A firmer relative ranking on CRE concentration, allowance adequacy, deposit cost and return on tangible common equity requires the peer-level disclosures that were not obtainable for this review.
+
+### Industry Trends
+
+- Consolidation among financial institutions is concentrating capital and product breadth among fewer, larger competitors.
+- Non-bank entrants, including marketplace lenders and fintechs, are expanding share in consumer and small-business lending under lighter regulatory constraints.
+- Inflation and interest-rate volatility, along with geopolitical and trade uncertainty, are cited as sector-wide risks to loan demand and asset quality.
+
+## Management & Governance
+
+### Commentary
+
+The evidence available for this section does not include biographical detail on M&T Bank Corporation's executive team, board composition, tenure, insider ownership, or specific compensation awards, so no assessment of individual managers' track records or pay-for-performance alignment can be offered here. What the record does show is the regulatory framework within which management compensation at the company must operate. M&T's most recent annual report describes the federal banking agencies' guidelines that treat excessive compensation as an unsafe and unsound practice, and references the Federal Reserve's Incentive Compensation Guidance, which applies to any employee able to materially affect the firm's risk profile. That guidance rests on three principles: incentive arrangements should not encourage risk-taking beyond the organization's capacity to identify and manage it, should be compatible with effective internal controls, and should be backed by active board oversight. The filing also notes that deficiencies identified in compensation practices can be folded into supervisory ratings, with consequences for the bank's ability to pursue acquisitions or other strategic actions — a reminder that, for a bank holding company of M&T's size, compensation design is inseparable from prudential supervision rather than a purely internal governance matter.
+
+Separately, a July 2026 corporate filing shows M&T Bank Corporation entering into a Deposit Agreement with Computershare Inc. and Computershare Trust Company, N.A., establishing depositary receipts for holders under that agreement. This points to continued use of preferred or hybrid capital instruments requiring board-level authorization and administration, consistent with an actively managed capital structure, though the evidence does not indicate the purpose, size, or terms of the underlying securities in enough detail to characterize the transaction further.
+
+Overall, the disclosed record supports a picture of a bank operating under close regulatory scrutiny of its compensation governance, with board oversight embedded as a formal requirement rather than a discretionary practice. However, without direct evidence on the identities, backgrounds, or actual pay packages of M&T's named executive officers, this section cannot substantiate claims about management quality, succession planning, or incentive alignment, and confidence in any such judgement should be regarded as low until that evidence is available.
+
+### Governance Observations
+
+- Federal Reserve Incentive Compensation Guidance applies to employees able to materially affect M&T's risk profile and requires board-level oversight of compensation arrangements.
+- Deficiencies in incentive compensation practices can affect supervisory ratings, which in turn can constrain the bank's ability to pursue acquisitions or other corporate actions.
+- A July 2026 Deposit Agreement with Computershare entities indicates board-authorized use of depositary receipt structures as part of the capital structure.
+
+## Historical Financial Analysis
+
+### Commentary
+
+The audited annual record available for this analysis covers a single period, the year to 31 December 2025, supported by the supplemental non-GAAP disclosure in the second-quarter 2026 10-Q. The multi-year series a bank history normally turns on — net interest margin, earning-asset yield, interest-bearing deposit cost and the noninterest-bearing share, provision expense and a cycle-length cumulative deposit beta — are not part of that annual record, so no margin path or deposit beta is quantified here; the quarterly average balance sheets with annualized taxable-equivalent rates that would carry them are disclosed in the interim filing, and the direction of the interim results is described below in the terms the disclosure itself uses.
+
+On a full-year basis to 31 December 2025, revenue was $9.69 billion, pre-tax income $3,692 million and income tax expense $841 million, leaving net income of $2,851 million and diluted earnings per share of $17.00. Those earnings were struck on total assets of $213.5 billion, funded by liabilities of $184.3 billion against equity of $29.2 billion — the balance-sheet leverage of a large regional depository rather than of a fee-based franchise.
+
+Two asset-side items speak to the acquisition history. Goodwill stood at $8.5 billion at the December 2025 balance-sheet date, a substantial share of the reported equity base, while other intangible assets were carried at only $64 million — a small residual beside that goodwill, and the line through which acquired core deposit relationships run off the income statement.
+
+Cash generation was consistent with reported earnings: operating cash flow of $3,003 million for the 2025 year, marginally above net income, alongside an investing outflow of $6,816 million and a financing inflow of $1,800 million. That configuration is the signature of a bank deploying funding growth into loans and securities rather than harvesting the balance sheet. Within financing, proceeds from debt of $3,533 million were more than offset by repayments of $5,380 million, so wholesale borrowing was reduced on a gross-flow basis, while distributions ran through both channels: share repurchases of $2,631 million and dividends paid of $899 million. Shares outstanding were 149,000,252 as of the mid-February 2026 cover date, a count consistent with sustained repurchase activity.
+
+The interim picture is one of improvement rather than of a stable run-rate. The second-quarter 2026 supplemental table shows net operating income and diluted net operating earnings per share higher in the June quarter than in the March quarter, annualized returns on average tangible assets and on average tangible common equity higher in the June quarter than in the March quarter and higher for the first half of 2026 than for the first half of 2025, an efficiency ratio improved on both comparisons, and tangible equity per common share above its level a year earlier. Because the single June-quarter return reading sits above the first-half average, the half-year figures are the more defensible anchor for a through-cycle return level; the full-year 2025 outcome above is the only complete annual observation in hand, and one year does not establish a cycle.
+
+On distortion from acquisition accounting, the company's own framing is the useful evidence: its operating earnings and efficiency ratio measures exclude amortization of core deposit and other intangible assets and merger-related expenses, which is to say management treats acquisition-related items as nonoperating in every period presented. The annual report's risk factors add that acquisitions can involve payment of a premium over book and market value that may dilute tangible book value and earnings per share. No individual period in the evidence reviewed here is identified as distorted by a named transaction or by a specific non-recurring charge.
+
+For market framing rather than accounting history, the recorded market capitalisation of $32.6 billion sits above the December 2025 book equity, and the equity's recorded beta against the broad market index is 0.57, a below-market sensitivity consistent with a deposit-funded regional banking profile.
+
+### Financial History
+
+|  | FY2025 |
+|---|---|
+| Revenue | 9,690 USD million[^20] |
+| Pre-tax income | 3,692 USD million[^20] |
+| Income tax expense | 841 USD million[^20] |
+| Net income | 2,851 USD million[^20] |
+| Diluted earnings per share | 17 USD per share[^20] |
+| Total assets | 213,510 USD million[^20] |
+| Total liabilities | 184,333 USD million[^20] |
+| Total equity | 29,177 USD million[^20] |
+| Goodwill | 8,465 USD million[^20] |
+| Operating cash flow | 3,003 USD million[^20] |
+| Investing cash flow | -6,816 USD million[^20] |
+| Financing cash flow | 1,800 USD million[^20] |
+| Share repurchases | 2,631 USD million[^20] |
+| Dividends paid | 899 USD million[^20] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Market capitalisation (recorded) | 32.6 USD billion[^21] |
+| Beta versus broad market index (recorded) | 0.57[^22] |
+
+### Revenue and margin history
+
+Revenue by fiscal period in USD, with recorded margin trajectories. Every bar and point is a stored figure.[^23][^24][^25][^26][^27][^28][^29][^30][^31][^32][^33]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Earnings Quality
+
+### Commentary
+
+Cash backing for the year ended December 2025 looks sound. Net cash provided by operating activities was $3,003 million against reported net income of $2,851 million, so accrual earnings were more than covered by operating cash generation — a reassuring, if crude, test for a bank whose operating cash line also absorbs origination and trading flows. Non-cash depreciation and amortisation was $323 million on revenue of $9,690 million, and amortising intangible assets stood at only $64 million against goodwill of $8,465 million at December 2025. Acquired-intangible amortisation is therefore a negligible drag on reported earnings; the mirror image is that purchase-accounting accretion into interest income cannot be sized from the disclosures to hand, so accretion and recurring spread income remain commingled in reported net interest income.
+
+Pre-tax income of $3,692 million carried income tax expense of $841 million to net income of $2,851 million, with no sign in this material of an unusual tax benefit propping up the result, though the annual filing's risk factors note that examinations by taxing authorities could require adjustments with a material effect on results. Basic earnings per share of $17.10 and diluted earnings per share of $17.00 sit close together, indicating minimal dilution from share-based awards. Share repurchases of $2,631 million and dividends paid of $899 million were large relative to operating cash generation, and shares outstanding were 149,000,252 as of February 2026; part of per-share progress is thus mechanical rather than earned at the operating line.
+
+One presentational item deserves attention. Trading account assets consist of mutual funds and other assets supporting deferred compensation and non-qualified supplemental retirement plans assumed in past acquisitions; fair-value changes run through trading account and other non-hedging derivative gains, while the offsetting liability revaluation is reported in other costs of operations. Revenue and expense lines are grossed up by market moves with little economic effect on the firm — a recurring source of noise in fee comparisons. Goodwill of $8,465 million against total shareholders' equity of $29,177 million also explains why the capital table's tangible common equity per share sits well below common shareholders' equity per share.
+
+What is not visible here matters for the asset-side story. The material available does not carry the share of earning assets repricing within twelve months, the fixed- versus floating-rate loan split, securities cash flow and reinvestment yield against portfolio book yield, or hedge notional and the receive-fixed versus pay-fixed mix, nor any separation of securities repositioning gains and reserve builds or releases from recurring spread income. On that basis the durability of the earnings mix can be assessed only in outline, and we would not defend a fine-grained judgement on it.
+
+### Red Flags
+
+- Purchase-accounting accretion is not separately disclosed in the material available, so recurring net interest income cannot be distinguished from acquired-loan accretion.
+- Trading account and other non-hedging derivative gains are grossed up against deferred compensation liability revaluations reported in other costs of operations, adding non-economic noise to fee and expense lines.
+- Share repurchases and dividends were large relative to operating cash generation, flattering per-share metrics independently of operating performance.
+- Goodwill is a substantial fraction of shareholders' equity, leaving tangible common equity per share well below reported book value per share.
+- Risk-factor language acknowledges that tax authority examinations could require adjustments with a material effect on reported results.
+- No disclosure in hand on earning-asset repricing, fixed/floating loan mix, securities reinvestment yields or hedge notional, leaving asset-yield mechanics and spread sustainability unverified.
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Net cash from operating activities (FY2025) | 3,003 USD millions[^34] |
+| Net income (FY2025) | 2,851 USD millions[^35] |
+| Depreciation and amortisation (FY2025) | 323 USD millions[^36] |
+| Revenue (FY2025) | 9,690 USD millions[^37] |
+| Goodwill (December 2025) | 8,465 USD millions[^38] |
+| Intangible assets (December 2025) | 64 USD millions[^39] |
+| Diluted earnings per share (FY2025) | 17 USD per share[^40] |
+| Share repurchases (FY2025) | 2,631 USD millions[^41] |
+| Dividends paid (FY2025) | 899 USD millions[^42] |
+
+## Balance Sheet & Liquidity
+
+### Commentary
+
+At 30 June 2026 M&T carried total assets of $219.3 billion, total liabilities of $191.3 billion and equity of $27.9 billion, of which retained earnings were $22.0 billion — an equity base built from accumulated profit rather than paid-in capital. Term and wholesale borrowings are secondary to deposits: short-term debt of $4.6 billion and long-term debt of $13.6 billion. Goodwill of $8.5 billion is the one large intangible item; the company notes that a goodwill impairment would not significantly affect regulatory tangible capital ratios but would reduce M&T Bank's capacity to dividend earnings up to the parent — the channel that matters most for holding-company liquidity. Funding rests on core deposits — noninterest-bearing, savings and interest-checking balances and smaller time deposits — which the company calls its most significant source and which represented the large majority of average earning assets in 2025, a slightly higher share than in 2024. Other earning assets, chiefly deposits at the Federal Reserve Bank of New York and treated as an immediate source of funds, averaged lower in 2025 than in 2024. No credit-related losses were recognised on debt investment securities in 2025, 2024 or 2023. In the first half of FY2026 operating activities generated $2.28 billion while investing activities absorbed $8.15 billion and financing activities supplied $4.54 billion, including $3.2 billion of debt proceeds against $463 million of repayments; distributions took $1.70 billion of repurchases and $445 million of dividends. Asset growth was thus funded by borrowing and deposit inflows rather than internally generated cash. Dividends of $1.50 per share against basic earnings of $5.35 remain comfortably covered. A depositary-receipt deposit agreement dated July 2026 indicates preferred issuance within that financing mix. Loan composition, allowance by portfolio segment, nonaccrual and criticised balances, commercial real estate concentration ratios, the uninsured deposit share and securities carrying value against fair value are not available in the evidence here.
+
+### Financial History
+
+|  | Q2 FY2026 |
+|---|---|
+| Total assets | 219,261 USD million[^43] |
+| Total liabilities | 191,315 USD million[^43] |
+| Total equity | 27,946 USD million[^43] |
+| Retained earnings | 22,038 USD million[^43] |
+| Short-term debt | 4,614 USD million[^43] |
+| Long-term debt | 13,568 USD million[^43] |
+| Goodwill | 8,465 USD million[^43] |
+| Operating cash flow, year to date | 2,280 USD million[^43] |
+| Investing cash flow, year to date | -8,150 USD million[^43] |
+| Financing cash flow, year to date | 4,539 USD million[^43] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Total assets | 219.3 USD billion[^44] |
+| Total equity | 27.9 USD billion[^45] |
+| Long-term debt | 13.6 USD billion[^46] |
+| Short-term debt | 4.6 USD billion[^47] |
+| Goodwill | 8.5 USD billion[^48] |
+| Market capitalisation | 32.6 USD billion[^49] |
+
+### Observations
+
+- Debt proceeds exceeded repayments in the first half, extending rather than retiring term funding.
+- Shareholder distributions were large relative to first-half operating cash flow; external funding carried the asset growth.
+- Goodwill impairment risk sits in reported equity and subsidiary dividend capacity rather than regulatory tangible capital.
+
+## Cash Flow Analysis
+
+### Commentary
+
+Cash generation at M&T is bank-shaped: the cash flow statement records balance-sheet deployment as much as trading performance, so the investing and financing lines describe funding and asset-allocation choices rather than discretionary capital spending. The operating line is the closest proxy for recurring internal generation.
+
+Operating activities produced 2.28 billion dollars in the six months to June 2026, above reported second-quarter net income of 818 million dollars. Non-cash charges are modest — depreciation and amortisation of 156 million dollars in the half, of which only 7 million dollars was intangible amortisation in the second quarter — consistent with low fixed-asset intensity: property, plant and equipment of 1.73 billion dollars against total assets of 219.26 billion dollars at the end of June 2026. Goodwill of 8.47 billion dollars is carried without amortisation, so accrual earnings are not materially flattered by purchase-accounting non-cash items.
+
+Investing activities used 8.15 billion dollars. For a depository that is deployment — loan growth and securities purchases — not capital expenditure, and it cannot be met from operations. Financing was the mirror image, supplying 4.54 billion dollars, with debt proceeds of 3.20 billion dollars against repayments of 463 million dollars; wholesale funding stood at 4.61 billion dollars short-term and 13.57 billion dollars long-term at the end of June 2026. Deposit and borrowing inflows, not operating cash, were the marginal funder of asset growth — the normal pattern for a growing bank, and the reason the operating line alone is a weak solvency signal.
+
+Distributions are the sharper test of durability. Share repurchases of 1.70 billion dollars in the half were the dominant use of shareholder cash, dividends of 445 million dollars the smaller claim; together they absorbed the bulk of the period's operating cash flow while the balance sheet was simultaneously being levered. The payout is therefore better read as a capital deployment decision than as a residual funded by internal generation.
+
+Two qualitative markers bear on the durability of interest cash flows. Management defines liquidity as ensuring sufficient cash flow and liquid assets to meet loan demand, deposit withdrawals and operating costs, acknowledging that asset and liability cash flows can diverge. And the cash flow hedge notional on variable-rate commercial real estate and commercial and industrial loans was higher at June 2026 than at December 2025, with the swap book's effect on net interest income turning modestly positive in the recent half after detracting a year earlier — stabilising rather than eliminating rate sensitivity. Prior-year comparative cash flow statements are not in hand, so these flows are judged at their level rather than as a trend.
+
+### Financial History
+
+|  | H1 FY2026 |
+|---|---|
+| Net cash from operating activities | 2,280 USD million[^50] |
+| Net cash from investing activities | -8,150 USD million[^50] |
+| Net cash from financing activities | 4,539 USD million[^50] |
+| Depreciation and amortisation | 156 USD million[^50] |
+| Proceeds from debt | 3,203 USD million[^50] |
+| Repayments of debt | 463 USD million[^50] |
+| Share repurchases | 1,698 USD million[^50] |
+| Dividends paid | 445 USD million[^50] |
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Operating cash flow, six months to June 2026 | 2.28 USD billion[^51] |
+| Investing cash flow, six months to June 2026 | -8.15 USD billion[^52] |
+| Financing cash flow, six months to June 2026 | 4.54 USD billion[^53] |
+| Share repurchases, six months to June 2026 | 1.7 USD billion[^54] |
+| Dividends paid, six months to June 2026 | 445 USD million[^55] |
+
+## Capital Allocation
+
+### Commentary
+
+M&T Bank's second-quarter 2026 cash-flow statement shows a capital-return program funded partly through financing activity. The company paid $445 million in dividends during the quarter, matching a declared common dividend of $1.50 per share, and repurchased $1.7 billion of stock, together drawing on more capital than is easy to net against the $2.28 billion of operating cash flow generated in the period, alongside a roughly $8.15 billion investing outflow; working that comparison into a single figure is not something the available data supports. Net financing activity was nonetheless positive at $4.5 billion, aided by $3.2 billion of new debt proceeds against $463 million of debt repayments, meaning part of the buyback and dividend outlay was financed by fresh borrowing rather than solely by retained earnings. Common shares outstanding fell from 146,445,060 at the end of the first quarter of fiscal 2026 to 144,416,262 by the second quarter's close, a decline consistent with the scale of repurchases, though the disclosures available do not give a tangible book value per share figure against which to test whether buybacks at the prevailing market price added to or diluted that metric; that question — the price paid for retired shares relative to intrinsic book value — remains open here. Regulatory filings confirm that M&T's capacity to pay dividends and repurchase stock is directly constrained by its CET1, Tier 1, and total risk-based capital ratios remaining above minimum requirements including the stress capital buffer, and that a capital plan resubmission requirement, for instance following certain acquisitions, would trigger a Federal Reserve prior-approval requirement for any distribution. No specific CET1 ratio, tangible common equity ratio, or stress capital buffer percentage appears in the material reviewed, so we cannot state where M&T currently sits relative to those thresholds. M&T also carries a fixed-rate preferred dividend obligation on its Series L Preferred Stock, a senior claim on capital ahead of the common dividend and buyback program. Overall, the company continued returning capital at a steady pace this quarter, but the evidence supports describing the mechanics of that return more than judging its economics at the current share price.
+
+### Uses of Capital
+
+- Common stock dividends
+- Common share repurchases
+- Preferred stock dividends (Series L)
+- Debt repayment and refinancing
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Dividends paid, Q2 2026 | 445 USD millions[^56] |
+| Share repurchases, Q2 2026 | 1,698 USD millions[^57] |
+| Dividend declared per common share, Q2 2026 | $1.50[^58] |
+| Financing cash flow, Q2 2026 | 4,539 USD millions[^59] |
+| Proceeds from debt, Q2 2026 | 3,203 USD millions[^60] |
+| Repayments of debt, Q2 2026 | 463 USD millions[^61] |
+| Common shares outstanding, Q1 2026 | 146,445,060[^62] |
+| Common shares outstanding, Q2 2026 | 144,416,262[^63] |
+
+## Growth Outlook
+
+### Commentary
+
+**What the evidence supports:** M&T enters the second half of the 2026 fiscal year as a spread lender whose growth is a function of deposit gathering, balance sheet deployment and capital return rather than of any single product cycle. Second-quarter revenue of $2,532 million and net income of $818 million translated into diluted earnings of $5.32 per share, on total assets of $219.3 billion and common equity of $27.9 billion at June 30, 2026. The disclosure in hand is quantitative rather than guidance-led, so what follows reads the direction of travel from the balance sheet itself.
+
+**Funding is the binding driver:** Core deposits rose between December 31, 2025 and June 30, 2026, the increase concentrated in savings and interest-checking balances, inclusive of the redesignation of certain brokered arrangements as core deposits consistent with regulatory presentation, and in growth of noninterest-bearing deposits. Because core deposits are the most significant source of funding, drawn from a large and geographically diverse customer base, their trajectory sets the ceiling on earning-asset growth. Part of the half's improvement is presentational rather than new money, which tempers how far it should be extrapolated.
+
+**Deployment:** Investing activities absorbed $8.15 billion in the first half of the 2026 fiscal year against $2.28 billion of operating cash flow, with $3.20 billion of debt proceeds raised. That is a balance sheet being put to work in loans and securities, funded by deposits and supplemented at the wholesale window. Deployment on this scale is the most visible near-term growth mechanism, and also the one most exposed to loan demand and the rate path.
+
+**Per-share compounding:** Repurchases of $1.70 billion and dividends of $445 million in the first half, with $1.50 per share declared for the quarter, mean a meaningful share of forward growth in earnings per share comes from a shrinking denominator rather than from revenue. Low market sensitivity, a recorded beta of 0.57 against a cost of equity of 7.6 percent, keeps the required return modest, so even mid-single-digit asset growth can clear it.
+
+**Base case:** We take mid-single-digit expansion as the central expectation, consistent with the 7.2 percent compound growth rate carried in our valuation work, delivered through deposit-funded earning-asset growth and share count reduction rather than through fee-line acceleration. Durability rests on the deposit base holding at its current cost.
+
+**What would break it:** The Company's own risk disclosure names the channels: weaker demand for loans and other products, a decrease in net interest income from lending and deposit gathering, lower brokerage, trust and investment management fees should equity markets stall, more delinquencies, defaults and charge-offs, and impairment of intangible assets such as goodwill, of which $8.47 billion sits on the balance sheet.
+
+### Growth Drivers
+
+- Deposit-funded earning-asset growth
+- Securities and loan deployment
+- Share count reduction through buybacks
+- Modest required return on equity
+
+### Figures
+
+| Label | Value |
+|---|---|
+| Revenue, second quarter fiscal 2026 | 2,532 USD million[^64] |
+| Net income, second quarter fiscal 2026 | 818 USD million[^65] |
+| Diluted earnings per share, second quarter fiscal 2026 | 5.32 USD per share[^66] |
+| Compound growth rate in valuation work | 7.2%[^67] |
+| Cost of equity | 7.6%[^68] |
+
+## Valuation — Discounted Cash Flow
+
+### How These Figures Were Produced
+
+The equity was valued as its filed book value plus the present value of the return earned above its cost of equity over a 5-year explicit forecast, discounted at the cost of equity shown below rather than at a weighted average cost of capital — a bank's deposits are priced in net interest income, and blending them into the discount rate would charge them twice. The excess return beyond the forecast was taken both ways — competed away to nothing, and grown as a perpetuity — with each carried through to a per-share figure, because the choice between them is a judgement about competition rather than arithmetic. Every figure cites the calculation that produced it.
+
+### Cost of Capital
+
+| Label | Value | Provenance |
+|---|---|---|
+| Risk-free rate | 5% | proposed by aer.services.macro with a stated justification, and confirmed by the operator at the assumptions gate |
+| Beta | 0.574446713242 | proposed by aer.services.prices with a stated justification, and confirmed by the operator at the assumptions gate |
+| Equity risk premium | 0.045 | set by the operator and confirmed at the assumptions gate |
+| Cost of equity | 0.075850102096 | computed: Ke = risk-free rate + beta * equity risk premium[^69] |
+
+### Forecast Assumptions
+
+| Label | Value | Provenance |
+|---|---|---|
+| Return on equity | 9.4% | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Payout ratio | 0.34× | proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate |
+| Terminal growth | 3% | proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate |
+
+### The Two Terminal Methods
+
+| Label | Value | Provenance |
+|---|---|---|
+| Value per share — excess return competed away | $199.04 | computed: value per share = equity value / shares outstanding[^70] |
+| Premium to book value — excess return competed away | $2,429m | computed: premium = equity value - opening book value[^71] |
+| Value per share — excess return in perpetuity | $266.06 | computed: value per share = equity value / shares outstanding[^72] |
+| Premium to book value — excess return in perpetuity | $13,072m | computed: premium = equity value - opening book value[^73] |
+| Shares outstanding | 158,791,000 | the filed count: diluted_shares_outstanding[^74] |
+
+### Recorded Caveats
+
+- Residual income equals the dividend-discount value only under clean surplus — that every gain and loss passes through profit, so book value moves only by earnings less dividends. A bank's available-for-sale securities move through other comprehensive income instead, so a book value carrying unrealised losses is treated here as fully earning.
+- No value is placed on anything beyond the explicit forecast: the excess return is assumed competed away at the end of it.
+- The two terminal treatments are opposite claims about competition, not two estimates of one number. Fading to nothing says a bank's excess return is competed away at the end of the forecast; perpetual growth says it never is. Both are shown because choosing between them is a judgement about banking, and presenting either alone would present that judgement as arithmetic.
+- The valuation assumes the bank earns above its cost of equity in perpetuity. Competition has historically removed such a spread.
+- This request carries no authored scenarios, so the valuation is the base case and the two grids beside it. Scenarios are written, not generated: nothing here invents a bear case the operator did not argue for.
+
+### Commentary
+
+This section's heading points to a discounted cash-flow exercise, but the components carried here are an excess-return framework on book equity, and for a depository that is the right choice. The cash statement for the six months to 30 June 2026 makes the point: operating cash flow of $2,280 million sits alongside an investing outflow of -$8,150 million and a financing inflow of $4,539 million, so period cash movement reflects balance-sheet growth and its funding rather than any distributable stream. No free-cash-flow input is used above, and none is needed. The conclusion is driven instead by Return on equity set against Cost of equity, by Terminal growth, and by the book base to which the two premium cases attach. Of those, Cost of equity carries the most weight and the least support. The carried Beta of 0.57 is low for a levered regional bank, and with Beta that low the Equity risk premium contributes only a narrow spread over the Risk-free rate, leaving Cost of equity at about 7.6 percent; no estimation period is attached to Beta in the record. A hurdle nearer that of a typical levered depository would lower both Value per share outcomes, and would compress Premium to book value — excess return in perpetuity considerably more than Premium to book value — excess return competed away, because the perpetuity case capitalises the spread between Return on equity and Cost of equity indefinitely and is geared to the distance between that hurdle and Terminal growth. The competed-away case is therefore the figure to carry as the central estimate, with the perpetuity case read as an upper bound conditional on a hurdle that, on the support available, is more likely too low than too high. A reader who takes the hurdle at face value reaches a materially higher value than one who does not, and that disagreement is not resolvable from what this section holds. The book base deserves the same scepticism. Reported total equity at 30 June 2026 was $27,946 million. That is not a tangible common equity measure: goodwill of $8,465 million and other intangible assets of $48 million are not deducted from it, and it includes preferred stock whose composition changed within the period, with one preferred series redeemed in February 2026 and a new series issued in July 2026. The common share base also moved, with $1,698 million of repurchases in the six months to 30 June 2026 and 144.4 million shares outstanding at 31 July 2026. The interpretive consequence is concrete: the date and the definition of book to which the premium cases attach change the level of the base and, in the opposite direction, the return earned on it. On a tangible common basis the base would be materially lower and the measured return correspondingly higher, shifting value out of the base and into the premium without necessarily moving the total by as much. The dividend cross-check is directionally consistent but incomplete. Q2 2026 dividends per share of $1.50 against diluted earnings per share of $5.32 leaves ample retention to fund the Terminal growth carried above. But repurchases of $1,698 million over the half exceeded dividends paid of $445 million, so a Payout ratio built on dividends alone understates the distribution this framework implicitly assumes, and Shares outstanding is itself a policy variable rather than a constant. Repurchase discretion is delegated to management and is influenced by capital and liquidity requirements and by market conditions, and any return of capital requires board approval, compliance with capital regulations, and depends in part on supervisory stress test outcomes. The filings also flag that the regulators' long-term debt proposal, if adopted, would require more long-term debt and would likely reduce net interest income and net interest margin — a direct question mark over the durability of the Return on equity assumed here. One limitation is material and is better stated than dressed: this section carries no market-based anchor, so the output above is an intrinsic estimate and is not reconciled to any traded valuation benchmark. Confidence is low.
+
+### Valuation football field
+
+Value-per-share ranges from this run's own recorded calculations. Licensed market data under a subscription agreement. Selling, retransmitting, redistributing or displaying the information in original or repackaged form is prohibited without prior written approval. Figures computed from it — multiples, ratios and other derived values — may be published: the operator determined this on 2026-08-09, having read the executed agreement, and the determination is theirs rather than an inference from the published terms. It does not extend to the series itself or to a chart of it, which remain the information in repackaged form. Copies must be deleted within one month of the subscription ending.[^75][^76]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Scenarios & Sensitivities
+
+### Commentary
+
+**What separates the cases:** Three variables set the outcome: deposit beta and mix shift on the margin, commercial real estate loss severity and the reserve build behind it, and the cost of equity. Only the second is anchored in disclosure we can verify here; no margin simulation figure is quoted below, and the deposit-beta case is argued in direction only.
+
+**Base case:** Our residual-income valuation produces an equity value of $42.2 billion against a market capitalisation of $32.6 billion. We do not carry that gap as the conclusion. The hurdle rate is 7.6%, built on a beta of 0.57 — low for a levered regional depository, and an assumption rather than a measurement, with no stated estimation window or benchmark behind it — and it sits only modestly above the 5.0% generic rate input. At so low a hurdle almost any assumed earnings level clears the bar. The base case is book and reserves plus a modest franchise premium, with the spread over the equity charge unproven rather than established.
+
+**The book base is unresolved:** Reported total equity at 30 June 2026 was $27.9 billion; the book base carried into the residual-income valuation is $40.8 billion; and the premium to book of $13.1 billion exceeds both the explicit-period residual value of $2.4 billion and the perpetuity component of $6.3 billion. The equity value should be read as a range whose width is set by which anchor is chosen, not as a point.
+
+**Bear case:** Delivered earnings, not assumed earnings, decide the excess return. The normalised earnings input is $3.97 billion; the company earned $818 million in the second quarter of 2026. Residual income of $700 million stands against an equity charge of $3.27 billion, so a moderate shortfall against the assumed earnings level inverts the spread. Commercial real estate is the likeliest route: coverage on that book was released through the first half of 2026 while consumer coverage built, and the company's own modelled downside scenario raises expected credit losses — on modelled losses alone, as it cautions. The 10-K names the chain from collateral values to nonaccruals, charge-offs, provisions and goodwill impairment.
+
+**Bull case:** Deposits repricing more slowly than assets, a stable funding mix, and the modelled upside scenario — which lowers expected credit losses by less than the downside scenario adds — would carry earnings toward the normalised level and make the premium defensible. That case also requires the low hurdle rate to be the right one.
+
+### Scenarios
+
+| Label | Value |
+|---|---|
+| Residual-income equity value | 42.2 USD billion[^77] |
+| Market capitalisation | 32.6 USD billion[^78] |
+| Cost of equity applied | 7.6%[^79] |
+| Equity charge | 3.27 USD billion[^80] |
+| Residual income | 0.7 USD billion[^81] |
+| Reported total equity, 30 June 2026 | 27.9 USD billion[^82] |
+
+### Sensitivity Commentary
+
+Cost of equity dominates. At 7.6% the hurdle sits close to the 5.0% rate input, and the $42.2 billion equity value is a function of that choice more than of any operating assumption; a higher hurdle compresses the explicit-period and perpetuity components together and can extinguish the premium. Commercial real estate severity ranks second: a reserve rebuild runs through income before it touches capital, and the disclosed scenario impacts are modelled losses only. Deposit beta ranks third on the evidence available — material to the margin, but not quantified here.
+
+### Sensitivity heatmap
+
+residual_income_per_share_perpetual_growth (USD/shares) across cost_of_equity and terminal_growth. Each cell is a recorded calculation, not an interpolation.[^83][^84][^85][^86][^87][^88][^89][^90][^91][^92][^93][^94][^95][^96][^97][^98][^99][^100][^101][^102][^103][^104][^105][^106][^107]
+
+*Rendered in the HTML and PDF editions of this report.*
+
+## Key Risks
+
+### Commentary
+
+Two linked exposures dominate. The first is commercial real estate credit; the second is the cost and stability of deposit funding. Both act on earnings power, and both would widen the return investors demand for it. The balance sheet sets the stakes: reported equity of 27,946 million dollars includes goodwill of 8,465 million, so credit and securities marks fall on a thinner economic base than headline capital implies. Regulatory capital action is the slowest-moving of the set and the least controllable.
+
+### Risks
+
+| Risk | Why It Matters | Early Warning |
+|---|---|---|
+| Commercial real estate credit concentration, with office and multifamily loans repricing at maturity | The quarterly filing names loan concentrations by type and industry, credit losses, and the market value of collateral securing loans among the factors that could move results. Borrowers financed at earlier rates face higher debt service and softer appraisals at refinancing, and reserve builds land straight on pre-tax income, which was 1,063 million dollars in the June 2026 quarter. Sustained loss content would lower earnings power, raise the required return, and reduce fair value on all three counts. | Migration into criticised and nonaccrual balances, office reappraisal write-downs, and extension or modification of maturing CRE loans rather than refinancing.[^108] |
+| Deposit competition and reliance on price-sensitive or uninsured balances | Sources of liquidity and levels of client deposits are disclosed sensitivities. In the six months to June 2026 financing activities supplied 4,539 million dollars while investing used 8,150 million, and at the end of June 2026 short-term borrowings stood at 4,614 million against long-term debt of 13,568 million. Deposit repricing compresses margin first and pushes the balance toward costlier wholesale funding second, cutting earnings power and the quality of the multiple applied to it. | Deposit cost rising faster than asset yields, a falling non-interest-bearing share, and growth in short-term or brokered borrowings.[^108] |
+| Hedge roll-off and securities reinvestment at prevailing rather than legacy spreads | Interest rate sensitivity, spreads on earning assets and interest-bearing liabilities, and prepayment speeds are disclosed risk factors, though the hedge maturity ladder is not detailed in the material here. As swaps mature and securities amortise, reinvestment occurs at current spreads: falling short rates cut asset yields before deposit costs follow, and rising rates do the reverse. Either path makes the margin assumption behind earnings power less durable. | Net interest margin moving against the direction of policy rates, and securities added at yields below the existing portfolio. |
+| Unrealised securities losses against economic tangible equity | Reported equity supports assets of 219,261 million dollars, and goodwill and intangibles are carried inside that equity, so accumulated unrealised marks bear on a smaller economic cushion. Market capitalisation of roughly 32.6 billion dollars already stands above reported book value; a widening of unrealised losses would compress that premium and constrain distributions before it constrained lending. | Accumulated other comprehensive income moving further negative, a declining tangible common equity ratio, and a rising held-to-maturity share of securities.[^109] |
+| Regulatory supervision, capital requirements and stress-capital outcomes | Regulatory oversight including capital requirements, legislation affecting the financial services industry, tax policy, and the outcome of investigations and governmental proceedings are all disclosed as risk factors. A higher required buffer would curb repurchases and dividend growth ahead of any effect on lending, reducing the return on equity that can reasonably be assumed and so the value of retained earnings. | Changes to the stress capital buffer, a pause in repurchase authorisations, or new supervisory findings.[^108] |
+| Fragility of the discount rate, and operational and rating risk | Valuation rests on a cost of equity of about 7.6 percent derived from a beta of about 0.57 measured to mid-September 2026. Bank betas rise in credit and funding stress, and the company itself lists credit rating changes, share price volatility, fraud and cybersecurity breaches among its risk factors. A higher required return cuts present value even with earnings unchanged. | Share price volatility rising relative to the index, rating outlook changes, or disclosure of a material operational loss.[^110] |
+
+## Catalysts
+
+### Commentary
+
+The evidence dates no forward catalyst beyond routine board and financing filings already disclosed: the June 2026 director appointment and the July 2026 preferred stock issuance are past events, not upcoming triggers. For an actual catalyst to exist here, M&T would need to disclose a specific date for a regulatory stress-test result, a capital buffer determination, a dividend or repurchase authorization decision, or a supervisory disclosure on commercial real estate concentration and reserve coverage; none of the material available names such a date.
+
+## Prior Research Comparison
+
+### Commentary
+
+This is the first research run for M&T BANK CORP (MTB). No prior approved report exists to compare against.
+
+## Validation & Disagreements
+
+### Summary
+
+The run's validators measured 9 metric(s): 9 passed, 0 failed, 0 not exercised. The corpus metrics — custom section contract conformance, injection resistance, skill privilege containment and unit integrity — are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. 7 disagreement(s) between sources were recorded, of which 7 were escalated for human decision at approval.
+
+### Validation Metrics
+
+| Metric | Score | Threshold | Verdict |
+|---|---|---|---|
+| assumption completeness | 1.00000000 | at least 1.00000000 | pass |
+| citation accuracy | 1.00000000 | at least 0.98000000 | pass |
+| cited figure agreement | 0E-8 | at most 0E-8 | pass |
+| figure plausibility | 0E-8 | at most 0E-8 | pass |
+| hallucinated citation rate | 0E-8 | at most 0E-8 | pass |
+| numerical consistency | 0E-8 | at most 0.00500000 | pass |
+| presentation integrity | 0E-8 | at most 0E-8 | pass |
+| primary source ratio | 0.92660000 | at least 0.60000000 | pass |
+| source coverage | 1.00000000 | at least 0.90000000 | pass |
+
+### Disagreements
+
+**Red team — balance sheet, severity 3/5:** The base case leans on continued share-count reduction, yet the capital constraint on that programme is unverified: the draft states no CET1, tangible common equity or stress capital buffer figure is available, while also noting that distributions require board approval, compliance with capital rules and supervisory stress-test outcomes. The recorded FY2025 ratio of shareholder distributions to operating cash flow exceeds one, so distributions have recently run ahead of internal cash generation. A per-share growth mechanism that is both unfunded from operating cash and unconstrained by any observed capital ratio is a weak load-bearing assumption.[^111]
+
+**Basis:** calcs c44cf037 (distributions to operating cash flow, FY2025) and 6587ffa8 (shareholder distributions, FY2025); draft claims 2c8496a4 (no CET1/TCE/SCB available), 4e4fb403 and 40ab4e34 (regulatory constraints), 0a93121c (H1 2026 buybacks).
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — balance sheet, severity 3/5:** The capital allocation section labels six-month cash-flow and distribution figures as quarterly. Repurchases, dividends paid, operating, investing, financing cash flow and debt proceeds and repayments are all presented there as being for 'the quarter ended June 30, 2026', while other sections report the identical amounts for the six months ended 30 June 2026. That doubles the apparent quarterly distribution and funding rate a reader would infer. The same section dates the share count to the second-quarter end, whereas the recorded share-count fact carries a 31 July 2026 period, as the valuation section states correctly.[^112]
+
+**Basis:** Identical amounts labelled differently: claims 44c4d559/79dfe9c0/53d625de/ae657383/bb3cba8c/e8ef13e6/efb9886a versus 37d0a20b/5386ff8d/8058886a/27dba522/6ca2a179/ad21fb1b/b26a99a3; fact 37dd697a (shares outstanding, period_end 2026-07-31) versus claims 715ab755 and 1d525128.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — growth, severity 3/5:** The growth input is unsourced and the mechanism is partly presentational. The recorded compound growth rate carries no period and my index contains no revenue, earnings or deposit series from which it could be derived. Meanwhile the draft's own base case is deposit-funded earning-asset growth, and it concedes that part of the first-half core deposit increase reflects redesignation of brokered arrangements rather than new money. A growth rate of that order, applied in a residual-income frame, does much of the work in the explicit-period value while resting on no visible series.[^113]
+
+**Basis:** calc 89253871 (cagr, 'not period-specific') and calc f3a3ce11 (explicit residual value); draft claims a96293b2 and 9c041078 on brokered-deposit redesignation; no growth series appears in the fact or calculation index shown to me.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — profitability, severity 4/5:** The claim that sustainable earnings clear the equity charge rests on a normalised earnings input derived by applying an FY2025 return-on-equity to an assumed book base. That input sits well above both the FY2025 net income the draft reports and the second-quarter 2026 net income it reports on any annualised reading. The recorded residual income is small relative to the distance between the assumed earnings level and delivered earnings, so on actually reported earnings the spread over the equity charge is not demonstrated and could invert. The excess-return conclusion is an artefact of the input, not an observation.[^114]
+
+**Basis:** calcs 604546d8 (net_income_from_roe), 94125bba (FY2025 ROE), 9a31384f (equity charge), aa65085d (residual income) against reported earnings claims c320cde5 (FY2025 net income) and ace95bee (Q2 2026 net income).
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — valuation, severity 4/5:** The discount rate is the most powerful lever in this valuation — the draft says so itself — and its evidentiary support is thin. The recorded beta is well below one for a levered regional depository, and the index shows only a covariance and a variance behind it, with no estimation window, no index identification and no period attached. The recorded cost of equity sits only a little above the one recorded generic rate input in the index. The draft concedes the hurdle is low and flatters both premium cases, then still carries the resulting value as the headline output.[^115]
+
+**Basis:** calcs 9945918f (cost of equity), 47a16015 (beta), 86a69c70 and eb50e517 (covariance, variance), 05610366 (rate_from_percent), d80b0d78 (discount factor), all marked 'not period-specific'; draft concessions fc92c0ed and 35681502.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — valuation, severity 5/5:** The draft's stated observation — that the shares trade below carried book value, implying thin value creation — does not hold against the equity figure the draft itself reports for 30 June 2026, which is below recorded market capitalisation. It holds only against the model's inflated closing book value. The 'below book' framing, and the modest tone it lends the conclusion, therefore depends on the same unreconciled book base attacked above, and the draft separately concedes the market and book inputs are not put on a tangible common equity basis, where the gap would widen further.[^116]
+
+**Basis:** calc 8c8ed1b0 (market capitalisation) and calc edac38db (closing book value) read against equity claims bd25574b/a6a31120/24f75b37 and goodwill claims 24863220/665d6eaa; draft concessions ed6747a8 and 9a8f51f0.
+
+**Resolution:** Escalated for human decision at approval.
+
+**Red team — valuation, severity 5/5:** The valuation rests on at least three different, mutually inconsistent book-value anchors. The recorded closing_book_value used in the residual-income framework is far above the total equity the draft itself reports at 30 June 2026, and the recorded premium_to_book, when set against the recorded residual_income_equity_value, appears to be struck against the December-2025 equity figure the draft reports rather than the June-2026 figure. The recorded premium_to_book is also materially larger than either of the two premium cases the draft describes (the competed-away and perpetuity components). Which book base the headline equity value belongs to is unresolved.[^117]
+
+**Basis:** calc edac38db (closing_book_value) versus claims e2b979a3/084b8dec and reported equity claims bd25574b/a6a31120/24f75b37; calc c6e9320a (premium_to_book) versus calcs f3a3ce11 and 2ce9da07 and claims fedbbc50/f8aa03a6; calc 34449057 (equity value). Verification of which base each figure uses is required; I state the inconsistency, not a replacement figure.
+
+**Resolution:** Escalated for human decision at approval.
+
+## Comparable companies
+
+A comparable-company analysis was attempted as at 17 September 2026, but every one of the seven proposed peers was excluded, because this research holds no filings and no price series for it, and a peer multiple needs both. No comparable figure was computed, and there is no fuller version elsewhere.
+
+## Scope and limitations
+
+- **Balance Sheet & Liquidity:** One or more sentences were removed because their figures could not be traced to a recorded source.
+- **Valuation — Discounted Cash Flow:** One or more sentences were removed because their figures could not be traced to a recorded source.
+
+
+## Notes
+
+[^1]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^2]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^3]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^4]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^5]: Calculated: `net margin = net income / revenue` = 0.2942 (rounded; full precision stored) for FY2025 (code version `92ad3cafb568`).
+[^6]: Calculated: `free cash flow = operating cash flow - capital expenditure` = 3649000000.000000000000 USD for FY2023 (code version `92ad3cafb568`).
+[^7]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^8]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^9]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^10]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^11]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^12]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^13]: M&T BANK CORP 10-K 2026-02-18, US Securities and Exchange Commission, published 18 February 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm>
+[^14]: M&T BANK CORP 10-Q 2026-08-04, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000050/mtb-20260630.htm>
+[^15]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^16]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^17]: M&T BANK CORP 10-K 2026-02-18, US Securities and Exchange Commission, published 18 February 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm>
+[^18]: M&T BANK CORP 10-K 2026-02-18, US Securities and Exchange Commission, published 18 February 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm>
+[^19]: M&T BANK CORP 10-K 2026-02-18, US Securities and Exchange Commission, published 18 February 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm>
+[^20]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^21]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^22]: Calculated: `beta = covariance(subject, market) / variance(market)` = 0.5744 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^23]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^24]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^25]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^26]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^27]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^28]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^29]: Calculated: `net margin = net income / revenue` = 0.3102 (rounded; full precision stored) for FY2021 (code version `92ad3cafb568`).
+[^30]: Calculated: `net margin = net income / revenue` = 0.2436 (rounded; full precision stored) for FY2022 (code version `92ad3cafb568`).
+[^31]: Calculated: `net margin = net income / revenue` = 0.2842 (rounded; full precision stored) for FY2023 (code version `92ad3cafb568`).
+[^32]: Calculated: `net margin = net income / revenue` = 0.2789 (rounded; full precision stored) for FY2024 (code version `92ad3cafb568`).
+[^33]: Calculated: `net margin = net income / revenue` = 0.2942 (rounded; full precision stored) for FY2025 (code version `92ad3cafb568`).
+[^34]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^35]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^36]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^37]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^38]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^39]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^40]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^41]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^42]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^43]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^44]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^45]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^46]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^47]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^48]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^49]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^50]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^51]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^52]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^53]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^54]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^55]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^56]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^57]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^58]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^59]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^60]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^61]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^62]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^63]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^64]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^65]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^66]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^67]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.0718 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^68]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^69]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^70]: Calculated: `value per share = equity value / shares outstanding` = 199.042 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^71]: Calculated: `premium = equity value - opening book value` = 2429075319.2518 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^72]: Calculated: `value per share = equity value / shares outstanding` = 266.065 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^73]: Calculated: `premium = equity value - opening book value` = 13071720672.2502 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^74]: Calculated: `value per share = equity value / shares outstanding` = 199.042 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^75]: Calculated: `value per share = equity value / shares outstanding` = 199.042 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^76]: Calculated: `value per share = equity value / shares outstanding` = 266.065 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^77]: Calculated: `equity value = opening book value + explicit value + PV(terminal residual income)` = 42248720672.2502 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^78]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^79]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^80]: Calculated: `charge_t = cost of equity * opening book value_t` = 3272645888.6629 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^81]: Calculated: `RI_t = net income_t - equity charge_t` = 700040343.6747 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^82]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^83]: Calculated: `value per share = equity value / shares outstanding` = 329.1935 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^84]: Calculated: `value per share = equity value / shares outstanding` = 290.3363 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^85]: Calculated: `value per share = equity value / shares outstanding` = 259.1813 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^86]: Calculated: `value per share = equity value / shares outstanding` = 233.6584 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^87]: Calculated: `value per share = equity value / shares outstanding` = 212.3779 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^88]: Calculated: `value per share = equity value / shares outstanding` = 337.4062 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^89]: Calculated: `value per share = equity value / shares outstanding` = 295.5695 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^90]: Calculated: `value per share = equity value / shares outstanding` = 262.4452 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^91]: Calculated: `value per share = equity value / shares outstanding` = 235.5823 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^92]: Calculated: `value per share = equity value / shares outstanding` = 213.3698 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^93]: Calculated: `value per share = equity value / shares outstanding` = 346.7642 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^94]: Calculated: `value per share = equity value / shares outstanding` = 301.4431 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^95]: Calculated: `value per share = equity value / shares outstanding` = 266.065 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^96]: Calculated: `value per share = equity value / shares outstanding` = 237.6953 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^97]: Calculated: `value per share = equity value / shares outstanding` = 214.4506 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^98]: Calculated: `value per share = equity value / shares outstanding` = 357.5253 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^99]: Calculated: `value per share = equity value / shares outstanding` = 308.0825 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^100]: Calculated: `value per share = equity value / shares outstanding` = 270.1022 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^101]: Calculated: `value per share = equity value / shares outstanding` = 240.0269 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^102]: Calculated: `value per share = equity value / shares outstanding` = 215.6326 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^103]: Calculated: `value per share = equity value / shares outstanding` = 370.0304 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^104]: Calculated: `value per share = equity value / shares outstanding` = 315.648 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^105]: Calculated: `value per share = equity value / shares outstanding` = 274.6337 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^106]: Calculated: `value per share = equity value / shares outstanding` = 242.6126 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^107]: Calculated: `value per share = equity value / shares outstanding` = 216.9309 (rounded; full precision stored) USD/shares (code version `92ad3cafb568`).
+[^108]: M&T BANK CORP 10-Q 2026-05-05, US Securities and Exchange Commission, published 5 May 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/36270/000003627026000034/mtb-20260331.htm>
+[^109]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^110]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^111]: Calculated: `distributions to OCF = (share repurchases + dividends paid) / operating cash flow` = 1.1755 (rounded; full precision stored) for FY2025 (code version `92ad3cafb568`).
+[^112]: M&T BANK CORP XBRL company facts, US Securities and Exchange Commission, published 4 August 2026, retrieved 17 September 2026, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json>
+[^113]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.0718 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^114]: Calculated: `NI_t = ROE_t * opening book value_t` = 3972686232.3376 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+[^115]: Calculated: `Ke = risk-free rate + beta * equity risk premium` = 0.0759 (rounded; full precision stored) (code version `92ad3cafb568`).
+[^116]: Calculated: `market cap = price per share * shares outstanding` = 32639519374.620000000000 USD (code version `92ad3cafb568`).
+[^117]: Calculated: `BV_t = BV_(t-1) + net income_t * (1 - payout_t)` = 40755628122.3739 (rounded; full precision stored) USD (code version `92ad3cafb568`).
+
+
+## Sources
+
+| Source | Publisher | Published | Retrieved | Tier | Artefact |
+|---|---|---|---|---|---|
+| [M&T BANK CORP 10-K 2026-02-18](https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm) | US Securities and Exchange Commission | 18 February 2026 | 17 September 2026 | T1_REGULATORY | `c26cca148c69` |
+| [M&T BANK CORP 10-Q 2026-05-05](https://www.sec.gov/Archives/edgar/data/36270/000003627026000034/mtb-20260331.htm) | US Securities and Exchange Commission | 5 May 2026 | 17 September 2026 | T1_REGULATORY | `5db63a086d45` |
+| [M&T BANK CORP XBRL company facts](https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json) | US Securities and Exchange Commission | 4 August 2026 | 17 September 2026 | T1_REGULATORY | `31b7b199ea6b` |
+| [M&T BANK CORP 10-Q 2026-08-04](https://www.sec.gov/Archives/edgar/data/36270/000003627026000050/mtb-20260630.htm) | US Securities and Exchange Commission | 4 August 2026 | 17 September 2026 | T1_REGULATORY | `35396f04fa69` |
+
+
+---
+
+This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.

@@ -1,0 +1,13 @@
+{
+  "page": "console",
+  "url": "http://127.0.0.1:8000/runs/14c8d2bf-cafc-43b2-8497-c5ef613b196b",
+  "status": 200,
+  "title": "Run \u00b7 AZN",
+  "payload_hash": null,
+  "words": 573,
+  "raw_tokens": [
+    "validation_failure"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

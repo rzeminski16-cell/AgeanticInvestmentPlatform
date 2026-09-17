@@ -1,0 +1,11 @@
+{
+  "page": "assumptions",
+  "url": "http://127.0.0.1:8000/runs/960a85b8-4250-4579-b93a-b66cd08058f3/assumptions",
+  "status": 200,
+  "title": "Confirm the numbers the valuation will use? \u00b7 Tracework Invest",
+  "payload_hash": "7e2e3f262a1786466d4bc132e44f5afabdcc5333c56cdfaf7055d4c74721c39f",
+  "words": 1266,
+  "raw_tokens": [],
+  "uuids": 0,
+  "approve_control": 1
+}

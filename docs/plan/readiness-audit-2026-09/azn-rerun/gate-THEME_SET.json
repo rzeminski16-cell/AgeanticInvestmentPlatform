@@ -1,0 +1,44 @@
+{
+  "payload": {
+    "subject": "d62d1d5a-1060-4612-b5d7-60b9421e20b7",
+    "themes": [
+      {
+        "key": "glp1-obesity-metabolic-demand",
+        "label": "GLP-1 and metabolic disease demand",
+        "rationale": "AZN has expanded oral and injectable metabolic assets (e.g. AZD5004, partnerships) to compete in the GLP-1/obesity wave reshaping pharma pipelines and payer spend; exposure is emerging rather than dominant versus Novo/Lilly.",
+        "existing": false
+      },
+      {
+        "key": "oncology-biologics-pipeline-shift",
+        "label": "Oncology and biologics pipeline shift",
+        "rationale": "AZN's growth is heavily driven by oncology franchises (Tagrisso, Enhertu, Imfinzi) and biologics/ADC platforms, reflecting an industry-wide pivot from small-molecule primary care drugs to targeted biologic oncology therapies.",
+        "existing": false
+      },
+      {
+        "key": "patent-cliff-loss-of-exclusivity",
+        "label": "Patent cliff and loss-of-exclusivity risk",
+        "rationale": "Several AZN blockbusters face upcoming exclusivity loss this decade, a structural force across large pharma forcing pipeline replacement and M&A to offset revenue erosion from generics/biosimilars.",
+        "existing": false
+      },
+      {
+        "key": "china-pharma-market-exposure",
+        "label": "China pharma market and policy exposure",
+        "rationale": "AZN has significant China revenue exposure subject to volume-based procurement pricing pressure and regulatory shifts, a recurring theme for multinational pharma reliant on Chinese market growth.",
+        "existing": false
+      },
+      {
+        "key": "biologics-manufacturing-capacity",
+        "label": "Biologics and cell therapy manufacturing buildout",
+        "rationale": "AZN is investing in biologics, ADC and cell therapy manufacturing capacity to support pipeline shift, linking it to broader industry capital spend on advanced biomanufacturing infrastructure.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "e741fba41eb04e7ae25f849451f888b30d2b84dcc9ed82fb84823d3d65a539f9",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "14c8d2bf-cafc-43b2-8497-c5ef613b196b",
+    "reason": "gate_waiting"
+  }
+}

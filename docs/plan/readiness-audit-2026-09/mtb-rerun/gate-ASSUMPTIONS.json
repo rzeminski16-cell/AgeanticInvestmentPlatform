@@ -1,0 +1,68 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.574446713242",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-17, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "7.000000000000",
+        "unit": "pure",
+        "justification": "Flagging a model mismatch: EV/EBITDA is not a meaningful bank metric, since interest expense ($828m in Q2 2026) is operating cost, not financing, and debt belongs in the capital base. 7.0x is my mapping of a mid-cycle pre-tax pre-provision earnings multiple, cross-checked against residual income: ROE 9.42% (filings-derived), g=3%, CoE ~10.5% implies ~0.85x book and ~9x net income; on ROTCE 16.5% it implies ~1.8x tangible book. The Gordon/residual-income terminal value is the better estimate here and should govern; treat this multiple as a convention-mapped placeholder, not an independent view. Consistency note: 7x is not a high multiple, but paired with 3% it reflects a sub-CoE ROE, not a contradiction.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.25
+      },
+      {
+        "name": "payout_ratio",
+        "value": "0.336680000000",
+        "unit": "pure",
+        "justification": "The mean of dividends paid over net income across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.3120, 0.3936, 0.3167, 0.3458, 0.3153.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "return_on_equity",
+        "value": "0.094214000000",
+        "unit": "pure",
+        "justification": "The mean of net income over equity across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1038, 0.0787, 0.1017, 0.0892, 0.0977.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.050000000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5% on 2026-09-15, as published by 2026-09-17 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.05.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken as below a cost of equity I assume near 10-11% (5.0% derived risk-free rate plus a regional-bank equity premium), so the spread is ~7-8 points. 3% sits at long-run nominal GDP: a deposit-funded regional franchise tied to New England/Mid-Atlantic activity grows with nominal output, not above it. I did not use the filings-implied retention growth (ROE 9.42% x (1-0.3367) = ~6.3%), which is a near-term reinvestment rate and exceeds this platform's 4% cap. Lower it toward 2-2.5% if deposit-beta pressure (56% cumulative) and fintech entry are judged to erode share; raise it only if the 5% risk-free rate is read as a permanently higher inflation regime.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.62
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from \u2014 or set a standing premium in settings, and every run will propose it for you to confirm."
+      }
+    ],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "959b1b8a1838052814786e7f90c13f0ebf3dbff8f26a43f2b34f7b58ed051999",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca",
+    "reason": "gate_waiting"
+  }
+}

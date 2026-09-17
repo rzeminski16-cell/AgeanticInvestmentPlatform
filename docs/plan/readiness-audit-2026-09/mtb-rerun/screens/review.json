@@ -1,0 +1,24 @@
+{
+  "page": "review",
+  "url": "http://127.0.0.1:8000/runs/2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca/review",
+  "status": 200,
+  "title": "Approve this report? \u00b7 Tracework Invest",
+  "payload_hash": null,
+  "words": 15940,
+  "raw_tokens": [
+    "assumption_proposals",
+    "charge_t",
+    "closing_book_value",
+    "diluted_shares_outstanding",
+    "income_t",
+    "net_income_from_roe",
+    "payout_t",
+    "period_end",
+    "premium_to_book",
+    "rate_from_percent",
+    "residual_income_equity_value",
+    "value_t"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

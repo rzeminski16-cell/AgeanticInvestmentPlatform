@@ -1,0 +1,32 @@
+{
+  "payload": {
+    "subject": "5e7481b0-1e1d-44f4-aac3-34f7535f0b1c",
+    "themes": [
+      {
+        "key": "cre-credit-cycle",
+        "label": "Commercial real estate credit cycle",
+        "rationale": "M&T carries a large CRE and multifamily loan book; underwriting quality and refinancing stress in CRE (especially office and NYC multifamily) directly drive its charge-offs and reserve builds.",
+        "existing": false
+      },
+      {
+        "key": "net-interest-margin-rate-cycle",
+        "label": "Net interest margin sensitivity to rate cycle",
+        "rationale": "As a large regional bank funded heavily by deposits, MTB's earnings are exposed to Fed rate moves and deposit repricing lags, shaping NIM trajectory each cycle.",
+        "existing": false
+      },
+      {
+        "key": "regional-bank-deposit-competition",
+        "label": "Regional bank deposit funding competition",
+        "rationale": "Post-2023 deposit flight to money-market funds and larger banks pressures MTB's funding costs and mix, a structural pressure shared across regional banks.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "7fc90818a22ec04a812f84920f3f2822811f29eae64e3d11e01223caa283738d",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "2840e674-7bc8-4f3c-9fb8-0c3b0a8715ca",
+    "reason": "gate_waiting"
+  }
+}

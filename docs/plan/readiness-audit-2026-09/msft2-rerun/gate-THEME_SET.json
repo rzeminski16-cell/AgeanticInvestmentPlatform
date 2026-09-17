@@ -1,0 +1,38 @@
+{
+  "payload": {
+    "subject": "4c8d6ac7-da84-4ce6-8b56-ccc56cedf8b1",
+    "themes": [
+      {
+        "key": "ai-capex-buildout",
+        "label": "AI infrastructure capital expenditure buildout",
+        "rationale": "Microsoft is among the largest hyperscaler spenders on data center capacity, custom silicon, and power for AI workloads; its capex trajectory and depreciation drag are directly tied to this multi-company investment wave.",
+        "existing": false
+      },
+      {
+        "key": "cloud-infrastructure-spend",
+        "label": "Enterprise cloud migration and infrastructure spend",
+        "rationale": "Azure's growth is a direct beneficiary of ongoing enterprise workload migration to public cloud, a durable multi-year shift shared with other hyperscalers and enterprise software vendors.",
+        "existing": false
+      },
+      {
+        "key": "generative-ai-monetization",
+        "label": "Generative AI product monetization",
+        "rationale": "Microsoft is embedding AI copilots and OpenAI-derived models across its software and cloud stack, testing whether AI features convert into incremental seat and consumption revenue industry-wide.",
+        "existing": false
+      },
+      {
+        "key": "grid-electrification",
+        "label": "Grid electrification and power constraints",
+        "rationale": "Data center power demand from Microsoft's AI buildout is straining grid capacity and driving utility investment and power purchase agreements, linking it to the broader electrification/power-supply theme.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "8da4064aa16534c9935e3cc8146bb93066875eb86f8e7b351758b4f06ecfe89a",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "960a85b8-4250-4579-b93a-b66cd08058f3",
+    "reason": "gate_waiting"
+  }
+}

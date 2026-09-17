@@ -1,0 +1,100 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.300000000000",
+        "unit": "pure",
+        "justification": "Audit policy: the proposed 0.276218247742 lies outside the 0.3-2.0 band; amended to the nearest bound by the operator's standing policy.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.033377000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0292, 0.0246, 0.0297, 0.0356, 0.0478.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.114739000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.142147000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "12.000000000000",
+        "unit": "pure",
+        "justification": "Grounded in the derived intensities: mean EBIT margin 14.2% plus D&A intensity 11.5% implies an EBITDA margin near 26%, of which capex (3.3%) and cash tax absorb a modest share, so a mature diversified pharma converting most EBITDA to cash supports a low-double-digit multiple. 12x is broadly consistent with 2.5% perpetual growth at a 8-8.5% discount rate. It is partly a sector convention and I flag that. Of the two, I regard the perpetual-growth figure as the better terminal-value estimate here, because AZN's amortisation intensity (11.5% of revenue) is largely acquired-intangible cost that EV/EBITDA ignores, flattering the multiple. A clearer post-2030 patent-cliff picture would move this either way.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.119346000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.050000000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5% on 2026-09-15, as published by 2026-09-17 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.05.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.200000000000",
+        "unit": "pure",
+        "justification": "Effective tax rate near 20 % (20-F). Stated by the operator because the platform derived nothing for it; recorded as a completeness finding.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken as below a cost of capital of at least 7.5-8% (5.0% derived risk-free plus any ordinary equity premium for a large-cap pharma), so it holds below any plausible discount rate for this run. 2.5% reflects nominal global healthcare spend rather than AZN's trailing 11.9% revenue CAGR, which is launch-driven and cannot persist: the filings show newer patent-protected brands (Enhertu, Tagrisso, Imfinzi) alongside off-patent Nexium/Crestor/Pulmicort, i.e. perpetual reinvestment merely to replace eroding revenue. The SERENA-4 primary-endpoint miss is a reminder that pipeline replacement is uncertain. Evidence of durable pricing power or a structurally broader label set would support a higher figure; sustained US/EU reimbursement pressure a lower one.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "-0.035125000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": [
+      "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+    ]
+  },
+  "hash": "d1dfde58e025dd548e835f895a6a2b08d92b2b2f11db6ff6cdeeb4117470f4ab"
+}
