@@ -1085,6 +1085,56 @@ class TestTheFigureScenesAreAssembledHonestly:
         assert not result.passed
         assert any("818000000" in line for line in result.failures)
 
+    async def test_the_balance_sheet_total_reaches_the_scene(self, scene: dict[str, Any]) -> None:
+        """The turnover relation needs total assets, and total assets is stored as
+        ``assets``.
+
+        The collector asked for a concept named `total_assets`, which the canonical set
+        does not contain, so the scene's assets were always `None` and the third relation
+        could not fire on any run the platform has ever done. It is written as the M&T
+        case: a large balance sheet turning at 0.0076 because the numerator is a partial
+        revenue caption.
+        """
+        session = scene["session"]
+        session.add(
+            FinancialFact(
+                company_id=scene["company"].id,
+                source_document_id=scene["document"].id,
+                concept="assets",
+                value=Decimal("219261000000"),
+                unit="USD",
+                period_end=date(2022, 3, 31),
+                fiscal_year=2022,
+                fiscal_period="Q3",
+                basis=FactBasis.AS_REPORTED,
+                filed_date=date(2022, 4, 30),
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="asset_turnover",
+                formula="revenue / assets",
+                function_ref="aer.calc.ratios:asset_turnover",
+                code_version="test",
+                inputs=[],
+                output_value=Decimal("0.0076"),
+                output_unit="ratio",
+                period_label="Q3 FY2022",
+            )
+        )
+        await session.flush()
+
+        scenes = await _figure_scenes(session, job=scene["job"], request=scene["request"])
+
+        held = next(item for item in scenes if item.period == "Q3 FY2022")
+        assert held.total_assets == Decimal("219261000000")
+        assert held.asset_turnover == Decimal("0.0076")
+
+        result = figure_plausibility(scenes)
+        assert not result.passed
+        assert any("asset turnover" in line for line in result.failures)
+
 
 class TestAComputedFigureRestsOnWhatIsUnderIt:
     """The first acceptance pass measured 0.5147 against a 0.6 floor while every one of

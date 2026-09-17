@@ -579,11 +579,15 @@ async def _figure_scenes(
     income and total assets, and the run's recorded margin and turnover calculations by
     their period labels. Revenue and net income join a scene only when their recorded
     units agree — a comparison across currencies would be a new error, not a check.
+
+    The balance-sheet total is stored under the canonical concept ``assets`` (the name
+    `Assets` resolves to in `aer.core.concepts`). Asking for ``total_assets`` matched no
+    row, so the turnover relation had never once been evaluated on a real run.
     """
     facts = list(
         await session.scalars(
             visible_facts(await scope_for_request(session, request))
-            .where(FinancialFact.concept.in_(("revenue", "net_income", "total_assets")))
+            .where(FinancialFact.concept.in_(("revenue", "net_income", "assets")))
             .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
         )
     )
@@ -617,7 +621,7 @@ async def _figure_scenes(
         revenue = held.get("revenue")
         income = held.get("net_income")
         comparable = revenue is not None and income is not None and revenue[1] == income[1]
-        assets = held.get("total_assets")
+        assets = held.get("assets")
         pair = ratios.get(period, {})
         scenes.append(
             FigureScene(
