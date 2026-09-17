@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.units import Quantity, SourceRef, Unit
 from aer.calc.wacc import ALL_EQUITY_NOTE, BOOK_WEIGHT_CAVEAT, EquityBasis
 from aer.core.enums import UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel
@@ -35,6 +36,7 @@ from aer.services.assumptions import assumptions_for_request, confirm, propose
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SENSITIVITY_POINTS
 from aer.services.valuation_run import (
+    MISMATCHED_CURRENCY_CAVEAT,
     ValuationOutcome,
     value_the_business,
 )
@@ -132,7 +134,9 @@ async def _confirm_extra(scene: dict[str, Any], name: str, value: str) -> None:
     await confirm(session, assumption=assumption, actor=actor)
 
 
-async def _value(scene: dict[str, Any], *, years: int = 5) -> ValuationOutcome:
+async def _value(
+    scene: dict[str, Any], *, years: int = 5, market_capitalisation: Quantity | None = None
+) -> ValuationOutcome:
     return await value_the_business(
         scene["session"],
         request=scene["request"],
@@ -140,6 +144,16 @@ async def _value(scene: dict[str, Any], *, years: int = 5) -> ValuationOutcome:
         analysis=await analysed(scene),
         mandate=MANDATE,
         years=years,
+        market_capitalisation=market_capitalisation,
+    )
+
+
+def _market_cap(value: str, currency: str = "USD") -> Quantity:
+    """What the price step hands the valuation: a figure sourced to its own calculation."""
+    return Quantity.of(
+        Decimal(value),
+        Unit.currency(currency),
+        source=SourceRef.calculation("market-capitalisation", label="market capitalisation"),
     )
 
 
@@ -248,9 +262,9 @@ class TestAConfirmedRunProducesAValuation:
         assert implied != pytest.approx(_BASIC_SHARES, rel=Decimal("0.000001"))
 
     async def test_the_book_equity_substitution_is_declared(self, scene: dict[str, Any]) -> None:
-        # Nothing here acquires a price, so the equity weight is shareholders' funds — which
-        # understates the equity weight and produces a WACC that is too low. A reader has to
-        # be told, and the enum is what makes the substitution visible rather than assumed.
+        # A run with no price weighs equity at shareholders' funds — which understates the
+        # equity weight and produces a WACC that is too low. A reader has to be told, and the
+        # enum is what makes the substitution visible rather than assumed.
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
@@ -259,6 +273,76 @@ class TestAConfirmedRunProducesAValuation:
         assert outcome.cost_of_capital is not None
         assert outcome.cost_of_capital.basis is EquityBasis.BOOK
         assert BOOK_WEIGHT_CAVEAT in outcome.caveats
+
+    async def test_a_market_capitalisation_is_preferred_and_needs_no_caveat(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Phase 4.2. Market is what the theory asks for, and the caveat was the platform
+        telling its own reader that its discount rate was too low — on every audited run,
+        while the price step had a market capitalisation it never passed on."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, market_capitalisation=_market_cap("900000000"))
+
+        assert outcome.cost_of_capital is not None
+        assert outcome.cost_of_capital.basis is EquityBasis.MARKET
+        assert BOOK_WEIGHT_CAVEAT not in outcome.caveats
+        assert MISMATCHED_CURRENCY_CAVEAT not in outcome.caveats
+
+    async def test_the_market_weight_raises_the_discount_rate(self, scene: dict[str, Any]) -> None:
+        """The whole point, as a number. A market capitalisation above book equity weights
+        the dearer equity more heavily, so the WACC rises — and every valuation discounted
+        at it comes down, which is the direction the caveat was warning about."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        on_book = await _value(scene)
+        at_market = await _value(scene, market_capitalisation=_market_cap("900000000"))
+
+        assert on_book.cost_of_capital is not None
+        assert at_market.cost_of_capital is not None
+        assert at_market.cost_of_capital.wacc.value > on_book.cost_of_capital.wacc.value
+        assert at_market.cost_of_capital.equity_weight.value > (
+            on_book.cost_of_capital.equity_weight.value
+        )
+
+    async def test_a_price_in_another_currency_falls_back_and_says_which(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The two cannot be weighed against each other without a conversion nothing here
+        performs. It falls back rather than raising — a valuation lost to a currency mismatch
+        helps nobody — and it does not borrow the sentence about an absent price, because a
+        caveat that names the wrong reason sends a reader to fix the wrong thing."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, market_capitalisation=_market_cap("900000000", "GBP"))
+
+        assert outcome.cost_of_capital is not None
+        assert outcome.cost_of_capital.basis is EquityBasis.BOOK
+        assert MISMATCHED_CURRENCY_CAVEAT in outcome.caveats
+        assert BOOK_WEIGHT_CAVEAT not in outcome.caveats
+
+    async def test_a_nil_market_capitalisation_is_not_a_price(self, scene: dict[str, Any]) -> None:
+        """A zero is the absence of a figure, not a company worth nothing, and weighing
+        equity at zero would put the whole capital structure on the debt side."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, market_capitalisation=_market_cap("0"))
+
+        assert outcome.cost_of_capital is not None
+        assert outcome.cost_of_capital.basis is EquityBasis.BOOK
+        assert BOOK_WEIGHT_CAVEAT in outcome.caveats
+
+    async def test_the_step_output_says_which_measure_was_used(self, scene: dict[str, Any]) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        at_market = await _value(scene, market_capitalisation=_market_cap("900000000"))
+
+        assert at_market.as_dict()["equity_basis"] == "market"
 
     async def test_the_bridge_is_net_debt_alone_and_says_so(self, scene: dict[str, Any]) -> None:
         await seed_years(scene, _YEARS)

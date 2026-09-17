@@ -570,7 +570,17 @@ def build_steps() -> list[WorkflowStep]:
         # The forecast itself, once a person has agreed the numbers behind it. Before the
         # draft, because the valuation and scenario sections have nothing to write from
         # otherwise — which is the state gap B2 described.
-        WorkflowStep(key=VALUE_STEP, run=_value, needs=frozenset({"gate_assumptions"})),
+        # **The price step is a declared dependency, not a hope about ordering.** The
+        # valuation weighs equity at the market capitalisation that step computes, and the
+        # graph places an undeclared node wherever it likes: `acquire_prices` and the
+        # assumptions chain both descend from `gate_unmapped_concepts` and neither waits for
+        # the other, so without this the discount rate's basis would depend on which
+        # finished first. A WACC that is market-weighted on a fast day and book-weighted on a
+        # slow one is worse than one that is always book, because nothing in the report says
+        # which happened.
+        WorkflowStep(
+            key=VALUE_STEP, run=_value, needs=frozenset({"gate_assumptions", PRICES_STEP})
+        ),
         WorkflowStep(
             key="draft",
             run=_draft,
@@ -1611,6 +1621,12 @@ async def _value(context: StepContext) -> StepResult:
         analysis=analysis,
         mandate=mandate,
         years=FORECAST_YEARS,
+        # The price step's own figure, read the way the comps step reads it. Without this
+        # the capital structure weighed equity at book on every run and the report printed a
+        # caveat saying its own discount rate was therefore too low.
+        market_capitalisation=_market_capitalisation_from(
+            context.outputs.get(PRICES_STEP, {}), currency=request.base_currency
+        ),
     )
     return StepResult(output=outcome.as_dict())
 

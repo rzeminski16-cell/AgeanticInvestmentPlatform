@@ -181,6 +181,13 @@ class CapitalStructure:
     debt_value: Quantity
     basis: EquityBasis
 
+    # Why the book measure was used, when the caller knows a reason other than the usual
+    # one. :data:`BOOK_WEIGHT_CAVEAT` says "because no market capitalisation was available",
+    # which is true of almost every substitution and false of the one where a price exists
+    # and cannot be weighed against a balance sheet in another currency. A caveat that names
+    # the wrong reason sends a reader to fix the wrong thing.
+    substitution_note: str | None = None
+
     @property
     def has_debt(self) -> bool:
         """Whether there is a debt side to weight at all.
@@ -687,7 +694,11 @@ def cost_of_capital(
         context, risk_free=risk_free, beta=beta, equity_risk_premium=equity_risk_premium
     )
 
-    caveats: tuple[str, ...] = (BOOK_WEIGHT_CAVEAT,) if structure.basis is EquityBasis.BOOK else ()
+    caveats: tuple[str, ...] = (
+        (structure.substitution_note or BOOK_WEIGHT_CAVEAT,)
+        if structure.basis is EquityBasis.BOOK
+        else ()
+    )
 
     if cost_of_debt_pre_tax is None or tax_rate is None:
         return CostOfCapital(

@@ -244,6 +244,21 @@ and the negation reaches forwards and stops at the word about the record. The re
 all four. It is the argument for ADR 0125's own decision to ship advisory: the first honest
 measurement of a prose rule was out by a factor of nine.
 
+**Phase 4 has started.** 4.1 fixed the price layer: `_Listing.bars` was the *insert* count,
+and `record_bars` inserts only what is new — so the second acquisition of a company inserted
+nothing, already held everything, and read that as "the market-data provider returned no
+prices". AZN #2 and M&T were both second runs, and both lost their price, market
+capitalisation, enterprise value and multiples to it. 4.2 then wired the market
+capitalisation into the WACC, which the calc layer had been ready for all along: the wiring
+was missing under a docstring saying "nothing in this workflow acquires a price" that had
+outlived the price step by months. Every audited report printed a caveat explaining that its
+own discount rate was too low and every valuation from it too high; a market-weighted run no
+longer needs one, and the two states that still take book each say which. The valuation now
+*declares* its dependency on the price step, because both it and the assumptions chain
+descend from `gate_unmapped_concepts` and neither waited for the other — a WACC
+market-weighted on a fast day and book-weighted on a slow one would be worse than one always
+book. ROADMAP §3.19 carries the general trap as its seventh entry.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

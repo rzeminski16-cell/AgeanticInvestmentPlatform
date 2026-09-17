@@ -1034,6 +1034,18 @@ found rather than as scope that was always there.
    Recorded because the failure mode generalises: a stub looser than the thing it stands in
    for does not merely fail to catch bugs, it manufactures ones that cannot happen, and both
    cost the same to debug. Worth a sweep of the other adapter stubs; not done here.
+7. **Reading another step's output without declaring the dependency fails silently, 17
+   September 2026.** `context.outputs.get(SOME_STEP, {})` returns an empty mapping for a step
+   that has not run, and the engine places an undeclared node wherever it likes: a step that
+   reads a sibling's output without naming it in `needs` gets a correct answer whenever the
+   ordering happens to favour it and an empty one otherwise. Found while wiring the market
+   capitalisation into the WACC (Phase 4.2) — `acquire_prices` and the assumptions chain both
+   descend from `gate_unmapped_concepts` and neither waited for the other, so the discount
+   rate's *basis* would have depended on which finished first, with nothing in the report
+   saying which. The dependency is now declared, and `_comps` had always declared its own.
+   **What does not exist is the guard**: `StepContext.output_of` could refuse a key the
+   running step did not declare, which would make the whole class unrepresentable rather than
+   something each author has to remember. Not built here; it touches every step.
 
 ### Before this leaves one machine
 

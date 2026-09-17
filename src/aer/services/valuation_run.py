@@ -21,12 +21,15 @@ report-quality R13), and for them the rate is a confirmed ``cost_of_debt`` assum
 gate demanded up front. What this module still never does is *invent* one: no filed line
 and no confirmed row is a refusal that names both.
 
-**Book equity weights, and the caveat says so.** Nothing in this workflow acquires a price,
-so the equity side of the capital structure is shareholders' funds.
-:class:`~aer.calc.wacc.EquityBasis` records which measure was used and
-:func:`~aer.calc.wacc.cost_of_capital` attaches the caveat, because book weights understate
-the equity weight and produce a WACC that is too low — which raises every valuation
-computed from it.
+**Market equity weights where a price exists, and the caveat says so where one does not.**
+The equity side of the capital structure is the market capitalisation the price step
+computed, which is what the theory asks for. It was book on every run until 17 September
+2026, under a docstring saying "nothing in this workflow acquires a price" that had outlived
+the price step by months — so every audited report printed a caveat explaining that its own
+discount rate was too low and every valuation from it too high.
+:class:`~aer.calc.wacc.EquityBasis` still records which measure was used, and
+:func:`~aer.calc.wacc.cost_of_capital` still attaches the caveat for the two states that
+take book: no price at all, and a price in a currency the filed balance sheet is not in.
 
 **Every refusal names what was missing.** A valuation that cannot run is an ordinary
 outcome for a company whose filings are thin, and the report has to say which line was
@@ -165,8 +168,15 @@ async def value_the_business(
     analysis: AnalysisOutcome,
     mandate: ValuationMandate,
     years: int,
+    market_capitalisation: Quantity | None = None,
 ) -> ValuationOutcome:
     """Run the base case, the scenarios and the grids, and store every calculation.
+
+    Args:
+        market_capitalisation: What the equity is worth, when the run holds a price. The
+            capital structure weighs equity at market where this is usable and at book
+            otherwise — see :func:`_capital_structure` — so the discount rate stops being
+            computed from a measure the report then caveats as too low.
 
     Returns a :class:`ValuationOutcome` rather than raising when the run simply cannot
     produce a forecast: a company with one filed year or an unconfirmed assumption is an
@@ -188,7 +198,13 @@ async def value_the_business(
 
     ledger = new_context()
     try:
-        capital = _cost_of_capital(ledger, values, latest=latest, prior=prior)
+        capital = _cost_of_capital(
+            ledger,
+            values,
+            latest=latest,
+            prior=prior,
+            market_capitalisation=market_capitalisation,
+        )
         inputs = inputs_from(
             values,
             years=years,
@@ -245,12 +261,70 @@ _BRIDGE_CAVEAT: Final = (
 # -- The discount rate ---------------------------------------------------------------------
 
 
+MISMATCHED_CURRENCY_CAVEAT: Final = (
+    "A market capitalisation was available but is quoted in a different currency from the "
+    "filed balance sheet, so book equity was used as the equity weight rather than weighing "
+    "the two against each other. The equity weight is therefore understated and the "
+    "resulting WACC too low, and every valuation discounted at it correspondingly too high — "
+    "as it would be for a company with no price at all, but for a reason that a currency "
+    "conversion would fix."
+)
+
+
+def _capital_structure(
+    *,
+    book_equity: Quantity,
+    debt_value: Quantity,
+    market_capitalisation: Quantity | None,
+) -> CapitalStructure:
+    """The two claims on the business, weighing equity at market where a price exists.
+
+    **Market is what the theory asks for and what this platform now uses.** The weights had
+    been book on every run, under a comment saying "nothing here acquires a price" — which
+    stopped being true when the price step was built. A profitable company's market
+    capitalisation is usually a large multiple of its book equity, so book weights understate
+    the equity side, overweight the cheaper debt, produce a WACC that is too low and a
+    valuation that is correspondingly too high. Every audited report printed a caveat saying
+    exactly that about its own discount rate; one judge called it an act of self-demolition.
+
+    Two states still take book, and each says which. **No price**: the ordinary substitution,
+    and the caveat the calculation layer already owns. **A price in another currency**: the
+    two cannot be weighed against each other without a conversion nothing here performs, and
+    mixing them would produce a weight computed from two different units — which the unit
+    system would refuse, and rightly. It falls back rather than raising, because a valuation
+    lost to a currency mismatch helps nobody, and it says so in its own words rather than
+    borrowing the sentence about an absent price.
+    """
+    usable = (
+        market_capitalisation is not None
+        and market_capitalisation.value > 0
+        and market_capitalisation.unit == debt_value.unit
+    )
+    if usable and market_capitalisation is not None:
+        return CapitalStructure(
+            equity_value=market_capitalisation,
+            debt_value=debt_value,
+            basis=EquityBasis.MARKET,
+        )
+    return CapitalStructure(
+        equity_value=book_equity,
+        debt_value=debt_value,
+        basis=EquityBasis.BOOK,
+        substitution_note=(
+            MISMATCHED_CURRENCY_CAVEAT
+            if market_capitalisation is not None and market_capitalisation.value > 0
+            else None
+        ),
+    )
+
+
 def _cost_of_capital(
     ledger: CalculationContext,
     values: dict[str, Quantity],
     *,
     latest: PeriodAnalysis,
     prior: PeriodAnalysis | None,
+    market_capitalisation: Quantity | None = None,
 ) -> CostOfCapital:
     """The WACC, decomposed from confirmed assumptions and the filed balance sheet.
 
@@ -276,19 +350,17 @@ def _cost_of_capital(
         )
         raise MissingAssumptionError(message, context={"missing": ",".join(missing)})
 
-    equity_value = required_line(latest, "equity")
+    book_equity = required_line(latest, "equity")
     debt_value = _line(latest, "total_debt", required=False)
     if debt_value is None:
         # Sourced to the equity line it sits beside: a nil with no provenance is still a
         # number the ledger cannot explain.
-        debt_value = Quantity.of(Decimal(0), equity_value.unit, source=equity_value.source)
+        debt_value = Quantity.of(Decimal(0), book_equity.unit, source=book_equity.source)
 
-    structure = CapitalStructure(
-        equity_value=equity_value,
+    structure = _capital_structure(
+        book_equity=book_equity,
         debt_value=debt_value,
-        # Book, because nothing here acquires a price. `cost_of_capital` attaches the
-        # caveat; the enum is what makes the substitution visible rather than assumed.
-        basis=EquityBasis.BOOK,
+        market_capitalisation=market_capitalisation,
     )
 
     debt_rate: Quantity | None = None
