@@ -150,6 +150,15 @@ Only the `as_reported` basis is implemented. `select_latest` **raises** if asked
 `restated` or `vendor_standardised`: a figure no filing reported is a figure nothing archived
 can stand behind.
 
+**A confirmed bank's facts are retagged before selection** (ADR 0114). EDGAR's ASC 606
+elements — revenue from contracts with customers — are this filer's *fee* income rather than
+its top line, so for a bank they are stored under `revenue_from_contracts` and never compete
+for `revenue`. The retag happens before `select_latest`, because two facts are rivals for a
+period only if they share a concept: renaming afterwards would let two spellings of the same
+caption arrive at the unique index as two rows claiming one identity. Revenue itself is then
+derived from net interest income plus non-interest income, as a `derived` fact carrying its
+workings — see `docs/adr/0114-a-banks-revenue-is-derived-and-only-for-a-bank.md`.
+
 ## Full-text search
 
 `efts.sec.gov/LATEST/search-index` answers the question the submissions index cannot: *which*

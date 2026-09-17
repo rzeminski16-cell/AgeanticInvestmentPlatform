@@ -26,6 +26,7 @@ from aer.core.concepts import (
     refusal_reason,
 )
 from aer.core.schemas.facts import RawFact, format_accession
+from aer.core.sectors import SECTOR_PROFILES
 from tests.sec_fixtures import make_fact
 
 
@@ -42,9 +43,32 @@ class TestTheConceptVocabulary:
     def test_every_canonical_concept_has_at_least_one_alias(self):
         # A concept with no tag mapping onto it can never be populated from EDGAR, which
         # makes it vocabulary that does nothing.
-        unreachable = CANONICAL_CONCEPTS - set(US_GAAP_ALIASES.values())
+        #
+        # Two routes now reach a concept, not one (ADR 0114): the alias table, and a
+        # confirmed sector profile reassigning a tag whose meaning differs for that kind
+        # of filer. `revenue_from_contracts` has no row in the table because for every
+        # ordinary company the ASC 606 tag *is* revenue; it exists for a bank, where the
+        # same tag is fee income.
+        reassigned = {
+            concept
+            for profile in SECTOR_PROFILES
+            if profile.revenue_composition is not None
+            for _tag, concept in profile.revenue_composition.reassigned
+        }
+        unreachable = CANONICAL_CONCEPTS - set(US_GAAP_ALIASES.values()) - reassigned
 
         assert unreachable == set()
+
+    def test_every_reassigned_tag_is_one_the_alias_table_knows(self):
+        # A profile reassigning a tag nothing ever produces would be a rule that never
+        # fires, and would look exactly like a rule that works.
+        for profile in SECTOR_PROFILES:
+            composition = profile.revenue_composition
+            if composition is None:
+                continue
+            for tag, concept in composition.reassigned:
+                assert tag in US_GAAP_ALIASES or tag in IFRS_ALIASES, tag
+                assert concept in CANONICAL_CONCEPTS, concept
 
     @pytest.mark.parametrize(
         "tag",
@@ -155,6 +179,12 @@ class TestTheConceptVocabulary:
         determination for a UK or European bank run to force, not a guess to make now.
         Pinned here so that closing any of these is a decision somebody takes rather
         than a diff nobody reads, and so that the list not *growing* is noticed.
+
+        The eighth is a different case and is here for completeness rather than as a gap:
+        ``revenue_from_contracts`` is in neither alias table, because under ADR 0114 it is
+        reached by a confirmed sector reassigning a tag that both tables map to ``revenue``.
+        An IFRS bank's ``RevenueFromContractsWithCustomers`` retags exactly as the us-gaap
+        spellings do, so there is nothing about it left to decide.
         """
         assert CANONICAL_CONCEPTS - set(IFRS_ALIASES.values()) == {
             "change_in_working_capital",
@@ -164,6 +194,7 @@ class TestTheConceptVocabulary:
             "preferred_dividends",
             "provision_for_credit_losses",
             "restructuring_costs",
+            "revenue_from_contracts",
         }
 
     def test_a_subtotal_that_means_something_else_is_left_unmapped(self):

@@ -632,10 +632,20 @@ test suite, and returns a **partition** rather than a filtered list: every input
 appears once, in `chosen` or in `rejected` with a reason. Every stored fact keeps its own
 filing date and accession, so a report quoting a figure names the filing it came from.
 
-Only the `as_reported` basis is implemented. Asking for `restated` raises: a figure no
-filing reported is a figure nothing archived can stand behind. See
+Selection produces only the `as_reported` basis. Asking it for `restated` raises: a figure
+no filing reported is a figure nothing archived can stand behind. See
 `docs/adr/0113-a-run-reads-the-filings-as-they-stand.md` (which supersedes ADR 0010 in its
 enforcement) and `docs/data-sources/sec-edgar.md`.
+
+One other basis exists in the table, and this platform writes it rather than reading it.
+Under ADR 0114 a sector whose accounting states the components of a line but no caption for
+the line gets that line computed: for a filer the sector gate has **confirmed** as a bank,
+revenue is net interest income plus non-interest income. The row is `basis = derived` and
+carries a `derivation` — the formula, both inputs by id with their own units and source
+documents, the sector, and the code version — under a check constraint making the two
+inseparable. It is at the fact layer because six readers take a fact without knowing how it
+was made, and a rule applied at each of them is six chances to miss one. Both halves or
+nothing, one filing or nothing, and a unit mismatch raises.
 
 ### Calculations
 

@@ -147,13 +147,20 @@ CASH_FLOW_LINES: Final[tuple[str, ...]] = (
     "net_change_in_cash",
 )
 
-# Share counts and per-share figures. They sit beside the statements rather than in them,
-# but they are canonical concepts and a fact carrying one must not fall through the floor.
+# Figures that sit beside the statements rather than in them, and are canonical concepts, so
+# a fact carrying one must not fall through the floor: the share counts and per-share figures,
+# and a bank's ASC 606 disclosure.
+#
+# `revenue_from_contracts` is here rather than on the income statement because that is where
+# the filing puts it -- a note, not a caption (ADR 0114). Listing it between the bank's own
+# lines would present a component of non-interest income as a peer of the totals it is inside,
+# which is the same confusion as the one that made it "revenue" in the first place.
 SUPPLEMENTARY_LINES: Final[tuple[str, ...]] = (
     "shares_outstanding",
     "basic_shares_outstanding",
     "diluted_shares_outstanding",
     "dividends_per_share",
+    "revenue_from_contracts",
 )
 
 # How far an identity may miss and still be called closed, as a fraction of the larger side.

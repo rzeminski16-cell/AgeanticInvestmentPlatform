@@ -1,0 +1,133 @@
+{
+  "cik": 36270,
+  "entityName": "M&T BANK CORPORATION",
+  "facts": {
+    "dei": {
+      "EntityCommonStockSharesOutstanding": {
+        "label": "Entity Common Stock, Shares Outstanding",
+        "units": {
+          "shares": [
+            {
+              "end": "2025-12-31",
+              "val": 160000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      }
+    },
+    "us-gaap": {
+      "InterestIncomeExpenseNet": {
+        "label": "Interest Income (Expense), Net",
+        "description": "The spread: interest earned less interest paid.",
+        "units": {
+          "USD": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-12-31",
+              "val": 7113000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            },
+            {
+              "start": "2025-01-01",
+              "end": "2025-12-31",
+              "val": 6948000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      },
+      "NoninterestIncome": {
+        "label": "Noninterest Income",
+        "description": "Fees, trust income and everything earned outside the spread.",
+        "units": {
+          "USD": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-12-31",
+              "val": 2610000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            },
+            {
+              "start": "2025-01-01",
+              "end": "2025-12-31",
+              "val": 2742000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      },
+      "RevenueFromContractWithCustomerExcludingAssessedTax": {
+        "label": "Revenue from Contract with Customer, Excluding Assessed Tax",
+        "description": "The ASC 606 disclosure: fee income arising from contracts with customers.",
+        "units": {
+          "USD": [
+            {
+              "start": "2025-01-01",
+              "end": "2025-12-31",
+              "val": 1657000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      },
+      "NetIncomeLoss": {
+        "label": "Net Income (Loss)",
+        "units": {
+          "USD": [
+            {
+              "start": "2025-01-01",
+              "end": "2025-12-31",
+              "val": 2851000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      },
+      "Assets": {
+        "label": "Assets",
+        "units": {
+          "USD": [
+            {
+              "end": "2025-12-31",
+              "val": 219261000000,
+              "accn": "0000036270-26-000012",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2026-02-20"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

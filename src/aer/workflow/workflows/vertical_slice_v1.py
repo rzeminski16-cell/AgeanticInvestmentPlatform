@@ -136,7 +136,12 @@ from aer.services.escalation import cost_scene_for_job, triggers_for_job
 from aer.services.evaluations import evaluate_run
 from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
-from aer.services.facts import persist_facts, upsert_company
+from aer.services.facts import (
+    derive_sector_revenue,
+    persist_facts,
+    retag_for_sector,
+    upsert_company,
+)
 from aer.services.filings import acquire_filings
 from aer.services.history import prior_digest_for
 from aer.services.macro_acquisition import RiskFreeAcquisition, acquire_risk_free
@@ -179,6 +184,7 @@ from aer.skills.resolution import (
 from aer.sources.sec.companyfacts import UnmappedConcept, parse_company_facts
 from aer.sources.sec.selection import select_latest
 from aer.verify.citations import verify_job_citations
+from aer.version import git_sha
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 from aer.workflow.pauses import PauseReason
 
@@ -2855,6 +2861,10 @@ async def _extract(context: StepContext) -> StepResult:
     Parsed from the **artefact**, not from a response held in memory. The artefact is the
     authoritative copy, and if the two could differ then the facts and the evidence a
     citation verifies against would be different documents.
+
+    **The confirmed sector decides what some tags mean** (ADR 0114). It is confirmed by
+    now: the classification gate is four steps back, which is what makes it safe to write
+    a bank's top line here rather than at each of the six places that read one.
     """
     request = await _request_for(context)
     acquired = context.output_of("acquire")
@@ -2863,7 +2873,12 @@ async def _extract(context: StepContext) -> StepResult:
     payload = await store.read(acquired["artefact_sha256"])
     parsed = parse_company_facts(payload)
 
-    selection = select_latest(parsed.facts)
+    profile, _confirmed_by = await confirmed_classification(context.session, context.job)
+    # Retagged *before* selection, not after. Two facts are rivals for a period only if they
+    # share a concept, so renaming the ASC 606 caption first is what stops it competing with
+    # the total it is not — and what lets two of its spellings be arbitrated as the duplicate
+    # tagging they are rather than collide at the unique index afterwards.
+    selection = select_latest(retag_for_sector(parsed.facts, profile=profile))
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     document = await context.session.get(SourceDocument, _uuid(acquired["source_document_id"]))
@@ -2877,6 +2892,15 @@ async def _extract(context: StepContext) -> StepResult:
         source_document=document,
         facts=selection.chosen,
         basis=FactBasis.AS_REPORTED,
+    )
+
+    # The top line this sector's accounting states in parts and never as a caption. No
+    # composition, no derivation — and for every ordinary company there is no composition.
+    derived = await derive_sector_revenue(
+        context.session,
+        company=company,
+        profile=profile,
+        code_version=git_sha() or "unknown",
     )
 
     # Each persisted fact's value, located in the archived document and recorded as an
@@ -2944,6 +2968,7 @@ async def _extract(context: StepContext) -> StepResult:
         "reference_concept": _reference_concept(selection.chosen) or "",
         "load_errors": [],
         **segments.as_dict(),
+        **derived.as_dict(),
     }
     # The hash of exactly what the gate will display, on the same terms as the plan gate: an
     # approval recorded against a different set of tags is not an approval of this one.

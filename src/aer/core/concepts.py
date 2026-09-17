@@ -48,6 +48,7 @@ from typing import Final
 
 __all__ = [
     "CANONICAL_CONCEPTS",
+    "CONTRACT_REVENUE_TAGS",
     "IFRS_ALIASES",
     "MAGNITUDE_CONCEPTS",
     "NEVER_MAP",
@@ -71,6 +72,11 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
     {
         # -- Income statement -----------------------------------------------------------
         "revenue",
+        # Fee income arising from contracts with customers (ASC 606, IFRS 15). For an
+        # ordinary filer this *is* the top line and the tags below map to `revenue`; for a
+        # bank it is one component of non-interest income, and ADR 0114 gives it this name
+        # so that it keeps being stored without being mistaken for the total.
+        "revenue_from_contracts",
         "cost_of_revenue",
         "gross_profit",
         "sg_and_a",
@@ -357,6 +363,17 @@ REVENUE_TAG_PREFERENCE: Final[tuple[str, ...]] = (
     "RevenueFromContractsWithCustomers",
     "SalesRevenueGoodsNet",
     "SalesRevenueServicesNet",
+)
+
+
+# The ASC 606 / IFRS 15 elements, named once so the sector profiles can point at them
+# rather than re-spell them (ADR 0114). Revenue arising from contracts with customers is
+# the whole income statement for most filers and a footnote for a bank, which is why the
+# tags have one meaning in this map and another under a confirmed sector profile.
+CONTRACT_REVENUE_TAGS: Final[tuple[str, ...]] = (
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+    "RevenueFromContractsWithCustomers",
 )
 
 

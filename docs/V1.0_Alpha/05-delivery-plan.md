@@ -227,6 +227,30 @@ Also here: the turnover half of the guard has **never fired** — `evaluations.p
 concept `total_assets` where the canonical concept is `assets` (`core/concepts.py:110`). Fixing
 it *adds* findings to M&T before it removes them, which is why it lands before the live run.
 
+**The offline half is done — 17 September 2026, £0, ADR 0114 Accepted.** In the order the plan
+asks for: the guard's concept corrected first, with a test that the relation now fires on a
+large balance sheet turning below the floor; then the derivation at the fact layer. A confirmed
+bank's ASC 606 caption is stored as `revenue_from_contracts` before selection runs, so it never
+competes for the top line; revenue is the sum of net interest income and non-interest income,
+written as a fact with `basis = derived` and a `derivation` column (migration 0077) carrying the
+formula, both inputs by id and the code version, under a check constraint that makes a derived
+row and its workings inseparable. Three refusals, each a recorded reason: one half is not a top
+line, two halves from two filings have no page a footnote could point at, and a filer that
+stated its own total is left to stand. A unit mismatch raises rather than coercing.
+
+A store written before the rule is corrected rather than worked around: a bank's ASC 606
+caption sitting under `revenue` from an earlier build is moved to its own name before the
+derivation reads it, or the derivation would take it for a total the filer stated and leave the
+$1,657m where it is. Only the concept moves; the figure, its filing and its document do not,
+and a stored report still replays.
+
+Proved on M&T's own figures without a model call or a network request: the extract step over a
+bank companyfacts fixture derives two years, and FY2025's margin reads 29.4% against the 172.1%
+the live run published.
+
+**Still to do, and both need the keys:** one live M&T run to an approved report, and the
+re-render of the stored MTB run with its diff (ADR 0114's own acceptance proof).
+
 **Exit:** one live M&T run reaches an approved, rendered report; `figure_plausibility` 0 of 0
 including the two findings the fixed guard now adds.
 
@@ -259,6 +283,7 @@ undecided accusations published.
 | 4.6 | **Name the eight operator-confirmed peers** in §17 and the industry section | An hour. It is the only change that moves "competitive position with named competitors" off *absent* |
 | 4.7 | **Acquire the exhibits inside accessions already opened** (EX-99 / 6-K press releases) | Where the console's winning material came from. An acquisition fix, not an evidence-policy fight |
 | 4.8 | **Print the verified excerpt** in the exported document — after deciding the boundary | Invariant 8: an excerpt leaving the trusted zone can re-enter the next run's planner prompt. Decide what an excerpt is outside the boundary *before* printing it |
+| 4.9 | **A derived figure's note says what it is** — the sum of two named captions, each walked to its own excerpt | Added 17 September 2026 by ADR 0114, which asks for it and does not build it. A bank's revenue appears in no filing, and the footnote route resolves a marker to a source document rather than to a fact. The row already holds both inputs by id; what is missing is the walk. Safe to wait, because until it exists the derived figure has no excerpt of its own, so no writer is handed a quotation to attach to it |
 
 **Exit:** re-render MSFT #1 and AZN #2 from stored rows — multiples, a market capitalisation, an
 implied range, segment figures and resolvable footnotes, with no sentence denying any of them.

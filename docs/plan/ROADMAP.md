@@ -416,6 +416,14 @@ citations verified — which is why `calc/plausibility.py` exists and why this i
 fix rather than a rendering one. **Decided in ADR 0114**: derive it, at the fact layer, only
 for a filer the sector gate has confirmed as a bank, and raise rather than coerce on a unit
 mismatch. Specified as F7 in [`../V1.0_Alpha/04-feature-specifications.md`](../V1.0_Alpha/04-feature-specifications.md).
+**Done in code, 17 September 2026** (ADR 0114 Accepted): the ASC 606 caption is retagged
+`revenue_from_contracts` before selection and revenue is derived from the two halves as a
+fact with `basis = derived` and a `derivation` column (migration 0077) holding the formula,
+both inputs by id and the code version. Found on the way, and fixed first: the turnover half
+of `calc/plausibility.py` had never fired at all, because `services/evaluations.py` asked for
+a concept named `total_assets` where the canonical one is `assets` — so the guard this
+finding produced had caught nothing on any run. The live M&T run and the stored run's
+re-render are what remain, and they wait on the keys.
 
 **2.11 A stopped run has no way forward that is not the terminal.** The audit lost **£14.41**
 on two runs — MSFT #2 and M&T — that reached a state the interface could not leave: a

@@ -22,6 +22,18 @@ cases below.
 | `submissions_ragged.json` | Parallel arrays of differing lengths — must be refused |
 | `companyfacts_msft.json` | **The restatement fixture.** FY2020 revenue reported twice, two years apart, with different values |
 | `companyfacts_unmapped.json` | A filer extension concept and an unmapped `us-gaap` tag |
+| `companyfacts_bank.json` | **The missing top line.** A filer whose only ASC 606 tag is fee income, and whose revenue must be assembled from the spread and non-interest income (ADR 0114) |
+
+## The bank fixture
+
+`companyfacts_bank.json` is M&T's shape rather than its full filing history: net interest
+income and non-interest income for two years, the ASC 606 caption for one, and the net
+income and assets the plausibility guard reads. The FY2025 figures are the ones ADR 0114
+records — $6,948m, $2,742m and the $1,657m contract revenue that reached the front page as
+"revenue" and produced a 172.1% net margin.
+
+FY2024 deliberately carries both halves and no ASC 606 caption, so a run over this fixture
+derives two years and would have shown a revenue line for neither.
 
 ## The restatement fixture
 

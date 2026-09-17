@@ -161,6 +161,17 @@ and says what it still waits for. What remains of 1½ is the corpus, the day the
 arrive: `aer preflight`, `pytest -m live_llm`, the QUICK run, the three re-seeded runs,
 `aer backup`, and ADR 0113's replay acceptance on those runs.
 
+Phase 2's offline half is done as well (17 September): the plausibility guard's turnover
+relation had never fired, because it asked for a concept named `total_assets` where the
+canonical one is `assets` — fixed first, with a test, since it *adds* findings to M&T
+before ADR 0114 removes them. Then ADR 0114 itself, Accepted: a confirmed bank's ASC 606
+caption is stored as `revenue_from_contracts` before selection, and revenue is derived from
+net interest income plus non-interest income as a fact with `basis = derived` carrying its
+formula, its inputs by id and the code version (migration 0077, under a check constraint
+that makes the pair inseparable). M&T's FY2025 margin reads 29.4% on the fixture, against
+the 172.1% the live run published. Phase 2's live half — one M&T run to an approved report,
+and the stored run's re-render — waits on the keys with everything else.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

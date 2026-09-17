@@ -36,12 +36,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
 
+from aer.core.concepts import CONTRACT_REVENUE_TAGS
 from aer.errors import AerError
 
 __all__ = [
     "BUILT_MODELS",
     "SECTOR_PROFILES",
     "ModelNotPermittedError",
+    "RevenueComposition",
     "SectorProfile",
     "ValuationMandate",
     "ValuationModel",
@@ -91,6 +93,44 @@ class ValuationModel(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class RevenueComposition:
+    """How a sector's top line is assembled when the taxonomy tags no caption for it.
+
+    ADR 0114. A bank's income statement has no revenue line: it has net interest income —
+    the spread, already net of interest expense — and non-interest income, and what every
+    analyst means by "total revenue" is the sum of the two. The taxonomy does not tag that
+    sum, because the filing does not present it as a caption, so the concept map resolved
+    ``revenue`` to the nearest tag with the right word in its name and a $219bn bank's
+    quarter was published at $442m.
+
+    Two halves, and both are needed. :attr:`components` says what the sum is made of;
+    :attr:`reassigned` says which filed tags must stop resolving to ``revenue`` for this
+    sector, because leaving them would mean the derivation competed with a partial caption
+    for the same period instead of replacing it.
+
+    Declared per sector, on evidence, behind a confirmation a person gave. It is not a
+    rule about filers that look like banks: an insurer's top line has the same trap waiting
+    and gets its own row and its own argument.
+    """
+
+    components: tuple[str, ...]
+    formula: str
+    reassigned: tuple[tuple[str, str], ...] = ()
+    note: str = ""
+
+    def concept_for(self, raw_concept: str, concept: str) -> str:
+        """The canonical concept this sector gives a filed tag.
+
+        The ordinary answer for every tag but the reassigned few, which is what keeps this
+        a decision about one sector rather than a second concept map.
+        """
+        for tag, reassigned_to in self.reassigned:
+            if tag == raw_concept:
+                return reassigned_to
+        return concept
+
+
+@dataclass(frozen=True, slots=True)
 class SectorProfile:
     """What the platform may and may not do for one kind of business.
 
@@ -130,6 +170,11 @@ class SectorProfile:
     # is already absent for want of its inputs, and listing it twice would say the same
     # thing in two voices.
     not_meaningful_ratios: tuple[tuple[str, str], ...] = ()
+
+    # How this sector's top line is assembled, where its accounting does not present one
+    # (ADR 0114). ``None`` for every sector whose filers report a revenue caption, which
+    # is all but one of them.
+    revenue_composition: RevenueComposition | None = None
 
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
@@ -176,6 +221,19 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
                 "measures the small remainder and reads as low leverage for a balance "
                 "sheet that is almost entirely liabilities. Capital adequacy and assets "
                 "to equity are the measures that mean something here.",
+            ),
+        ),
+        revenue_composition=RevenueComposition(
+            components=("net_interest_income", "noninterest_income"),
+            formula="revenue = net_interest_income + noninterest_income",
+            reassigned=tuple((tag, "revenue_from_contracts") for tag in CONTRACT_REVENUE_TAGS),
+            note=(
+                "A bank's income statement has no revenue caption. Total revenue is net "
+                "interest income — the spread, already net of interest expense — plus "
+                "non-interest income, and the taxonomy tags neither that sum nor a line "
+                "that means it. Revenue from contracts with customers is the ASC 606 "
+                "disclosure of the fee business alone, so it is stored under its own name "
+                "rather than as the top line."
             ),
         ),
         warnings=(

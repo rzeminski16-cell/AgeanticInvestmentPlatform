@@ -15,6 +15,13 @@ record of which filing said what, which is the one thing this schema exists to p
 typed. The chain is fact → source document → artefact → SHA-256, and it is unbroken by
 construction rather than by convention.
 
+**A derived fact carries its arithmetic.** Under ADR 0114 the platform writes a small
+number of rows itself, where a sector's accounting states the components of a line but no
+caption for the line — a bank's total revenue. Such a row has ``basis = derived`` and a
+``derivation`` naming its formula, its inputs by id and the code version that produced it,
+and the check constraint makes the two inseparable: no derived row without its workings,
+and no workings on a row that claims to be what a filer said.
+
 **On the extraction layer.** ``docs/archive/PLAN.md`` places an ``extractions`` table between the
 source document and the fact, recording which extractor produced it, at which version, and
 the verbatim excerpt the citation verifier re-reads. That table belongs to the extraction
@@ -27,10 +34,11 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, Text, text
 from sqlalchemy import Enum as SaEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import FactBasis
@@ -118,6 +126,12 @@ class FinancialFact(Base):
         server_default=FactBasis.AS_REPORTED.value,
     )
 
+    # The workings behind a derived row: ``{"formula", "inputs": [...], "code_version",
+    # "sector"}``, each input naming the fact it came from by id with its own concept,
+    # value, unit and source document. NULL for every row a filer stated, which is all but
+    # the few ADR 0114 computes.
+    derivation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
     created_at: Mapped[Timestamp] = created_at_column()
 
     company: Mapped[Company] = relationship(back_populates="facts")
@@ -157,6 +171,13 @@ class FinancialFact(Base):
         ),
         CheckConstraint("char_length(unit) > 0", name="unit_is_present"),
         CheckConstraint("char_length(concept) > 0", name="concept_is_present"),
+        # Both or neither (ADR 0114). A derived figure with no workings is a number this
+        # platform typed, and workings on a row claiming to be as reported would say the
+        # filer stated something it did not.
+        CheckConstraint(
+            "(basis = 'derived') = (derivation IS NOT NULL)",
+            name="a_derived_fact_carries_its_workings",
+        ),
         # The working range of a power-of-ten scale. Outside it the figure is not a
         # rescaled number, it is a parsing accident.
         CheckConstraint("scale BETWEEN -12 AND 12", name="scale_is_a_sane_power_of_ten"),

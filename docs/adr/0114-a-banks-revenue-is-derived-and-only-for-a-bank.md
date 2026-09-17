@@ -1,6 +1,9 @@
 # ADR 0114 — A bank's revenue is derived, and only for a bank
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** Accepted — 17 September 2026, when the change landed (Phase 2, offline half).
+What it still waits for is named in *What landed* below: the live M&T run and the re-render
+of the stored run are Phase 2's exit and need the corpus and the keys, neither of which is
+in this container.
 **Date.** 2026-09-14
 **Extends.** ADR 0101 (a bank's grid varies the spread), which established that a bank is a
 different kind of filer and gets a different valuation path. This extends the same reasoning
@@ -134,6 +137,63 @@ without a confirmed bank, no derivation with one input, no coercion across a uni
 diff is the acceptance criterion. The old report stays readable at its own address with its
 172.1%, because it is the record of what the platform said in September, and rewriting it
 would destroy the evidence that this ADR exists to answer.
+
+## What landed, 17 September 2026
+
+The decision above is implemented as written. Four things the writing did not anticipate,
+recorded because the next sector's argument will meet them:
+
+**A fifth part: the row's workings have a column.** `financial_facts.derivation` (migration
+0077) holds the formula, both inputs by id with their own units and source documents, the
+confirmed sector, and the code version — under a check constraint making `basis = derived`
+and a non-null `derivation` inseparable in both directions. Without it the decision's "its
+own recorded provenance" had nowhere to live, and a derived figure with no workings is the
+number somebody typed that invariant 3 exists to prevent.
+
+**The retag happens before selection, not after.** Two facts are rivals for a period only
+if they share a concept, so renaming the ASC 606 caption first is what stops it competing
+with a total it is not. Renaming afterwards would also have let two spellings of the same
+caption — including and excluding assessed tax — arrive at the unique index as two rows
+claiming one identity, where whichever the insert reached first would have won.
+
+**A third refusal, beside the two the decision names.** Where the filer *did* state a total
+of its own (`RevenuesNetOfInterestExpense`, which the concept map already knows), that total
+is the revenue and nothing is derived. Deriving anyway would have put two rows called
+`revenue` in one period — the bases differ, so the unique index permits it — and left the
+disagreement ladder to arbitrate between a filed caption and this platform's arithmetic.
+
+**A store written before this rule is corrected, not worked around.** A database holding a
+bank's facts from an earlier build has the ASC 606 caption sitting under `revenue`, because
+until this decision that is where the concept map put it. Left alone, the derivation would
+read it as a total the filer had stated and leave the $1,657m exactly where it is —
+silently, which is the word that makes it unacceptable. So the extract step moves such rows
+to `revenue_from_contracts` before deriving, and deletes one whose corrected identity
+already exists, because under the observation index the two are one observation. Only the
+canonical concept moves: the value, the unit, the filed date, the accession and the source
+document are the filer's statement and are untouched, and `concept` is this platform's own
+reading of the filer's tag, under a sector a person has now confirmed. A stored report still
+replays, because its claims name facts by id and every figure behind them is the same.
+
+**The guard the run needed was never firing.** `services/evaluations.py` asked for a concept
+named `total_assets`; the canonical concept is `assets`. The turnover half of
+`figure_plausibility` had therefore never been evaluated on any run, including the one that
+published the 172.1% margin — so the layer this ADR says "loses its most famous catch" had
+in fact caught nothing, and the margin relation alone is what would have fired. Fixed first,
+with a test, because it *adds* findings to M&T before this ADR removes them.
+
+**The footnote is not yet written, and the reason it is safe to wait.** §What is given up
+asks that a derived figure's note say what it is — the sum of two named captions, each with
+its own page reference — because the figure appears in no filing. The row now holds exactly
+what such a note needs: both inputs by id, each of which has its own recorded excerpt. What
+does not exist yet is the surface that walks them, and the footnote route resolves a marker
+to a source document rather than to a fact. Until it is built the derived figure has no
+excerpt of its own, which is the safe direction: a writer is given no quotation to attach to
+it, and one invented anyway is refused by the verifier rather than published. The note
+belongs with Phase 4's printing work, and is listed there rather than folded in here.
+
+**Still outstanding, and both need the corpus:** one live M&T run to an approved, rendered
+report, and the re-render of the stored MTB run with the diff as the acceptance criterion
+(the §Consequences proof). Phase 2's exit criterion is unchanged.
 
 ## Alternatives considered
 
