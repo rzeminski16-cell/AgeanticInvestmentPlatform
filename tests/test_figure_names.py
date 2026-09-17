@@ -14,9 +14,12 @@ import pytest
 from aer.core.figure_names import (
     MIN_PHRASE_WORDS,
     clauses,
+    denial_span,
     denies,
     mentions,
+    narrows,
     normalised,
+    opens_with,
     periods_named,
     phrases_for,
 )
@@ -201,3 +204,68 @@ class TestClauses:
 
     def test_empty_pieces_are_dropped(self) -> None:
         assert clauses("   ") == []
+
+
+class TestWhatTheNegationReaches:
+    """Which noun a negator governs — the last question the scan had to answer, and the one
+    the re-seeded corpus asked three times with the same sentence."""
+
+    WACC_NOTE = (
+        "Book equity was used as the equity weight because no market capitalisation was available"
+    )
+
+    def test_the_span_stops_at_the_word_about_the_record(self) -> None:
+        assert denial_span(self.WACC_NOTE) == "no market capitalisation was available"
+
+    def test_a_figure_before_the_negator_is_not_in_the_span(self) -> None:
+        """`aer.calc.wacc` writes this into every run with no market price, and it was read
+        as a denial of the equity weight on three of the four re-seeded runs."""
+        assert not mentions(denial_span(self.WACC_NOTE), "equity weight")
+        assert not opens_with(self.WACC_NOTE, "equity weight")
+
+    def test_a_figure_after_the_word_about_the_record_is_not_denied(self) -> None:
+        clause = (
+            "where no cloud margin is disclosed, the consolidated operating income "
+            "line is the fallback"
+        )
+        assert not mentions(denial_span(clause), "operating income")
+        assert not opens_with(clause, "operating income")
+
+    def test_an_enumeration_inside_the_span_is_denied(self) -> None:
+        """msft1's sentence again: nineteen words between the "No" and the "sits", and the
+        figure it denies is every one of them."""
+        assert mentions(denial_span(AUDIT_DENIALS[0]), "value per share")
+
+    def test_a_self_negating_word_carries_the_span_to_the_end(self) -> None:
+        """ "Silent" negates and speaks about the record in one word, so its subject follows
+        it and there is nothing in between to stop at."""
+        assert mentions(denial_span("The evidence is silent on interest cover"), "interest cover")
+
+    def test_the_subject_counts_even_before_the_negator(self) -> None:
+        assert opens_with(
+            "Operating cash flow is not among the figures available here", "operating cash flow"
+        )
+
+    def test_a_determiner_does_not_displace_the_subject(self) -> None:
+        for opening in ("A", "The", "Its"):
+            assert opens_with(f"{opening} value per share is not available here", "value per share")
+
+    def test_nothing_negating_has_no_span(self) -> None:
+        assert denial_span("The value per share is 485.29") == ""
+
+
+class TestNarrows:
+    @pytest.mark.parametrize(
+        "clause",
+        [
+            "No segment-level revenue, cost or capital expenditure figures were available",
+            "quarterly capital expenditure cadence within fiscal 2026 is not available",
+            "no geographic breakdown of operating income is disclosed",
+        ],
+    )
+    def test_a_part_of_a_figure_is_not_the_figure(self, clause: str) -> None:
+        assert narrows(clause)
+
+    @pytest.mark.parametrize("clause", AUDIT_DENIALS)
+    def test_the_denials_the_check_exists_for_are_not_narrowed(self, clause: str) -> None:
+        assert not narrows(clause)

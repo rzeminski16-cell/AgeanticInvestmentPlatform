@@ -152,13 +152,30 @@ async def _publish_calculation(
 
 
 async def _second_section(
-    session: AsyncSession, scene: dict[str, Any], *, content: dict[str, Any]
+    session: AsyncSession,
+    scene: dict[str, Any],
+    *,
+    content: dict[str, Any],
+    platform_filled: bool = False,
 ) -> ReportSection:
-    """Another section of the same run, so a denial and a figure can sit in different ones."""
+    """Another section of the same run, so a denial and a figure can sit in different ones.
+
+    **A model-written one by default**, because the denial scan exempts the sections the
+    platform fills itself (ADR 0125): their subject is the run's own record, and scanning
+    them produces contradictions about contradictions. ``platform_filled`` asks for one of
+    those instead, which is how that exemption is tested.
+    """
     definitions = list(
         await session.scalars(select(SectionDefinition).order_by(SectionDefinition.position))
     )
-    other = next(row for row in definitions if row.key != scene["section"].section_key)
+    wanted = (
+        (lambda row: row.token_budget == 0)
+        if platform_filled
+        else (lambda row: row.token_budget > 0)
+    )
+    other = next(
+        row for row in definitions if row.key != scene["section"].section_key and wanted(row)
+    )
     section = ReportSection(
         job_id=scene["job"].id,
         section_definition_id=other.id,
@@ -619,13 +636,15 @@ class TestNegativeAssertions:
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
         """The msft1 case, and the worse one: the denial and the table are the same page."""
+        section = await _second_section(
+            db_session, scene, content={"body": "A value per share is not available here."}
+        )
         await _publish_calculation(
             db_session,
             scene,
             await _calculation(db_session, scene, name="value_per_share", value="485.29"),
+            section=section,
         )
-        scene["section"].content = {"body": "A value per share is not available here."}
-        await db_session.flush()
 
         assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 1
 
@@ -739,6 +758,114 @@ class TestNegativeAssertions:
         )
 
         assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 0
+
+    async def test_a_platform_filled_section_is_not_scanned(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Measured on the re-seeded corpus: seven of the first eighteen denials came from
+        the validation and disagreements section, which *reports* contradictions — "the
+        executive summary asserts that cash generation is not addressed by the figures
+        available here while the same run records free cash flow". Scanning the platform's
+        own record of its checking produces contradictions about contradictions."""
+        await _publish_calculation(
+            db_session,
+            scene,
+            await _calculation(db_session, scene, name="value_per_share", value="485.29"),
+        )
+        await _second_section(
+            db_session,
+            scene,
+            content={"body": "No value per share sits on this record."},
+            platform_filled=True,
+        )
+
+        assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 0
+
+    async def test_a_narrowed_denial_does_not_contradict_the_consolidated_figure(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Quoted from the AZN re-run. A segment-level absence beside a consolidated annual
+        figure is two subjects, exactly as a dimensioned fact and its parent are."""
+        await _publish_calculation(
+            db_session,
+            scene,
+            await _calculation(db_session, scene, name="capital_expenditure", value="2810000000"),
+        )
+        await _second_section(
+            db_session,
+            scene,
+            content={
+                "body": "No segment-level revenue, cost or capital expenditure figures "
+                "were available."
+            },
+        )
+
+        assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 0
+
+    async def test_a_clause_quoting_the_figure_is_using_it_not_denying_it(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Quoted from the M&T re-run. The negation reaches the estimation window; the cost
+        of equity is quoted, which is a sentence using a figure rather than denying one."""
+        await _publish_calculation(
+            db_session,
+            scene,
+            await _calculation(
+                db_session, scene, name="cost_of_equity", value="0.0759", unit="pure"
+            ),
+        )
+        await _second_section(
+            db_session,
+            scene,
+            content={
+                "body": "A 7.59% cost of equity rests on a beta of 0.57, with no estimation "
+                "window or index period recorded."
+            },
+        )
+
+        assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 0
+
+    async def test_the_negation_reaches_forwards_only(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """`aer.calc.wacc` writes this into every run with no market price, and it was read
+        as a denial on three of the four re-seeded runs. It denies the market capitalisation
+        and *uses* the equity weight, which is named before the negator and is not the
+        clause's subject."""
+        await _publish_calculation(
+            db_session,
+            scene,
+            await _calculation(db_session, scene, name="equity_weight", value="1.0", unit="pure"),
+        )
+        await _second_section(
+            db_session,
+            scene,
+            content={
+                "body": "Book equity was used as the equity weight because no market "
+                "capitalisation was available."
+            },
+        )
+
+        assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 0
+
+    async def test_the_subject_of_a_denial_is_still_found_behind_an_article(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The other side of the rule above: a figure named before the negator counts when
+        it is what the clause is *about*, article and all."""
+        section = await _second_section(
+            db_session,
+            scene,
+            content={"body": "The operating cash flow is not among the figures available here."},
+        )
+        await _publish(
+            db_session,
+            scene,
+            await _fact(db_session, scene, value="182901000000", concept="operating_cash_flow"),
+        )
+        assert section is not None
+
+        assert (await check_report_consistency(db_session, job_id=scene["job"].id)).denials == 1
 
     async def test_running_twice_records_the_denial_once(
         self, db_session: AsyncSession, scene: dict[str, Any]

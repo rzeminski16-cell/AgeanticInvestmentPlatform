@@ -59,8 +59,17 @@ from aer.core.disagreement import (
     figure_contradiction,
 )
 from aer.core.enums import FactBasis, SourceTier
-from aer.core.figure_names import clauses, denies, mentions, periods_named, phrases_for
-from aer.core.figures import plain_decimal
+from aer.core.figure_names import (
+    clauses,
+    denial_span,
+    denies,
+    mentions,
+    narrows,
+    opens_with,
+    periods_named,
+    phrases_for,
+)
+from aer.core.figures import numeral_tokens, plain_decimal, reads_as
 from aer.core.hashing import sha256_hex
 from aer.core.section_output import prose_sentences
 from aer.db.models import (
@@ -143,7 +152,7 @@ async def check_report_consistency(
             .order_by(ReportSection.position, ReportSection.id)
         )
     )
-    titles = await _section_titles(session, sections)
+    definitions = await _definitions_by_key(session, sections)
 
     facts, tiers = await _published_facts(session, sections=sections)
     calculations = await _published_calculations(session, job_id=job_id, sections=sections)
@@ -155,8 +164,10 @@ async def check_report_consistency(
             session,
             job_id=job_id,
             sections=sections,
-            titles=titles,
-            index=_figure_index(facts, tiers, calculations, sections=sections, titles=titles),
+            definitions=definitions,
+            index=_figure_index(
+                facts, tiers, calculations, sections=sections, definitions=definitions
+            ),
         ),
     )
 
@@ -335,42 +346,62 @@ async def _find_denials(
     *,
     job_id: uuid.UUID,
     sections: Sequence[ReportSection],
-    titles: Mapping[str, str],
+    definitions: Mapping[str, SectionDefinition],
     index: Mapping[str, dict[str, _PublishedFigure]],
 ) -> int:
-    """A sentence saying a figure is unavailable, in a document that prints it (ADR 0125).
+    """A clause saying a figure is unavailable, in a document that prints it (ADR 0125).
 
-    A conjunction of three narrow tests over one sentence, none of which is safe alone and
-    which together are: it **denies** (:func:`aer.core.figure_names.denies` — a negator and
-    then a word about the record), it **names a figure this report publishes** by a phrase
-    of at least two words, and — where it names a period — the report publishes that figure
-    *for that period*.
+    A conjunction of narrow tests over one clause, none of them safe alone and every one of
+    them measured against the re-seeded corpus rather than reasoned about. The clause must
+    **deny** (:func:`aer.core.figure_names.denies` — a negator and then a word about the
+    record) and must **name a figure this report publishes** by a phrase of at least two
+    words. It is then let go for any of four reasons:
 
-    A section denying a figure **it prints itself** counts, and is the worse case: msft1's
-    executive summary denied a value per share thirty lines above one.
+    * the clause **narrows** the figure — a segment-level or quarterly absence beside a
+      consolidated annual figure is two subjects, not a contradiction;
+    * the clause **quotes the figure's own value**, which makes it a sentence *using* the
+      figure however many negators it also carries: "a 7.59% cost of equity rests on a beta
+      of 0.57 … with no estimation window recorded" denies the window, not the rate;
+    * the clause names a **period** the report does not publish that figure for;
+    * the clause comes from a section **the platform filled itself** — see the caller.
+
+    A section denying a figure **it prints itself** still counts, and is the worse case:
+    msft1's executive summary denied a value per share thirty lines above one.
     """
     if not index:
         return 0
 
     recorded = 0
     for section in sections:
-        if not isinstance(section.content, dict):
+        if not isinstance(section.content, dict) or _platform_filled(section, definitions):
             continue
-        speaker = titles.get(section.section_key, _in_words(section.section_key))
+        speaker = _title_of(section, definitions)
         for sentence in prose_sentences(section.content):
             # The period may be stated anywhere in the sentence and still bind the clause
             # that denies; the denial and the figure it denies must share one clause.
             named = periods_named(sentence)
             for clause in clauses(sentence):
-                if not denies(clause):
+                if not denies(clause) or narrows(clause):
                     continue
+                quoted = [Decimal(token) for token in numeral_tokens(clause)]
+                # What the negation reaches, and what the clause is about: a figure
+                # named outside both is mentioned, not denied.
+                span = denial_span(clause)
                 for name in sorted(index):
                     if recorded >= _MAX_DENIALS:
                         return recorded
-                    if not any(mentions(clause, phrase) for phrase in phrases_for(name)):
+                    if not any(
+                        mentions(span, phrase) or opens_with(clause, phrase)
+                        for phrase in phrases_for(name)
+                    ):
                         continue
                     published = _denied_by(index[name], named)
                     if published is None:
+                        continue
+                    if any(
+                        reads_as(figure, published.position.value, sign_matters=False)
+                        for figure in quoted
+                    ):
                         continue
                     row = await record_resolution(
                         session,
@@ -422,7 +453,7 @@ def _figure_index(
     calculations: Sequence[Calculation],
     *,
     sections: Sequence[ReportSection],
-    titles: Mapping[str, str],
+    definitions: Mapping[str, SectionDefinition],
 ) -> dict[str, dict[str, _PublishedFigure]]:
     """Every figure this report prints, by name and then by period.
 
@@ -431,7 +462,7 @@ def _figure_index(
     it would have been shown. The section named is the first one in report order that
     carries the figure, which is the earliest place a reader would have met it.
     """
-    where = _sections_carrying(sections, titles)
+    where = _sections_carrying(sections, definitions)
     index: dict[str, dict[str, _PublishedFigure]] = {}
 
     for fact in facts:
@@ -457,14 +488,14 @@ def _figure_index(
 
 
 def _sections_carrying(
-    sections: Sequence[ReportSection], titles: Mapping[str, str]
+    sections: Sequence[ReportSection], definitions: Mapping[str, SectionDefinition]
 ) -> dict[str, str]:
     """Which section first prints each figure id, in report order."""
     seen: dict[str, str] = {}
     for section in sections:
         if not isinstance(section.content, dict):
             continue
-        title = titles.get(section.section_key, _in_words(section.section_key))
+        title = _title_of(section, definitions)
         for identifier in _figure_ids_in(section.content):
             seen.setdefault(identifier, title)
     return seen
@@ -521,17 +552,22 @@ async def _published_ids(
     return wanted
 
 
-async def _section_titles(
+async def _definitions_by_key(
     session: AsyncSession, sections: Sequence[ReportSection]
-) -> dict[str, str]:
-    """Each section's title by its key, so a record names a section as the report does."""
+) -> dict[str, SectionDefinition]:
+    """Each section's definition by its key.
+
+    Two things are read from it: the title, so a record names a section as the report does,
+    and the token budget, which is how a section the *platform* filled is told from one a
+    model wrote — see :func:`_find_denials`.
+    """
     definition_ids = {section.section_definition_id for section in sections}
     if not definition_ids:
         return {}
     rows = await session.scalars(
         select(SectionDefinition).where(SectionDefinition.id.in_(definition_ids))
     )
-    by_id = {row.id: row.title for row in rows}
+    by_id = {row.id: row for row in rows}
     return {
         section.section_key: by_id[section.section_definition_id]
         for section in sections
@@ -693,6 +729,29 @@ def _fact_label(fact: FinancialFact) -> str:
     """How a position names itself in the ladder's rationale."""
     form = f" ({fact.form})" if fact.form else ""
     return f"{_in_words(fact.concept)} filed {fact.filed_date.isoformat()}{form}"
+
+
+def _title_of(section: ReportSection, definitions: Mapping[str, SectionDefinition]) -> str:
+    """How the report names this section, or its key in words where it has no definition."""
+    found = definitions.get(section.section_key)
+    return found.title if found is not None else _in_words(section.section_key)
+
+
+def _platform_filled(section: ReportSection, definitions: Mapping[str, SectionDefinition]) -> bool:
+    """Whether the platform wrote this section rather than a model (ADR 0125).
+
+    **A zero token budget is the marker**, and it is the same column the draft step routes
+    on, so a section that becomes deterministic becomes exempt without an edit here.
+
+    The exemption exists because these sections' subject is the run's own record. The
+    validation and disagreements section *reports* contradictions — "the executive summary
+    asserts that cash generation is not addressed by the figures available here while the
+    same run records free cash flow" — and scanning it produces contradictions about
+    contradictions. Seven of the eighteen denials the first version recorded over the
+    re-seeded corpus came from there, every one of them the platform quoting itself.
+    """
+    found = definitions.get(section.section_key)
+    return found is not None and found.token_budget == 0
 
 
 def _in_words(name: str) -> str:

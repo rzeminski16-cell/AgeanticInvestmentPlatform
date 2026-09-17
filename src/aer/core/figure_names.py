@@ -38,11 +38,15 @@ __all__ = [
     "EVIDENCE_WORDS",
     "FIGURE_ALIASES",
     "MIN_PHRASE_WORDS",
+    "NARROWING_WORDS",
     "NEGATORS",
     "clauses",
+    "denial_span",
     "denies",
     "mentions",
+    "narrows",
     "normalised",
+    "opens_with",
     "periods_named",
     "phrases_for",
 ]
@@ -222,6 +226,42 @@ _CLAUSE: Final[re.Pattern[str]] = re.compile(
 )
 
 
+# Words that narrow a figure to a part of itself. A report legitimately says "no
+# segment-level capital expenditure was disclosed" in a document that prints consolidated
+# capital expenditure, and "no quarterly capital expenditure cadence is available" beside an
+# annual one: the denial and the figure are about different things, exactly as a dimensioned
+# fact and its consolidated parent are (`aer.services.consistency`'s fact pass keys on the
+# dimension for the same reason). A clause carrying any of these is left alone, which
+# under-reports by refusing a denial that happens to mention one.
+NARROWING_WORDS: Final[tuple[str, ...]] = (
+    "segment",
+    "segments",
+    "segmental",
+    "segmented",
+    "divisional",
+    "division",
+    "geographic",
+    "geographical",
+    "regional",
+    "region",
+    "product",
+    "quarterly",
+    "monthly",
+    "interim",
+    "cadence",
+)
+
+
+def narrows(clause: str) -> bool:
+    """Whether this clause denies a *part* of a figure rather than the figure.
+
+    See :data:`NARROWING_WORDS`. Measured against the re-seeded corpus, where three of
+    eighteen recorded denials were a segment-level or quarterly absence read as a denial of
+    the consolidated figure the same report prints.
+    """
+    return any(word in normalised(clause).split() for word in NARROWING_WORDS)
+
+
 def clauses(sentence: str) -> list[str]:
     """One sentence split where a denial's reach ends. See :data:`_CLAUSE`.
 
@@ -260,6 +300,90 @@ def denies(sentence: str) -> bool:
     # From the negator itself, not from the word after it, so a self-negating word satisfies
     # both halves on its own — see `_SELF_NEGATING`.
     return any(word in EVIDENCE_WORDS for word in words[negated:])
+
+
+def denial_span(clause: str) -> str:
+    """The part of a clause the negation reaches: from the negator to the end, normalised.
+
+    **Which noun a negator governs is the last question this scan has to answer**, and the
+    re-seeded corpus asked it three times with the same sentence. `aer.calc.wacc` writes
+    *"Book equity was used as the equity weight because no market capitalisation was
+    available"* into every run with no market price. It denies the market capitalisation and
+    *uses* the equity weight, and read whole it looked like a report denying a figure it
+    prints — on three of four runs.
+
+    The negation reaches forwards, so a figure named before it is not what is denied. A
+    figure named before it can still be the subject of the denial — "operating cash flow is
+    not among the figures available here" — and that case is :func:`opens_with`, which asks
+    whether the figure *begins* the clause rather than merely appearing somewhere in it.
+
+    **It ends at the word about the record, not at the end of the clause.** "Where no cloud
+    margin is disclosed, the consolidated operating income line is the fallback" denies the
+    cloud margin and then goes on to *use* the operating income, and a span running to the
+    end of the clause reads the second as denied too — the last false positive the corpus
+    held. The exception is a negator that is itself a word about the record, where there is
+    nothing between the two to end at: "the evidence is silent on interest cover" negates and
+    speaks about the record in one word, and its subject follows.
+
+    Empty where nothing negates, which a caller should already have ruled out with
+    :func:`denies`.
+    """
+    words = normalised(clause).split()
+    negated = next((index for index, word in enumerate(words) if word in NEGATORS), None)
+    if negated is None:
+        return ""
+    if words[negated] in EVIDENCE_WORDS:
+        return " ".join(words[negated:])
+    ends = next(
+        (index for index in range(negated + 1, len(words)) if words[index] in EVIDENCE_WORDS),
+        len(words) - 1,
+    )
+    return " ".join(words[negated : ends + 1])
+
+
+# What may stand in front of a subject without displacing it. Determiners and possessives
+# only: "a value per share is not available here" is the same subject as "value per share is
+# not available here", while "book equity was used as the equity weight because no …" opens
+# with a different subject entirely and must keep doing so.
+_DETERMINERS: Final[frozenset[str]] = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "its",
+        "their",
+        "our",
+        "this",
+        "that",
+        "these",
+        "those",
+        "any",
+        "each",
+        "every",
+        "such",
+        "no",
+    }
+)
+
+
+def opens_with(clause: str, phrase: str) -> bool:
+    """Whether the clause's subject is this figure: "operating cash flow is not …".
+
+    The other half of :func:`denial_span`. Deliberately the *opening* rather than anywhere
+    before the negator: "book equity was used as the equity weight because no …" names a
+    figure early and denies a different one, and only the opening distinguishes the two.
+
+    A leading determiner is stepped over, because "a value per share is not available here"
+    is the same sentence as "value per share is not available here" and a rule that read the
+    article as the subject would miss the commoner of the two.
+    """
+    if not phrase:
+        return False
+    words = normalised(clause).split()
+    while words and words[0] in _DETERMINERS:
+        words = words[1:]
+    opening = " ".join(words)
+    return opening == phrase or opening.startswith(f"{phrase} ")
 
 
 def periods_named(sentence: str) -> frozenset[str]:

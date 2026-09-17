@@ -233,6 +233,17 @@ contradiction, which is the comparison `services/consistency.py` forbids the pla
 document. Phase 3.1's period-labelled index already closed that at source. The rule worth
 building is named in the ADR and waits to be measured first, as ADR 0125's was.
 
+**And 3.2's own check was re-measured against the live corpus, which corrected it.** The
+offline dry run read the rendered Markdown against an index of every name in the ledger; the
+code reads each section's structured content against the published-figure index. Run for real
+against the four re-seeded runs the shipped version recorded **eighteen** denials, not the one
+the offline figure implied. Four narrowings took it **18 → 5 → 2 → 1**, each with a regression
+test quoting the sentence that produced it — the platform's own record sections are not
+scanned, a narrowed denial is a different subject, a clause quoting the figure is using it,
+and the negation reaches forwards and stops at the word about the record. The readout carries
+all four. It is the argument for ADR 0125's own decision to ship advisory: the first honest
+measurement of a prose rule was out by a factor of nine.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

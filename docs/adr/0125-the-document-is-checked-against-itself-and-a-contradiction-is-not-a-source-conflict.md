@@ -204,12 +204,47 @@ would have raised on each is written down in
 [`../plan/readiness-audit-2026-09/cross-section-check-dry-run.md`](../plan/readiness-audit-2026-09/cross-section-check-dry-run.md).
 A check whose first live firing is also its first measurement is a check nobody can size.
 
-**Measured, 17 September 2026: one contradiction across seven run records, and it is real.**
+**Measured offline, 17 September 2026: one contradiction across seven run records.**
 AstraZeneca #2's balance sheet says *"Interest cover is not established by the figures
 available"* in a report that computes interest cover, footnotes it, and quotes 8.11× in three
 other sections. The calculation pass records nothing on any of the seven, because not one of
 the clashing names in any ledger is cited in any report: they are forecast and grid series,
 and a run publishes the answer rather than the ladder.
+
+**Measured again the same day against the live corpus, and the offline figure was wrong by an
+order of magnitude.** The four re-seeded runs are in a database, not only in an export, and
+running the real check against them — rolled back, because a record is not edited to satisfy a
+measurement — recorded **eighteen** denials, not one. The offline run read the rendered
+Markdown against an index of every name in the ledger; the code reads each section's
+*structured content* against the **published**-figure index. Different text, different index,
+different answer. It was right about the calculation and fact passes, where the two surfaces
+agree, and wrong about the only pass that reads prose.
+
+All eighteen were read, and four narrowings closed them — each with a regression test quoting
+the sentence that produced it, and the count falling **18 → 5 → 2 → 1**:
+
+1. **A section the platform filled itself is not scanned** (7 of 18). The validation and
+   disagreements section *reports* contradictions, so scanning it produces contradictions
+   about contradictions. Keyed on the zero token budget the draft step already routes on.
+2. **A narrowed denial is about a different subject** (3 of 18). "No segment-level capital
+   expenditure was available" beside a consolidated annual figure is the dimension distinction
+   the fact pass has always made.
+3. **A clause that quotes the figure is using it** (2 of 18), however many negators it carries.
+4. **The negation reaches forwards, and stops at the word about the record** (5 of 18). The
+   sentence `aer.calc.wacc` writes into every run with no market price — *"Book equity was used
+   as the equity weight because no market capitalisation was available"* — denies the market
+   capitalisation and uses the equity weight, and it was read as a denial on three of four
+   runs. A figure outside the denied span counts only as the clause's own subject.
+
+**What survives is one denial across four live runs**, and it is the kind the check exists
+for: AstraZeneca's Earnings Quality section says "no share repurchases are recorded against
+it" in a run that records $489m of them.
+
+**This changes nothing about the decision to ship advisory, and is the argument for it.** The
+first honest measurement of a prose rule was out by a factor of nine, and the corrections came
+from reading eighteen real sentences rather than from thinking harder. The two consecutive
+clean live runs this record requires before the check may refuse anything are still owed, and
+are now owed against a check that has at least been measured on the surface it reads.
 
 The exercise paid for itself three times over before the code shipped, and each finding is in
 the readout with its regression test:
