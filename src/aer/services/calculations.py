@@ -35,6 +35,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from aer.calc.dcf import SENSITIVITY_CASE
 from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.units import SourceKind, SourceTable
 from aer.db.models import (
@@ -51,7 +52,9 @@ from aer.errors import ValidationError
 from aer.version import git_sha
 
 __all__ = [
+    "EVIDENCE_CALCULATION_CAP",
     "LineageNode",
+    "indexed_calculations",
     "lineage",
     "new_context",
     "persist_context",
@@ -63,6 +66,73 @@ _log = structlog.get_logger("aer.services.calculations")
 # deep; a hundred means something is wrong, and an unbounded walk over corrupt data is a
 # hung request rather than an error message.
 MAX_LINEAGE_DEPTH = 100
+
+# Rows in a calculation index, after the deduplication below has reduced a run's six to
+# eight hundred to the sixty-odd distinct figures it actually computed. A cap that fits
+# the figures costs a few hundred tokens; one of forty silently hid the newest year of
+# two thirds of them.
+EVIDENCE_CALCULATION_CAP: Final = 120
+
+
+async def indexed_calculations(
+    session: AsyncSession,
+    *,
+    job_id: uuid.UUID,
+    limit: int = EVIDENCE_CALCULATION_CAP,
+    run_level_first: bool = False,
+) -> list[Calculation]:
+    """One row per figure a run computed, at its newest period.
+
+    **The pool is not the cap, and that is the whole point.** A run records six to eight
+    hundred calculations: the ratio suite strikes two dozen a period and does the oldest
+    year first, and a discounted cash flow adds a hundred and more sensitivity cells.
+    Taking the first forty by sequence therefore means the *oldest* fiscal year, and taking
+    the first forty by period means one year of one figure repeated. The readiness audit
+    watched both. The adversary was shown gross margin 0.668 (FY2021), read the draft's
+    81.9% (FY2025, and recorded), and escalated every headline figure as contradicting the
+    run's own record — six challenges, all false, all published.
+
+    So the deduplication happens before the bound: one row per ``(name, case)``, keeping
+    the newest period, and only then the cap.
+
+    A **sensitivity cell is excluded**, because it is a grid point rather than an answer.
+    The case the valuation reports is the one offered.
+
+    Args:
+        run_level_first: Put the figures that belong to no statement period — a discount
+            rate, a terminal value, a value per share — ahead of the periodic ones. For a
+            caller whose bound is a token budget rather than this cap, which is a caller
+            whose cut would otherwise fall in name order and take ``value_per_share`` and
+            ``wacc`` first, alphabetically last as they are. Safe only because the grid is
+            excluded above: with it in the pool, this ordering fills the cap with grid
+            cells and cuts every period.
+    """
+    rows = await session.scalars(
+        select(Calculation)
+        .where(Calculation.job_id == job_id)
+        .order_by(
+            Calculation.name,
+            Calculation.period_end.desc().nullslast(),
+            Calculation.sequence.desc(),
+        )
+    )
+
+    kept: dict[tuple[str, str], Calculation] = {}
+    for calc in rows:
+        case = str((calc.parameters or {}).get("case", ""))
+        if case == SENSITIVITY_CASE:
+            continue
+        kept.setdefault((calc.name, case), calc)
+
+    ordered = list(kept.values())
+    if run_level_first:
+        dated = [(c.period_end, c) for c in ordered if c.period_end is not None]
+        # Two stable sorts rather than one composite key, because the period descends while
+        # the name ascends and a single `reverse=True` would invert both.
+        dated.sort(key=lambda pair: pair[1].name)
+        dated.sort(key=lambda pair: pair[0], reverse=True)
+        ordered = [c for c in ordered if c.period_end is None] + [c for _, c in dated]
+    return ordered[:limit]
 
 
 def new_context() -> CalculationContext:

@@ -26,6 +26,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.dcf import SENSITIVITY_CASE
 from aer.core.enums import ExtractionKind, FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
@@ -522,7 +523,15 @@ class TestCalculationsReachASectionNewestFirst:
 
     @staticmethod
     def _periods(evidence: Any) -> list[str]:
-        return [item["period"] for item in evidence.internal if "calculation_id" in item]
+        return [
+            item["period"]
+            for item in evidence.internal
+            if "calculation_id" in item and item["period"] is not None
+        ]
+
+    @staticmethod
+    def _names(evidence: Any) -> list[str]:
+        return [item["name"] for item in evidence.internal if "calculation_id" in item]
 
     async def test_the_newest_period_survives_the_cap(self, scene: dict[str, Any]) -> None:
         await self._seed_five_years(scene)
@@ -573,13 +582,17 @@ class TestCalculationsReachASectionNewestFirst:
     async def test_a_grid_of_run_level_figures_cannot_crowd_out_the_periods(
         self, scene: dict[str, Any]
     ) -> None:
-        """Why the period-less rows sort *last*.
+        """Why the period-less rows may now sort *first*.
 
-        Putting them first is the tempting reading — a discount rate belongs to no
-        statement period, and it seems a shame to cut it for want of one. But the
-        valuation runs under this same job, and a sensitivity grid alone strikes over a
-        hundred period-less rows. Sorting those first would fill the cap with grid cells
-        and cut every period, which is a worse failure than the one this ordering fixes.
+        This test used to argue the opposite, and its premise was right about the world it
+        was written in: a sensitivity grid strikes over a hundred period-less rows, and
+        putting those first filled the pack with grid cells and cut every period. Phase 3.1
+        excludes the grid instead — a cell is a point on it, not an answer — so the premise
+        is gone and the ordering that depended on it goes with it.
+
+        What the exclusion has to be tested on is a *real* grid, tagged the way the DCF
+        tags one. Sixty rows with no case at all, which is what this seeded before, are
+        sixty distinct figures and no grid.
         """
         await self._seed_five_years(scene)
         for cell in range(60):
@@ -587,15 +600,15 @@ class TestCalculationsReachASectionNewestFirst:
                 Calculation(
                     job_id=scene["job"].id,
                     sequence=1000 + cell,
-                    name=f"grid_cell_{cell}",
+                    name="value_per_share",
                     formula="value = ...",
                     function_ref="tests",
                     code_version="testsha",
                     inputs=[],
-                    parameters={},
+                    parameters={"case": SENSITIVITY_CASE},
                     assumptions=[],
                     output_value=Decimal(cell),
-                    output_unit="ratio",
+                    output_unit="USD",
                 )
             )
         await scene["session"].flush()
@@ -610,6 +623,73 @@ class TestCalculationsReachASectionNewestFirst:
 
         periods = self._periods(evidence)
         assert "FY2025" in periods, "a grid of period-less rows displaced the newest period"
+        names = self._names(evidence)
+        assert "value_per_share" not in names, "a sensitivity cell reached a section as a figure"
+
+    async def test_the_valuation_the_summary_kept_denying_reaches_the_section(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Phase 3.1's keystone, stated as the failure it ends.
+
+        A discount rate, a terminal value and a value per share belong to no statement
+        period, so under the old ordering they sorted behind five years of ratios and were
+        cut by the cap every time. The Executive Summary then wrote that the run had
+        produced no valuation, which was true of what it had been shown and false of the
+        run.
+        """
+        await self._seed_five_years(scene)
+        for name, value in (
+            ("wacc", "0.085"),
+            ("terminal_value", "1200"),
+            ("value_per_share", "42"),
+        ):
+            scene["session"].add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    sequence=2000,
+                    name=name,
+                    formula="value = ...",
+                    function_ref="tests",
+                    code_version="testsha",
+                    inputs=[],
+                    parameters={"case": "base"},
+                    assumptions=[],
+                    output_value=Decimal(value),
+                    output_unit="USD",
+                )
+            )
+        await scene["session"].flush()
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        names = self._names(evidence)
+        assert {"wacc", "terminal_value", "value_per_share"} <= set(names)
+
+    async def test_one_row_per_figure_at_its_newest_period(self, scene: dict[str, Any]) -> None:
+        """Deduplication is what makes the pack fit: sixty-odd distinct figures where forty
+        rows of two periods used to sit."""
+        await self._seed_five_years(scene)
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        rows = [item for item in evidence.internal if "calculation_id" in item]
+        names = [item["name"] for item in rows]
+        assert len(names) == len(set(names)), f"a figure appeared twice: {sorted(names)}"
+        assert all(item["period"] == "FY2025" for item in rows), (
+            "a figure arrived at a period older than its newest"
+        )
 
 
 class TestAnUndatedDocumentIsNeverPrimary:

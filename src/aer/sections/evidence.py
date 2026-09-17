@@ -42,7 +42,6 @@ from aer.core.section_output import (
     unsourced_numerals,
 )
 from aer.db.models import (
-    Calculation,
     Claim,
     Extraction,
     FinancialFact,
@@ -51,6 +50,7 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
+from aer.services.calculations import indexed_calculations
 from aer.services.citations import record_citation, record_claim
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request, with_subject
@@ -556,37 +556,31 @@ async def gather_evidence(
         # Recorded calculations travel with the facts: both are the deterministic
         # layer's own figures, and the numeral rule is unusable without them.
         #
-        # **Newest period first** (gap R8). This ordering used to be `sequence`, which is
-        # the order the figures were struck — and the analysis loop strikes oldest period
-        # first, because each period's paired signals compare against the one before it.
-        # So the cap kept the oldest ratios and cut the newest: a five-period run strikes
-        # roughly twenty-four rows a period, `EVIDENCE_ITEM_CAP` is forty, and every
-        # section was shown fiscal 2021 and two-thirds of fiscal 2022 and nothing since.
-        # A live August 2026 note built its bear, base and bull cases on those two
-        # vintages, which disagree violently with each other, and its own red team caught
-        # it. The section was not choosing stale figures; they were the only ones it had.
+        # **One row per figure, at its newest period** (gap R8, gap A39, and the red team's
+        # own index). The pool used to be the size of the cap, which made the ordering
+        # clause the real selector and left every section a choice between stale figures
+        # and no figures. Ordering by `sequence` showed it the oldest fiscal year, because
+        # the analysis loop strikes oldest first; ordering by period showed it one year of
+        # one figure repeated two dozen times. A live August 2026 note built its bear, base
+        # and bull cases on fiscal 2021 and 2022 ratios that disagree violently with each
+        # other, and its own red team caught it.
         #
-        # This is gap A39 again, one layer over: the pool being the size of the cap makes
-        # the ordering clause the real selector.
+        # Deduplicating first is what breaks that: sixty-odd distinct figures fit where
+        # forty rows of two periods did not.
         #
-        # **A calculation with no period sorts last, not first.** It is tempting to put the
-        # run-level figures — a discount rate, a value per share — ahead of the ratios on
-        # the grounds that there are few of them. There are not: the valuation runs under
-        # this same job, and its sensitivity grid alone strikes over a hundred period-less
-        # rows. Sorting them first would fill the cap with grid cells and cut *every*
-        # period, which is a worse failure than the one this fixes. Last also preserves
-        # what the old `sequence` ordering did with them, since the valuation is struck
-        # after the analysis: this change moves the period boundary and nothing else.
-        calculations = await session.scalars(
-            select(Calculation)
-            .where(Calculation.job_id == evidence_job_id)
-            .order_by(
-                Calculation.period_end.desc().nullslast(),
-                Calculation.sequence,
-            )
-            .limit(EVIDENCE_ITEM_CAP)
-        )
-        for calc in calculations:
+        # **A calculation with no period now sorts first, and that reverses what this
+        # comment used to say.** The old reasoning was right about its own world: the
+        # valuation's sensitivity grid strikes over a hundred period-less rows, and putting
+        # those first filled the pack with grid cells and cut every period. The shared index
+        # excludes the grid — a cell is a point on it, not an answer — so what is left with
+        # no period is the handful of run-level figures a report is *about*: the discount
+        # rate, the terminal value, the value per share. A section's bound is its token
+        # budget rather than the cap, so the cut falls in name order, and those three are
+        # alphabetically last. Sorting them first is what lets the Executive Summary see the
+        # valuation it has been denying exists.
+        for calc in await indexed_calculations(
+            session, job_id=evidence_job_id, run_level_first=True
+        ):
             identifier = str(calc.id)
             unit = EvidenceUnit(
                 internal={

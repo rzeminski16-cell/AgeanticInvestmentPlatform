@@ -39,7 +39,6 @@ from aer.agents.red_team import (
     RedTeamChallenge,
     RedTeamInput,
 )
-from aer.calc.dcf import SENSITIVITY_CASE
 from aer.core.disagreement import (
     THESIS_UNIT,
     DisagreementKind,
@@ -50,7 +49,6 @@ from aer.core.disagreement import (
 from aer.core.enums import FactBasis, SourceTier
 from aer.core.hashing import sha256_hex
 from aer.db.models import (
-    Calculation,
     Claim,
     Disagreement,
     FinancialFact,
@@ -60,6 +58,7 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.providers.protocol import SpentButUnusableError
+from aer.services.calculations import EVIDENCE_CALCULATION_CAP, indexed_calculations
 from aer.services.disagreements import record_resolution
 from aer.services.subject import subject_name
 
@@ -109,13 +108,12 @@ def _shortened(statement: str) -> str:
 
 # Rows per evidence category in the index. The same bound the other evidence-assembling
 # services use: enough to argue from, small enough to stay inside the role's input cap.
+#
+# Calculations are bounded separately and more generously, because they are deduplicated to
+# one row per figure before the bound applies. That rule and its cap live in
+# `aer.services.calculations`, which the section packs read too; this module re-exports the
+# cap so a caller that has the name still has the number it always meant.
 EVIDENCE_ITEM_CAP: Final = 40
-
-# Calculations are bounded separately, because they are deduplicated to one row per figure
-# before the bound applies: a run records six to eight hundred rows and computes sixty-odd
-# distinct figures, so a cap that fits the figures costs a few hundred tokens and a cap of
-# forty silently hid the newest year of two thirds of them.
-EVIDENCE_CALCULATION_CAP: Final = 120
 
 
 @dataclass(slots=True)
@@ -340,26 +338,11 @@ async def _evidence_index(
     #
     # A sensitivity cell is a grid point rather than an answer, so the case the valuation
     # reports is the one offered and the grid is left out.
-    rows = await session.scalars(
-        select(Calculation)
-        .where(Calculation.job_id == job.id)
-        .order_by(
-            Calculation.name,
-            Calculation.period_end.desc().nullslast(),
-            Calculation.sequence.desc(),
-        )
-    )
-    seen: set[tuple[str, str]] = set()
-    for calc in rows:
-        case = str((calc.parameters or {}).get("case", ""))
-        if case == SENSITIVITY_CASE:
-            continue
-        key = (calc.name, case)
-        if key in seen:
-            continue
-        seen.add(key)
-        if len(index.calculations) >= EVIDENCE_CALCULATION_CAP:
-            break
+    #
+    # The rule itself now lives in `aer.services.calculations`, because the section packs
+    # need the same one and had a different, worse answer: the two indexes disagreeing about
+    # what a run computed is how an adversary comes to argue with a draft that is right.
+    for calc in await indexed_calculations(session, job_id=job.id, limit=EVIDENCE_CALCULATION_CAP):
         identifier = str(calc.id)
         index.calculation_ids.add(identifier)
         index.calculations.append(
