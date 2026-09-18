@@ -117,13 +117,22 @@ def _build_state(settings: Settings) -> AppState:
     )
 
 
-def create_app(settings: Settings | None = None, *, state: AppState | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    state: AppState | None = None,
+    registers: object | None = None,
+) -> FastAPI:
     """Build the application.
 
     Args:
         settings: Configuration to use. Loaded from the environment when omitted.
         state: Pre-built resources. When supplied they are used as-is and **not** closed
             on shutdown, so a test can share one engine across many requests.
+        registers: The registers the availability check asks (ADR 0128), for a caller that
+            builds no state of its own and still must not reach a network — the two journey
+            harnesses, which commission runs against a fake scene. Set on whichever state
+            the lifespan ends up with, because `app.state.aer` does not exist until then.
     """
     resolved = settings or load_settings()
     injected = state is not None
@@ -131,6 +140,8 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app_state = state if state is not None else _build_state(resolved)
+        if registers is not None:
+            app_state.registers = registers  # type: ignore[assignment]
         app.state.aer = app_state
 
         if not injected:

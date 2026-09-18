@@ -90,10 +90,9 @@ class InProcessServer:
         self._loop.close()
 
     async def _start(self) -> None:
-        app = create_app(self._settings)
         # As in the browser half: this harness commissions runs, and the availability check
         # in front of one would otherwise ask a register about every scene (ADR 0128).
-        app.state.aer.registers = admitting_registers()
+        app = create_app(self._settings, registers=admitting_registers())
         self._lifespan = LifespanManager(app)
         await self._lifespan.__aenter__()
         self._client = httpx.AsyncClient(

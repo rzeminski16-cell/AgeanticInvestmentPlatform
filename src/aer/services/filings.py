@@ -44,6 +44,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
+from aer.core.dates import format_date
 from aer.core.enums import Provider, SourceTier
 from aer.core.schemas.extraction import Excerpt
 from aer.core.sectors import SicScheme
@@ -469,8 +470,13 @@ async def acquire_accounts(
 
 
 def _filed_on(ref: DocumentRef) -> str:
-    """The day the register accepted this filing, for a sentence an operator reads."""
-    return ref.publication_date.strftime("%-d %B %Y")
+    """The day the register accepted this filing, for a sentence an operator reads.
+
+    Through `format_date`, which expands the no-padding directive before the C library sees
+    it: `%-d` strips the leading zero on glibc and raises on Windows, and this string is
+    read by a person rather than parsed.
+    """
+    return format_date(ref.publication_date, "%-d %B %Y")
 
 
 def _record_classification(company: Company, index: SubmissionsIndex) -> None:

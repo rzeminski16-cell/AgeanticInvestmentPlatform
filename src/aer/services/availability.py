@@ -35,6 +35,7 @@ from typing import Any, Final
 
 import structlog
 
+from aer.core.dates import format_date
 from aer.core.enums import Provider
 from aer.core.universe import registry_of
 from aer.db.models import ResearchRequest
@@ -186,8 +187,9 @@ async def _uk(  # noqa: PLR0911 -- one return per refusal is the readable shape
             register=Provider.COMPANIES_HOUSE,
             identifier=entity.identifier,
             reason=(
-                f"The accounts {entity.name} filed on {newest.filed_on.strftime('%-d %B %Y')} "
-                f"could not be fetched: {unreachable.message}"
+                f"The accounts {entity.name} filed on "
+                f"{format_date(newest.filed_on, '%-d %B %Y')} could not be fetched: "
+                f"{unreachable.message}"
             ),
         )
 

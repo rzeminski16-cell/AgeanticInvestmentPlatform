@@ -126,12 +126,13 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     # application's lifespan own the engine is both simpler and the only correct option
     # here; injecting one built out here produced "attached to a different loop" on
     # teardown.
-    app = create_app(settings)
     # The availability check runs wherever a run is commissioned (ADR 0128), and this
     # harness commissions dozens. Left to build real clients it would ask EDGAR about every
     # one of them from the test suite, which the suite may not do; the check has its own
-    # tests, and what this harness is about is what happens after a run starts.
-    app.state.aer.registers = admitting_registers()
+    # tests, and what this harness is about is what happens after a run starts. Passed in
+    # rather than set afterwards: `app.state.aer` does not exist until the lifespan runs,
+    # and uvicorn runs it on its own thread.
+    app = create_app(settings, registers=admitting_registers())
 
     config = uvicorn.Config(
         app,
