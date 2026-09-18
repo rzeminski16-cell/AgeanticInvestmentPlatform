@@ -4,7 +4,15 @@ The MVP covers **ordinary operating companies listed on a major US or UK exchang
 deliberately refuses everything else, and refuses it loudly rather than producing a
 report that looks the same as any other while resting on a model that does not apply.
 
-Why each exclusion exists — the reason matters more than the rule, because the rule is
+**The venue is not the whole of it, and the rest is decided elsewhere** (ADR 0128). Every
+rule in this module is a pure function over what the operator typed, because no outbound
+call is made while a request is being written. Whether the company's figures can actually be
+*read* — whether the register holds a tagged filing rather than a scan — is asked once, at
+the moment a run is commissioned, by `aer.services.availability`. So a London venue passes
+here and a particular London company may still be refused there, with the reason; today
+every listed one is, because a listed company files its accounts as a scanned document.
+
+Why each exclusion here exists — the reason matters more than the rule, because the rule is
 what gets relaxed by someone who has forgotten the reason:
 
 * **Unsupported exchange.** Reading a company's filings correctly depends on knowing an

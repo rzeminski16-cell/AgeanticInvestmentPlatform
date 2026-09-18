@@ -1308,6 +1308,22 @@ found rather than as scope that was always there.
     filing tagged?" in one round trip and no megabytes. **The class**: when a publisher offers
     a choice and the code expresses no preference, the default it gets is the one that suits
     the publisher, and nothing in the code says which one that was.
+25. **No London-listed company files tagged accounts, and the issuer's own site is not a way
+    round it, 18 September 2026.** Item 21 sampled four FTSE names; five more were added down
+    to AIM — Cranswick, Chemring, Gamma, Judges Scientific, Nichols — and **not one of the
+    nine** offers inline XBRL, Cranswick's being electronically filed and still untagged. The
+    operator then chose the issuer's own ESEF report, on a recommendation made before anybody
+    probed whether it could be fetched; probing it: three of five issuer sites (Tesco,
+    AstraZeneca, Unilever) answer **403** to a User-Agent that identifies the operator and
+    must not pretend to be a browser, and of the two that answer, Tesco's own results page
+    serves 52 KB of HTML with **zero anchors** because the document list is built client-side.
+    There is no web search in this platform to find a document URL with. So the operator's
+    second decision is the one that landed, and it is better than either source: **check at
+    commission time whether this run can succeed, and refuse it with the reason if not** —
+    ADR 0128. **The class**: three sources, three different obstacles, and the thing worth
+    building was not a fourth source but an honest answer at the door. Also the class of my
+    own error — recommending the ESEF route before measuring it, which is the same mistake
+    this list keeps recording about the plans.
 
 ### Before this leaves one machine
 

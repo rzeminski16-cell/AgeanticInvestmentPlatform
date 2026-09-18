@@ -40,7 +40,7 @@ from aer.sources.uk.companies_house import CompaniesHouseClient, basic_auth_head
 from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["ServiceBundle", "build_provider", "build_services"]
+__all__ = ["Registers", "ServiceBundle", "build_provider", "build_services", "standalone_registers"]
 
 _log = structlog.get_logger("aer.runtime")
 
@@ -190,6 +190,28 @@ def standalone_price_client(
     """
     fetcher = build_fetcher(settings, store=store, redis=redis)
     return _eodhd_client(settings, fetcher=fetcher, store=store, redis=redis)
+
+
+@dataclass(frozen=True, slots=True)
+class Registers:
+    """The two registers a subject can be identified against, outside the worker.
+
+    For the availability check, which runs where a run is commissioned rather than inside
+    one. Both clients share a fetcher, so the interactive door obeys the same policy, rate
+    limit and archive as the worker's — the door being different must not mean the rules are.
+    """
+
+    sec_client: SecEdgarClient
+    companies_house_client: CompaniesHouseClient | None = None
+
+
+def standalone_registers(settings: Settings, *, store: ArtefactStore, redis: Redis) -> Registers:
+    """The registers' clients for the pre-run availability check (ADR 0128)."""
+    fetcher = build_fetcher(settings, store=store, redis=redis)
+    return Registers(
+        sec_client=SecEdgarClient(fetcher, store=store),
+        companies_house_client=_companies_house_client(settings, fetcher=fetcher, store=store),
+    )
 
 
 def _eodhd_client(

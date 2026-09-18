@@ -35,6 +35,7 @@ from urllib.parse import urljoin
 import httpx
 from asgi_lifespan import LifespanManager
 from selectolax.parser import HTMLParser, Node
+from tests.api_fixtures import admitting_registers
 from tests.journey_harness import Control
 
 from aer.api.app import create_app
@@ -90,6 +91,9 @@ class InProcessServer:
 
     async def _start(self) -> None:
         app = create_app(self._settings)
+        # As in the browser half: this harness commissions runs, and the availability check
+        # in front of one would otherwise ask a register about every scene (ADR 0128).
+        app.state.aer.registers = admitting_registers()
         self._lifespan = LifespanManager(app)
         await self._lifespan.__aenter__()
         self._client = httpx.AsyncClient(

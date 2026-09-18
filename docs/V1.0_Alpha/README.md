@@ -118,5 +118,15 @@ treated as permitting publication of derived figures, with ADR 0034's withheld t
 fallback if that is wrong; "UK or US" is **built, not narrowed** — ADR 0121, F19, Phase 4a; and
 the abandonment criterion is signed off, which is what makes every other gate able to fail.
 
+> **Corrected 18 September 2026, against the live registers.** "UK or US" turned out to mean
+> something narrower than the claim, and the difference is about how a company *files* rather
+> than where it is listed. Companies House holds tagged accounts only for companies that file
+> through accounting software; nine London-listed companies were checked and every one files a
+> scanned PDF, which carries no figures and no text. So the platform researches US listings,
+> UK companies with a US listing through their 20-F, and UK companies that file tagged
+> accounts — and a subject it cannot read is now refused **when the run is commissioned**,
+> with the reason, before anything is spent. See ADR 0128, ADR 0121's appended section, and
+> `../plan/ROADMAP.md` §3.19 items 21–25.
+
 What remains before code is Phase 0: the ranked judge backlog, the source map, the operator's
 own blind read of two documents, and one QUICK-mode run. Three sessions and about £7.

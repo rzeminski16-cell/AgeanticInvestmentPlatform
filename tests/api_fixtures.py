@@ -13,6 +13,7 @@ test would never see the response we care about asserting on.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import date
 
 import httpx
 import pytest
@@ -24,9 +25,71 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 
 from aer.api.app import AppState, create_app
 from aer.config import Settings, load_settings
+from aer.fetch.client import FetchResult
+from aer.runtime import Registers
+from aer.sources.base import DocumentRef, ResolvedEntity
+from aer.sources.uk.companies_house import FilingHistory, FilingRecord
 from tests.db_cleanup import delete_all
 
 BASE_URL = "http://testserver"
+
+
+class _AdmittingRegister:
+    """A register that recognises whatever it is asked about, and reaches no network.
+
+    The availability check (ADR 0128) runs wherever a run is commissioned, so *every* test
+    that starts a run goes through it. Left to build real clients it would fetch EDGAR's
+    ticker file from the suite, which the suite may not do — and a test about a ticker EDGAR
+    does not list passes its own stub instead.
+    """
+
+    async def resolve_entity(
+        self, ticker: str, *, exchange: str | None = None, name: str | None = None
+    ) -> ResolvedEntity:
+        return ResolvedEntity(
+            identifier=ticker.upper(),
+            name=name or ticker.upper(),
+            ticker=ticker,
+            exchange=exchange,
+        )
+
+    async def fetch_filing_history(self, company_number: str, **_: object) -> FilingHistory:
+        return FilingHistory(
+            company_number=company_number,
+            filings=(
+                FilingRecord(
+                    transaction_id="stub-transaction",
+                    category="accounts",
+                    description="Accounts",
+                    filed_on=date(2026, 1, 1),
+                    document_id="stub-document",
+                ),
+            ),
+            total=1,
+        )
+
+    async def fetch_document(self, ref: DocumentRef, *, tagged: bool = True) -> FetchResult:
+        return FetchResult(
+            url=ref.url,
+            final_url=ref.url,
+            status_code=200,
+            sha256="0" * 64,
+            size_bytes=1,
+            media_type="application/xhtml+xml",
+            declared_media_type="application/xhtml+xml",
+            headers={},
+            redirect_chain=(),
+            elapsed_ms=0.0,
+            attempts=1,
+        )
+
+
+def admitting_registers() -> Registers:
+    """Registers that admit every subject. The default for an application under test."""
+    return Registers(
+        sec_client=_AdmittingRegister(),  # type: ignore[arg-type]
+        companies_house_client=_AdmittingRegister(),  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture
@@ -99,6 +162,7 @@ def build_app(
     redis: Redis,
     provider: object | None = None,
     store: object | None = None,
+    registers: object | None = None,
 ) -> FastAPI:
     """Build an application over resources the test owns and will close itself.
 
@@ -106,6 +170,12 @@ def build_app(
     process — the skill dry run. Left as ``None`` the application builds the configured
     provider on first use, which needs a real key: exactly the production behaviour, and
     exactly what a test must not reach.
+
+    ``registers`` is the same arrangement for the availability check a run is commissioned
+    through (ADR 0128), and it defaults to a stub that admits every subject rather than to
+    ``None``: left unset the application would build real clients and the check would reach
+    EDGAR from the test suite, which is the one thing the suite may not do. A test about the
+    check itself passes its own.
     """
     state = AppState(
         settings=settings,
@@ -114,6 +184,7 @@ def build_app(
         redis=redis,
         provider=provider,  # type: ignore[arg-type]
         store=store,  # type: ignore[arg-type]
+        registers=registers if registers is not None else admitting_registers(),  # type: ignore[arg-type]
     )
     return create_app(settings, state=state)
 

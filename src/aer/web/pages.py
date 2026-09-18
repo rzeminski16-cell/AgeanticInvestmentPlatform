@@ -44,7 +44,7 @@ from starlette.status import (
     HTTP_422_UNPROCESSABLE_CONTENT,
 )
 
-from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
+from aer.api.deps import CurrentUser, DbSession, RedisClient, RegistersDep, SettingsDep
 from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
 from aer.calc.dcf import HIGH_TERMINAL_SHARE, HIGH_TERMINAL_SHARE_CAVEAT
@@ -98,6 +98,7 @@ from aer.services import resume as resume_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumptions import assumptions_for_request
+from aer.services.availability import check_availability
 from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
@@ -153,11 +154,12 @@ POLL_SECONDS = 5
 
 
 @router.post("/runs", summary="Start a run from a request")
-async def start_run_page(
+async def start_run_page(  # noqa: PLR0917 -- every one is an injected dependency
     request: Request,
     session: DbSession,
     settings: SettingsDep,
     redis: RedisClient,
+    registers: RegistersDep,
     user: CurrentUser,
 ) -> Response:
     """Create the run and send the operator to its console.
@@ -184,6 +186,18 @@ async def start_run_page(
     found = await session.get(ResearchRequest, request_id)
     if found is None or found.work_order.user_id != user.id:
         return _problem(request, f"No research request {request_id}.", status=HTTP_404_NOT_FOUND)
+
+    # Asked before the job exists, so a subject this platform cannot research costs nothing
+    # rather than a planning call and a gate the operator reads (ADR 0128). The refusal is
+    # the register's own sentence, and the request stays exactly as it was: editable, so the
+    # operator can change the ticker or the exchange and try again.
+    available = await check_availability(
+        found,
+        sec_client=registers.sec_client,
+        companies_house_client=registers.companies_house_client,
+    )
+    if not available.researchable:
+        return _problem(request, available.reason, status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     job = await run_service.start_run(session, request=found)
     await session.commit()

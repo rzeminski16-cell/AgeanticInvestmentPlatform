@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 from starlette.status import HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND
 
-from aer.api.deps import CurrentUser, DbSession, RedisClient, StateDep
+from aer.api.deps import CurrentUser, DbSession, RedisClient, RegistersDep, StateDep
 from aer.api.sse import SSE_MEDIA_TYPE, event_stream
 from aer.core.enums import Decision, GateKind
 from aer.db.models import Job, JobStep, ResearchRequest, User, WorkOrder
@@ -34,6 +34,7 @@ from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.availability import check_availability
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
     unmapped_gate_required,
@@ -167,17 +168,34 @@ async def start_run(
     payload: StartRunRequest,
     session: DbSession,
     redis: RedisClient,
+    registers: RegistersDep,
     user: CurrentUser,
 ) -> RunRead:
     """Create the run for a request and queue it.
 
     Returns immediately. The run happens in the worker; watch it at
     ``GET /api/runs/{id}/events``.
+
+    Raises:
+        ValidationError: This platform cannot research the subject — the register does not
+            know it, or holds nothing tagged for it. Asked before the job exists so that a
+            run which could not have succeeded costs nothing (ADR 0128).
     """
     request = await session.get(ResearchRequest, payload.request_id)
     if request is None or request.work_order.user_id != user.id:
         message = f"No research request {payload.request_id}."
         raise RunNotFoundError(message, context={"request_id": str(payload.request_id)})
+
+    available = await check_availability(
+        request,
+        sec_client=registers.sec_client,
+        companies_house_client=registers.companies_house_client,
+    )
+    if not available.researchable:
+        raise ValidationError(
+            available.reason,
+            context={"request_id": str(request.id), "register": available.register.value},
+        )
 
     job = await run_service.start_run(session, request=request)
     await session.commit()

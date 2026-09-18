@@ -22,7 +22,7 @@ from aer.db.models import User
 from aer.errors import ConfigError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
-from aer.runtime import build_provider
+from aer.runtime import Registers, build_provider, standalone_registers
 from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
 
@@ -31,6 +31,7 @@ __all__ = [
     "DbSession",
     "ProviderDep",
     "RedisClient",
+    "RegistersDep",
     "RouterDep",
     "SettingsDep",
     "StoreDep",
@@ -39,6 +40,7 @@ __all__ = [
     "get_current_user",
     "get_db_session",
     "get_redis",
+    "get_registers",
     "get_settings_dep",
 ]
 
@@ -147,3 +149,20 @@ def get_store(state: StateDep) -> ArtefactStore:
 
 
 StoreDep = Annotated[ArtefactStore, Depends(get_store)]
+
+
+def get_registers(state: StateDep) -> Registers:
+    """The registers a subject is checked against, on the same terms as the store.
+
+    Built on first use because most requests never ask a register anything, and injected
+    whole by tests — a check that reached EDGAR from a test would make the suite need a
+    network, which it must not.
+    """
+    if state.registers is None:
+        state.registers = standalone_registers(
+            state.settings, store=get_store(state), redis=state.redis
+        )
+    return state.registers
+
+
+RegistersDep = Annotated[Registers, Depends(get_registers)]

@@ -42,6 +42,7 @@ from aer.api.app import create_app
 from aer.config import load_settings
 from aer.core.enums import UserRole
 from aer.db.models import User
+from tests.api_fixtures import admitting_registers
 from tests.db_fixtures import run_async
 
 STARTUP_TIMEOUT_SECONDS = 20.0
@@ -126,6 +127,11 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     # here; injecting one built out here produced "attached to a different loop" on
     # teardown.
     app = create_app(settings)
+    # The availability check runs wherever a run is commissioned (ADR 0128), and this
+    # harness commissions dozens. Left to build real clients it would ask EDGAR about every
+    # one of them from the test suite, which the suite may not do; the check has its own
+    # tests, and what this harness is about is what happens after a run starts.
+    app.state.aer.registers = admitting_registers()
 
     config = uvicorn.Config(
         app,

@@ -18,6 +18,7 @@ from aer.config import Settings
 
 if TYPE_CHECKING:
     from aer.providers.protocol import LLMProvider
+    from aer.runtime import Registers
     from aer.storage.protocol import ArtefactStore
 
 __all__ = ["AppState"]
@@ -43,3 +44,9 @@ class AppState:
     # whole by tests, which is why it is a field rather than a lazily cached global.
     provider: LLMProvider | None = None
     store: ArtefactStore | None = None
+
+    # The registers a subject is identified against, for the availability check a run is
+    # commissioned through (ADR 0128). Built on first use and injected whole by tests, on
+    # exactly the terms the provider above is: a check that reached the network from a test
+    # would be a suite that needs one.
+    registers: Registers | None = None
