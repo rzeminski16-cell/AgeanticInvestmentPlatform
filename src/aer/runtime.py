@@ -36,7 +36,7 @@ from aer.sources.eodhd.budget import WeightedCallBudget
 from aer.sources.eodhd.client import EodhdClient
 from aer.sources.macro.client import MacroClient
 from aer.sources.sec.client import SecEdgarClient
-from aer.sources.uk.companies_house import basic_auth_header
+from aer.sources.uk.companies_house import CompaniesHouseClient, basic_auth_header
 from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
 
@@ -68,6 +68,12 @@ class ServiceBundle:
     # asked the operator to type a government yield the platform could have fetched.
     macro_client: MacroClient | None = None
 
+    # The register a London listing is identified against (ADR 0121). ``None`` where no
+    # Companies House key is configured, which is the ordinary state on a machine that only
+    # ever researches US filers — and `acquire` then refuses a UK subject with a sentence
+    # naming the missing credential, rather than failing at the publisher with a 401.
+    companies_house_client: CompaniesHouseClient | None = None
+
     def for_execution(self) -> dict[str, Any]:
         """Everything :func:`aer.services.runs.execute` takes from this bundle, by name.
 
@@ -84,6 +90,7 @@ class ServiceBundle:
             "fetcher": self.fetcher,
             "eodhd_client": self.eodhd_client,
             "macro_client": self.macro_client,
+            "companies_house_client": self.companies_house_client,
         }
 
 
@@ -134,6 +141,9 @@ def build_services(
             fetcher,
             artefact_store,
             fred_api_key=fred_key.get_secret_value() or None if fred_key is not None else None,
+        ),
+        companies_house_client=_companies_house_client(
+            settings, fetcher=fetcher, store=artefact_store
         ),
     )
 
@@ -195,6 +205,22 @@ def _eodhd_client(
     if not settings.price_feed_configured:
         return None
     return EodhdClient(fetcher, store, settings=settings, budget=WeightedCallBudget(redis))
+
+
+def _companies_house_client(
+    settings: Settings, *, fetcher: SafeFetcher, store: ArtefactStore
+) -> CompaniesHouseClient | None:
+    """The UK register's client, when a key is configured.
+
+    ``None`` otherwise, and on the same terms as the price client: the credential is not
+    optional at the publisher — every Companies House endpoint requires it — so a client
+    built without one would refuse at the first request, several layers below the operator.
+    Absent here instead, and `acquire` says so by name.
+    """
+    key = settings.companies_house_api_key
+    if key is None or not key.get_secret_value().strip():
+        return None
+    return CompaniesHouseClient(fetcher, store=store)
 
 
 def _credentials(settings: Settings) -> dict[Provider, str]:

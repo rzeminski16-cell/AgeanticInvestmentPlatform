@@ -947,7 +947,11 @@ Four things are genuinely missing, and only the second is large:
 2. **`CompaniesHouseClient` has no `fetch_facts`, because Companies House publishes no
    companyfacts equivalent.** A UK filer's numbers exist only inside its accounts, as inline
    XBRL, one period at a time — so a UK acquisition is *n* fetches and *n* parses, and every UK
-   fact is this platform's own parse rather than a registry's aggregation.
+   fact is this platform's own parse rather than a registry's aggregation. **Overtaken on 18
+   September 2026 — see §3.19 item 21 and ADR 0121's appended section.** `fetch_facts` landed;
+   the premise did not survive contact with the register, because a listed company's filed
+   accounts are a PDF. Where a London-listed company's tagged numbers come from is now an open
+   question for the operator, and item 22 is a second one about the fetch policy.
 3. Every `SectorProfile.sic_prefixes` is a US SIC code. UK SIC 2007 is a different scheme, so a
    UK bank matches nothing, the gate does not fire, and it takes the standard model — the ADR
    0029 hole that produced §2.10's 172.1%. **Landed 18 September 2026** as migration 0081, and
@@ -1245,6 +1249,40 @@ found rather than as scope that was always there.
     four runs' cited documents pass all three of ADR 0119's gates. **The class**: a feature
     phrased against the reader's gesture ("following a footnote") silently assumes a
     cardinality, and the corpus is where the cardinality actually is.
+21. **A listed UK company's filed accounts are a PDF, and ADR 0121's fact path assumes
+    inline XBRL, 18 September 2026.** The ADR's load-bearing sentence is that "a UK filer's
+    numbers exist only inside its accounts, as inline XBRL, one accounting period at a
+    time", and `CompaniesHouseClient.fetch_facts` is built on it: four filings deep, arelle
+    over each. Asking the register settles it. The newest three accounts filings of **Tesco
+    (00445790), Barclays (00048839), AstraZeneca (02723534) and Greggs (00502851)** — twelve
+    filings across the FTSE 100 and 250, two sectors and four filing agents — are every one
+    of them `paper_filed: true` with a single resource, `application/pdf`, 8 to 36 MB. Not
+    one offers inline XBRL. A UK acquisition as specified would fetch ~60 MB of scanned
+    annual reports per run and extract **no facts at all**, four times logging a document it
+    could not read. Inline XBRL at this register is real and it belongs to the companies
+    nobody researches: four small active companies, picked out of a name search, all offer
+    `application/xhtml+xml` beside the PDF and all are `paper_filed: false` — filed through
+    accounting software, which is what produces the tagged copy. `fetch_facts` is not wrong;
+    it is right about the wrong companies. (The endpoint content-negotiates and the client
+    asks for neither type, which is a smaller fix worth making either way.)
+    Phase 4a's exit — "every figure traced to its own accounts documents" — is therefore not
+    reachable from this register, and the alternatives are a decision rather than a fix: the
+    issuer's own ESEF report under `ISSUER_IR`, the licensed feed's fundamentals, a PDF
+    statement parser (which would put arithmetic behind a heuristic), or reopening ADR 0022's
+    refusal of the FCA's National Storage Mechanism with written consent. **The class is the
+    handover's §7 again, and this time the plan and the ADR agreed with each other** — which
+    is how a premise survives three documents without anyone asking the register.
+22. **The register's own document endpoint redirects somewhere the fetch policy refuses, 18
+    September 2026.** `document-api.company-information.service.gov.uk/document/{id}/content`
+    answers 302 to a pre-signed `s3.eu-west-2.amazonaws.com` URL, and the fetcher checks the
+    allowlist on every redirect hop — so `UrlNotAllowedError` on the first real UK document,
+    where 32 offline tests pass because `respx` returns the body without the redirect. The
+    fix is not a one-line allowlist entry: that host is every AWS customer's bucket in
+    eu-west-2, so admitting it for `COMPANIES_HOUSE` admits any URL that redirects there
+    under this platform's most trusted provider. What is wanted is narrower — a redirect
+    admitted because of where it came *from* — and it is a security control, so it is the
+    operator's to approve. **The class**: a mocked transport tests the parser and cannot test
+    the policy, and the two failures it hides are the ones that only appear in production.
 
 ### Before this leaves one machine
 

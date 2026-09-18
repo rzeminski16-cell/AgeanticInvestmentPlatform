@@ -187,3 +187,95 @@ defect on the first UK bank. Refused.
 
 **Defer it again.** It has been deferred since the platform's first plan, and the product
 documentation has claimed it the whole time. The operator's decision is to make the claim true.
+
+---
+
+## What the register actually holds — read on 18 September 2026, before the code
+
+This section is appended rather than folded in: the decision above was argued on a premise,
+the premise was tested against the live register while §1 was being built, and it did not
+hold. **This ADR stays Proposed until the operator decides what follows.**
+
+### 1. A listed company's filed accounts are a PDF, not inline XBRL
+
+The sentence the whole of §2 rests on — *"A UK filer's numbers exist only inside its accounts,
+as inline XBRL, one accounting period at a time"* — is true of the small and medium companies
+that file through accounting software. It is not true of the companies this platform
+researches. The newest three accounts filings of four London-listed companies, read from the
+register's own filing-history and document-metadata endpoints:
+
+| Company | Number | Newest three accounts filings |
+|---|---|---|
+| Tesco PLC | 00445790 | `application/pdf` 14.3 MB, 15.0 MB, 15.7 MB — all `paper_filed` |
+| Barclays PLC | 00048839 | `application/pdf` 31.7 MB, 35.9 MB, 31.7 MB — all `paper_filed` |
+| AstraZeneca PLC | 02723534 | `application/pdf` 16.9 MB, 18.8 MB, 18.2 MB — all `paper_filed` |
+| Greggs PLC | 00502851 | `application/pdf` 8.6 MB, 8.4 MB, 8.1 MB — all `paper_filed` |
+
+Twelve filings, two indices of the market, four filing agents, and **not one inline-XBRL
+resource among them**. `resources` carries the single key `application/pdf` in every case.
+
+**Inline XBRL at this register is real, and it belongs to the companies nobody researches.**
+The same endpoint, for four small active companies picked out of a name search:
+
+| Company | Number | Newest accounts filing |
+|---|---|---|
+| JOINERY LIMITED | 03637467 | `application/pdf` 20.8 KB **and `application/xhtml+xml` 19.6 KB** |
+| ASHWOOD & BIRCH BESPOKE JOINERY LTD | 10774560 | pdf 21.3 KB **and xhtml 19.7 KB** |
+| JOINERY AND BUILDING SOLUTIONS LTD | SC644321 | pdf 30.4 KB **and xhtml 24.3 KB** |
+| JOINERY & CONSTRUCTION SUPPLIES LTD | SC360429 | pdf 90.5 KB **and xhtml 146.8 KB** |
+
+All four are `paper_filed: false` — filed through accounting software, which is what produces
+the tagged copy. So `fetch_facts` is not wrong; it is right about the wrong companies.
+
+Two consequences for the code as it stands. The document endpoint **content-negotiates** —
+`resources` names what each filing has — and the client asks for neither, so it takes whatever
+the register serves. It should ask for `application/xhtml+xml` and read "no xhtml resource" as
+*this filing is not tagged*, which is a fact about the filing worth recording rather than an
+extraction failure to log four times.
+
+So `fetch_facts` as specified — four filings deep, `extract_ixbrl` over each — would fetch
+about 60 MB per run and return **no facts at all**, logging four documents it could not read.
+The code is not wrong; the premise it was written against is.
+
+**This does not touch §1 or §3.** Dispatching on the register, recording which register
+answered, resolving a company number, the UK SIC scheme and the sector gate are all unaffected
+and all still needed: a UK run can identify its subject, acquire its statutory accounts as
+hashed artefacts, excerpt them for citation, and read the company's own classification from
+the profile endpoint. What it cannot do from this register is get *tagged numbers*.
+
+**What replaces it is a decision, not a fix.** Four candidates, none of them free:
+
+1. **The issuer's own ESEF annual financial report**, under `ISSUER_IR`. Since ESEF, a London
+   -listed issuer's annual report is published as inline XBRL, and issuers put it on their own
+   investor-relations site. Already an allowlisted provider, already discovered per issuer.
+   Costs a discovery step and lands at the issuer tier rather than the regulatory one.
+2. **The licensed feed's fundamentals** for LSE tickers. Fastest, and it is the alternative
+   this ADR already refuses above: a vendor's normalised figure is not traceable to a filing.
+3. **Parse the figures out of the PDF.** Puts arithmetic-grade numbers behind a heuristic
+   table reader, which is the one thing this repository's first rule forbids.
+4. **Reopen ADR 0022** and seek the FCA's written consent for NSM access. The NSM is where a
+   UK issuer's ESEF report is *required* to land; ADR 0022 refused it on the FCA's terms of
+   use, and only written consent changes that.
+
+### 2. The document endpoint redirects to a host the fetch policy refuses
+
+`document-api.company-information.service.gov.uk/document/{id}/content` answers **302 to a
+pre-signed `s3.eu-west-2.amazonaws.com` URL**, and `SafeFetcher` checks the allowlist on every
+redirect hop. The first real UK document fetch therefore raises `UrlNotAllowedError`. Thirty-two
+offline tests pass over it because `respx` returns the body where the register returns a
+redirect.
+
+Allowlisting the S3 host for `COMPANIES_HOUSE` would be wider than it looks: that host serves
+every AWS customer's bucket in that region, so any URL redirecting there would be admitted
+under this platform's most trusted provider. The narrower control — admit a hop because of the
+host it came *from* — does not exist in `policy.py` today. It is a security control either
+way, so it is the operator's to approve and it needs its own ADR.
+
+### 3. What was built anyway, because it holds under every option above
+
+The register vocabulary (`registry_of`), `research_requests.register`, the client's resolution
+by registered name and by company number, the profile's SIC codes and accounting reference
+date, `upsert_company` writing a company number rather than a CIK, and `acquire_accounts`.
+None of it assumes the documents are tagged. The dispatch in `acquire` is **held** until the
+questions above are answered, so that a UK run refuses at the request form as it does today
+rather than failing three layers down on a redirect.

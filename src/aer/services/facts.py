@@ -42,7 +42,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import Quantity, UnitMismatchError
-from aer.core.enums import FactBasis
+from aer.core.enums import FactBasis, Provider
 from aer.core.schemas.facts import RawFact
 from aer.core.scope import EvidenceScope
 from aer.core.sectors import RevenueComposition, SectorProfile, SicScheme
@@ -153,6 +153,7 @@ async def upsert_company(
     sic: str | None = None,
     sic_description: str | None = None,
     sic_scheme: SicScheme = SicScheme.US_SIC,
+    register: Provider = Provider.SEC_EDGAR,
     fiscal_year_end: str | None = None,
     isin: str | None = None,
 ) -> Company:
@@ -162,12 +163,19 @@ async def upsert_company(
     stronger key: a company can change ticker or move exchange, and matching on the listing
     alone would create a second row for the same company the first time it did.
 
+    ``register`` says which registry issued ``entity.identifier`` and therefore which column
+    it is (ADR 0121): a CIK for EDGAR, a company number for Companies House. Both are
+    identifiers and they are not interchangeable — a company number written into ``cik``
+    would be looked up at EDGAR, where it is another registrant's key or nobody's.
+
     ``sic_scheme`` says which register issued ``sic`` and is written with it, never apart
-    from it (ADR 0121). The two are one fact: a Companies House code left labelled as a US
-    one classifies the company as the wrong kind of business, which is the failure the
-    column exists to prevent.
+    from it. The two are one fact: a Companies House code left labelled as a US one
+    classifies the company as the wrong kind of business, which is the failure the column
+    exists to prevent.
     """
-    company = await session.scalar(select(Company).where(Company.cik == entity.identifier))
+    uk = register is Provider.COMPANIES_HOUSE
+    identifier = Company.company_number if uk else Company.cik
+    company = await session.scalar(select(Company).where(identifier == entity.identifier))
     if company is None:
         company = await session.scalar(
             select(Company).where(Company.ticker == ticker, Company.exchange == exchange)
@@ -176,7 +184,8 @@ async def upsert_company(
     if company is None:
         company = Company(
             name=entity.name or ticker,
-            cik=entity.identifier,
+            cik=None if uk else entity.identifier,
+            company_number=entity.identifier if uk else None,
             ticker=ticker,
             exchange=exchange,
             sic=sic,
@@ -187,14 +196,23 @@ async def upsert_company(
         )
         session.add(company)
         await session.flush()
-        _log.info("company.created", cik=company.cik, ticker=ticker, exchange=exchange)
+        _log.info(
+            "company.created",
+            registry_identifier=entity.identifier,
+            register=register.value,
+            ticker=ticker,
+            exchange=exchange,
+        )
         return company
 
     # Refreshed rather than left as first seen. A name change or a reclassification is
     # information, and an identity row that never updates slowly stops describing the
     # company it identifies.
     company.name = entity.name or company.name
-    company.cik = company.cik or entity.identifier
+    if uk:
+        company.company_number = company.company_number or entity.identifier
+    else:
+        company.cik = company.cik or entity.identifier
     if sic:
         company.sic = sic
         company.sic_scheme = sic_scheme

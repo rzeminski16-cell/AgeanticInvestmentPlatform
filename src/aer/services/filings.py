@@ -23,6 +23,13 @@ acquiring a filing without excerpting it would leave the same silence in a more 
 way. The excerpts are the document's own paragraphs, in order, which makes them
 deterministic, genuinely present in the artefact, and exactly what the citation verifier
 re-reads.
+
+**Two registers, one path through this module** (ADR 0121). :func:`acquire_filings` sweeps
+EDGAR; :func:`acquire_accounts` sweeps a Companies House filing history. They differ in what
+they ask for — the SEC's index says what each filing is *about* and offers quarterlies and
+current reports, where the UK register offers a company's accounts and nothing else — and
+they converge on one routine for a single document, because the hash, the tier, the dating,
+the excerpting and the reason a document was skipped must not have two answers.
 """
 
 from __future__ import annotations
@@ -48,6 +55,7 @@ from aer.services.extractions import MAX_EXCERPT_CHARS, record_excerpts
 from aer.sources.base import DocumentRef, ResolvedEntity
 from aer.sources.sec.accession import substantive_exhibits
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
+from aer.sources.uk.companies_house import FACT_DEPTH as CH_FACT_DEPTH
 from aer.storage.protocol import ArtefactStore
 
 __all__ = [
@@ -56,10 +64,16 @@ __all__ = [
     "MAX_QUARTERLY_REPORTS",
     "AcquiredFiling",
     "AcquiredFilings",
+    "acquire_accounts",
     "acquire_filings",
 ]
 
 _log = structlog.get_logger("aer.services.filings")
+
+# Who published the document, as the sources page prints it. Named because it is written on
+# every EDGAR artefact and read by nobody who would notice a typo in one of them.
+SEC_PUBLISHER: Final = "US Securities and Exchange Commission"
+COMPANIES_HOUSE_PUBLISHER: Final = "Companies House"
 
 # Material events between the periodic reports: an acquisition, a guidance change, a
 # departure. This is what "recent developments" is actually about, and the reason a run
@@ -355,6 +369,88 @@ async def acquire_filings(
     return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
 
 
+async def acquire_accounts(
+    session: AsyncSession,
+    store: ArtefactStore,
+    *,
+    client: Any,
+    request: ResearchRequest,
+    entity: ResolvedEntity,
+    company: Company,
+    settings: Settings,
+    job_id: uuid.UUID | None = None,
+    depth: int = CH_FACT_DEPTH,
+) -> AcquiredFilings:
+    """A UK company's own accounts, newest first (ADR 0121).
+
+    Args:
+        client: The Companies House client. Typed loosely for the same reason its EDGAR
+            sibling is: a test substitutes a stub without constructing one.
+        depth: How many accounts filings to take. **A stated number, not a window**, because
+            Companies House publishes no aggregate: the cost of a UK acquisition is linear in
+            this, and left unbounded it would be a function of how long the company has
+            existed rather than of what the research needs.
+
+    **These documents are both halves of the evidence at once**, which is what makes the UK
+    path different rather than merely differently-sourced. A US run reads its numbers from
+    EDGAR's aggregate and its prose from the filings beside it; here the accounts document is
+    the only thing there is, so the same artefact is excerpted for citation *and* parsed for
+    every figure the company tagged. Nothing here parses it — `extract` does, from the
+    artefact, by hash, for the reason that step gives.
+
+    Nothing raises for a document that cannot be had, exactly as in the EDGAR sweep: an
+    unreadable year costs its own facts and leaves the other three standing.
+    """
+    try:
+        refs = await client.discover_documents(entity)
+    except AerError as unreachable:
+        return AcquiredFilings(
+            skipped=(f"The filing history could not be read: {unreachable.message}",)
+        )
+
+    wanted = refs[:depth]
+    acquired: list[AcquiredFiling] = []
+    excerpts = 0
+    skipped: list[str] = []
+    if not wanted:
+        skipped.append(
+            f"{entity.name} has filed no accounts this platform can fetch. The register lists "
+            "the filing history and the older entries are index records with no document "
+            "behind them."
+        )
+
+    for ref in wanted:
+        outcome = await _acquire_ref(
+            session,
+            store,
+            client=client,
+            request=request,
+            company=company,
+            settings=settings,
+            job_id=job_id,
+            ref=ref,
+            form=ref.form or "accounts",
+            accession=ref.accession or "",
+            provider=Provider.COMPANIES_HOUSE,
+            publisher=COMPANIES_HOUSE_PUBLISHER,
+        )
+        if isinstance(outcome, str):
+            skipped.append(outcome)
+            continue
+        record, recorded = outcome
+        acquired.append(record)
+        excerpts += recorded
+
+    _log.info(
+        "accounts.acquired",
+        company_number=entity.identifier,
+        documents=len(acquired),
+        excerpts=excerpts,
+        skipped=len(skipped),
+    )
+    return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
+
+
 def _record_classification(company: Company, index: SubmissionsIndex) -> None:
     """Keep the filer's own SIC code on the company row.
 
@@ -505,13 +601,15 @@ async def _acquire_ref(
     ref: DocumentRef,
     form: str,
     accession: str,
+    provider: Provider = Provider.SEC_EDGAR,
+    publisher: str = SEC_PUBLISHER,
 ) -> tuple[AcquiredFiling, int] | str:
-    """One EDGAR document: fetched, recorded, excerpted. The reason on any failure.
+    """One filed document: fetched, recorded, excerpted. The reason on any failure.
 
-    Shared by the primary document and by the exhibits beside it (ADR 0126), so an exhibit
-    is acquired *identically* — the same fetch layer, the same hash, the same tier, the
-    same excerpting, the same date. A second path would be a second set of answers to
-    questions this one has already settled.
+    Shared by the primary document, by the exhibits beside it (ADR 0126) and by a UK
+    company's accounts (ADR 0121), so each is acquired *identically* — the same fetch
+    layer, the same hash, the same tier, the same excerpting, the same date. A second path
+    would be a second set of answers to questions this one has already settled.
     """
     try:
         result = await client.fetch_document(ref)
@@ -528,14 +626,14 @@ async def _acquire_ref(
         job_id=job_id,
         company_id=company.id,
         result=result,
-        provider=Provider.SEC_EDGAR,
+        provider=provider,
         # A filing is the regulatory record itself, which is what T1 means. The company
         # facts aggregate shares the tier because it is assembled from these.
         source_tier=SourceTier.T1_REGULATORY,
         title=ref.title,
-        publisher="US Securities and Exchange Commission",
-        # The date EDGAR accepted it. Stated on the index rather than inferred, so unlike
-        # the aggregate (ADR 0044) this one is certain.
+        publisher=publisher,
+        # The date the register accepted it. Stated on the index rather than inferred, so
+        # unlike the aggregate (ADR 0044) this one is certain.
         publication_date=ref.publication_date,
         publication_date_confidence=1.0,
     )

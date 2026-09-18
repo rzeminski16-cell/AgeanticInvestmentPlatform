@@ -608,6 +608,14 @@ decision on 14 September was to build the path rather than narrow the sentence.
    accounts, as inline XBRL, one period at a time. So `fetch_facts` is: accounts filings newest
    first, fetch and hash each, `extract_ixbrl` over each, union the facts. **Depth defaults to
    four filings** — four years on an annual filer — so the cost is predictable.
+
+   > **Corrected 18 September 2026.** `fetch_facts` was built as written and the register was
+   > then asked what it holds. Twelve accounts filings across Tesco, Barclays, AstraZeneca and
+   > Greggs are PDF-only and paper-filed; none carries inline XBRL, so this route returns no
+   > facts for a listed company. Inline XBRL at Companies House is what small and medium
+   > companies file through software. See ADR 0121's appended section and `ROADMAP.md` §3.19
+   > items 21 and 22; where a London-listed company's tagged numbers come from is an open
+   > question, and **F19's "done when" below cannot be met until it is answered**.
 3. **A second classification scheme.** Every `SectorProfile`'s `sic_prefixes` are US SIC codes
    (`602` banks, `6798` REITs, `737` software). UK SIC 2007 is a different scheme. Without
    seeding it, a UK bank matches nothing, the gate does not fire, and it takes the standard

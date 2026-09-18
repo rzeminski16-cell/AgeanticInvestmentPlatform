@@ -37,7 +37,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from aer.core.enums import AnalysisMode
+from aer.core.enums import AnalysisMode, Provider
 from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidFkOptional, UuidPk
 
@@ -126,6 +126,18 @@ class ResearchRequest(Base):
     company_id: Mapped[UuidFkOptional] = mapped_column(
         ForeignKey("companies.id", ondelete="SET NULL")
     )
+
+    # **Which register answered** (ADR 0121). NULL until `acquire` resolves, on the same
+    # terms as `company_id`: before it, nothing has been asked of anybody.
+    #
+    # Recorded rather than recomputed from the exchange. The venue decides which register is
+    # asked *today*; a replay two years from now should read what actually answered this run
+    # rather than what today's code would choose — and if a venue is ever reclassified, the
+    # difference between those two is the thing a reader needs to see.
+    #
+    # Named `register` rather than `registry`, which is SQLAlchemy's own attribute on every
+    # declarative model and cannot be shadowed.
+    register: Mapped[Provider | None] = mapped_column(_enum(Provider, "provider"))
 
     created_at: Mapped[Timestamp] = created_at_column()
 

@@ -188,6 +188,7 @@ async def execute(
     fetcher: Any = None,
     eodhd_client: Any = None,
     macro_client: Any = None,
+    companies_house_client: Any = None,
     stop_after: str | None = None,
     session_factory: Any = None,
 ) -> RunOutcome:
@@ -256,6 +257,10 @@ async def execute(
             # The macro client, on the same terms (Phase 1.6): `acquire_macro` asks for it as
             # an optional service and records a sentence when it is absent.
             "macro_client": macro_client,
+            # The UK register's client, on the same terms again (ADR 0121). A run whose
+            # subject is listed in New York never asks for it; one listed in London refuses
+            # with the credential named rather than resolving against the wrong register.
+            "companies_house_client": companies_house_client,
             # Present only where the caller runs with real sessions (the ARQ worker).
             # Without it the engine runs its waves one node at a time on this session,
             # which is what the savepoint-fixtured tests need.

@@ -37,13 +37,17 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Final
 
+from aer.core.enums import Provider
+
 __all__ = [
     "DEFAULT_MICRO_CAP_THRESHOLD_GBP",
     "SUPPORTED_EXCHANGES",
+    "UK_VENUES",
     "Exclusion",
     "ExclusionRule",
     "check_universe",
     "is_micro_cap",
+    "registry_of",
 ]
 
 
@@ -68,6 +72,11 @@ class Exclusion:
 # The four venues the platform understands. NYSE American is listed separately from NYSE
 # because it has its own listing standards and a materially different issuer profile.
 SUPPORTED_EXCHANGES: Final[frozenset[str]] = frozenset({"NASDAQ", "NYSE", "NYSE_AMERICAN", "LSE"})
+
+# Which of those venues are British. Spelled out rather than inferred, so a fifth exchange
+# has to be classified by whoever adds it: an unclassified venue quietly reading as American
+# would send a London filer to EDGAR, where it does not exist.
+UK_VENUES: Final[frozenset[str]] = frozenset({"LSE"})
 
 # Venues that are recognisably out of scope, so the error can say *why* rather than only
 # "not supported". Anything unrecognised still fails on SUPPORTED_EXCHANGES.
@@ -167,6 +176,25 @@ def is_micro_cap(
     if market_cap_gbp is None:
         return False
     return market_cap_gbp < threshold_gbp
+
+
+def registry_of(exchange: str) -> Provider:
+    """Which register identifies a company listed here (ADR 0121).
+
+    **The venue names the register, and nothing is tried to find out.** A company admitted to
+    the London market is registered at Companies House; one on a US venue files with the SEC.
+    Trial-resolving against both would double the requests and invent an ambiguity that is not
+    there — `TSCO` is Tesco in London and Tractor Supply Company on NASDAQ, so "resolves in
+    both registers" is not the same statement as "is listed in both places".
+
+    Total, because :func:`check_universe` has already refused every venue but the four above
+    by the time a run exists. An unrecognised exchange answers the SEC rather than raising,
+    which is what the request form's own validation has already guaranteed cannot happen —
+    and a lookup that raised here would turn a refusal the operator can act on into a step
+    failure three layers down.
+    """
+    normalised = _normalise(exchange).upper().replace(" ", "_").replace("-", "_")
+    return Provider.COMPANIES_HOUSE if normalised in UK_VENUES else Provider.SEC_EDGAR
 
 
 def check_universe(

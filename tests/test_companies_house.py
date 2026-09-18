@@ -32,8 +32,10 @@ from aer.sources.uk.companies_house import (
     API_ROOT,
     DOCUMENT_ROOT,
     CompaniesHouseClient,
+    CompanyProfile,
     basic_auth_header,
     document_url,
+    looks_like_company_number,
     normalise_company_number,
     parse_company_profile,
     parse_filing_history,
@@ -148,6 +150,44 @@ class TestParsingTheProfile:
         profile = parse_company_profile(fixture("ch_profile.json"))
 
         assert profile.accounts_reference_date == "30/06"
+
+    def test_it_reads_the_declared_sic_codes(self) -> None:
+        """What a UK company says it does, in UK SIC 2007 (ADR 0121).
+
+        Read from the live register on 18 September 2026: Tesco declares `47110`, retail sale
+        in non-specialised stores with food predominating. The profile endpoint is the only
+        place the register states it — a search result carries no classification — so without
+        this a UK run reaches the sector gate with nothing to propose from.
+        """
+        profile = parse_company_profile(fixture("ch_profile_tesco.json"))
+
+        assert profile.name == "TESCO PLC"
+        assert profile.sic_codes == ("47110",)
+
+    def test_a_profile_with_no_codes_says_so_rather_than_inventing_one(self) -> None:
+        assert parse_company_profile(fixture("ch_profile.json")).sic_codes == ()
+
+    @pytest.mark.parametrize(
+        ("reference", "expected"),
+        [("30/06", "0630"), ("26/02", "0226"), ("1/1", "0101"), (None, None), ("x/y", None)],
+    )
+    def test_the_accounting_reference_date_becomes_a_fiscal_year_end(
+        self, reference, expected
+    ) -> None:
+        """`fiscal_year_of` reads `MMDD`; the register states a day and a month.
+
+        The same fact in the other order and without the padding that makes it sortable —
+        which is the kind of difference that is invisible until a fiscal year is computed
+        against a calendar one.
+        """
+        profile = CompanyProfile(
+            company_number=COMPANY_NUMBER, name="ACME", accounts_reference_date=reference
+        )
+
+        assert profile.fiscal_year_end == expected
+
+    def test_the_recorded_profile_carries_its_own_year_end(self) -> None:
+        assert parse_company_profile(fixture("ch_profile_tesco.json")).fiscal_year_end == "0226"
 
     @pytest.mark.parametrize(
         "payload",
@@ -275,6 +315,107 @@ class TestResolvingACompany:
     async def test_an_empty_query_is_refused_before_a_request(self, client) -> None:
         with pytest.raises(ValidationError, match="needs a query"):
             await client.search_companies("   ")
+
+    async def test_the_company_name_is_searched_rather_than_the_ticker(
+        self, client, respx_mock
+    ) -> None:
+        """`TSCO` is Tesco's symbol and no part of `TESCO PLC` (ADR 0121).
+
+        The register knows nothing about listings, so searching the symbol finds the company
+        by luck or not at all — and the wrong company is the failure that matters, because
+        every figure downstream would be internally consistent and about another business.
+        """
+        route = respx_mock.get(url__startswith=SEARCH_URL).mock(
+            return_value=_json("ch_search_single.json")
+        )
+
+        entity = await client.resolve_entity("ACME", name="ACME HOLDINGS PLC")
+
+        assert route.calls.last.request.url.params["q"] == "ACME HOLDINGS PLC"
+        assert entity.identifier == COMPANY_NUMBER
+        # The symbol is what the operator commissioned and stays on the entity whatever
+        # answered: the search query is how the company was found, not what it is called.
+        assert entity.ticker == "ACME"
+
+    async def test_a_company_number_is_looked_up_rather_than_searched(
+        self, client, respx_mock
+    ) -> None:
+        """The escape hatch the ambiguity refusal names, and the reason it is not a dead end."""
+        profile = respx_mock.get(PROFILE_URL).mock(return_value=_json("ch_profile.json"))
+        search = respx_mock.get(url__startswith=SEARCH_URL).mock(
+            return_value=_json("ch_search_ambiguous.json")
+        )
+
+        entity = await client.resolve_entity("ACME", name=COMPANY_NUMBER)
+
+        assert entity.identifier == COMPANY_NUMBER
+        assert entity.name == "ACME HOLDINGS PLC"
+        assert profile.called
+        assert not search.called
+
+    async def test_a_short_ticker_is_never_padded_into_a_company_number(
+        self, client, respx_mock
+    ) -> None:
+        """`1234` is a company number only if somebody says it is.
+
+        `normalise_company_number` zero-pads, because `102498` and `00102498` are the same
+        company. Applying that to a query would turn a numeric symbol into an unrelated
+        entity's number and research a company nobody asked about.
+        """
+        route = respx_mock.get(url__startswith=SEARCH_URL).mock(
+            return_value=_json("ch_search_single.json")
+        )
+
+        await client.resolve_entity("1234", name="ACME HOLDINGS PLC")
+
+        assert route.called
+
+    async def test_a_listed_company_resolves_by_its_own_registered_name(
+        self, client, respx_mock
+    ) -> None:
+        """Recorded from the live register on 18 September 2026, and it is why this rule exists.
+
+        `TESCO PLC` matches **nine** active companies — the plc and eight subsidiaries, among
+        them `TESCO ATRATO (GP) LIMITED`. Refusing all nine would make every large UK group
+        unresearchable by name, and taking the top-ranked one would be the guess this adapter
+        refuses to make. Exactly one of the nine is *called* TESCO PLC.
+        """
+        respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_json("ch_search_tesco.json"))
+
+        entity = await client.resolve_entity("TSCO", exchange="LSE", name="Tesco plc")
+
+        assert entity.identifier == "00445790"
+        assert entity.name == "TESCO PLC"
+        assert entity.ticker == "TSCO"
+
+    async def test_an_inexact_name_among_several_is_still_refused(self, client, respx_mock) -> None:
+        """The rule narrows the refusal; it does not remove it.
+
+        `TESCO` is not the name of any company in that recording, so nine active candidates
+        stay nine, and choosing between them is the operator's to do.
+        """
+        respx_mock.get(url__startswith=SEARCH_URL).mock(return_value=_json("ch_search_tesco.json"))
+
+        with pytest.raises(ValidationError, match="active companies"):
+            await client.resolve_entity("TSCO", name="TESCO")
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("00102498", True),
+            ("SC123456", True),
+            ("sc123456", True),
+            (" 00102498 ", True),
+            ("102498", False),  # A number, but not yet in the register's own form.
+            ("1234", False),
+            ("TSCO", False),
+            ("ACME HOLD", False),
+            ("123456789", False),
+            ("SCSC1234", False),
+        ],
+    )
+    def test_what_counts_as_a_company_number_already(self, value, expected) -> None:
+        assert looks_like_company_number(value) is expected
 
 
 # -- Through the network -------------------------------------------------------------------------

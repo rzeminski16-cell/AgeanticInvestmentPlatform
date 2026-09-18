@@ -335,6 +335,54 @@ class TestCompanyIdentity:
         await upsert_company(db_session, entity=entity, ticker="MSFT", exchange="NASDAQ")
         assert (company.sic, company.sic_scheme) == ("62012", SicScheme.UK_SIC_2007)
 
+    async def test_a_uk_entity_becomes_a_row_with_a_company_number(self, db_session):
+        """A company number is not a CIK, and writing it into `cik` is not harmless.
+
+        The column is what EDGAR is asked with. `00445790` in it would be looked up as a US
+        registrant — another company's key, or nobody's — and the check constraint that makes
+        a CIK-less row legal was written for exactly this case (ADR 0121).
+        """
+        entity = ResolvedEntity(identifier="00445790", name="TESCO PLC")
+
+        company = await upsert_company(
+            db_session,
+            entity=entity,
+            ticker="TSCO",
+            exchange="LSE",
+            register=Provider.COMPANIES_HOUSE,
+            sic="47110",
+            sic_scheme=SicScheme.UK_SIC_2007,
+        )
+
+        assert company.company_number == "00445790"
+        assert company.cik is None
+        assert company.sic_scheme is SicScheme.UK_SIC_2007
+
+    async def test_the_same_uk_company_resolves_onto_its_own_row(self, db_session):
+        """Matched on the company number, which is the identifier its register issued.
+
+        Matching on the CIK would find nothing and fall through to the listing, which is a
+        weaker key — and on a re-listing it would create a second row for one company.
+        """
+        entity = ResolvedEntity(identifier="00445790", name="TESCO PLC")
+        first = await upsert_company(
+            db_session,
+            entity=entity,
+            ticker="TSCO",
+            exchange="LSE",
+            register=Provider.COMPANIES_HOUSE,
+        )
+        again = await upsert_company(
+            db_session,
+            entity=entity,
+            ticker="TSCO.L",
+            exchange="LSE",
+            register=Provider.COMPANIES_HOUSE,
+        )
+
+        assert first.id == again.id
+        assert await db_session.scalar(select(func.count()).select_from(Company)) == 1
+
     async def test_resolving_twice_reuses_the_row(self, db_session):
         entity = ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP")
 

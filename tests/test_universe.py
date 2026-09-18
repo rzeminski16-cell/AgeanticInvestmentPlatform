@@ -14,12 +14,16 @@ from decimal import Decimal
 
 import pytest
 
+from aer.core.enums import Provider
+from aer.core.skill_applicability import UK_EXCHANGES, market_of
 from aer.core.universe import (
     DEFAULT_MICRO_CAP_THRESHOLD_GBP,
     SUPPORTED_EXCHANGES,
+    UK_VENUES,
     ExclusionRule,
     check_universe,
     is_micro_cap,
+    registry_of,
 )
 
 
@@ -203,6 +207,53 @@ class TestMultipleReasons:
         found = rules(exchange="PINK")
         assert found.count(ExclusionRule.UNSUPPORTED_EXCHANGE) == 0
         assert found.count(ExclusionRule.OTC_VENUE) == 1
+
+
+class TestWhichRegisterIdentifiesTheCompany:
+    """ADR 0121. The venue names the register; nothing is tried to find out."""
+
+    @pytest.mark.parametrize(
+        ("exchange", "expected"),
+        [
+            ("LSE", Provider.COMPANIES_HOUSE),
+            ("lse", Provider.COMPANIES_HOUSE),
+            (" LSE ", Provider.COMPANIES_HOUSE),
+            ("NASDAQ", Provider.SEC_EDGAR),
+            ("NYSE", Provider.SEC_EDGAR),
+            ("NYSE_AMERICAN", Provider.SEC_EDGAR),
+            ("NYSE American", Provider.SEC_EDGAR),
+        ],
+    )
+    def test_the_venue_names_the_register(self, exchange, expected):
+        assert registry_of(exchange) is expected
+
+    def test_every_supported_venue_has_a_register(self):
+        """Total by construction: `check_universe` has refused everything else already."""
+        assert {registry_of(venue) for venue in SUPPORTED_EXCHANGES} == {
+            Provider.SEC_EDGAR,
+            Provider.COMPANIES_HOUSE,
+        }
+
+    def test_an_unclassified_venue_answers_the_sec_rather_than_raising(self):
+        """The request form refuses it long before a run exists.
+
+        Raising here would turn a refusal the operator can act on into a step failure three
+        layers down, on an input that cannot reach this function.
+        """
+        assert registry_of("XETRA") is Provider.SEC_EDGAR
+        assert registry_of("") is Provider.SEC_EDGAR
+
+    def test_the_two_restatements_of_the_uk_venues_agree(self):
+        """`skill_applicability` restates the set deliberately; it may not drift.
+
+        Its comment says the duplication is so a new exchange is classified by hand rather
+        than defaulting to a market. That argument holds only while somebody is told when the
+        two copies disagree, which is what this is.
+        """
+        assert UK_VENUES == UK_EXCHANGES
+        for venue in SUPPORTED_EXCHANGES:
+            uk_by_market = market_of(venue) == "UK"
+            assert uk_by_market is (registry_of(venue) is Provider.COMPANIES_HOUSE), venue
 
 
 class TestRuleIdentifiers:

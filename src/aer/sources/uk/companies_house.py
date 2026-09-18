@@ -50,6 +50,8 @@ __all__ = [
     "FilingHistory",
     "FilingRecord",
     "basic_auth_header",
+    "looks_like_company_number",
+    "normalise_company_number",
     "parse_company_profile",
     "parse_filing_history",
     "parse_search_results",
@@ -96,6 +98,22 @@ def basic_auth_header(api_key: str) -> str:
     return f"Basic {encoded}"
 
 
+def looks_like_company_number(value: str) -> bool:
+    """Whether this string is already a company number, rather than something to search for.
+
+    Deliberately stricter than :func:`normalise_company_number`, which zero-pads a short
+    number because `102498` and `00102498` are the same company. That padding is right when
+    somebody has said "this is a company number" and wrong when they have not: `1234` would
+    become a company number and a ticker would be looked up as an entity that has nothing to
+    do with the subject. So this asks only whether the value is *already* one — eight
+    characters, all digits or a two-letter register prefix and six digits.
+    """
+    cleaned = value.strip().upper().replace(" ", "")
+    if len(cleaned) != _NUMBER_LENGTH or not cleaned.isalnum():
+        return False
+    return cleaned.isdigit() or (cleaned[:2].isalpha() and cleaned[2:].isdigit())
+
+
 def normalise_company_number(value: str) -> str:
     """A company number in the form the API expects.
 
@@ -135,9 +153,30 @@ class CompanyProfile:
     incorporated_on: date | None = None
     accounts_reference_date: str | None = None
 
+    # What the company says it does, in UK SIC 2007 (ADR 0121). A company may declare up to
+    # four, and the register returns them as filed rather than ranked. Empty from a search
+    # result, which carries no classification: only the profile endpoint does.
+    sic_codes: tuple[str, ...] = ()
+
     @property
     def is_active(self) -> bool:
         return (self.status or "").lower() == "active"
+
+    @property
+    def fiscal_year_end(self) -> str | None:
+        """The accounting reference date as ``MMDD``, or ``None``.
+
+        The register states it as a day and a month, which is the same fact in the other
+        order and without the padding that makes it sortable — and ``fiscal_year_of`` reads
+        the padded form. A company with no reference date on file is one whose first accounts
+        are not due yet.
+        """
+        if not self.accounts_reference_date:
+            return None
+        day, _, month = self.accounts_reference_date.partition("/")
+        if not day.isdigit() or not month.isdigit():
+            return None
+        return f"{int(month):02d}{int(day):02d}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,7 +268,36 @@ def parse_company_profile(payload: bytes) -> CompanyProfile:
         status=str(document.get("company_status") or "").strip() or None,
         incorporated_on=_parse_date(document.get("date_of_creation")),
         accounts_reference_date=reference,
+        sic_codes=_sic_codes(document.get("sic_codes")),
     )
+
+
+def _same_name(candidate: str, query: str) -> bool:
+    """Whether the register calls this company exactly what the operator called it.
+
+    Compared on the letters and digits alone: the register writes `TESCO PLC` and an operator
+    may write `Tesco plc.` or `Tesco P.L.C.`, and none of the difference is about identity. No
+    stemming and no dropping of the legal suffix — `SHELL PLC` and `SHELL TRANSPORT` are
+    different companies, and a match that tolerated the difference would be the guess this
+    function exists to avoid making.
+    """
+    return _letters(candidate) == _letters(query) and bool(_letters(query))
+
+
+def _letters(value: str) -> str:
+    return "".join(character for character in value.upper() if character.isalnum())
+
+
+def _sic_codes(raw: Any) -> tuple[str, ...]:
+    """The declared SIC codes, in the order the register returned them.
+
+    Order is kept because it is the only thing distinguishing them: the API ranks nothing, so
+    re-sorting would replace the register's answer with this platform's opinion of it.
+    """
+    if not isinstance(raw, list):
+        return ()
+    codes = [str(code).strip() for code in raw if str(code).strip().isdigit()]
+    return tuple(codes)
 
 
 def parse_filing_history(payload: bytes, *, company_number: str) -> FilingHistory:
@@ -394,7 +462,9 @@ class CompaniesHouseClient:
 
     # -- Adapter surface -------------------------------------------------------------------
 
-    async def resolve_entity(self, ticker: str, *, exchange: str | None = None) -> ResolvedEntity:
+    async def resolve_entity(
+        self, ticker: str, *, exchange: str | None = None, name: str | None = None
+    ) -> ResolvedEntity:
         """Find a company number for a name.
 
         **Refuses an ambiguous match rather than taking the first hit.** Companies House
@@ -404,40 +474,74 @@ class CompaniesHouseClient:
         rank would put another business's accounts under this company's name, and every figure
         downstream would be internally consistent and about the wrong firm.
 
+        Args:
+            ticker: The listing's symbol, kept on the resolved entity whatever answered.
+            name: What to search for, when it is not the ticker — which on this register it
+                usually is not. `TSCO` is Tesco's symbol and no part of `TESCO PLC`, so a
+                search for the symbol finds the company by luck or not at all. The run's own
+                company name is the better query, and it is what the ambiguity refusal below
+                already tells an operator to supply.
+            exchange: Recorded on the entity, not used to search. The register knows nothing
+                about listings.
+
+        **A query that is already a company number is looked up rather than searched.** That
+        is the escape hatch the ambiguity refusal names, and without it an operator told
+        "three active companies match" has nowhere to go.
+
         Raises:
             ValidationError: Nothing matched, or more than one active company did.
         """
-        candidates = await self.search_companies(ticker)
+        query = (name or ticker).strip()
+        if looks_like_company_number(query):
+            profile = await self.fetch_profile(query)
+            return self._resolved(profile, ticker=ticker, exchange=exchange, by="company_number")
+
+        candidates = await self.search_companies(query)
         active = [c for c in candidates if c.is_active]
+
+        # **An exact name is not an ambiguity.** A search for a listed company's registered
+        # name returns its subsidiaries too — "TESCO PLC" matches nine active companies on the
+        # real register, among them TESCO ATRATO (GP) LIMITED — and refusing all of them would
+        # make every large UK group unresearchable by name. Exactly one of those nine is
+        # *called* TESCO PLC, and taking it is answering the operator rather than guessing
+        # between businesses, which is what the refusal below exists to prevent.
+        named = [c for c in active if _same_name(c.name, query)]
+        if len(named) == 1:
+            return self._resolved(named[0], ticker=ticker, exchange=exchange, by="exact_name")
 
         if not active:
             message = (
-                f"No active company on the Companies House register matches {ticker!r}. "
+                f"No active company on the Companies House register matches {query!r}. "
                 "The register lists companies rather than securities, so a ticker is often "
                 "not the registered name — try the full company name."
             )
-            raise ValidationError(message, context={"query": ticker, "candidates": len(candidates)})
+            raise ValidationError(message, context={"query": query, "candidates": len(candidates)})
 
         if len(active) > 1:
             names = [f"{c.name} ({c.company_number})" for c in active[:5]]
             message = (
-                f"{ticker!r} matches {len(active)} active companies on the register, and "
+                f"{query!r} matches {len(active)} active companies on the register, and "
                 "choosing between them by search rank would risk attributing another "
                 f"business's accounts to this one. Candidates: {'; '.join(names)}. "
                 "Supply the company number instead."
             )
-            raise ValidationError(message, context={"query": ticker, "matches": names})
+            raise ValidationError(message, context={"query": query, "matches": names})
 
-        found = active[0]
+        return self._resolved(active[0], ticker=ticker, exchange=exchange, by="search")
+
+    def _resolved(
+        self, profile: CompanyProfile, *, ticker: str, exchange: str | None, by: str
+    ) -> ResolvedEntity:
+        """One resolution, however it was reached — and the log says which way."""
         _log.info(
             "companies_house.entity_resolved",
-            query=ticker,
-            company_number=found.company_number,
-            name=found.name,
+            company_number=profile.company_number,
+            name=profile.name,
+            by=by,
         )
         return ResolvedEntity(
-            identifier=found.company_number,
-            name=found.name,
+            identifier=profile.company_number,
+            name=profile.name,
             ticker=ticker.strip().upper() or None,
             exchange=exchange,
         )
