@@ -44,6 +44,16 @@ _KEY_PREFIX: Final = "aer:fetch"
 #
 # Returns {allowed, tokens_remaining, wait_seconds}. wait_seconds is how long the caller
 # should sleep before the next token exists, so the caller never has to guess.
+#
+# **A bucket within floating-point noise of the cost has refilled**, and the epsilon below is
+# not a rounding nicety — without it the limiter starves. `elapsed * rate` lands a hair under
+# the cost whenever the caller slept for exactly the wait this script returned: 0.5555…
+# seconds at 1.8 per second refills 0.99999999999998 tokens, which is less than 1, so the
+# request is refused again and told to wait 1.26e-14 seconds. The caller then sleeps for
+# nothing, the clock barely moves, the refill computes the same figure, and the loop spins —
+# against a real clock as a hot loop on Redis that resolves itself in microseconds, and
+# against a test's clock for ever. One ten-billionth of a token is far below anything a rate
+# ever means and far above the error this arithmetic produces.
 _ACQUIRE_SCRIPT = """
 local key = KEYS[1]
 local rate = tonumber(ARGV[1])
@@ -69,8 +79,8 @@ tokens = math.min(burst, tokens + elapsed * rate)
 
 local allowed = 0
 local wait = 0
-if tokens >= cost then
-  tokens = tokens - cost
+if tokens >= cost - 1e-9 then
+  tokens = math.max(0, tokens - cost)
   allowed = 1
 else
   wait = (cost - tokens) / rate

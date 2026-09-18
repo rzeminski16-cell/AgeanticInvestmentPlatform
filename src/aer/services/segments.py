@@ -26,29 +26,23 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Final
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.core.dates import fiscal_year_of
 from aer.core.schemas.facts import RawFact
 from aer.db.models import Company, SourceDocument
 from aer.errors import AerError
 from aer.extract.ixbrl import IxbrlFact, extract_ixbrl
 from aer.services.facts import persist_facts
+from aer.sources.base import raw_fact_from_ixbrl
 from aer.sources.sec.submissions import ANNUAL_FORMS
 from aer.storage.protocol import ArtefactStore
 
 __all__ = ["SegmentSweep", "sweep_segment_facts"]
 
 _log = structlog.get_logger("aer.services.segments")
-
-# A duration this far from a year is not a fiscal year. The window is generous because
-# 52/53-week fiscal calendars and transition periods both move the count, and the point
-# is only to tell an annual figure from a quarterly one inside an annual report.
-_FY_DAYS_LOW: Final = 330
-_FY_DAYS_HIGH: Final = 400
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,48 +176,22 @@ async def _sweep_one(
 def _raw_fact(
     fact: IxbrlFact, *, concept: str, form: str, entry: dict[str, Any], filed: date
 ) -> RawFact:
-    (axis, member) = fact.dimensions[0]
-    return RawFact(
+    """One dimensioned fact, joined to the filing that carried it.
+
+    The join itself is :func:`aer.sources.base.raw_fact_from_ixbrl`, where this module's own
+    fiscal-period rule moved when the Companies House adapter needed the same one. The
+    caller has already refused a cross-tab cell, so the ``None`` arm is unreachable here and
+    asserted rather than handled.
+    """
+    joined = raw_fact_from_ixbrl(
+        fact,
         concept=concept,
-        raw_concept=fact.tag,
-        taxonomy=fact.taxonomy,
-        unit=fact.unit,
-        value=fact.value,
-        period_start=fact.period_start,
-        period_end=fact.period_end,
-        fiscal_year=_fiscal_year(fact),
-        fiscal_period=_fiscal_period(fact),
-        dimension_axis=axis,
-        dimension_member=member,
         form=form,
         accession=str(entry.get("accession") or "unstated"),
         filed_date=filed,
     )
-
-
-def _fiscal_period(fact: IxbrlFact) -> str | None:
-    """``FY`` for a duration the length of a year, ``None`` for anything else.
-
-    Derived from the span because an inline document does not state a fiscal period the
-    way the frames API does. An annual report's comparatives are year-long durations too,
-    so the prior years' segment figures label themselves the same way. A quarter inside
-    an annual report — some filers tag one — stays unlabelled rather than guessed.
-    """
-    if fact.period_start is None:
-        return None
-    days = (fact.period_end - fact.period_start).days
-    return "FY" if _FY_DAYS_LOW <= days <= _FY_DAYS_HIGH else None
-
-
-def _fiscal_year(fact: IxbrlFact) -> int | None:
-    """The year the period belongs to, for a fiscal-year duration.
-
-    This module derived the rule first — "a year ending September 2025 is FY2025" — and
-    ADR 0062 promoted it to :func:`aer.core.dates.fiscal_year_of`, which adds the
-    early-January carve-out for 52/53-week calendars this local version lacked. Only
-    stated where the period is a fiscal year at all.
-    """
-    return fiscal_year_of(fact.period_end) if _fiscal_period(fact) == "FY" else None
+    assert joined is not None, "a single-axis fact always joins"
+    return joined
 
 
 def _entity_matches(fact: IxbrlFact, *, cik: str | None) -> bool:

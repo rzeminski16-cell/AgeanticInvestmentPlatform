@@ -25,12 +25,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
+from aer.core.dates import fiscal_year_of
 from aer.core.enums import Provider, SourceTier
 from aer.core.schemas.facts import RawFact
 
-__all__ = ["DocumentRef", "ResolvedEntity", "SourceAdapter"]
+if TYPE_CHECKING:
+    from aer.extract.ixbrl import IxbrlFact
+
+__all__ = [
+    "ANNUAL",
+    "DocumentRef",
+    "ResolvedEntity",
+    "SourceAdapter",
+    "raw_fact_from_ixbrl",
+]
+
+ANNUAL: Final = "FY"
+
+# A duration this far from a year is not a fiscal year. The window is generous because
+# 52/53-week fiscal calendars and transition periods both move the count, and the point
+# is only to tell an annual figure from a quarterly one inside an annual report.
+#
+# **Moved here from `services/segments.py` unchanged.** The UK adapter needs the same rule,
+# and two answers to "is this iXBRL duration a year?" would be two answers to which periods
+# a company reported.
+_FY_DAYS_LOW: Final = 330
+_FY_DAYS_HIGH: Final = 400
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,3 +133,69 @@ class SourceAdapter(Protocol):
         no trace of what it discarded.
         """
         ...
+
+
+# -- Joining a parsed document to its filing -------------------------------------------------
+
+
+def raw_fact_from_ixbrl(
+    fact: IxbrlFact,
+    *,
+    form: str,
+    accession: str,
+    filed_date: date,
+    concept: str | None = None,
+) -> RawFact | None:
+    """One inline-XBRL fact as a :class:`RawFact`, or ``None`` where it cannot be one.
+
+    :mod:`aer.extract.ixbrl` reports only what the bytes say; the form, the filing
+    identifier and the filed date come from the index that pointed at the document. This is
+    that join, and it lives here because **two adapters make it** — the segment reader over a
+    US annual report and the Companies House adapter over a UK one — and a second
+    implementation would be a second answer to which periods a company reported.
+
+    ``concept`` defaults to the tag's canonical concept, falling back to the tag itself, which
+    is what :class:`RawFact` documents and what the EDGAR parser does. A caller that wants
+    only mapped facts passes the concept it already resolved.
+
+    Returns ``None`` for a cell with more than one explicit dimension: a cross-tab — segment
+    *by* geography — is something this platform has no consumer for, and a row stating only
+    one of its axes would misstate what the number measures.
+    """
+    if len(fact.dimensions) > 1:
+        return None
+    axis, member = fact.dimensions[0] if fact.dimensions else (None, None)
+    period = _ixbrl_fiscal_period(fact)
+    return RawFact(
+        concept=concept or fact.concept or fact.tag,
+        raw_concept=fact.tag,
+        taxonomy=fact.taxonomy,
+        unit=fact.unit,
+        value=fact.value,
+        period_start=fact.period_start,
+        period_end=fact.period_end,
+        # Stated only where the period is a fiscal year at all. ADR 0062 owns the rule that
+        # a year ending September 2025 is FY2025, including the early-January carve-out for
+        # 52/53-week calendars.
+        fiscal_year=fiscal_year_of(fact.period_end) if period == ANNUAL else None,
+        fiscal_period=period,
+        dimension_axis=axis,
+        dimension_member=member,
+        form=form,
+        accession=accession,
+        filed_date=filed_date,
+    )
+
+
+def _ixbrl_fiscal_period(fact: IxbrlFact) -> str | None:
+    """``FY`` for a duration the length of a year, ``None`` for anything else.
+
+    Derived from the span because an inline document does not state a fiscal period the
+    way the frames API does. An annual report's comparatives are year-long durations too,
+    so the prior years' figures label themselves the same way. A quarter inside an annual
+    report — some filers tag one — stays unlabelled rather than guessed.
+    """
+    if fact.period_start is None:
+        return None
+    days = (fact.period_end - fact.period_start).days
+    return ANNUAL if _FY_DAYS_LOW <= days <= _FY_DAYS_HIGH else None

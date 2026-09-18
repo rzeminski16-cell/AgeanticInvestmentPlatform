@@ -26,7 +26,7 @@ from aer.errors import ValidationError
 from aer.fetch.client import SafeFetcher
 from aer.fetch.policy import policy_for
 from aer.logging import is_sensitive_name, redact_secrets
-from aer.sources.base import ResolvedEntity
+from aer.sources.base import ResolvedEntity, SourceAdapter
 from aer.sources.uk.companies_house import (
     ACCOUNTS_CATEGORIES,
     API_ROOT,
@@ -40,6 +40,15 @@ from aer.sources.uk.companies_house import (
     parse_search_results,
 )
 from tests.fetch_fixtures import public_resolver
+from tests.ixbrl_fixtures import (
+    CLEAN_IFRS,
+    CLEAN_IFRS_TRUTH,
+    EXTENSION_TAG,
+    PERIOD_END,
+    PERIOD_START,
+    REPEATED_FIGURE,
+    WITH_EXTENSION,
+)
 
 pytestmark = pytest.mark.usefixtures("no_real_sockets")
 
@@ -322,6 +331,195 @@ class TestFetchingThroughTheClient:
     def test_the_adapter_declares_its_provider_and_tier(self, client) -> None:
         assert client.provider is Provider.COMPANIES_HOUSE
         assert client.source_tier is SourceTier.T1_REGULATORY
+
+
+# -- The facts, read out of the accounts themselves ----------------------------------------------
+
+
+ENTITY: Final = ResolvedEntity(identifier=COMPANY_NUMBER, name="ACME HOLDINGS PLC")
+
+# The two fetchable accounts in the filing-history fixture, newest first.
+NEWER_DOCUMENT: Final = f"{DOCUMENT_ROOT}/document/AbCdEf1234/content"
+OLDER_DOCUMENT: Final = f"{DOCUMENT_ROOT}/document/GhIjKl5678/content"
+
+
+def _accounts(payload: bytes) -> httpx.Response:
+    return httpx.Response(200, content=payload, headers={"content-type": "application/xhtml+xml"})
+
+
+class TestFetchingFacts:
+    """ADR 0121's load-bearing piece: **Companies House publishes no companyfacts.**
+
+    EDGAR gives a registrant's whole tagged history in one JSON document. The UK register
+    gives a filing history and, per filing, a document — so a UK fact base is one fetch and
+    one arelle parse per accounting period, and every figure is the output of this platform's
+    own extractor rather than of the registry's aggregation. That is the boundary the ADR says
+    is worth testing hardest, because a parsing error here is a wrong number with a perfect
+    audit trail.
+    """
+
+    @pytest.fixture
+    def history(self, respx_mock) -> None:
+        respx_mock.get(url__startswith=HISTORY_URL).mock(
+            return_value=_json("ch_filing_history.json")
+        )
+
+    async def test_the_accounts_own_figures_come_back_as_facts(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """Against the fixture's truth set, concept for concept and penny for penny — the
+        document's own `scale` applied, as a UK report states its figures in thousands."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        by_concept = {fact.concept: fact.value for fact in facts}
+        for concept, expected in CLEAN_IFRS_TRUTH.items():
+            assert by_concept[concept] == expected, concept
+
+    async def test_a_figure_two_filings_both_state_is_two_observations(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """An annual report restates the prior year, and both statements are kept.
+
+        The platform's whole selection story is the latest filing's word on a period with the
+        rest recorded as superseded (ADR 0113). Collapsing them here would leave nothing to
+        select between, and would take the older restatement as often as the newer one.
+        """
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        revenues = [fact for fact in facts if fact.concept == "revenue"]
+        assert len(revenues) == 2
+        assert {fact.accession for fact in revenues} == {
+            "MzM1NTk4NDI3NmFkaXF6a2N4",
+            "MzA5ODc2NTQzMmFkaXF6a2N4",
+        }
+        assert {fact.filed_date for fact in revenues} == {date(2022, 10, 14), date(2021, 10, 8)}
+
+    async def test_a_figure_tagged_twice_in_one_filing_is_one_observation(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """A total appears in the primary statement and again in the note that analyses it,
+        tagged both times. That is one observation stated twice, and two rows would double
+        every count resting on it."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(REPEATED_FIGURE))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(b"<html></html>"))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        assert len([fact for fact in facts if fact.concept == "revenue"]) == 1
+
+    async def test_each_fact_names_the_filing_it_was_tagged_in(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """Invariant 1 through a different door: a UK fact traces to the accounts document
+        it came from, by the register's own transaction id and filing date."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(b"<html></html>"))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        assert {fact.accession for fact in facts} == {"MzM1NTk4NDI3NmFkaXF6a2N4"}
+        assert {fact.filed_date for fact in facts} == {date(2022, 10, 14)}
+        assert {fact.form for fact in facts} == {"accounts"}
+
+    async def test_a_year_long_duration_is_labelled_and_dated_by_its_own_period(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """ADR 0062's rule, reached through the shared join: an inline document states no
+        fiscal period, so the span decides, and a year ending June 2022 is FY2022."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        revenue = next(fact for fact in facts if fact.concept == "revenue")
+        assert revenue.period_start == PERIOD_START
+        assert revenue.period_end == PERIOD_END
+        assert revenue.fiscal_period == "FY"
+        assert revenue.fiscal_year == 2022
+
+    async def test_an_instant_is_not_given_a_fiscal_period(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """A balance-sheet line is a fact about a moment. Labelling it FY would invent a
+        duration the document does not state."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        assets = next(fact for fact in facts if fact.concept == "assets")
+        assert assets.period_start is None
+        assert assets.fiscal_period is None
+        assert assets.fiscal_year is None
+
+    async def test_a_filer_extension_comes_back_carrying_its_own_tag(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """The protocol says unfiltered, and this is the case it is for: UK filers extend the
+        taxonomy routinely, and an adapter that dropped an extension here would leave no trace
+        of what it discarded — the confirmation gate would be asked about nothing."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(WITH_EXTENSION))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(WITH_EXTENSION))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        tag = EXTENSION_TAG.split(":", 1)[1]
+        invented = next(fact for fact in facts if fact.raw_concept == tag)
+        assert invented.concept == tag, "an unmapped tag is its own concept, as EDGAR's are"
+        assert invented.value == 91_204_000
+
+    async def test_the_depth_is_a_stated_number(
+        self, credentialled_fetcher, artefact_store, respx_mock, history: None
+    ) -> None:
+        """Because there is no aggregate, cost is linear in the number of filings opened —
+        so it is a number this adapter states rather than a function of the company's age."""
+        newer = respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        older = respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+        shallow = CompaniesHouseClient(credentialled_fetcher, store=artefact_store, depth=1)
+
+        await shallow.fetch_facts(ENTITY)
+
+        assert newer.called
+        assert not older.called, "the second filing is past the stated depth"
+
+    async def test_a_document_that_will_not_parse_costs_only_its_own_facts(
+        self, client, respx_mock, history: None
+    ) -> None:
+        """One bad year must not take the other three with it: the rest are already fetched
+        and hashed, and a UK history is exactly where that matters."""
+        respx_mock.get(NEWER_DOCUMENT).mock(return_value=_accounts(b"not a document at all"))
+        respx_mock.get(OLDER_DOCUMENT).mock(return_value=_accounts(CLEAN_IFRS))
+
+        facts = await client.fetch_facts(ENTITY)
+
+        assert facts, "the readable filing still yielded its figures"
+        assert {fact.accession for fact in facts} == {"MzA5ODc2NTQzMmFkaXF6a2N4"}
+
+    async def test_a_company_with_no_fetchable_accounts_yields_nothing(
+        self, client, respx_mock
+    ) -> None:
+        """Not an error. A company can be on the register with its accounts held only as
+        index entries, and an empty fact base is the honest answer to that."""
+        respx_mock.get(url__startswith=HISTORY_URL).mock(
+            return_value=httpx.Response(
+                200,
+                content=b'{"total_count": 0, "items": []}',
+                headers={"content-type": "application/json"},
+            )
+        )
+
+        assert await client.fetch_facts(ENTITY) == ()
+
+    def test_the_adapter_now_satisfies_the_protocol(self, client) -> None:
+        """It had two thirds of `SourceAdapter` and not the third, which is why `acquire`
+        could name only the SEC client."""
+        assert isinstance(client, SourceAdapter)
 
 
 class TestTheCredential:

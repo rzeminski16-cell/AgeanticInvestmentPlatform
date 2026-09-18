@@ -111,6 +111,27 @@ class TestWaiting:
         with pytest.raises(CircuitOpenError, match="saturated"):
             await limiter.acquire("slow", rate=0.01, burst=1, sleep=sleeper, max_wait_seconds=5.0)
 
+    async def test_a_caller_past_the_burst_keeps_making_progress(self, limiter, sleeper):
+        """The bucket must not starve on floating-point noise, and it did.
+
+        Sleeping for exactly the wait this bucket returns refills a hair *under* the cost —
+        0.5555… seconds at 1.8 per second gives 0.99999999999998 tokens — so the request was
+        refused again and told to wait 1.26e-14 seconds. The caller slept for nothing, the
+        clock barely moved, the refill computed the same figure, and the loop spun: against a
+        real clock a hot loop on Redis, against a test's clock for ever. Nothing had made
+        three requests to one provider inside one call until a UK fact fetch did.
+
+        Six calls at Companies House's own rate, which is the shape that found it.
+        """
+        rate, burst = 1.8, 2
+        waits = [
+            await limiter.acquire("uk", rate=rate, burst=burst, sleep=sleeper) for _ in range(6)
+        ]
+
+        assert waits[:burst] == [0.0, 0.0], "the burst is free"
+        for waited in waits[burst:]:
+            assert waited == pytest.approx(1 / rate, abs=1e-6), "then one token per interval"
+
     async def test_the_injected_sleeper_is_what_gets_called(self, limiter, clock):
         # If the real asyncio.sleep were used instead, this test would take a second and
         # the recorder would be empty. It takes neither.

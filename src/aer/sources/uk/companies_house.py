@@ -35,13 +35,16 @@ from urllib.parse import quote, urlencode
 import structlog
 
 from aer.core.enums import Provider, SourceTier
-from aer.errors import ValidationError
+from aer.core.schemas.facts import RawFact
+from aer.errors import AerError, ValidationError
+from aer.extract.ixbrl import extract_ixbrl
 from aer.fetch.client import FetchResult, SafeFetcher
-from aer.sources.base import DocumentRef, ResolvedEntity
+from aer.sources.base import DocumentRef, ResolvedEntity, raw_fact_from_ixbrl
 from aer.storage.protocol import ArtefactStore
 
 __all__ = [
     "ACCOUNTS_CATEGORIES",
+    "FACT_DEPTH",
     "CompaniesHouseClient",
     "CompanyProfile",
     "FilingHistory",
@@ -71,6 +74,13 @@ _NUMBER_LENGTH: Final = 8
 
 _SEARCH_LIMIT: Final = 20
 _HISTORY_LIMIT: Final = 100
+
+# How many accounts filings a fact fetch opens, newest first. On an annual filer that is four
+# years — enough for a growth series and a margin trend — and it is a **stated number** rather
+# than "everything", because Companies House publishes no aggregate: a UK fact base is one
+# fetch and one arelle parse per year of history, so its cost is linear in this and would
+# otherwise be a function of how long the company has existed. See ADR 0121.
+FACT_DEPTH: Final = 4
 
 
 def basic_auth_header(api_key: str) -> str:
@@ -332,9 +342,12 @@ class CompaniesHouseClient:
     provider: Final = Provider.COMPANIES_HOUSE
     source_tier: Final = SourceTier.T1_REGULATORY
 
-    def __init__(self, fetcher: SafeFetcher, *, store: ArtefactStore) -> None:
+    def __init__(
+        self, fetcher: SafeFetcher, *, store: ArtefactStore, depth: int = FACT_DEPTH
+    ) -> None:
         self._fetcher = fetcher
         self._store = store
+        self._depth = max(1, depth)
 
     async def fetch_profile(self, company_number: str) -> CompanyProfile:
         number = normalise_company_number(company_number)
@@ -442,6 +455,90 @@ class CompaniesHouseClient:
         wanted = [f for f in history.filings if f.is_fetchable and f.category in categories]
 
         return tuple(filing.to_ref(company_name=entity.name) for filing in wanted)
+
+    async def fetch_facts(self, entity: ResolvedEntity) -> tuple[RawFact, ...]:
+        """Every fact the company tagged, read out of its own accounts (ADR 0121).
+
+        **This is not the SEC shape with a different client behind it.** EDGAR publishes one
+        JSON document holding every figure a registrant ever tagged, and `acquire` is built
+        around that single fetch. Companies House publishes a filing history and, per filing,
+        a document; there is no aggregate. So a UK fact base is *n* fetches and *n* parses,
+        one per accounting period, and every fact is the output of this platform's own
+        extractor rather than of the registry's aggregation — which is why
+        :mod:`aer.calc.plausibility` matters more here than anywhere else: a parsing error is
+        a wrong number with a perfect audit trail.
+
+        **Unfiltered, as the protocol requires.** Unmapped tags come back carrying the tag as
+        their concept, exactly as the EDGAR parser returns them, so the confirmation gate sees
+        what a UK filer extended the taxonomy with instead of this adapter silently dropping
+        it. Two things are refused: a cross-tab cell, which no row could state, and a fact
+        identical to one already collected — a total tagged both in the primary statement and
+        in the note that analyses it is one observation stated twice.
+
+        **A figure two filings both state is two observations**, and deliberately so: each
+        names its own filing, and the platform's whole selection story is the latest filing's
+        word on a period with the rest recorded as superseded (ADR 0113). An adapter that
+        collapsed them would leave nothing to select between and would silently pick the
+        older restatement as often as the newer one.
+
+        A document that will not parse costs its own facts and not the fetch: the others are
+        already hashed and stored, and a UK company's history is exactly the case where one
+        bad year must not take the other three with it.
+        """
+        history = await self.fetch_filing_history(entity.identifier)
+        wanted = history.accounts()[: self._depth]
+        if not wanted:
+            _log.info(
+                "companies_house.no_accounts",
+                company_number=entity.identifier,
+                filings=len(history.filings),
+            )
+            return ()
+
+        facts: list[RawFact] = []
+        seen: set[RawFact] = set()
+        for filing in wanted:
+            for fact in await self._facts_in(filing, entity=entity):
+                if fact in seen:
+                    continue
+                seen.add(fact)
+                facts.append(fact)
+
+        _log.info(
+            "companies_house.facts_extracted",
+            company_number=entity.identifier,
+            documents=len(wanted),
+            facts=len(facts),
+        )
+        return tuple(facts)
+
+    async def _facts_in(
+        self, filing: FilingRecord, *, entity: ResolvedEntity
+    ) -> tuple[RawFact, ...]:
+        """One accounts document's facts, joined to the filing that carried them."""
+        ref = filing.to_ref(company_name=entity.name)
+        result = await self.fetch_document(ref)
+        try:
+            extraction = extract_ixbrl(await self._body(result))
+        except AerError as unreadable:
+            _log.warning(
+                "companies_house.document_unreadable",
+                company_number=entity.identifier,
+                transaction_id=filing.transaction_id,
+                reason=unreadable.message,
+            )
+            return ()
+
+        joined = (
+            raw_fact_from_ixbrl(
+                fact,
+                form=filing.category,
+                accession=filing.transaction_id,
+                filed_date=filing.filed_on,
+            )
+            for fact in extraction.facts
+        )
+        return tuple(fact for fact in joined if fact is not None)
 
     # -- Internals -------------------------------------------------------------------------
 

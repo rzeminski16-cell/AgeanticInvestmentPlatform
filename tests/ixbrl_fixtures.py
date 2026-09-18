@@ -28,6 +28,7 @@ __all__ = [
     "PERIOD_END",
     "PERIOD_START",
     "REMOTE_TAXONOMY_ONLY",
+    "REPEATED_FIGURE",
     "SEGMENT_AXIS",
     "SEGMENT_TRUTH",
     "TAXONOMY_URL",
@@ -130,6 +131,18 @@ CLEAN_IFRS_TRUTH: Final[dict[str, int]] = {
     "assets": 364_840_000,
     "cash_and_equivalents": 13_931_000,
 }
+
+
+# -- The same figure tagged twice, in the same context -------------------------------------------
+
+# Filers do this routinely: a total appears in the primary statement and again in the note that
+# analyses it, tagged both times. It is **one observation stated twice**, not two — and an
+# adapter that returned it twice would double every count resting on it.
+REPEATED_FIGURE: Final[bytes] = _document(f"""
+<p>Revenue for the year was {_fact("ifrs-full:Revenue", "198270")} thousand.</p>
+<p>Note 3. Revenue of {_fact("ifrs-full:Revenue", "198270")} thousand, analysed below.</p>
+<p>Operating profit was {_fact("ifrs-full:ProfitLossFromOperatingActivities", "83383")}.</p>
+""")
 
 
 # -- The same filing, with one element the filer invented ----------------------------------------
