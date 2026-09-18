@@ -193,13 +193,35 @@ class TestWhenThereIsNoRate:
         acquired = await acquire_risk_free(
             db_session,
             client,
+            currency="JPY",
+            as_of=AS_OF,
+            context=calculation_service.new_context(),
+        )
+
+        assert not acquired.acquired
+        assert "No risk-free series is documented for JPY" in acquired.reason
+        assert client.asked == []
+
+    async def test_a_sterling_run_is_told_which_rate_to_enter(
+        self, db_session: Any, clean: None
+    ) -> None:
+        """**The sentence the gate shows is the one the operator acts on.** Sterling's proxy
+        is settled — the ten-year gilt yield — and only its retrieval is closed (ADR 0026), so
+        the refusal names the instrument rather than leaving a valuation with a blank in it.
+        Nothing is asked of the macro client: there is no series for it to fetch."""
+        client = StubMacroClient({AS_OF: "4.36"})
+
+        acquired = await acquire_risk_free(
+            db_session,
+            client,
             currency="GBP",
             as_of=AS_OF,
             context=calculation_service.new_context(),
         )
 
         assert not acquired.acquired
-        assert "No risk-free series is documented for GBP" in acquired.reason
+        assert "ten-year gilt yield" in acquired.reason
+        assert "which date you took it from" in acquired.reason
         assert client.asked == []
 
     async def test_a_missing_key_is_the_clients_own_sentence(

@@ -87,3 +87,17 @@ set of paths rather than a publisher.
 
 Until one of those lands, a rate supplied by hand works exactly as a fetched one will: both
 are `FxRate` objects carrying a `SourceRef`.
+
+## What a sterling run is told — 18 September 2026
+
+`risk_free_series_for("GBP")` refuses, and the refusal now **names the rate the operator should
+enter** rather than stopping at "no series is documented". The two refusals are different
+instructions, and `SETTLED_BUT_UNFETCHABLE` in `aer/sources/macro/series.py` is what keeps them
+apart: a currency nobody has documented leaves an operator to work out what to use, whereas
+sterling's proxy is settled and only its retrieval is closed. So the sentence says which
+instrument, which maturity, whose publication, why this platform may not fetch it, and that the
+date has to come with the figure — after which it is the operator's own confirmed assumption,
+recorded as one.
+
+Nothing about the determination changed. The message did, because a refusal an operator cannot
+act on costs them the same time whether or not it is correct.

@@ -36,6 +36,7 @@ __all__ = [
     "MACRO_SERIES",
     "REFUSED_SERIES",
     "RISK_FREE_SERIES",
+    "SETTLED_BUT_UNFETCHABLE",
     "Frequency",
     "MacroSeries",
     "RefusedSeries",
@@ -384,8 +385,26 @@ RISK_FREE_SERIES: Final[dict[str, str]] = {
     # No GBP entry, and the reason is now settled rather than pending. The UK risk-free proxy
     # is the ten-year gilt yield, published by the Bank of England — whose `robots.txt`
     # disallows the very CSV handler the Bank documents for programmatic downloads. See ADR
-    # 0026's Resolution. A missing key here produces a refusal naming that, which is better
-    # than silently discounting a sterling valuation at a US Treasury yield.
+    # 0026's Resolution and `SETTLED_BUT_UNFETCHABLE` below.
+}
+
+# Currencies whose risk-free proxy is settled and whose published series this platform may not
+# retrieve.
+#
+# **Kept apart from the map above because the two refusals are different instructions.** "No
+# series is documented for this currency" tells an operator the platform does not know what to
+# use, and leaves them to work it out. This one says the platform knows exactly what to use,
+# cannot fetch it, and names what to type in — which is the difference between a dead end and a
+# question with an answer. The operator's figure is then their assumption, recorded and
+# confirmed as one (ADR 0124's shape), rather than a number nobody can trace.
+SETTLED_BUT_UNFETCHABLE: Final[dict[str, str]] = {
+    "GBP": (
+        "The UK risk-free proxy is the ten-year gilt yield, published by the Bank of England, "
+        "and this platform may not retrieve it: the Bank documents a CSV route for programmatic "
+        "use and disallows that same route in its robots.txt, and this platform does not "
+        "disguise what it is to get round a publisher's stated terms (ADR 0026). Enter the "
+        "ten-year gilt yield yourself and say which date you took it from."
+    ),
 }
 
 
@@ -393,13 +412,15 @@ def risk_free_series_for(currency: str) -> MacroSeries:
     """The series this platform uses as the risk-free rate for a currency.
 
     Raises:
-        SeriesRefusedError: If no series is documented for the currency. Refused rather than
+        SeriesRefusedError: If no series is retrievable for the currency. Refused rather than
             defaulted: a sterling valuation discounted at a US Treasury yield is wrong by the
-            whole of the rate differential and looks entirely ordinary.
+            whole of the rate differential and looks entirely ordinary. The message says which
+            of the two refusals it is, because they lead an operator to do different things.
     """
     key = RISK_FREE_SERIES.get(currency.upper())
     if key is None:
-        message = (
+        settled = SETTLED_BUT_UNFETCHABLE.get(currency.upper())
+        message = settled or (
             f"No risk-free series is documented for {currency.upper()}. This platform "
             "retrieves one for "
             f"{', '.join(sorted(RISK_FREE_SERIES))} only. Substituting another currency's "

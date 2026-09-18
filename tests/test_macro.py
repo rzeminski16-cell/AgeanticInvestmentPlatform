@@ -106,11 +106,36 @@ class TestTheRiskFreeRateIsADocumentedChoice:
     def test_a_currency_with_no_documented_series_is_refused(self):
         """Refused rather than defaulted: substituting is wrong by the rate differential."""
         with pytest.raises(SeriesRefusedError, match="rate differential"):
-            risk_free_series_for("GBP")
+            risk_free_series_for("JPY")
 
     def test_the_gbp_gap_is_the_bank_of_england_one(self):
         """Pinned so that closing ADR 0026 is what adds it, rather than a passing edit."""
         assert "GBP" not in RISK_FREE_SERIES
+
+    def test_sterling_is_refused_by_naming_the_rate_the_operator_should_enter(self):
+        """**The two refusals are different instructions.** A currency nobody has documented
+        leaves an operator to work out what to use; sterling's proxy is settled and only the
+        retrieval is closed, so the refusal says which instrument, which maturity, whose
+        publication, and that the date has to come with it."""
+        with pytest.raises(SeriesRefusedError) as refused:
+            risk_free_series_for("GBP")
+
+        message = refused.value.message
+        assert "ten-year gilt yield" in message
+        assert "Bank of England" in message
+        assert "which date you took it from" in message
+        # Not the other refusal: an operator told this platform "retrieves one for USD only"
+        # learns nothing they can act on.
+        assert "rate differential" not in message
+
+    def test_the_refusal_says_why_it_may_not_be_fetched_rather_than_that_it_cannot(self):
+        """ADR 0026 is a decision about a publisher's terms, not a missing adapter. A message
+        that read "could not be fetched" would invite somebody to fix the fetching."""
+        with pytest.raises(SeriesRefusedError) as refused:
+            risk_free_series_for("GBP")
+
+        assert "robots.txt" in refused.value.message
+        assert "does not disguise" in refused.value.message
 
 
 class TestTheArchiveParametersAreNotOptional:

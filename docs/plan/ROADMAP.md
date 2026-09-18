@@ -972,7 +972,13 @@ Four things are genuinely missing, and only the second is large:
 4. No GBP risk-free series: `risk_free_series_for` refuses rather than defaulting, because the
    Bank of England's `robots.txt` disallows the CSV handler it documents (ADR 0026's
    Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is
-   commercial check 6 below.
+   commercial check 6 below. **Closed 18 September 2026**, and the working part was already
+   built: the refusal becomes the assumption gate's own prompt, so the operator enters the rate
+   and it is recorded as theirs. What was missing was the sentence — *no risk-free series is
+   documented for GBP* tells nobody what to do. It now names the ten-year gilt yield, its
+   publisher, why this platform may not fetch it, and that the date must come with the figure.
+   Two refusals, kept apart in `SETTLED_BUT_UNFETCHABLE`, because "the platform does not know
+   what to use here" and "it knows exactly and cannot fetch it" lead to different actions.
 
 **The phase's stated exit is not reachable, and is restated here — 18 September 2026.** It read
 *a domestic London filer reaches an approved, rendered report with every figure traced to its
