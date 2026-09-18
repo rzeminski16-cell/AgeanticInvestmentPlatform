@@ -329,6 +329,12 @@ needed for the identifier** — only `sic_scheme` is new.
 to its own accounts documents; a UK bank fires the sector gate; a sterling valuation carries a
 sourced gilt yield or refuses.
 
+> **Corrected 18 September 2026 — the first clause is unreachable.** It needs a domestic London
+> filer that publishes tagged accounts, and nine sampled across the FTSE 100, 250 and AIM publish
+> none (ROADMAP §3.19 items 21 and 25). 4a.1 landed and 4a.2 and 4a.3 landed with their premises
+> corrected; the restated exit — a tagged UK filer researched end to end, an untagged one refused
+> at the door with its reason (ADR 0128) — is in `ROADMAP.md` §3.17, which is the authority.
+
 **Risk, stated:** this is the first subject whose facts the platform extracted itself. A parsing
 error here is a wrong number with a perfect audit trail — which is the failure `plausibility.py`
 was written for after the last one. It gets the hardest tests in the plan.

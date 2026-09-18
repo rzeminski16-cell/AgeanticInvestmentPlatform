@@ -44,6 +44,7 @@ from aer.core.sectors import (
     built_model_of,
     mandate_for,
     model_for,
+    principal_sic,
     profile_for,
     suggested_profiles,
     unclassified_mandate,
@@ -553,6 +554,36 @@ class TestTheSchemeDecidesWhatACodeMeans:
         assert constructed.prefixes_for(SicScheme.US_SIC) == ("11",)
         assert constructed.prefixes_for(SicScheme.UK_SIC_2007) == ("22",)
         assert suggested_profiles("22", profiles=(constructed,)) == ()
+
+
+class TestWhichOfSeveralDeclaredCodesIsKept:
+    """Companies House lets a company declare up to four, and a company row holds one.
+
+    So something chooses, and choosing by position would make the classification a function
+    of the order the register happened to return.
+    """
+
+    def test_the_code_that_blocks_a_model_wins_over_the_one_listed_first(self):
+        """Firing the sector gate asks a person, who may refuse. Not firing takes the
+        standard model in silence, and ADR 0029's posture is that the permissive state is
+        reached by deciding."""
+        # 62012 is software development; 64191 is a bank. A bank declaring both must not
+        # reach the standard model because the register listed the software code first.
+        assert principal_sic(("62012", "64191"), scheme=SicScheme.UK_SIC_2007) == "64191"
+
+    def test_where_nothing_blocks_the_registers_own_first_answer_is_kept(self):
+        """They are then all equally ordinary, and first is the register's answer rather
+        than this platform's opinion of it."""
+        assert principal_sic(("62012", "70100"), scheme=SicScheme.UK_SIC_2007) == "62012"
+
+    def test_the_scheme_decides_here_too(self):
+        """`6419` is a bank on the UK register. Read as a US code it reaches no profile, so
+        the first declared is kept — which is the misclassification, not a near miss."""
+        assert principal_sic(("62012", "64191"), scheme=SicScheme.US_SIC) == "62012"
+
+    def test_blanks_are_skipped_and_no_codes_at_all_is_no_classification(self):
+        assert principal_sic((" ", "62012"), scheme=SicScheme.UK_SIC_2007) == "62012"
+        assert principal_sic(()) == ""
 
 
 # -- The profiles themselves -----------------------------------------------------------------

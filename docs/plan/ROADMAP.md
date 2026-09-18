@@ -944,6 +944,14 @@ that constraint fails. It does not.
 Four things are genuinely missing, and only the second is large:
 
 1. `acquire` names `sec_client` directly rather than dispatching on the resolved registry.
+   **Landed 18 September 2026.** Both `acquire` and `extract` split on `registry_of(exchange)`:
+   a London listing resolves at Companies House, is classified from the profile's UK SIC 2007
+   codes, and has its accounts parsed one per accounting period; a US listing is unchanged.
+   `research_requests.register` records which register answered. The pre-run check (ADR 0128)
+   is why this had to land rather than being dropped with the rest of the phase: the check
+   asks Companies House whether a UK subject's accounts are tagged and admits the run when
+   they are, so a run admitted on that answer and then resolved against EDGAR would be
+   precisely the defect the check exists to prevent.
 2. **`CompaniesHouseClient` has no `fetch_facts`, because Companies House publishes no
    companyfacts equivalent.** A UK filer's numbers exist only inside its accounts, as inline
    XBRL, one period at a time — so a UK acquisition is *n* fetches and *n* parses, and every UK
@@ -965,6 +973,25 @@ Four things are genuinely missing, and only the second is large:
    Bank of England's `robots.txt` disallows the CSV handler it documents (ADR 0026's
    Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is
    commercial check 6 below.
+
+**The phase's stated exit is not reachable, and is restated here — 18 September 2026.** It read
+*a domestic London filer reaches an approved, rendered report with every figure traced to its
+own accounts documents*, and it needs a domestic London filer that publishes tagged accounts.
+Nine sampled across the FTSE 100, 250 and AIM publish none (item 25), so the exit as written is
+a statement about the London market rather than about this platform, and no amount of code
+reaches it. What the phase can be held to instead, and is:
+
+- **A UK subject that files tagged accounts is researched end to end**, its figures parsed from
+  its own filings, each traced to the filing that stated it. Small UK companies filing through
+  accounting software do publish inline XBRL — four were confirmed on 18 September 2026 — so
+  this is a real subject rather than a fixture.
+- **A UK subject that does not is refused at the door**, by name and with the reason, before a
+  planning call is spent (ADR 0128).
+- **A UK bank fires the sector gate**, because the scheme travels with the code (item 3 above).
+- **A sterling valuation carries a sourced gilt yield or refuses** (item 4 above).
+
+The two halves together are the honest form of "a London listing can be researched": the
+platform either does it properly or says why it cannot, and never produces a report on a scan.
 
 **3.18 The knowledge map learns what you decided.** The knowledge layer is built and
 `../archive/knowledge-graph.md` says so in its own words — seven node kinds, six edge kinds, an
@@ -1324,6 +1351,19 @@ found rather than as scope that was always there.
     building was not a fourth source but an honest answer at the door. Also the class of my
     own error — recommending the ESEF route before measuring it, which is the same mistake
     this list keeps recording about the plans.
+26. **A UK figure is stated scaled, so the aggregate path's fact locator can never match it,
+    18 September 2026.** The extract step records, beside each persisted figure, an excerpt
+    located at that figure in the document it came from — which is what lets a numeric claim
+    carry a citation the verifier re-reads. It was written for EDGAR's aggregate, where the
+    value appears in the JSON verbatim. An inline accounts document presents its figures
+    scaled: `198270` in the prose, tagged with a scale of three, stored as 198,270,000. A
+    search of the extracted text for the stored value therefore finds nothing on **every** UK
+    filing, by construction rather than by luck. The UK path records no fact-level excerpt
+    and says why; what a claim cites there is the paragraph, already recorded when the
+    document was acquired, which contains the figure as the company printed it. **The class**
+    is a mechanism ported to a second source on the assumption that it means the same thing
+    there — the same class as item 24, and the reason the test that found it asserts the
+    presented figure is in the text and the stored one is not.
 
 ### Before this leaves one machine
 

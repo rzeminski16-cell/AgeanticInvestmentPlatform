@@ -34,6 +34,7 @@ __all__ = [
     "TAXONOMY_URL",
     "WITH_EXTENSION",
     "WITH_SEGMENTS",
+    "accounts_stating",
 ]
 
 PERIOD_START: Final = date(2021, 7, 1)
@@ -61,7 +62,7 @@ _NAMESPACES: Final = """xmlns="http://www.w3.org/1999/xhtml"
       xmlns:acme="http://www.acme-holdings.test/xbrl/2022\""""
 
 
-def _header() -> str:
+def _header(start: date = PERIOD_START, end: date = PERIOD_END) -> str:
     return f"""<div style="display:none">
 <ix:header>
   <ix:references>
@@ -73,15 +74,15 @@ def _header() -> str:
         <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">{COMPANY_NUMBER}</xbrli:identifier>
       </xbrli:entity>
       <xbrli:period>
-        <xbrli:startDate>{PERIOD_START.isoformat()}</xbrli:startDate>
-        <xbrli:endDate>{PERIOD_END.isoformat()}</xbrli:endDate>
+        <xbrli:startDate>{start.isoformat()}</xbrli:startDate>
+        <xbrli:endDate>{end.isoformat()}</xbrli:endDate>
       </xbrli:period>
     </xbrli:context>
     <xbrli:context id="I2022">
       <xbrli:entity>
         <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">{COMPANY_NUMBER}</xbrli:identifier>
       </xbrli:entity>
-      <xbrli:period><xbrli:instant>{PERIOD_END.isoformat()}</xbrli:instant></xbrli:period>
+      <xbrli:period><xbrli:instant>{end.isoformat()}</xbrli:instant></xbrli:period>
     </xbrli:context>
     <xbrli:unit id="GBP"><xbrli:measure>iso4217:GBP</xbrli:measure></xbrli:unit>
   </ix:resources>
@@ -97,14 +98,33 @@ def _fact(tag: str, value: str, context: str = "D2022", *, scale: str = "3") -> 
     )
 
 
-def _document(body: str) -> bytes:
+def _document(body: str, *, start: date = PERIOD_START, end: date = PERIOD_END) -> bytes:
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <html {_NAMESPACES}>
-<head><title>Acme Holdings plc — Annual Report 2022</title></head>
+<head><title>Acme Holdings plc — Annual Report {end.year}</title></head>
 <body>
-{_header()}
+{_header(start, end)}
 {body}
 </body></html>""".encode()
+
+
+def accounts_stating(
+    revenue: str, *, period_start: date = PERIOD_START, period_end: date = PERIOD_END
+) -> bytes:
+    """One year's accounts stating one revenue figure, in thousands.
+
+    For what the constants above cannot express: **two filings whose words on one period
+    differ**. Every UK company's accounts restate the year before, so a run reading four
+    filings meets the same period four times — which is the case ADR 0113's selection
+    arbitrates, and the reason it has to be exercised over more than one document.
+    """
+    return _document(
+        f"<p>Revenue for the year was {_fact('ifrs-full:Revenue', revenue)} thousand, "
+        "which the directors regard as a satisfactory outcome in the circumstances "
+        "described in the strategic report set out on the preceding pages.</p>",
+        start=period_start,
+        end=period_end,
+    )
 
 
 # -- A filing whose every tag is from a shared taxonomy -----------------------------------------

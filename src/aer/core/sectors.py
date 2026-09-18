@@ -32,6 +32,7 @@ Pure: no I/O, no database. ``mypy --strict``.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
@@ -51,6 +52,7 @@ __all__ = [
     "built_model_of",
     "mandate_for",
     "model_for",
+    "principal_sic",
     "profile_for",
     "suggested_profiles",
     "unclassified_mandate",
@@ -730,3 +732,41 @@ def suggested_profiles(
     for _, profile in sorted(matched, key=lambda pair: -pair[0]):
         seen.setdefault(profile.key, profile)
     return tuple(seen.values())
+
+
+def principal_sic(
+    codes: Sequence[str],
+    *,
+    scheme: SicScheme = SicScheme.US_SIC,
+    profiles: tuple[SectorProfile, ...] = SECTOR_PROFILES,
+) -> str:
+    """Which of several declared codes the company row carries.
+
+    Companies House lets a company declare up to four, and ranks none of them; a company row
+    holds one. So something has to choose, and choosing by position alone would make the
+    classification a function of the order the register happened to return.
+
+    **The code that asks a person wins.** Where one of them reaches a profile that blocks a
+    valuation model, that is the one kept — because firing the sector gate puts a proposal
+    in front of the operator, who may refuse it, while not firing takes the standard model
+    in silence. ADR 0029's posture is that the permissive state is reached by deciding, and
+    a bank that also declares a property-holding code must not be able to reach it by
+    accident. Where no code blocks anything, the register's first is kept: they are then all
+    equally ordinary, and the first is the register's own answer rather than this platform's.
+
+    Blank codes are skipped; no codes at all is ``""``, which is what an unclassified
+    company row already holds.
+    """
+    declared = [code.strip() for code in codes if code.strip()]
+    blocking = next(
+        (
+            code
+            for code in declared
+            for profile in suggested_profiles(code, scheme=scheme, profiles=profiles)
+            if profile.blocked_models
+        ),
+        None,
+    )
+    if blocking is not None:
+        return blocking
+    return declared[0] if declared else ""

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -64,14 +65,17 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.facts import RawFact
 from aer.core.sectors import (
     ModelNotPermittedError,
+    SicScheme,
     ValuationMandate,
     ValuationModel,
     mandate_for,
     model_for,
+    principal_sic,
     profile_for,
     unclassified_mandate,
 )
 from aer.core.skill_guidance import OperatorGuidance, roles_for
+from aer.core.universe import registry_of
 from aer.db.models import (
     Approval,
     Assumption,
@@ -95,7 +99,7 @@ from aer.db.models.revision_note import DISPOSITION_REVISED as REVISION_DISPOSIT
 from aer.db.models.revision_note import DISPOSITION_STOOD as REVISION_DISPOSITION_STOOD
 from aer.db.models.revision_note import SCOPE_PLAN as REVISION_SCOPE_PLAN
 from aer.db.models.section_definition import BUILTIN, SKILL
-from aer.errors import AerError, BudgetExceededError, ValidationError
+from aer.errors import AerError, BudgetExceededError, ExternalServiceError, ValidationError
 from aer.extract import extract_bytes
 from aer.providers.protocol import SpentButUnusableError
 from aer.render.document import assemble_document
@@ -109,6 +113,7 @@ from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import reports as reports_service
 from aer.services import requests as request_service
+from aer.services.accounts import read_accounts
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.analysis import analyse_company, annual_facts
 from aer.services.artefacts import store_artefact
@@ -141,7 +146,7 @@ from aer.services.facts import (
     retag_for_sector,
     upsert_company,
 )
-from aer.services.filings import acquire_filings
+from aer.services.filings import acquire_accounts, acquire_filings
 from aer.services.history import prior_digest_for
 from aer.services.macro_acquisition import RiskFreeAcquisition, acquire_risk_free
 from aer.services.mandate import mandate_of
@@ -159,7 +164,7 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
-from aer.services.segments import sweep_segment_facts
+from aer.services.segments import SegmentSweep, sweep_segment_facts
 from aer.services.subject import subject_name
 from aer.services.themes import (
     THEME_STEP,
@@ -2355,6 +2360,25 @@ async def _require_approval(
 
 
 async def _acquire(context: StepContext) -> StepResult:
+    """Fetch the subject's evidence from the register its venue names (ADR 0121).
+
+    **The venue decides the register, and the register decides everything after it.** A
+    London listing is not on EDGAR and a New York one is not at Companies House, so this
+    step has two bodies rather than one body with a client swapped underneath it: the two
+    registers publish different things, and the second half of this module says how.
+
+    The check at the front of a run (ADR 0128) asks the same question of the same register
+    before the job exists. A dispatch that disagreed with it would be the defect that check
+    was built to prevent — a run admitted against one register and then researched against
+    another.
+    """
+    request = await _request_for(context)
+    if registry_of(request.exchange) is Provider.COMPANIES_HOUSE:
+        return await _acquire_from_companies_house(context, request)
+    return await _acquire_from_edgar(context, request)
+
+
+async def _acquire_from_edgar(context: StepContext, request: ResearchRequest) -> StepResult:
     """Fetch the company's facts and its filings from EDGAR, and record the provenance.
 
     **It used to fetch one document, and that was the whole of the run's evidence.** The
@@ -2367,7 +2391,6 @@ async def _acquire(context: StepContext) -> StepResult:
     So the annual report and the recent current reports come too, dated by the day EDGAR
     accepted them and excerpted so they can be cited. See :mod:`aer.services.filings`.
     """
-    request = await _request_for(context)
     client = context.service("sec_client")
     store = context.service("store")
 
@@ -2390,6 +2413,7 @@ async def _acquire(context: StepContext) -> StepResult:
     # matching tickers back to strings.
     request.resolved = True
     request.company_id = company.id
+    request.register = Provider.SEC_EDGAR
     await context.session.flush()
 
     response = await client.fetch_company_facts(entity.identifier)
@@ -2431,6 +2455,7 @@ async def _acquire(context: StepContext) -> StepResult:
     return StepResult(
         output={
             "company_id": str(company.id),
+            "register": Provider.SEC_EDGAR.value,
             "cik": entity.identifier,
             # The aggregate, named on its own because `extract` reads it by hash to build
             # the fact set. The filings below are prose, and are read by the workers and
@@ -2439,6 +2464,87 @@ async def _acquire(context: StepContext) -> StepResult:
             "artefact_sha256": acquisition.sha256,
             "quarantined": acquisition.quarantined,
             **filings.as_dict(),
+        }
+    )
+
+
+async def _acquire_from_companies_house(
+    context: StepContext, request: ResearchRequest
+) -> StepResult:
+    """A UK company's own accounts, from the register that holds them (ADR 0121).
+
+    **There is no aggregate, and that is the whole of the difference.** EDGAR publishes one
+    document carrying every figure a registrant ever tagged, so the step above fetches it,
+    names it, and `extract` parses that one artefact. Companies House publishes a filing
+    history and, behind each entry, the accounts themselves — so a UK fact base is one fetch
+    and one parse per accounting period, and this step names no single document because
+    there is none to name. `extract` reads the filings this brings back, by hash.
+
+    **The profile is where a UK company says what it does.** The register's search results
+    carry no classification and its filing history carries no classification; only the
+    company profile does, in UK SIC 2007, along with the accounting reference date that
+    dates every period the accounts state. One request, and without it the sector gate could
+    not fire on a London-listed bank.
+
+    Nothing here is reachable without a Companies House credential, and the check at the
+    front of the run refuses a UK subject that has none (ADR 0128). The guard below is for
+    the caller that bypassed the check, and it names the credential rather than failing four
+    requests later at a 401.
+    """
+    client = context.optional_service("companies_house_client")
+    if client is None:
+        message = (
+            "This platform has no Companies House credential configured, so a company on "
+            "the UK register cannot be looked up."
+        )
+        raise ExternalServiceError(message, provider=Provider.COMPANIES_HOUSE.value)
+
+    store = context.service("store")
+
+    # The company's own name, not its ticker. `TSCO` is Tesco's symbol and no part of
+    # `TESCO PLC`; Companies House registers companies and knows nothing about listings, so
+    # a search for the symbol finds the company by luck or not at all.
+    entity = await client.resolve_entity(
+        request.ticker, exchange=request.exchange, name=request.company_name
+    )
+    profile = await client.fetch_profile(entity.identifier)
+
+    company = await upsert_company(
+        context.session,
+        entity=entity,
+        ticker=request.ticker,
+        exchange=request.exchange,
+        # The scheme travels with the code and is never assumed from the column default:
+        # `631` is fire and marine insurance on the US register and data processing on this
+        # one, and a UK code left labelled as a US one classifies the wrong industry.
+        sic=principal_sic(profile.sic_codes, scheme=SicScheme.UK_SIC_2007),
+        sic_scheme=SicScheme.UK_SIC_2007,
+        register=Provider.COMPANIES_HOUSE,
+        fiscal_year_end=profile.fiscal_year_end,
+    )
+
+    request.resolved = True
+    request.company_id = company.id
+    request.register = Provider.COMPANIES_HOUSE
+    await context.session.flush()
+
+    accounts = await acquire_accounts(
+        context.session,
+        store,
+        client=client,
+        request=request,
+        entity=entity,
+        company=company,
+        settings=context.service("settings"),
+        job_id=context.job.id,
+    )
+
+    return StepResult(
+        output={
+            "company_id": str(company.id),
+            "register": Provider.COMPANIES_HOUSE.value,
+            "company_number": entity.identifier,
+            **accounts.as_dict(),
         }
     )
 
@@ -2924,18 +3030,33 @@ async def _filed_share_count(context: StepContext, *, company_id: uuid.UUID) -> 
 
 
 async def _extract(context: StepContext) -> StepResult:
-    """Parse the archived document and persist each period's latest-filed facts.
+    """Parse the archived documents and persist each period's latest-filed facts.
 
-    Parsed from the **artefact**, not from a response held in memory. The artefact is the
+    Parsed from the **artefacts**, not from a response held in memory. The artefact is the
     authoritative copy, and if the two could differ then the facts and the evidence a
     citation verifies against would be different documents.
+
+    **The register the acquire step used decides what there is to parse.** EDGAR's
+    aggregate is one document holding every figure a registrant ever tagged; a UK company's
+    figures are inside the accounts filings themselves, one parse each. Both halves end in
+    the same place — retagged, selected latest-filing-first, persisted against the document
+    that stated them — because that is the platform's answer to which number is the number,
+    and it must not have two.
+    """
+    acquired = context.output_of("acquire")
+    if acquired.get("register") == Provider.COMPANIES_HOUSE.value:
+        return await _extract_from_accounts(context, acquired)
+    return await _extract_from_aggregate(context, acquired)
+
+
+async def _extract_from_aggregate(context: StepContext, acquired: Mapping[str, Any]) -> StepResult:
+    """The US path: one companyfacts document, and the annual report swept for segments.
 
     **The confirmed sector decides what some tags mean** (ADR 0114). It is confirmed by
     now: the classification gate is four steps back, which is what makes it safe to write
     a bank's top line here rather than at each of the six places that read one.
     """
     request = await _request_for(context)
-    acquired = context.output_of("acquire")
     store = context.service("store")
 
     payload = await store.read(acquired["artefact_sha256"])
@@ -3040,6 +3161,125 @@ async def _extract(context: StepContext) -> StepResult:
     }
     # The hash of exactly what the gate will display, on the same terms as the plan gate: an
     # approval recorded against a different set of tags is not an approval of this one.
+    output["payload_hash"] = sha256_hex(canonical_json(unmapped_gate_payload(output)))
+    return StepResult(output=output)
+
+
+async def _extract_from_accounts(context: StepContext, acquired: Mapping[str, Any]) -> StepResult:
+    """The UK path: the accounts filings themselves, parsed one per accounting period.
+
+    **Every figure here is the output of this platform's own extractor**, where a US run's
+    figures are EDGAR's aggregation of the same filings. That is the difference worth
+    stating: there is no second party between the document and the number, so a parsing
+    error would be a wrong figure with a perfect audit trail — which is why
+    :mod:`aer.calc.plausibility` matters more on this path than on any other.
+
+    **A figure two filings both state is two observations**, and ADR 0113's selection is
+    what decides between them: the latest filing's word on a period, with the rest recorded
+    as superseded. It is the same selection the aggregate goes through, over facts that
+    arrived from four documents instead of one — which is the whole reason the facts are
+    selected here rather than per document.
+
+    Each chosen fact is persisted against the filing that stated it, never against the
+    newest: a fact whose provenance named a document that does not contain it would be
+    untraceable in the one direction that matters.
+
+    **No fact-level excerpt is recorded here, and that is measured rather than omitted.**
+    The aggregate path locates each persisted value in the JSON it came from, because an
+    aggregate has no prose and a numeric claim would otherwise have nothing to cite. An
+    inline document is the opposite case twice over: it was already excerpted as prose when
+    it was acquired, and its figures are *presented scaled* — `198270` in the text, tagged
+    with a scale of three, stored as 198,270,000 — so a search of the extracted text for the
+    stored value finds nothing, on every filing, by construction. A locator that could never
+    match is not provenance; the paragraphs are, and they contain the figure as the company
+    printed it.
+    """
+    request = await _request_for(context)
+    store = context.service("store")
+
+    company = await context.session.get(Company, _uuid(acquired["company_id"]))
+    if company is None:  # pragma: no cover -- written by the prior step
+        message = "The acquire step's company row is missing."
+        raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
+
+    read = await read_accounts(context.session, store, filings=list(acquired.get("filings", [])))
+
+    profile, _confirmed_by = await confirmed_classification(context.session, context.job)
+    selection = select_latest(retag_for_sector(read.facts, profile=profile))
+
+    # Which document stated each chosen figure. Grouped by the filing's own identifier
+    # rather than by position, because selection reorders and a run reads four years.
+    by_accession: dict[str, list[RawFact]] = defaultdict(list)
+    for fact in selection.chosen:
+        by_accession[fact.accession].append(fact)
+
+    written = 0
+    segment_written = 0
+    for parsed in read.documents:
+        written += await persist_facts(
+            context.session,
+            company=company,
+            source_document=parsed.document,
+            facts=by_accession.get(parsed.accession, []),
+            basis=FactBasis.AS_REPORTED,
+        )
+        segment_written += await persist_facts(
+            context.session,
+            company=company,
+            source_document=parsed.document,
+            facts=list(parsed.segment_facts),
+        )
+
+    derived = await derive_sector_revenue(
+        context.session,
+        company=company,
+        profile=profile,
+        code_version=git_sha() or "unknown",
+    )
+
+    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in read.unmapped if not c.is_refused}))
+    refused = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in read.unmapped if c.is_refused}))
+    # Reported through the sweep's own type, so both registers say the same thing about
+    # segments in the same keys. Its `notes` stay empty and the reading failures go in a key
+    # of their own below: a document that would not parse cost this run every figure in it,
+    # not only its breakdown, and filing that under a segment heading would understate it.
+    segments = SegmentSweep(
+        facts_written=segment_written,
+        facts_seen=sum(parsed.dimensioned_seen for parsed in read.documents),
+        unmapped_tags=sum(parsed.segment_unmapped for parsed in read.documents),
+    )
+
+    output: dict[str, Any] = {
+        "facts_written": written,
+        # Nothing to count: the docstring says why this path records none, and a zero
+        # stated here reads the same as a zero from a locator that failed.
+        "fact_extractions": 0,
+        "facts_chosen": len(selection.chosen),
+        "facts_rejected": len(selection.rejected),
+        "exchange": request.exchange,
+        "unmapped_tags": list(unmapped),
+        "unmapped_concepts": _unmapped_rows(
+            [concept for concept in read.unmapped if not concept.is_refused],
+            chosen=selection.chosen,
+        ),
+        "refused_tags": list(refused),
+        "refused_concepts": _unmapped_rows(
+            [concept for concept in read.unmapped if concept.is_refused],
+            chosen=selection.chosen,
+        ),
+        "mapped_concepts": _mapped_rows(selection.chosen),
+        "reference_concept": _reference_concept(selection.chosen) or "",
+        # What arelle said while loading. The aggregate path leaves this empty because JSON
+        # either parses or does not; a filing can fail validation and still state figures,
+        # and the person deciding whether to trust them should see the complaints.
+        "load_errors": list(read.load_errors),
+        # Which accounting periods this run has nothing from, and why. A UK company's
+        # history is exactly the case where one bad year must not take the other three with
+        # it, so an unreadable filing is recorded here and the rest continue.
+        "accounts_notes": list(read.notes),
+        **segments.as_dict(),
+        **derived.as_dict(),
+    }
     output["payload_hash"] = sha256_hex(canonical_json(unmapped_gate_payload(output)))
     return StepResult(output=output)
 

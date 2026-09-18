@@ -644,6 +644,14 @@ traced to its own accounts documents; a UK bank fires the sector gate; a sterlin
 either carries a sourced gilt yield or refuses; and the offline test that proved the refusal is
 inverted to prove the resolution.
 
+> **Corrected 18 September 2026.** The first clause is not reachable and was never about this
+> platform: nine London-listed companies sampled across the FTSE 100, 250 and AIM file their
+> accounts as scanned PDFs, and none publishes inline XBRL (ROADMAP §3.19 items 21 and 25). The
+> subject the platform can research end to end is a UK company that *does* file tagged accounts
+> — small companies filing through accounting software do — and what it owes a London listing is
+> a refusal at the door, by name and with the reason, before a planning call is spent (ADR 0128).
+> The restated exit is in `ROADMAP.md` §3.17, which is the authority.
+
 **What it does not do.** No 10-Q and no 8-K stream exists for a UK filer, so a UK report is
 quieter on recent developments than a US one, and says so. UK peers cost a full acquisition
 each, so comparable multiples stay deferred.

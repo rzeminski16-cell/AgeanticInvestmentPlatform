@@ -302,3 +302,42 @@ None of it assumes the documents are tagged.
 The dispatch in `acquire` was **held** while the questions above were open, so that a UK run
 refused at the request form rather than failing three layers down on a redirect. With both
 answered it is no longer blocked, and it lands with the ESEF route it now has to reach for.
+
+### 5. The dispatch, and why it landed without the ESEF route — 18 September 2026
+
+The ESEF route did not survive being probed either (ROADMAP §3.19 item 25), and what replaced
+it is **ADR 0128**: a run that cannot succeed does not start. That check asks Companies House,
+before the job exists, whether a UK subject's newest accounts are tagged, and admits the run
+when they are.
+
+Which is exactly why the dispatch could not stay held. The check's own rule is that it asks the
+question the run will ask; a run admitted against Companies House and then resolved against
+EDGAR would be the defect the check was built to prevent. So `acquire` and `extract` both split
+on `registry_of(exchange)`:
+
+- **`acquire`** resolves a UK subject at Companies House, reads its profile for the UK SIC 2007
+  codes and the accounting reference date, writes `register = companies_house` on the request,
+  and calls `acquire_accounts`. The US half is unchanged but now states its own register.
+- **`extract`** parses each stored accounts document once (`aer.services.accounts`), splits what
+  it finds into the consolidated figures and the single-axis dimensioned ones, and puts the
+  first through the same retagging and latest-filing selection the aggregate goes through. Each
+  chosen figure is persisted against the filing that stated it.
+- **Which of several declared SIC codes is kept** is decided rather than taken by position:
+  Companies House allows four and ranks none, so `principal_sic` prefers a code that reaches a
+  profile blocking a valuation model. Firing the sector gate asks a person; not firing takes
+  the standard model in silence, and ADR 0029's posture is that the permissive state is reached
+  by deciding.
+
+**Two of this record's assumptions did not hold and are corrected by the code.** §2's premise —
+that `fetch_facts` is where a listed company's numbers come from — was already superseded above;
+the workflow does not call it, because the accounts are fetched once by `acquire_accounts` and
+parsed from the artefact rather than fetched a second time. And the fact-level excerpt the US
+path records cannot exist here: an inline document presents its figures scaled, so a search of
+the extracted text for the stored value matches nothing on every UK filing (ROADMAP §3.19 item
+26). The document's own paragraphs, recorded at acquisition, are what a UK numeric claim cites.
+
+**What this does not make true.** No London-listed company has been found that files tagged
+accounts, so the subject this path researches end to end is a UK company that files through
+accounting software. A London listing meets ADR 0128's refusal, by name and with the reason.
+That is the honest reading of "a London listing can be researched", and §3.17 of the roadmap
+now states it as the phase's exit.
