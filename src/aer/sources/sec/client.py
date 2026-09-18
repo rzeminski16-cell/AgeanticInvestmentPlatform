@@ -32,12 +32,18 @@ import structlog
 
 from aer.core.enums import Provider, SourceTier
 from aer.core.schemas.facts import RawFact
-from aer.errors import ValidationError
+from aer.errors import AerError, ValidationError
 from aer.fetch.client import FetchResult, SafeFetcher
 from aer.sources.base import DocumentRef, ResolvedEntity
+from aer.sources.sec.accession import AccessionDocument, parse_accession_documents
 from aer.sources.sec.companyfacts import CompanyFacts, parse_company_facts
 from aer.sources.sec.fulltext import SearchResults, build_search_url, parse_search_results
-from aer.sources.sec.submissions import PERIODIC_FORMS, SubmissionsIndex, parse_submissions
+from aer.sources.sec.submissions import (
+    PERIODIC_FORMS,
+    Filing,
+    SubmissionsIndex,
+    parse_submissions,
+)
 from aer.sources.sec.tickers import (
     TickerRecord,
     format_cik,
@@ -192,6 +198,27 @@ class SecEdgarClient:
             total=results.total,
         )
         return SecResponse(data=results, fetch=result)
+
+    async def fetch_accession_documents(
+        self, filing: Filing, *, cik: str
+    ) -> tuple[AccessionDocument, ...]:
+        """Every document inside one accession, from EDGAR's own header (ADR 0126).
+
+        One extra read per filing, on a folder the run has already opened. Returns an empty
+        tuple on any refusal or unreadable body rather than raising: the header is an extra
+        on top of a filing already acquired, so a folder this cannot read should cost the
+        exhibits and never the filing.
+        """
+        url = filing.header_url(cik)
+        try:
+            result = await self._get(url, expected_media_types=None)
+        except AerError as refused:
+            _log.info("sec.accession_header_refused", url=url, reason=refused.message)
+            return ()
+        if not result.ok:
+            _log.info("sec.accession_header_missing", url=url, status=result.status_code)
+            return ()
+        return parse_accession_documents(await self._body(result))
 
     async def fetch_document(self, ref: DocumentRef) -> FetchResult:
         """Fetch a filing document referenced by an index this client produced.

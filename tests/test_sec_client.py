@@ -24,6 +24,7 @@ from aer.fetch.client import SafeFetcher
 from aer.fetch.errors import UrlNotAllowedError
 from aer.sources.base import DocumentRef, ResolvedEntity, SourceAdapter
 from aer.sources.sec.client import COMPANY_TICKERS_URL, SecEdgarClient
+from aer.sources.sec.submissions import Filing
 from tests.fetch_fixtures import public_resolver
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
@@ -310,3 +311,62 @@ class TestRefusals:
 
         with pytest.raises(UrlNotAllowedError):
             await client.fetch_document(ref)
+
+
+class TestOpeningAnAccession:
+    """ADR 0126. The submissions index names one file in the folder; this reads the rest."""
+
+    _FOLDER = "https://www.sec.gov/Archives/edgar/data/789019/000119312526380280"
+
+    @staticmethod
+    def _filing():
+        return Filing(
+            accession="0001193125-26-380280",
+            form="8-K",
+            filing_date=date(2026, 9, 2),
+            report_date=None,
+            primary_document="d291965d8k.htm",
+            description="",
+            is_xbrl=True,
+        )
+
+    # Two documents rather than the recorded thirty-five: this test is about the URL and
+    # the tolerance, and `test_sec_accession` reads the real header whole. The shared
+    # fetcher caps artefacts at 8,192 bytes on purpose, so serving ten kilobytes here would
+    # be testing that cap a second time under another name.
+    _HEADER = (
+        b"<PRE>&lt;DOCUMENT&gt;\n&lt;TYPE&gt;8-K\n&lt;FILENAME&gt;d291965d8k.htm\n"
+        b"&lt;/DOCUMENT&gt;\n&lt;DOCUMENT&gt;\n&lt;TYPE&gt;EX-99.1\n"
+        b"&lt;FILENAME&gt;d291965dex991.htm\n&lt;/DOCUMENT&gt;</PRE>"
+    )
+
+    @respx.mock
+    async def test_the_header_is_read_from_the_accession_s_own_folder(self, client):
+        route = respx.get(f"{self._FOLDER}/0001193125-26-380280-index-headers.html").mock(
+            return_value=httpx.Response(
+                200, content=self._HEADER, headers={"content-type": "text/html"}
+            )
+        )
+
+        documents = await client.fetch_accession_documents(self._filing(), cik=MSFT_CIK)
+
+        assert route.called
+        assert any(d.document_type == "EX-99.1" for d in documents)
+
+    @respx.mock
+    async def test_a_folder_that_is_not_there_costs_the_exhibits_and_not_the_filing(self, client):
+        """The header is an extra read on top of a filing already acquired, so an absent
+        one must not raise: it should cost the exhibits and leave the filing alone."""
+        respx.get(f"{self._FOLDER}/0001193125-26-380280-index-headers.html").mock(
+            return_value=httpx.Response(404)
+        )
+
+        assert await client.fetch_accession_documents(self._filing(), cik=MSFT_CIK) == ()
+
+    @respx.mock
+    async def test_a_refused_fetch_is_not_an_exception_either(self, client):
+        respx.get(f"{self._FOLDER}/0001193125-26-380280-index-headers.html").mock(
+            side_effect=httpx.ConnectError("down")
+        )
+
+        assert await client.fetch_accession_documents(self._filing(), cik=MSFT_CIK) == ()

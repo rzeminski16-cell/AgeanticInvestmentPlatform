@@ -1,15 +1,20 @@
 # SEC fixtures
 
-**These are constructed, not recorded.** They reproduce the documented shape of each EDGAR
-endpoint faithfully — field names, nesting, the columnar layout of `filings.recent`, the
-four-level taxonomy/concept/unit/observation structure of `companyfacts` — but the values
-are chosen to exercise specific cases, and they are far smaller than a real response.
+**These are constructed, not recorded — except the two accession headers.** The rest
+reproduce the documented shape of each EDGAR endpoint faithfully: field names, nesting, the
+columnar layout of `filings.recent`, the four-level taxonomy/concept/unit/observation
+structure of `companyfacts`. But the values are chosen to exercise specific cases, and they
+are far smaller than a real response.
 
-Constructed rather than recorded because the sandbox this was built in cannot reach
+Constructed rather than recorded because the sandbox this was built in could not reach
 `sec.gov`. That is a genuine limitation and worth knowing about: these fixtures prove the
 parsers handle the *shape* correctly, and they cannot prove the shape is still what the SEC
 serves today. Re-record them from the live API before relying on this adapter, and keep the
 cases below.
+
+A later sandbox **can** reach `sec.gov`, which is how the two accession headers came to be
+recorded — and how the mistake described below came to be caught. The rest are still
+constructed, and re-recording them is still worth doing.
 
 ## What each fixture is for
 
@@ -23,6 +28,25 @@ cases below.
 | `companyfacts_msft.json` | **The restatement fixture.** FY2020 revenue reported twice, two years apart, with different values |
 | `companyfacts_unmapped.json` | A filer extension concept and an unmapped `us-gaap` tag |
 | `companyfacts_bank.json` | **The missing top line.** A filer whose only ASC 606 tag is fee income, and whose revenue must be assembled from the spread and non-interest income (ADR 0114) |
+| `accession_headers_msft_8k.html` | **Recorded from EDGAR.** Microsoft's `0001193125-26-380280`, the 8-K whose Exhibit 99.1 the console's note was built from: 35 documents, one EX-99.1, the rest XBRL (ADR 0126) |
+| `accession_headers_no_exhibit.html` | **Recorded from EDGAR.** M&T's `0001193125-26-310413`, a bond offering: EX-1.1, EX-3.1 and EX-4.1 and no EX-99 at all, so the type filter earns its keep |
+
+## The two recorded ones
+
+`accession_headers_*.html` are fetched, not written, and the reason is the mistake they
+caught. The plan for ADR 0126 said to read `index.json` and filter on the document type;
+`index.json` turns out to carry an *icon* name there —
+
+    {"name": "d291965dex991.htm", "type": "text.gif", "size": "34182"}
+
+— so the rule would have selected on a picture of a file. A hand-written fixture would have
+reproduced the assumption instead of refuting it. What carries the real type is
+`{accession}-index-headers.html`, EDGAR's own dissemination header, and these are two of
+them: one with an earnings release in it and one with none.
+
+They are kept whole rather than trimmed. They are ten and six kilobytes, and the thing worth
+knowing about them is what a real accession contains — thirty-five documents, most of them
+XBRL — which a trimmed copy would stop showing.
 
 ## The bank fixture
 

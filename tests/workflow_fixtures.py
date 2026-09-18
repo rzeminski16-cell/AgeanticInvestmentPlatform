@@ -38,6 +38,7 @@ from aer.db.models import Job, JobStep, ResearchRequest, SectionDefinition, User
 from aer.fetch.client import FetchResult
 from aer.providers.fake import FakeProvider
 from aer.sources.base import ResolvedEntity
+from aer.sources.sec.accession import parse_accession_documents
 from aer.sources.sec.client import SecResponse
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import parse_submissions
@@ -54,6 +55,9 @@ DEFAULT_PER_RUN_BUDGET_GBP: Decimal = Settings.model_fields["per_run_budget_gbp"
 
 COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
 SUBMISSIONS_FIXTURE = "submissions_msft.json"
+# Recorded from EDGAR, not constructed: Microsoft's 0001193125-26-380280, the accession
+# whose Exhibit 99.1 the console's note was built from and this platform never opened.
+ACCESSION_HEADERS_FIXTURE = "accession_headers_msft_8k.html"
 
 # A filing's primary document, small but real: paragraphs long enough to be excerpted, in
 # the shape the acquisition path reads. Marker text would exercise the plumbing and prove
@@ -106,6 +110,7 @@ class StubSecClient:
         self.facts_calls: list[str] = []
         self.submissions_calls: list[str] = []
         self.document_calls: list[str] = []
+        self.accession_calls: list[str] = []
 
     async def resolve_entity(self, ticker: str, *, exchange: str | None = None) -> ResolvedEntity:
         """The fixture's filer for the subject's ticker, a distinct filer for anything else.
@@ -166,6 +171,22 @@ class StubSecClient:
             data=parse_submissions(payload),
             fetch=_stub_fetch(url, stored, media_type="application/json"),
         )
+
+    async def fetch_accession_documents(self, filing: Any, *, cik: str) -> tuple[Any, ...]:
+        """What is inside one accession (ADR 0126), from a recorded EDGAR header.
+
+        **A stub that lacked this method would be the §3.19.6 defect again**: the real
+        client has it, so a fake scene without it is a scene where a whole acquisition
+        branch cannot run — which is how a stub comes to prove the plumbing works for a
+        path production never takes.
+
+        Served for a current report only, which is the only form the acquisition asks
+        about; anything else gets an empty tuple, exactly as a folder with no header would.
+        """
+        self.accession_calls.append(filing.accession)
+        if filing.form not in {"8-K", "6-K"}:
+            return ()
+        return parse_accession_documents(fixture_bytes(ACCESSION_HEADERS_FIXTURE))
 
     async def fetch_document(self, ref: Any) -> FetchResult:
         """One filing's primary document, as a small stand-in with real prose in it.

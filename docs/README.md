@@ -144,7 +144,7 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
 
 ## Reference
 
-- [`adr/`](adr/) — 125 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 126 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 were drafted Proposed** —
   the ten V1.0 features that change a recorded decision or an invariant, argued before the
@@ -152,7 +152,12 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
   0123 (Phase 1.2's approvals model) and 0124 (a standing operator assumption, Phase 1.6) on
   16 September 2026; 0113 (a run reads the filings as they stand) and 0114 (a bank's revenue is
   derived) on 17 September, 0113 outright once the re-seeded corpus replayed; and 0125 (the
-  document is checked against itself, Phase 3.2) the same day.
+  document is checked against itself, Phase 3.2) the same day. On 18 September, 0118 (the
+  section about segments may read segments, Phase 4.5), with 0034 amended twice — the renderer's
+  signature on the 17th, and the peer set named on the 18th (Phase 4.6). 0126 (an
+  accession is a set of documents, Phase 4.7) the same day, argued before its code and
+  corrected by it: the endpoint the plan named turned out to carry an icon name where the
+  document type should be.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.

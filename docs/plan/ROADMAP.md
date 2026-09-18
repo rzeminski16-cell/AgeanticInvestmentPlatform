@@ -1195,6 +1195,31 @@ found rather than as scope that was always there.
     phrased as "still green" assumes a green it never verified, which is §3.19.1 in a
     different costume — a signal nobody had read.
 
+18. **The endpoint the plan named for §4.7 does not carry what the plan said, 18 September
+    2026.** The audit's recommendation, repeated into ADR 0126's first draft, was to read an
+    accession's `index.json` and select the documents whose *type* begins `EX-99`. Fetching
+    one settles it: that field is an icon name — `text.gif`, `compressed.gif`, `image2.gif`
+    — and the string `EX-99` appears nowhere in the response. A rule written against it
+    would have selected on a picture of a file, and the only other route from that endpoint
+    is inferring the type from `dex991` or `ex99_1`, which is the guessing `core/concepts.py`
+    refuses for XBRL tags. The real type is in `{accession}-index-headers.html`, EDGAR's own
+    dissemination header. **The class is the handover's own §7**: every error in this
+    programme has been a plan describing something nobody had read. What made this one cheap
+    is that the sandbox can now reach `sec.gov`, so the endpoint was read before the code was
+    written and two *recorded* fixtures replaced two that would have been constructed around
+    the assumption — `tests/fixtures/sec/README.md` had said for a year that the fixtures
+    were hand-written because the sandbox could not reach EDGAR, and that is no longer true.
+19. **A worker had already fetched the folder and could not open it, 18 September 2026.**
+    Three archive URLs in the store came from a research worker guessing at paths, all at
+    tier 5 because they arrived through `fetch_known_url` rather than an index. Two are
+    EDGAR's 404 page at 307 and 326 bytes. The third is 17,901 bytes — the **directory
+    listing of the exact accession** whose Exhibit 99.1 the console's note was built from —
+    fetched, hashed, stored, and extracted into *zero* excerpts. The worker found the door
+    and the platform had nothing that could read it. Fixed by §4.7 at the deterministic
+    layer, where it belongs. **The class**: when a model starts improvising around a
+    structural gap, the improvisation is the measurement — it says exactly which door is
+    shut, and it is cheaper to read than the report that came out of it.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

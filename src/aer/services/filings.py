@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -43,7 +44,8 @@ from aer.errors import AerError
 from aer.extract import extract_text
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.extractions import record_excerpts
-from aer.sources.base import ResolvedEntity
+from aer.sources.base import DocumentRef, ResolvedEntity
+from aer.sources.sec.accession import substantive_exhibits
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
 from aer.storage.protocol import ArtefactStore
 
@@ -67,6 +69,36 @@ CURRENT_FORMS: Final[frozenset[str]] = frozenset({"8-K", "6-K"})
 # routine; the newest handful is where anything the research has not already priced in
 # will be. Bounded because each is a fetch under SEC's rate limit and an artefact to keep.
 MAX_CURRENT_REPORTS: Final = 5
+
+# The 8-K item codes that mean a filer is reporting how it did, rather than registering a
+# share issue or a director's departure. 2.02 is "Results of Operations and Financial
+# Condition"; 7.01 is "Regulation FD Disclosure", which is where guidance and the investor
+# presentation are furnished. Everything else fills the remaining slots by date.
+MATERIAL_ITEM_CODES: Final[frozenset[str]] = frozenset({"2.02", "7.01"})
+
+# What a foreign private issuer's 6-K headline says when it is a results announcement. A
+# 6-K carries no item codes, so its `primaryDocDescription` — the RNS headline EDGAR stores
+# and the run already records as the title — is the only thing that says what it is.
+_RESULTS_HEADLINE_WORDS: Final[tuple[str, ...]] = (
+    "result",
+    "earnings",
+    "interim",
+    "half-year",
+    "half year",
+    "full year",
+    "full-year",
+    "quarter",
+    "trading statement",
+    "trading update",
+    "guidance",
+    "outlook",
+)
+
+# How many exhibits one current report may bring with it (ADR 0126). An 8-K can carry a
+# dozen; the run must not be able to spend its fetch budget inside one folder. Two, because
+# a filer furnishing more than that under EX-99 is furnishing slides and photographs after
+# the release itself, and the release is first in the filer's own sequence.
+MAX_EXHIBITS_PER_FILING: Final = 2
 
 # How many quarterly reports to take: every one filed since the annual report, and there
 # are at most three of those between two annuals. A quarterly the annual has since covered
@@ -292,6 +324,25 @@ async def acquire_filings(
         acquired.append(record)
         excerpts += recorded
 
+        # And whatever the accession holds beside it (ADR 0126). After the primary
+        # document, never instead of it: an exhibit that could not be had costs an
+        # exhibit, and the cover page is already recorded.
+        extra, extra_excerpts, extra_skipped = await _acquire_exhibits(
+            session,
+            store,
+            client=client,
+            request=request,
+            entity=entity,
+            company=company,
+            index=index,
+            filing=filing,
+            settings=settings,
+            job_id=job_id,
+        )
+        acquired.extend(extra)
+        excerpts += extra_excerpts
+        skipped.extend(extra_skipped)
+
     _log.info(
         "filings.acquired",
         cik=index.cik,
@@ -320,6 +371,48 @@ def _record_classification(company: Company, index: SubmissionsIndex) -> None:
         )
 
 
+def _current_reports(candidates: Sequence[Filing], *, limit: int) -> list[Filing]:
+    """The current reports worth reading, materiality first and then recency (ADR 0126).
+
+    Recency alone read the wrong five. AstraZeneca's second run acquired *Admission of
+    Further Securities to Trading*, *Total Voting Rights* and *Admission to Trading — EUR2.55
+    billion Bond Offering*, and not the half-year results announcement, which is where a
+    foreign private issuer states its guidance; its own worker recorded the consequence as a
+    lead it could not follow.
+
+    EDGAR says what a filing is about and the platform was discarding it. A domestic filer's
+    8-K carries item codes — 2.02 is results of operations, 7.01 is Reg FD — and a foreign
+    private issuer's 6-K carries none, so for that one the headline in ``description`` is
+    read instead, against a short keyword list.
+
+    **Before recency, never instead of it.** The cap does not move and the rest of the slots
+    still fill by date, so this can only substitute a results release for the *least* recent
+    routine notice. It can never make a run read more, or older, or less.
+    """
+    ordered = sorted(
+        (item for item in candidates if item.form in CURRENT_FORMS),
+        key=lambda item: (item.filing_date, item.accession),
+        reverse=True,
+    )
+    material = [item for item in ordered if _reports_results(item)]
+    chosen = material[:limit]
+    chosen.extend(item for item in ordered if item not in chosen)
+    return chosen[:limit]
+
+
+def _reports_results(filing: Filing) -> bool:
+    """Whether this current report is about results rather than about housekeeping."""
+    codes = {code.strip() for code in filing.items.split(",") if code.strip()}
+    if codes:
+        return bool(codes & MATERIAL_ITEM_CODES)
+    # A 6-K has no item codes at all, so the RNS headline is the only thing that says what
+    # it is. Keyword-matched rather than classified: the list is short, the failure mode is
+    # falling back to the date ordering, and a model call to read a headline would be a
+    # model call in the acquisition step.
+    headline = filing.description.lower()
+    return any(word in headline for word in _RESULTS_HEADLINE_WORDS)
+
+
 def _wanted(index: SubmissionsIndex, *, max_current: int) -> tuple[list[Filing], list[str]]:
     """Which filings to fetch, and what was not there to fetch.
 
@@ -346,11 +439,7 @@ def _wanted(index: SubmissionsIndex, *, max_current: int) -> tuple[list[Filing],
         reverse=True,
     )[:MAX_QUARTERLY_REPORTS]
 
-    current = sorted(
-        (item for item in candidates if item.form in CURRENT_FORMS),
-        key=lambda item: (item.filing_date, item.accession),
-        reverse=True,
-    )[:max_current]
+    current = _current_reports(candidates, limit=max_current)
 
     missing: list[str] = []
     if annual is None:
@@ -382,14 +471,47 @@ async def _acquire_one(
     job_id: uuid.UUID | None,
 ) -> tuple[AcquiredFiling, int] | str:
     """One filing: fetched, recorded, excerpted. Returns the reason on any failure."""
-    ref = filing.to_ref(index.cik, entity_name=entity.name)
+    return await _acquire_ref(
+        session,
+        store,
+        client=client,
+        request=request,
+        company=company,
+        settings=settings,
+        job_id=job_id,
+        ref=filing.to_ref(index.cik, entity_name=entity.name),
+        form=filing.form,
+        accession=filing.accession,
+    )
+
+
+async def _acquire_ref(
+    session: AsyncSession,
+    store: ArtefactStore,
+    *,
+    client: Any,
+    request: ResearchRequest,
+    company: Company,
+    settings: Settings,
+    job_id: uuid.UUID | None,
+    ref: DocumentRef,
+    form: str,
+    accession: str,
+) -> tuple[AcquiredFiling, int] | str:
+    """One EDGAR document: fetched, recorded, excerpted. The reason on any failure.
+
+    Shared by the primary document and by the exhibits beside it (ADR 0126), so an exhibit
+    is acquired *identically* — the same fetch layer, the same hash, the same tier, the
+    same excerpting, the same date. A second path would be a second set of answers to
+    questions this one has already settled.
+    """
     try:
         result = await client.fetch_document(ref)
     except AerError as refused:
-        return f"{filing.form} {filing.accession} could not be fetched: {refused.message}"
+        return f"{form} {accession} could not be fetched: {refused.message}"
 
     if not result.ok:
-        return f"{filing.form} {filing.accession} returned HTTP {result.status_code}."
+        return f"{form} {accession} returned HTTP {result.status_code}."
 
     acquisition = await record_acquisition(
         session,
@@ -411,16 +533,76 @@ async def _acquire_one(
     )
     document = acquisition.source_document
 
-    recorded = await _excerpt(
-        session, store, document=document, settings=settings, form=filing.form
-    )
+    recorded = await _excerpt(session, store, document=document, settings=settings, form=form)
     record = AcquiredFiling(
         document=document,
-        form=filing.form,
-        accession=filing.accession,
+        form=form,
+        accession=accession,
         sha256=acquisition.sha256,
     )
     return record, recorded
+
+
+async def _acquire_exhibits(
+    session: AsyncSession,
+    store: ArtefactStore,
+    *,
+    client: Any,
+    request: ResearchRequest,
+    entity: ResolvedEntity,
+    company: Company,
+    index: SubmissionsIndex,
+    filing: Filing,
+    settings: Settings,
+    job_id: uuid.UUID | None,
+) -> tuple[list[AcquiredFiling], int, list[str]]:
+    """A current report's EX-99 exhibits, acquired beside it (ADR 0126).
+
+    **This is where the substance of an 8-K is.** Its primary document is a cover page
+    whose whole content is a sentence saying the information is furnished as Exhibit 99.1,
+    so a run that acquired the primary document and stopped acquired the sentence. The
+    earnings release the console won its comparison on was one file away, in a folder this
+    platform had already opened.
+
+    Current reports only, EX-99 only, capped per filing, and nothing raises: the header is
+    an extra read on top of a filing already acquired, so a folder that cannot be read
+    costs the exhibits and never the filing.
+    """
+    if filing.form not in CURRENT_FORMS:
+        return [], 0, []
+
+    documents = await client.fetch_accession_documents(filing, cik=index.cik)
+    exhibits = substantive_exhibits(
+        documents, primary_document=filing.primary_document, limit=MAX_EXHIBITS_PER_FILING
+    )
+    acquired: list[AcquiredFiling] = []
+    excerpts = 0
+    skipped: list[str] = []
+    for exhibit in exhibits:
+        outcome = await _acquire_ref(
+            session,
+            store,
+            client=client,
+            request=request,
+            company=company,
+            settings=settings,
+            job_id=job_id,
+            ref=filing.exhibit_ref(
+                index.cik,
+                filename=exhibit.filename,
+                document_type=exhibit.document_type,
+                entity_name=entity.name,
+            ),
+            form=filing.form,
+            accession=filing.accession,
+        )
+        if isinstance(outcome, str):
+            skipped.append(outcome)
+            continue
+        record, recorded = outcome
+        acquired.append(record)
+        excerpts += recorded
+    return acquired, excerpts, skipped
 
 
 async def _excerpt(

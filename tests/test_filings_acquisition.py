@@ -25,14 +25,21 @@ from aer.db.models import Company, Extraction, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
 from aer.services.filings import (
+    CURRENT_FORMS,
     MAX_EXCERPT_CHARS,
     MAX_EXCERPTS,
+    MAX_EXHIBITS_PER_FILING,
     MIN_EXCERPT_CHARS,
     _paragraphs,
     acquire_filings,
 )
 from aer.services.sectors import propose_from_sic
 from aer.sources.base import ResolvedEntity
+from aer.sources.sec.accession import (
+    AccessionDocument,
+    parse_accession_documents,
+    substantive_exhibits,
+)
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import Filing, SubmissionsIndex, parse_submissions
 from aer.storage.local import LocalArtefactStore
@@ -150,10 +157,16 @@ class TestTheRunReadsMoreThanOneDocument:
         assert not annual.quarantined
 
     async def test_the_current_reports_are_bounded(self, scene: dict[str, Any]) -> None:
-        """Each is a fetch under SEC's rate limit and an artefact to keep for ever."""
+        """Each is a fetch under SEC's rate limit and an artefact to keep for ever.
+
+        The bound is now the cap *and* what each report brings with it (ADR 0126): one
+        annual, one current report, and at most `MAX_EXHIBITS_PER_FILING` exhibits from
+        inside that report's own accession. A run must not be able to spend its fetch
+        budget inside one folder.
+        """
         outcome = await _acquire(scene, max_current=1)
 
-        assert len(outcome.documents) <= 2
+        assert len(outcome.documents) <= 2 + MAX_EXHIBITS_PER_FILING
 
 
 def _index_with(*filings: Filing) -> SubmissionsIndex:
@@ -775,3 +788,194 @@ class TestAFilingWithoutBlankLinesStillYieldsParagraphs:
         excerpts = _paragraphs(extracted, form="10-K")
 
         assert [found.text for found in excerpts if paragraph in found.text] == [paragraph]
+
+
+class TestAnEightKBringsItsExhibit:
+    """ADR 0126. An 8-K's primary document is a cover page whose whole content is a
+    sentence saying the information is furnished as Exhibit 99.1, so a run that acquired
+    the primary document and stopped acquired the sentence.
+
+    The file the console's note was built from — `d291965dex991.htm` — sat in a folder this
+    platform had already opened, at the same tier, on the same date, one file away. A
+    worker even fetched the folder's own listing while guessing at URLs, got seventeen
+    kilobytes of file names, and had nothing that could read them.
+    """
+
+    async def test_the_exhibit_is_acquired_beside_the_cover_page(
+        self, scene: dict[str, Any]
+    ) -> None:
+        outcome = await _acquire(scene)
+
+        urls = [document.url for document in outcome.documents]
+        assert any(url.endswith("d291965dex991.htm") for url in urls)
+
+    async def test_it_arrives_at_the_same_tier_and_the_same_date_as_its_filing(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Every file in an accession is published by the filing that opened it, so an
+        exhibit's provenance needs no new rule — it inherits the one its siblings have."""
+        outcome = await _acquire(scene)
+
+        exhibit = next(d for d in outcome.documents if d.url.endswith("d291965dex991.htm"))
+        cover = next(
+            d
+            for d in outcome.documents
+            if d.url.rsplit("/", 1)[0] == exhibit.url.rsplit("/", 1)[0]
+            and not d.url.endswith("d291965dex991.htm")
+        )
+
+        assert exhibit.source_tier is SourceTier.T1_REGULATORY
+        assert exhibit.publication_date == cover.publication_date
+        assert not exhibit.quarantined
+
+    async def test_the_exhibit_is_excerpted_so_a_section_can_cite_it(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """An acquired document with no extractions contributes nothing to a pack and
+        cannot be cited, which would be the same silence more expensively."""
+        outcome = await _acquire(scene)
+
+        exhibit = next(d for d in outcome.documents if d.url.endswith("d291965dex991.htm"))
+        excerpts = list(
+            await scene["session"].scalars(
+                select(Extraction).where(Extraction.source_document_id == exhibit.id)
+            )
+        )
+
+        assert excerpts
+
+    async def test_a_periodic_report_opens_no_folder(self, scene: dict[str, Any]) -> None:
+        """Current reports only. A 10-K accession's file list is dominated by the XBRL
+        bundle the run already holds, and whether its siblings are worth opening is a
+        separate decision with its own evidence."""
+        client = scene["client"]
+        await _acquire(scene)
+
+        forms = {
+            filing.accession: filing.form
+            for filing in parse_submissions(fixture_bytes(SUBMISSIONS_FIXTURE)).filings
+        }
+
+        assert client.accession_calls, "a current report's folder must be opened at all"
+        assert all(forms[accession] in CURRENT_FORMS for accession in client.accession_calls)
+
+
+class TestExhibitsAreBoundedAndTyped:
+    async def test_only_the_ex99_series_is_taken(self) -> None:
+        """EX-1, EX-3 and EX-4 are the deal documents — an underwriting agreement, articles,
+        an indenture. M&T's 0001193125-26-310413 is exactly that accession, and a run that
+        acquired those would have spent its fetches on a bond offering's paperwork."""
+        documents = parse_accession_documents(fixture_bytes("accession_headers_no_exhibit.html"))
+
+        assert documents, "the fixture must parse"
+        assert {d.document_type for d in documents} & {"EX-1.1", "EX-3.1", "EX-4.1"}
+        assert substantive_exhibits(documents, primary_document="d127076d8k.htm", limit=2) == ()
+
+    async def test_a_folder_full_of_exhibits_is_capped(self) -> None:
+        documents = tuple(
+            AccessionDocument(document_type=f"EX-99.{index}", filename=f"ex{index}.htm")
+            for index in range(1, 9)
+        )
+
+        kept = substantive_exhibits(documents, primary_document="cover.htm", limit=2)
+
+        assert [d.filename for d in kept] == ["ex1.htm", "ex2.htm"]
+
+    async def test_the_primary_document_is_never_fetched_twice(self) -> None:
+        """A filer that furnished the primary document under an EX-99 type would otherwise
+        be fetched twice and recorded twice against one URL."""
+        documents = (
+            AccessionDocument(document_type="EX-99.1", filename="cover.htm"),
+            AccessionDocument(document_type="EX-99.2", filename="release.htm"),
+        )
+
+        kept = substantive_exhibits(documents, primary_document="cover.htm", limit=2)
+
+        assert [d.filename for d in kept] == ["release.htm"]
+
+    async def test_a_folder_that_cannot_be_read_costs_the_exhibits_and_not_the_filing(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The header is an extra read on top of a filing already acquired."""
+
+        class _NoIndex(StubSecClient):
+            async def fetch_accession_documents(self, filing: Any, *, cik: str) -> tuple[Any, ...]:
+                return ()
+
+        outcome = await _acquire(scene, client=_NoIndex(scene["store"]))
+
+        assert outcome.documents
+        assert not any(d.url.endswith("d291965dex991.htm") for d in outcome.documents)
+        assert outcome.skipped == ()
+
+
+class TestAResultsReleaseOutranksAVotingRightsNotice:
+    """ADR 0126's second half. Recency alone read the wrong five.
+
+    AstraZeneca's second run acquired *Admission of Further Securities to Trading*, *Total
+    Voting Rights* and *Admission to Trading — EUR2.55 billion Bond Offering*, and not the
+    half-year results announcement, which is where a foreign private issuer states its
+    guidance. Its own worker recorded the consequence: "Numerous recent 6-K filings were
+    identified in the source listing but not fetched."
+    """
+
+    @staticmethod
+    def _current(form: str, day: int, *, items: str = "", description: str = "") -> Filing:
+        return Filing(
+            accession=f"0000789019-26-{day:06d}",
+            form=form,
+            filing_date=date(2026, 6, day),
+            report_date=None,
+            primary_document=f"c-{day}.htm",
+            description=description,
+            is_xbrl=False,
+            items=items,
+        )
+
+    async def test_the_item_codes_pick_the_results_out_of_the_housekeeping(
+        self, scene: dict[str, Any]
+    ) -> None:
+        index = _index_with(
+            self._current("8-K", 20, items="5.02"),
+            self._current("8-K", 19, items="8.01"),
+            self._current("8-K", 18, items="2.02,9.01"),
+            self._current("8-K", 17, items="8.01"),
+        )
+        outcome = await _acquire(scene, client=_IndexClient(scene["store"], index), max_current=2)
+
+        days = {document.publication_date.day for document in outcome.documents}
+        assert 18 in days, "the results release must be read"
+        assert 20 in days, "and recency still fills the rest"
+        assert 17 not in days
+
+    async def test_a_six_k_is_ranked_by_the_headline_it_carries(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A 6-K has no item codes at all, so the RNS headline EDGAR stores is the only
+        thing that says what it is — and the run already records it as the title."""
+        index = _index_with(
+            self._current("6-K", 20, description="TOTAL VOTING RIGHTS"),
+            self._current("6-K", 19, description="ADMISSION OF FURTHER SECURITIES TO TRADING"),
+            self._current("6-K", 18, description="HALF-YEAR RESULTS 2026"),
+        )
+        outcome = await _acquire(scene, client=_IndexClient(scene["store"], index), max_current=1)
+
+        days = {document.publication_date.day for document in outcome.documents}
+        assert 18 in days
+        assert 20 not in days
+
+    async def test_materiality_never_makes_a_run_read_more(self, scene: dict[str, Any]) -> None:
+        """Before recency, never instead of it: the cap does not move, so this can only
+        substitute a results release for the least recent routine notice."""
+        index = _index_with(*(self._current("8-K", day, items="2.02") for day in (20, 19, 18)))
+        outcome = await _acquire(scene, client=_IndexClient(scene["store"], index), max_current=2)
+
+        assert len({d.publication_date.day for d in outcome.documents}) == 2
+
+    async def test_a_filing_with_no_item_codes_and_no_headline_still_ranks_by_date(
+        self, scene: dict[str, Any]
+    ) -> None:
+        index = _index_with(*(self._current("8-K", day) for day in (20, 19, 18)))
+        outcome = await _acquire(scene, client=_IndexClient(scene["store"], index), max_current=1)
+
+        assert {d.publication_date.day for d in outcome.documents} == {20}

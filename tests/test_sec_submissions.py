@@ -8,6 +8,7 @@ detect.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 
 import pytest
@@ -15,9 +16,21 @@ import pytest
 from aer.errors import ExternalServiceError
 from aer.sources.sec.submissions import (
     ANNUAL_FORMS,
+    Filing,
     parse_submissions,
 )
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
+
+
+def _payload(**columns: list[str]) -> bytes:
+    """One submissions index in the columnar shape EDGAR serves."""
+    return json.dumps(
+        {
+            "cik": MSFT_CIK,
+            "name": "MICROSOFT CORP",
+            "filings": {"recent": columns, "files": []},
+        }
+    ).encode()
 
 
 @pytest.fixture
@@ -146,3 +159,96 @@ class TestParsingFailures:
         index = parse_submissions(b'{"cik": "1", "name": "New Co", "filings": {"recent": {}}}')
 
         assert index.filings == ()
+
+
+class TestTheItemCodesSurviveParsing:
+    """The column EDGAR uses to say what a filing is about, which the row was discarding.
+
+    It was already in `_OPTIONAL_COLUMNS` and already survived `_validated_columns`; the
+    `Filing` dataclass simply had no field for it. So a run chose its five current reports
+    by date alone and read *Total Voting Rights* while the half-year results sat one row
+    further down (ADR 0126).
+    """
+
+    def test_an_item_bearing_row_round_trips(self) -> None:
+        index = parse_submissions(
+            _payload(
+                accessionNumber=["0000789019-26-000001"],
+                filingDate=["2026-06-18"],
+                form=["8-K"],
+                primaryDocument=["c.htm"],
+                items=["2.02,9.01"],
+            )
+        )
+
+        assert index.filings[0].items == "2.02,9.01"
+
+    def test_a_form_with_no_items_carries_an_empty_string(self) -> None:
+        """A 6-K has none at all, and absent is not a missing value to be guessed at."""
+        index = parse_submissions(
+            _payload(
+                accessionNumber=["0000789019-26-000002"],
+                filingDate=["2026-06-18"],
+                form=["6-K"],
+                primaryDocument=["c.htm"],
+                items=[""],
+            )
+        )
+
+        assert index.filings[0].items == ""
+
+    def test_an_index_without_the_column_at_all_still_parses(self) -> None:
+        index = parse_submissions(
+            _payload(
+                accessionNumber=["0000789019-26-000003"],
+                filingDate=["2026-06-18"],
+                form=["8-K"],
+                primaryDocument=["c.htm"],
+            )
+        )
+
+        assert index.filings[0].items == ""
+
+
+class TestAnAccessionIsAFolder:
+    """ADR 0126. The submissions index names one file in it; the folder holds the rest."""
+
+    def test_the_folder_and_the_index_are_built_from_the_identifiers(self) -> None:
+        filing = Filing(
+            accession="0001193125-26-380280",
+            form="8-K",
+            filing_date=date(2026, 9, 2),
+            report_date=None,
+            primary_document="d291965d8k.htm",
+            description="",
+            is_xbrl=True,
+        )
+
+        assert filing.folder("0000789019").endswith("/789019/000119312526380280")
+        assert filing.header_url("0000789019").endswith("/0001193125-26-380280-index-headers.html")
+        assert filing.url("0000789019").endswith("/d291965d8k.htm")
+
+    def test_an_exhibit_reference_inherits_its_filing_s_date_and_accession(self) -> None:
+        """Every file in an accession is published by the filing that opened it, so an
+        exhibit's provenance needs no new rule."""
+        filing = Filing(
+            accession="0001193125-26-380280",
+            form="8-K",
+            filing_date=date(2026, 9, 2),
+            report_date=None,
+            primary_document="d291965d8k.htm",
+            description="",
+            is_xbrl=True,
+        )
+
+        ref = filing.exhibit_ref(
+            "0000789019",
+            filename="d291965dex991.htm",
+            document_type="EX-99.1",
+            entity_name="MICROSOFT CORP",
+        )
+
+        assert ref.url.endswith("/000119312526380280/d291965dex991.htm")
+        assert ref.publication_date == filing.filing_date
+        assert ref.accession == filing.accession
+        assert "EX-99.1" in ref.title

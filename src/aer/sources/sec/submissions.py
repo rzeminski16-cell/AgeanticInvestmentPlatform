@@ -79,16 +79,42 @@ class Filing:
     description: str
     is_xbrl: bool
 
-    def url(self, cik: str) -> str:
-        """The URL of this filing's primary document.
+    # What the filing is *about*, as EDGAR states it: the 8-K item codes, comma-separated
+    # — "2.02,9.01" for a results release. Empty for a form that has none, which is every
+    # 6-K: a foreign private issuer's subject line lives in ``description`` instead.
+    #
+    # The column was already in `_OPTIONAL_COLUMNS` and already survived validation, and
+    # the row dropped it. A run therefore chose its five current reports by date alone and
+    # read *Total Voting Rights* while the half-year results sat one row further down.
+    items: str = ""
+
+    def folder(self, cik: str) -> str:
+        """This accession's own archive folder, without a file.
 
         The archive path uses the CIK with leading zeros stripped and the accession with
         its dashes removed — a different form from the one every other endpoint uses,
         which is why it is built here rather than by string-formatting at a call site.
         """
         bare_cik = str(int(cik))
-        folder = self.accession.replace("-", "")
-        return f"{_ARCHIVE_BASE}/{bare_cik}/{folder}/{self.primary_document}"
+        return f"{_ARCHIVE_BASE}/{bare_cik}/{self.accession.replace('-', '')}"
+
+    def url(self, cik: str) -> str:
+        """The URL of this filing's primary document."""
+        return f"{self.folder(cik)}/{self.primary_document}"
+
+    def header_url(self, cik: str) -> str:
+        """The URL of the accession's own document header (ADR 0126).
+
+        **Not `index.json`.** That endpoint looks like the structured one and its ``type``
+        field is an *icon* name — ``text.gif``, ``compressed.gif`` — so a rule that filtered
+        on it would select on a picture of a file. What carries the real document type is
+        this file: EDGAR's dissemination header, one ``<DOCUMENT><TYPE><FILENAME>`` block
+        per document, about ten kilobytes.
+
+        The filename embeds the accession in its dashed form, which is the one place in the
+        archive path that does — the folder above it has the dashes stripped.
+        """
+        return f"{self.folder(cik)}/{self.accession}-index-headers.html"
 
     def to_ref(self, cik: str, *, entity_name: str = "") -> DocumentRef:
         """As a :class:`~aer.sources.base.DocumentRef` for the acquisition layer."""
@@ -100,6 +126,29 @@ class Filing:
             # The date the filing was *accepted*, not the period it covers. That is the
             # date the information became public, which is what a document's provenance
             # honestly records.
+            publication_date=self.filing_date,
+            form=self.form,
+            accession=self.accession,
+        )
+
+    def exhibit_ref(
+        self, cik: str, *, filename: str, document_type: str, entity_name: str = ""
+    ) -> DocumentRef:
+        """One of this accession's own exhibits, as a reference (ADR 0126).
+
+        Built here for the reason every other EDGAR URL is: the client accepts identifiers
+        and never a URL, so a reference the acquisition layer acts on can only ever be
+        composed from a CIK, an accession and a filename EDGAR's own header listed.
+
+        The date is the accession's, unchanged. Every file in a folder is published by the
+        filing that opened it, so an exhibit's provenance needs no new rule — it inherits
+        the one its siblings already have.
+        """
+        label = f"{self.form} {document_type}".strip()
+        title = f"{entity_name} {label} {self.filing_date:%Y-%m-%d}".strip()
+        return DocumentRef(
+            url=f"{self.folder(cik)}/{filename}",
+            title=title,
             publication_date=self.filing_date,
             form=self.form,
             accession=self.accession,
@@ -228,6 +277,7 @@ def _parse_recent(recent: dict[str, Any]) -> tuple[Filing, ...]:
                 primary_document=str(_at(columns, "primaryDocument", index) or "").strip(),
                 description=str(_at(columns, "primaryDocDescription", index) or "").strip(),
                 is_xbrl=bool(_at(columns, "isXBRL", index)),
+                items=str(_at(columns, "items", index) or "").strip(),
             )
         )
     return tuple(filings)
