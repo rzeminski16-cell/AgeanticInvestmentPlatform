@@ -13,6 +13,7 @@ not one files tagged accounts. A scan has nothing in it to trace a number to.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -270,3 +271,48 @@ class TestTheRunIsNeverCreated:
                 await cleanup.execute(delete(WorkOrder))
                 await cleanup.execute(delete(User))
                 await cleanup.commit()
+
+    async def test_the_audit_driver_refuses_on_the_same_terms(
+        self, db_session: Any, api_settings: Settings
+    ) -> None:
+        """**A third caller is how a check quietly stops applying.** The two the ADR named
+        are the API route and the web page; the audit driver commissions runs too, and a
+        harness able to start a run the product refuses at its own front door proves the
+        opposite of what it exists to prove. Its request survives the refusal, as it does at
+        the route: a refusal is a sentence beside an editable request, not a lost form."""
+        from audit.driver.commission import commission  # noqa: PLC0415
+        from audit.subjects import Subject  # noqa: PLC0415
+
+        user = User(email="driver@example.invalid", display_name="Driver")
+        db_session.add(user)
+        await db_session.flush()
+
+        subject = Subject(
+            key="tsco",
+            company_name="Tesco PLC",
+            ticker="TSCO",
+            exchange="LSE",
+            base_currency="GBP",
+            reporting_currency="GBP",
+            horizon_months=12,
+            focus_questions=(),
+            use_case="the refusal a London listing meets",
+        )
+        refusing = Registers(
+            sec_client=_Register(),  # type: ignore[arg-type]
+            companies_house_client=_Register(status=NOT_TAGGED_STATUS),  # type: ignore[arg-type]
+        )
+
+        with pytest.raises(ValidationError) as refused:
+            await commission(
+                db_session,
+                subject=subject,
+                actor=user,
+                settings=api_settings,
+                cap_gbp=Decimal("2.50"),
+                registers=refusing,
+            )
+
+        assert "scanned document" in refused.value.message
+        assert await db_session.scalar(select(func.count()).select_from(Job)) == 0
+        assert await db_session.scalar(select(func.count()).select_from(ResearchRequest)) == 1

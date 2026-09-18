@@ -341,3 +341,23 @@ accounts, so the subject this path researches end to end is a UK company that fi
 accounting software. A London listing meets ADR 0128's refusal, by name and with the reason.
 That is the honest reading of "a London listing can be researched", and §3.17 of the roadmap
 now states it as the phase's exit.
+
+### 6. The smoke harness proves the refusal it actually gives — 18 September 2026
+
+`audit/smoke.py`'s second scene drove Tesco with the **real EDGAR client** and passed when the
+run reached `FAILED`, "because EDGAR's ticker list has no such company". After §5 that sentence
+is false twice: the venue now sends Tesco to Companies House, and the scene's services carried
+no client for it — so it failed on a missing credential while its verdict still read `FAILED`.
+**That is how a scene keeps passing while proving something else**, and it is the reason the
+item was worth doing rather than deleting.
+
+It also found a third caller. ADR 0128 put the check at the API route and the web page; the
+audit driver commissions runs too, and went straight to `start_run`. A harness able to start a
+run the product refuses at its own front door proves the opposite of what it exists for — and
+this one spends money — so `drive` now checks, against the real registers unless a scene
+supplies its own. The request survives the refusal, exactly as at the route.
+
+The scene itself is now offline and deterministic: the register answers from the three
+documents recorded on 18 September 2026 and the 406 that produced this decision, and the
+verdict asserts that **no job exists** and that the refusal names the *filing*. "This company
+cannot be researched" would be a different and untrue statement about Tesco.

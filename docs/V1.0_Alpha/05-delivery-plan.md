@@ -331,9 +331,13 @@ sourced gilt yield or refuses.
 
 > **Corrected 18 September 2026 — the first clause is unreachable.** It needs a domestic London
 > filer that publishes tagged accounts, and nine sampled across the FTSE 100, 250 and AIM publish
-> none (ROADMAP §3.19 items 21 and 25). 4a.1 landed and 4a.2 and 4a.3 landed with their premises
-> corrected; the restated exit — a tagged UK filer researched end to end, an untagged one refused
-> at the door with its reason (ADR 0128) — is in `ROADMAP.md` §3.17, which is the authority.
+> none (ROADMAP §3.19 items 21 and 25). All five rows landed, three with their premises corrected:
+> 4a.2's aggregate-free fact path is real but is not where a *listed* company's numbers come from;
+> 4a.4 was already built and only its refusal needed to name the gilt; and 4a.5 is not an
+> inversion — the offline scene now proves ADR 0128's refusal at the door rather than an EDGAR
+> refusal that can no longer occur (§3.19 item 27). The restated exit — a tagged UK filer
+> researched end to end, an untagged one refused at the door with its reason — is in
+> `ROADMAP.md` §3.17, which is the authority.
 
 **Risk, stated:** this is the first subject whose facts the platform extracted itself. A parsing
 error here is a wrong number with a perfect audit trail — which is the failure `plausibility.py`

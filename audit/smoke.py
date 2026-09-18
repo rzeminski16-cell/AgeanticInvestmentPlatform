@@ -8,9 +8,16 @@ Two scenes on a scratch database the platform's own migrations build:
 1. **The fake scene, end to end.** Microsoft through the whole workflow against the suite's
    own fake provider and stub filing client, every gate cleared by the audit's policy — the
    same objects the suite's full-run golden test uses (``tests/workflow_fixtures.py``).
-2. **The UK refusal.** A domestic LSE filer (Tesco) with the fake provider and the *real*
-   EDGAR client: the plan is scripted, and acquisition must refuse because EDGAR's ticker
-   list has no such company. Nothing is spent; the refusal is finding 1's proof.
+2. **The UK refusal, at the door.** A domestic LSE filer (Tesco) put to the pre-run check
+   (ADR 0128) against a register answering exactly as the live one did on 18 September 2026:
+   the company resolves, it has filed accounts, and its newest set has no tagged copy. The
+   run must be refused before a job exists — no planning call, no acquisition, nothing spent
+   — and the refusal must name the *filing* rather than the company.
+
+   It used to drive the same subject with the real EDGAR client and pass when acquisition
+   failed on an unknown ticker. Since `acquire` dispatches on the venue, EDGAR is never asked
+   about a London listing, so that scene proved a path production cannot take — and it made
+   the only real network request in this harness, which now makes none.
 
 With ``--journey``, neither scene: the journey harness's shape half instead (`audit/journey.py`),
 every stopped state a run can be left in, rendered by the real handlers and asserted on in
@@ -77,14 +84,15 @@ async def _scenes(url: str, artefacts: Path) -> dict[str, Any]:
     os.environ["AER_ARTEFACT_ROOT"] = str(artefacts)
     sys.path.insert(0, str(Path.cwd()))
 
+    from tests.api_fixtures import admitting_registers  # noqa: PLC0415
+    from tests.uk_fixtures import RecordedCompaniesHouse  # noqa: PLC0415
     from tests.workflow_fixtures import (  # noqa: PLC0415
         StubSecClient,
         make_provider,
         with_price_feed,
     )
 
-    from aer.runtime import build_fetcher  # noqa: PLC0415
-    from aer.sources.sec.client import SecEdgarClient  # noqa: PLC0415
+    from aer.runtime import Registers  # noqa: PLC0415
     from audit.driver.run import drive  # noqa: PLC0415
     from audit.driver.session import AuditRuntime  # noqa: PLC0415
     from audit.subjects import subject_for  # noqa: PLC0415
@@ -112,26 +120,25 @@ async def _scenes(url: str, artefacts: Path) -> dict[str, Any]:
             services=fake,
             out_root=out_root,
             label="smoke-msft",
+            # The check would ask EDGAR about a subject whose whole run is fake, so it is
+            # given a register that admits everything — the same arrangement the suite's own
+            # application fixtures use, and for the same reason.
+            registers=admitting_registers(),
         )
 
-        real_sec = {
-            "provider": make_provider(),
-            "store": store,
-            "sec_client": SecEdgarClient(
-                build_fetcher(runtime.resolved, store=store, redis=runtime.redis), store=store
-            ),
-            "fetcher": None,
-            "eodhd_client": None,
-        }
         results["uk_refusal"] = await drive(
             subject_for("tsco"),
             cap_gbp=Decimal("12.00"),
             executor_kind="inline",
             runtime=runtime,
-            services=real_sec,
+            services=fake,
             max_resumes=0,
             out_root=out_root,
             label="smoke-tsco",
+            registers=Registers(
+                sec_client=StubSecClient(store),  # type: ignore[arg-type]
+                companies_house_client=RecordedCompaniesHouse(),  # type: ignore[arg-type]
+            ),
         )
     finally:
         await runtime.close()
@@ -189,14 +196,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.journey:
         return _journey(url, artefacts, args.only)
     results = asyncio.run(_scenes(url, artefacts))
+    refusal = str(results["uk_refusal"].get("refusal") or "")
     verdict = {
         "fake_scene_status": results["fake_scene"].get("status"),
         "fake_scene_acceptance": results["fake_scene"].get("acceptance_passed"),
         "uk_refusal_status": results["uk_refusal"].get("status"),
-        "uk_refusal_stop": results["uk_refusal"].get("stop_reason"),
+        "uk_refusal_job": results["uk_refusal"].get("job_id"),
+        "uk_refusal_reason": refusal,
     }
     print(json.dumps(verdict, indent=2))
-    ok = verdict["fake_scene_status"] == "SUCCEEDED" and verdict["uk_refusal_status"] == "FAILED"
+    ok = (
+        verdict["fake_scene_status"] == "SUCCEEDED"
+        and verdict["uk_refusal_status"] == "REFUSED"
+        # No job, because the refusal is at the door rather than three steps in.
+        and not verdict["uk_refusal_job"]
+        # And it is about the filing. "This company cannot be researched" would be a
+        # different and untrue statement about Tesco.
+        and "scanned document" in refusal
+    )
     return 0 if ok else 1
 
 

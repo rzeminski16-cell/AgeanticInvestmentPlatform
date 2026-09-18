@@ -1370,6 +1370,20 @@ found rather than as scope that was always there.
     is a mechanism ported to a second source on the assumption that it means the same thing
     there — the same class as item 24, and the reason the test that found it asserts the
     presented figure is in the text and the stored one is not.
+27. **A scene that kept passing while proving something else, and the third caller it found,
+    18 September 2026.** `audit/smoke.py`'s second scene drove Tesco with the real EDGAR client
+    and passed when the run reached `FAILED` — "because EDGAR's ticker list has no such
+    company". After the dispatch, Tesco goes to Companies House, the scene carried no client
+    for it, and the run failed on a missing credential instead: same verdict, different proof,
+    and nothing would have said so. Fixing it surfaced the larger point. ADR 0128 put the
+    pre-run check at the API route and the web page; the **audit driver is a third caller** and
+    went straight to `start_run`, so the harness whose purpose is to meet what an operator
+    meets could commission runs the product refuses at its own door — and that harness is the
+    one that spends money. `drive` now checks, against the real registers unless a scene
+    supplies its own, and the scene is offline and deterministic: the register answers from the
+    recorded documents and the 406 that produced ADR 0128, and the verdict asserts no job
+    exists and that the refusal names the filing. **The class**: a check placed in its callers
+    rather than in the thing it guards is a check that a new caller silently opts out of.
 
 ### Before this leaves one machine
 

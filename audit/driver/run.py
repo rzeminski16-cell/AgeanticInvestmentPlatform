@@ -27,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import AnalysisMode, JobStatus
 from aer.db.models import Job, Report
+from aer.errors import ValidationError
 from aer.queue import worker_health
+from aer.runtime import Registers
 from aer.services import approvals as approval_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
@@ -67,7 +69,21 @@ async def drive(
     screenshots: bool = False,
     existing_job_id: uuid.UUID | None = None,
     already_queued: bool = False,
+    registers: Registers | None = None,
 ) -> dict[str, Any]:
+    """Commission a subject and drive it to a terminal state, recording everything.
+
+    Args:
+        registers: The registers the pre-run check asks whether this run can succeed (ADR
+            0128). **Omitting them checks against the real registers**, built from this
+            driver's own settings, because a driver that skipped the check could start runs
+            the product refuses at its own front door — and this one spends money. A scene
+            with no business reaching a register passes its own, as the smoke harness does.
+
+    A refused subject returns a summary whose ``status`` is ``REFUSED`` and whose
+    ``refusal`` is the sentence an operator would read. No job exists to drive, and none is
+    invented so the shape looks familiar.
+    """
     label = label or subject.key
     recorder = Recorder(out_root / label)
     opened_here = runtime is None
@@ -99,9 +115,26 @@ async def drive(
             recorder.event("ledger.before", **reading.as_dict())
             actor = await runtime.operator(session)
             if existing_job_id is None:
-                request, job = await commission(
-                    session, runtime, subject, actor, cap_gbp, analysis_mode
-                )
+                try:
+                    request, job = await commission(
+                        session,
+                        runtime,
+                        subject,
+                        actor,
+                        cap_gbp,
+                        analysis_mode,
+                        registers or _real_registers(runtime),
+                    )
+                except ValidationError as refused:
+                    recorder.event("commission.refused", reason=refused.message)
+                    summary.update(
+                        status="REFUSED",
+                        refusal=refused.message,
+                        stop_reason="the registers refused this subject before the run started",
+                        finished_at=datetime.now(UTC).isoformat(),
+                    )
+                    recorder.write_json("summary.json", summary)
+                    return summary
                 job_id = job.id
                 summary.update(
                     request_id=str(request.id),
@@ -374,6 +407,22 @@ def _capture(
         recorder.event("screen.failed", page=page_key, stderr=completed.stderr[-400:])
 
 
+def _real_registers(runtime: AuditRuntime) -> Registers:
+    """The registers an operator's own run would be checked against.
+
+    Built here rather than taken from the service bundle because the bundle is optional on
+    this harness (`AuditRuntime.open(with_bundle=False)`) and the check is not: a run whose
+    subject the register cannot serve must be refused before the planner spends.
+    """
+    from aer.runtime import standalone_registers  # noqa: PLC0415
+    from aer.storage.local import LocalArtefactStore  # noqa: PLC0415
+
+    store = LocalArtefactStore(
+        runtime.resolved.artefact_root, max_bytes=runtime.resolved.max_artefact_bytes
+    )
+    return standalone_registers(runtime.resolved, store=store, redis=runtime.redis)
+
+
 async def commission(
     session: Any,
     runtime: AuditRuntime,
@@ -381,6 +430,7 @@ async def commission(
     actor: Any,
     cap_gbp: Decimal,
     analysis_mode: AnalysisMode,
+    registers: Registers | None = None,
 ) -> tuple[Any, Job]:
     from audit.driver.commission import commission as _commission  # noqa: PLC0415
 
@@ -391,6 +441,7 @@ async def commission(
         settings=runtime.resolved,
         cap_gbp=cap_gbp,
         analysis_mode=analysis_mode,
+        registers=registers,
     )
 
 
