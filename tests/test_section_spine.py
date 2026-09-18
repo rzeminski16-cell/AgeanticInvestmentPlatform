@@ -326,6 +326,26 @@ class TestTheSeed:
                     "the seeded value must be one `Dimensions` reads, or the carve-out is lost"
                 )
 
+    async def test_exactly_one_section_is_told_who_the_comparables_are(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0080 (ADR 0034, amended 2026-09-18): the confirmed peer set reaches
+        the section about the competitive landscape, and no other.
+
+        Same discipline as the dimension carve-out above, and the same reason for counting
+        rather than checking one row: a property is cheap to set and the cost of setting it
+        twice is a second section writing about companies this research holds nothing for.
+        """
+        rows = list(
+            await db_session.scalars(
+                select(SectionDefinition).where(SectionDefinition.origin == "builtin")
+            )
+        )
+        assert rows
+        told = {row.key for row in rows if policy_of_definition(row).names_peers}
+
+        assert told == {"industry_landscape"}
+
     async def test_a_section_authored_by_a_skill_cannot_open_the_carve_out(self) -> None:
         """Invariant 7, structurally. A skill file may add requirements and never relax
         one, and the custom boundary builds its policy from the pin's own named columns —
@@ -333,7 +353,9 @@ class TestTheSeed:
         segment's figure as the company's.
         """
         assert SectionPolicy.__dataclass_fields__["dimensions"].default is Dimensions.EXCLUDE
+        assert SectionPolicy.__dataclass_fields__["names_peers"].default is False
         assert "dimensions" not in PlanSkillPin.__table__.columns
+        assert "names_peers" not in PlanSkillPin.__table__.columns
 
     async def test_a_definition_row_that_names_nonsense_keeps_the_exclusion(self) -> None:
         """Stricter than the other preferences' fallbacks, deliberately: a mistyped basis

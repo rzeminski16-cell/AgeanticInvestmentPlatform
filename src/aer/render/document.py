@@ -63,6 +63,8 @@ from aer.render.view import VIEW_CONTRACT, VIEW_TITLE, base_range, view_content
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
 from aer.sections.render import (
+    Bullet,
+    Bullets,
     CitationRef,
     Fragment,
     Heading,
@@ -122,6 +124,15 @@ UNCITABLE_MULTIPLES = (
     "record does not say which calculation produced each of them. They are not shown "
     "here: a figure in this report carries a note leading to the arithmetic behind it, "
     "and one that led nowhere would be worth less than its absence."
+)
+
+# What introduces the confirmed peer set. It says who chose them and on what standing,
+# because the lines beneath it carry no markers and a reader is entitled to know why: they
+# are a person's judgement about which companies are comparable, not a filed fact.
+_PEER_SET_LEAD = (
+    "The companies below are the comparable set for this research, each proposed with a "
+    "stated reason and confirmed by the operator. The reasons are judgements rather than "
+    "reported facts, and carry no source note."
 )
 
 # How much of an artefact digest a document prints. Enough to identify the file among a
@@ -775,12 +786,18 @@ def _comps_fragments(
         Paragraph(text=display.prose(comps.as_paragraph(), style=style)),
     ]
     if not isinstance(comps, CompsTable):
-        return tuple(fragments)
+        # The withheld arm keeps the set. A licence about the vendor's prices is not a
+        # reason to stop naming the companies a person chose (ADR 0034, amended
+        # 2026-09-18) — and this early return is where the first draft of that amendment
+        # quietly dropped them again.
+        return (*fragments, *_confirmed_peers(comps, style=style))
 
     cited = _cited_multiples(comps)
     if cited:
         # The company names the column, so the table says whose figures these are without
-        # the paragraph promising them. It is also where §4.6's peer columns go.
+        # the paragraph promising them. A peer with multiples gets a column of its own
+        # here once a peer can be priced; today none can, and the set below says who they
+        # are regardless.
         fragments.append(
             Table(
                 columns=("Multiple", comps.subject.name),
@@ -796,7 +813,47 @@ def _comps_fragments(
     absent = comps.absent_note()
     if absent:
         fragments.append(Paragraph(text=display.prose(absent, style=style)))
+    fragments.extend(_confirmed_peers(comps, style=style))
     return tuple(fragments)
+
+
+def _confirmed_peers(
+    comps: CompsTable | WithheldComps, *, style: HouseStyle
+) -> tuple[Fragment, ...]:
+    """Who the operator agreed this company is comparable to, and why they said so.
+
+    The report used to name none of them. A run holds a registry-confirmed set with a
+    written reason for each, approved at a gate, and §17 was one sentence saying they had
+    all been excluded — which a judge read as "no relative anchor of any kind". The set is
+    the operator's own work, so it crosses to a shareable surface whatever the licence says
+    about the vendor's figures (ADR 0034, amended 2026-09-18).
+
+    **No markers.** A rationale is a view somebody held, not a filed fact: there are no
+    bytes to hash and nothing to re-read, so ADR 0074 forbids it the shape of a source
+    reference. A footnote here would tell a reader the sentence had been verified, and the
+    honest account is that a person agreed with it.
+
+    The filer's own spelling of each name, shouting registry case and all, for the reason
+    the subject's is kept: a title-casing rule invented here would render "SAP SE" as "Sap
+    Se" and put this platform's guess where the register has a fact.
+    """
+    peers = comps.confirmed_peers()
+    if not peers:
+        return ()
+    named = [peer for peer in peers if peer.name]
+    if not named:
+        return ()
+    return (
+        Paragraph(text=display.prose(_PEER_SET_LEAD, style=style)),
+        Bullets(
+            items=tuple(
+                Bullet(pairs=((peer.name, display.prose(peer.rationale, style=style)),))
+                if peer.rationale
+                else Bullet(text=peer.name)
+                for peer in named
+            )
+        ),
+    )
 
 
 def _cited_multiples(table: CompsTable) -> tuple[tuple[str, Decimal, str], ...]:

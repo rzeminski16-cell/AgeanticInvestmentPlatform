@@ -170,6 +170,7 @@ def comps_table_from_record(
     subject_identifier: str,
     subject_name: str,
     source_label: str,
+    rationales: Mapping[str, str] | None = None,
 ) -> calc.CompsTable | None:
     """The table the comps step built, read back from what it recorded.
 
@@ -190,6 +191,16 @@ def comps_table_from_record(
     formula. A record written before the id was stored falls back to naming the step, as
     every record did until Phase 4.3: the ledger still holds the arithmetic, and a
     reference to the step is the honest account of what that record can prove.
+
+    Args:
+        rationales: Why each confirmed peer was put forward, by identifier. **Passed in
+            rather than read off the record**, because the record is not where it lives:
+            the rationale is part of the peer set a person approved, and
+            `confirmed_peer_set` verifies that payload against the approval hash. Reading
+            it from there means every run already stored has its reasons too — the comps
+            step has never recorded them, and §3.19.8's lesson is that what a step's
+            record drops is unrecoverable, so the answer is not to make the record the
+            second home of a string that already has one.
     """
     if not record.get("comps"):
         return None
@@ -227,6 +238,7 @@ def comps_table_from_record(
         period_end=subject_period,
         multiples=multiples(record.get("subject_multiples"), period_end=subject_period),
     )
+    said = rationales or {}
     peers = tuple(
         calc.PeerRow(
             identifier=str(peer["identifier"]),
@@ -235,6 +247,7 @@ def comps_table_from_record(
             multiples=multiples(
                 peer.get("multiples"), period_end=date.fromisoformat(str(peer["period_end"]))
             ),
+            rationale=said.get(str(peer["identifier"]), ""),
         )
         for peer in record.get("peer_multiples") or ()
     )
@@ -249,6 +262,7 @@ def comps_table_from_record(
             period_end=(
                 date.fromisoformat(str(row["period_end"])) if row.get("period_end") else None
             ),
+            rationale=said.get(str(row.get("identifier", "")), ""),
         )
         for row in exclusion_rows
     )

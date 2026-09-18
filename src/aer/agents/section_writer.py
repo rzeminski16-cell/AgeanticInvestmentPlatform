@@ -74,6 +74,14 @@ class SectionWriterInput(BaseModel):
     problems: list[str] = Field(default_factory=list)
     evidence_truncated: bool = False
 
+    # The companies the operator confirmed as comparable, each with the reason given for
+    # it, for the one section whose subject is the competitive landscape. **Context, not
+    # evidence**: a peer's name and the reason it was chosen are a judgement somebody
+    # holds (ADR 0074), so there is no id here and nothing to cite. A live report
+    # discussed competition for four hundred words without naming a single competitor,
+    # while the run held eight confirmed names with written rationales.
+    peer_set: list[str] = Field(default_factory=list)
+
     # The operator's standing guidance pinned to this run (ADR 0108): every planned
     # prompt-kind skill, from which the writer composes only the kinds its role reads.
     guidance: list[OperatorGuidance] = Field(default_factory=list)
@@ -266,6 +274,19 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             # Before the challenges and the refusals: it is a fact about the section's
             # shape, not a correction to a draft.
             parts.append(payload.platform_note)
+        if payload.peer_set:
+            # Names and reasons, with the boundary stated rather than left to be inferred.
+            # The numeral rule would already refuse a figure attributed to one of these
+            # companies; nothing would refuse an unsupported *qualitative* claim about
+            # one, so the limit is said in words.
+            parts.append(
+                "The operator confirmed these companies as comparable to the subject, "
+                "each with the reason given for it. You may name them and use the "
+                "reasons as stated. This research holds no filings, figures or "
+                "statements for any of them, so write nothing else about them — no "
+                "numbers, no performance, no claim about what they are doing:\n- "
+                + "\n- ".join(payload.peer_set)
+            )
         if payload.evidence_truncated:
             parts.append(
                 "The evidence listing was truncated to this section's token budget; "

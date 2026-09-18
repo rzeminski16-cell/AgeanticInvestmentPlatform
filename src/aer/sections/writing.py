@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from typing import Any, Final
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
@@ -32,7 +34,13 @@ from aer.core.section_output import (
     without_unsourced_numeral_sentences,
 )
 from aer.core.skill_guidance import OperatorGuidance
-from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
+from aer.db.models import (
+    Job,
+    ReportSection,
+    ResearchRequest,
+    SectionDefinition,
+    SectionStatus,
+)
 from aer.errors import ValidationError
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
 from aer.sections.evidence import (
@@ -52,6 +60,7 @@ from aer.sections.evidence import (
     validate_draft,
     word_ceiling,
 )
+from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.facts import Dimensions
 from aer.services.subject import subject_name
 
@@ -167,6 +176,31 @@ def _cut_for_retry(policy: SectionPolicy) -> tuple[SectionPolicy, str]:
     return replace(policy, word_budget=cut), note
 
 
+async def _peer_set_for(
+    session: AsyncSession, *, job_id: uuid.UUID, policy: SectionPolicy
+) -> tuple[str, ...]:
+    """The confirmed comparables as lines, for the one section that names them.
+
+    Empty for every other section, and empty for that one until a person has agreed the
+    set. **A missing confirmation is not a failure here**: `confirmed_peer_set` refuses
+    rather than returning nothing, because an unconfirmed set reaching a *comps table*
+    would be a comparison nobody agreed to — but a section that cannot name its
+    competitors is a thinner section, not a wrong one, and failing the drafting step over
+    it would trade a real defect for a worse one.
+    """
+    if not policy.names_peers:
+        return ()
+    job = await session.get(Job, job_id)
+    if job is None:  # pragma: no cover -- the step's own job always exists
+        return ()
+    with suppress(PeerSetNotConfirmedError):
+        return tuple(
+            f"{peer.name} — {peer.rationale}" if peer.rationale else peer.name
+            for peer in await confirmed_peer_set(session, job)
+        )
+    return ()
+
+
 def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
     """The definition row's floor and budget as one policy.
 
@@ -187,6 +221,7 @@ def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
         fact_basis=_basis(stated.get("fact_basis")),
         word_budget=_word_budget(stated.get("word_budget")),
         dimensions=_dimensions(stated.get("dimensions")),
+        names_peers=bool(stated.get("names_peers", False)),
     )
 
 
@@ -407,6 +442,7 @@ async def execute_builtin_section(
     # rather than per attempt: it cannot change between retries, and the stable prompt
     # context has to stay byte-identical across them.
     subject = await subject_name(context.session, request)
+    peer_set = await _peer_set_for(context.session, job_id=evidence_job, policy=policy)
 
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
@@ -436,6 +472,7 @@ async def execute_builtin_section(
             platform_note=(
                 augmenter.note(block) if augmenter is not None and augmenter.note else ""
             ),
+            peer_set=list(peer_set),
         )
         try:
             candidate = await agent.run(context, payload)

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Final
@@ -530,6 +530,7 @@ async def build(
         PeerSetNotConfirmedError: If the ``PEER_SET`` gate has not approved the set.
     """
     confirmed = await confirmed_peer_set(session, job)
+    rationales = {peer.identifier: peer.rationale for peer in confirmed}
 
     # A peer recorded by name alone has no period to align: it was resolved against the
     # registry and deliberately not fetched (ADR 0059 as amended), so it is excluded with
@@ -541,6 +542,7 @@ async def build(
             name=peer.name,
             period_end=as_of,
             reason=UNACQUIRED_PEER_REASON,
+            rationale=peer.rationale,
         )
         for peer in confirmed
         if peer.period_end is None
@@ -554,7 +556,10 @@ async def build(
         ],
         subject_period_end=subject.period_end,
     )
-    rationales = {peer.identifier: peer.rationale for peer in confirmed}
+    # `align_peers` is pure and knows nothing about who confirmed what, so the rationale is
+    # put back here. Why a peer was chosen and why it was dropped are different sentences,
+    # and a reader wants both.
+    excluded = tuple(replace(row, rationale=rationales.get(row.identifier, "")) for row in excluded)
 
     rows: list[calc.PeerRow] = []
     missing: list[calc.PeerExclusion] = []
@@ -572,6 +577,7 @@ async def build(
                         "no multiple could be computed — this platform holds the company's "
                         "filed figures but no price series for it on the as-of date"
                     ),
+                    rationale=rationales.get(identifier, ""),
                 )
             )
             continue

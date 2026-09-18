@@ -257,6 +257,13 @@ class SectionPolicy:
     # definition row of the section whose subject *is* the breakdown and nowhere else.
     dimensions: Dimensions = Dimensions.EXCLUDE
 
+    # Whether this section is told who the operator confirmed as comparable companies.
+    # Not evidence and never citable — a peer's name and the reason it was chosen are a
+    # judgement (ADR 0074), so they reach the writer as context beside the pack rather
+    # than as a row in it. Set on the section that is about the competitive landscape,
+    # which was writing about competition with no competitor's name available to it.
+    names_peers: bool = False
+
     def as_prompt_payload(self) -> dict[str, Any]:
         """What the model is told about the floor. The budget is not the model's business."""
         payload = {

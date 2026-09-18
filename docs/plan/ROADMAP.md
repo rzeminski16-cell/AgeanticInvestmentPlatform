@@ -1182,6 +1182,19 @@ found rather than as scope that was always there.
     §4.5. **The class**: a guard that declines silently above a threshold is indistinguishable
     from a guard that passed, and the threshold was set from what US filers do.
 
+17. **`presentation_integrity` is red on half the stored corpus, and was before §4.6, 18
+    September 2026.** Measured while checking that naming the peers cost the register
+    nothing: re-rendering the four stored runs and scoring each gives Microsoft #1 one
+    defect and M&T four, all of them `unformatted integer` — eight-digit runs inside
+    *model-written* section prose, not in anything the platform composes. AstraZeneca and
+    Microsoft #2 are clean. This matters beyond the two runs: several rows in the delivery
+    plan name "`presentation_integrity` still green" as an acceptance criterion, and on
+    today's corpus that criterion cannot be met by leaving the metric alone. The right
+    reading is that it measures the *document*, model prose included, and a check whose
+    baseline is red tells a later change nothing. **The class**: an acceptance criterion
+    phrased as "still green" assumes a green it never verified, which is §3.19.1 in a
+    different costume — a signal nobody had read.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

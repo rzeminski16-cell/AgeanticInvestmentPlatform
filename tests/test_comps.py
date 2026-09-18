@@ -578,12 +578,24 @@ class TestNothingPriceDerivedLeavesTheMachine:
         assert not hasattr(withheld, "subject")
 
     def test_no_multiple_survives_into_the_shareable_form(self):
-        """A renderer handed one cannot print a figure because there is no figure in it."""
+        """A renderer handed one cannot print a figure because there is no figure in it.
+
+        **A peer's name is not one of the figures**, since ADR 0034's amendment of
+        2026-09-18: the vendor supplied the prices, and the set is the operator's own
+        judgement — the same argument this ADR already made for the counts. This assertion
+        used to include ``"Peer 0"`` and was wrong about which thing the licence covers.
+        """
         withheld = table_of().for_audience(Audience.SHAREABLE)
 
         rendered = repr(withheld) + withheld.as_paragraph()
-        for forbidden in ("12", "9", "10", "11", "EV/EBITDA", "Peer 0"):
+        for forbidden in ("12", "9", "10", "11", "EV/EBITDA"):
             assert forbidden not in rendered.replace("2024", "").replace("0030", "")
+
+    def test_the_confirmed_set_crosses_and_its_figures_do_not(self):
+        withheld = table_of(peers=2).for_audience(Audience.SHAREABLE)
+
+        assert [peer.name for peer in withheld.confirmed_peers()] == ["Peer 0", "Peer 1"]
+        assert all(peer.rationale for peer in withheld.confirmed_peers())
 
     def test_it_discloses_that_something_was_withheld(self):
         """Silence would read as "no comparison was done", which is a different claim."""
@@ -852,6 +864,57 @@ class TestWithholdingNothingIsNotWithholding:
             WithheldComps(peer_count=7, excluded_count=0, as_of=AS_OF).as_paragraph(),
         ):
             assert "peer(s)" not in paragraph
+
+
+class TestTheConfirmedSetIsNamed:
+    """ADR 0034's amendment of 2026-09-18. A report told its reader eight peers had been
+    considered and all eight excluded, and named none of them — "no relative anchor of any
+    kind", in a judge's words, while the run held eight registry-confirmed names with
+    written rationales that a person had approved at a gate.
+    """
+
+    def test_an_excluded_peer_keeps_the_reason_it_was_chosen(self):
+        """Two different sentences. Since ADR 0059 was amended the commonest exclusion is
+        "this platform did not fetch its prices", which says nothing about whether the
+        company is a comparable — and on the whole stored corpus that is every peer."""
+        table = replace(
+            table_of(peers=0),
+            excluded=(
+                PeerExclusion(
+                    identifier="P0",
+                    name="Oracle Corp",
+                    reason=UNACQUIRED,
+                    rationale="Competes directly in enterprise cloud.",
+                ),
+            ),
+        )
+
+        (peer,) = table.confirmed_peers()
+        assert peer.name == "Oracle Corp"
+        assert peer.rationale == "Competes directly in enterprise cloud."
+
+    def test_a_priced_peer_and_an_excluded_one_answer_the_same_question(self):
+        table = replace(
+            table_of(peers=1),
+            excluded=(PeerExclusion(identifier="X", name="Left out", reason=UNACQUIRED),),
+        )
+
+        assert [peer.name for peer in table.confirmed_peers()] == ["Peer 0", "Left out"]
+
+    def test_a_peer_with_no_rationale_on_record_is_still_named(self):
+        """The reason it was chosen is missing, not the choice. Dropping the name would
+        hide a member of a set somebody approved."""
+        table = replace(
+            table_of(peers=0),
+            excluded=(PeerExclusion(identifier="X", name="Unexplained", reason=UNACQUIRED),),
+        )
+
+        (peer,) = table.confirmed_peers()
+        assert peer.name == "Unexplained"
+        assert peer.rationale == ""
+
+    def test_a_table_with_no_peers_at_all_names_nobody(self):
+        assert replace(table_of(peers=0), excluded=()).confirmed_peers() == ()
 
 
 class TestTheTableItself:

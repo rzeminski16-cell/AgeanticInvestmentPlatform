@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 
+from aer.agents.section_writer import SectionWriterAgent, SectionWriterInput
 from aer.calc import comps as calc
 from aer.calc.engine import CalculationContext
 from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef, Unit
@@ -42,7 +43,9 @@ from aer.errors import ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.document import CalculationFootnote, _comps_fragments, assemble_document
 from aer.render.markdown import render_markdown, serialise_markdown
+from aer.sections.evidence import SectionPolicy
 from aer.sections.render import markdown_lines
+from aer.sections.writing import _peer_set_for
 from aer.services import approvals as approval_service
 from aer.services import comps as comps_service
 from aer.services import comps as service
@@ -80,7 +83,11 @@ STYLE = HouseStyle()
 
 
 def _subject_table(
-    values: dict[str, Decimal], *, publishable: bool, traced: bool = True
+    values: dict[str, Decimal],
+    *,
+    publishable: bool,
+    traced: bool = True,
+    excluded: tuple[calc.PeerExclusion, ...] = (),
 ) -> calc.CompsTable:
     """A table holding only the subject's own multiples, each sourced as a run sources it.
 
@@ -115,7 +122,7 @@ def _subject_table(
             ),
         ),
         peers=(),
-        excluded=(),
+        excluded=excluded,
         basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
         as_of=AS_OF,
         peer_set_confirmed=True,
@@ -796,6 +803,81 @@ class TestTheRenderedReportCarriesWhatTheLicencePermits:
         assert "no peer survived to be compared" in joined
         assert citations == []
 
+    def test_the_confirmed_peers_are_named_with_their_reasons(self):
+        """ADR 0034's amendment of 2026-09-18. A judge's words on the report this fixes:
+        "they are not even listed, so there is no relative anchor of any kind"."""
+        citations: list = []
+        table = _subject_table(
+            {"pe": Decimal("27.431")},
+            publishable=True,
+            excluded=(
+                calc.PeerExclusion(
+                    identifier="P1",
+                    name="Oracle Corp",
+                    reason="no price series",
+                    rationale="Competes directly in enterprise cloud.",
+                ),
+                calc.PeerExclusion(
+                    identifier="P2",
+                    name="SAP SE",
+                    reason="no price series",
+                    rationale="Overlapping enterprise application suite.",
+                ),
+            ),
+        )
+
+        joined = "\n".join(
+            markdown_lines(
+                _comps_fragments(
+                    table.for_audience(calc.Audience.SHAREABLE), citations, style=STYLE
+                )
+            )
+        )
+
+        assert "Oracle Corp" in joined
+        assert "Competes directly in enterprise cloud." in joined
+        assert "SAP SE" in joined
+        # The names are the operator's judgement, not a filed fact: no marker is taken
+        # for them, so the only citations are the subject's own multiple (ADR 0074).
+        assert [ref.kind for ref in citations] == ["calculation"]
+        assert "[^2]" not in joined
+
+    def test_the_names_cross_even_when_the_figures_do_not(self):
+        """The licence is about the vendor's prices. The set is the operator's own work,
+        and withdrawing the determination must not cost a reader the competitive anchor."""
+        table = _subject_table(
+            {"pe": Decimal("27.431")},
+            publishable=False,
+            excluded=(
+                calc.PeerExclusion(
+                    identifier="P1",
+                    name="Oracle Corp",
+                    reason="no price series",
+                    rationale="Rival.",
+                ),
+            ),
+        )
+        withheld = table.for_audience(calc.Audience.SHAREABLE)
+
+        joined = "\n".join(markdown_lines(_comps_fragments(withheld, [], style=STYLE)))
+
+        assert isinstance(withheld, calc.WithheldComps)
+        assert "27.43" not in joined
+        assert "Oracle Corp" in joined
+
+    def test_a_run_whose_peers_are_all_unnamed_prints_no_list(self):
+        joined = "\n".join(
+            markdown_lines(
+                _comps_fragments(
+                    calc.WithheldComps(peer_count=0, excluded_count=2, as_of=AS_OF),
+                    [],
+                    style=STYLE,
+                )
+            )
+        )
+
+        assert "comparable set for this research" not in joined
+
     def test_a_multiple_with_no_calculation_behind_it_is_not_printed(self):
         """A figure prints only with a marker that resolves — ADR 0034's amendment.
 
@@ -1363,3 +1445,102 @@ class TestTheOperatorMayAddAComparable:
 
         with pytest.raises(comps_service.PeerSetNotConfirmedError, match="different set"):
             await comps_service.confirmed_peer_set(db_session, scene["job"])
+
+
+class TestTheSectionThatNamesCompetitorsIsToldWhoTheyAre:
+    """Migration 0080, and ADR 0034's amendment of 2026-09-18 on the writer's side.
+
+    A live report discussed competition for four hundred words and named nobody, while the
+    run held eight confirmed comparables with written rationales. They are not facts,
+    calculations or excerpts, so the evidence pack has never had anywhere to put them; they
+    reach the writer as context beside it, with no id and nothing to cite.
+    """
+
+    @staticmethod
+    def _policy(*, names_peers: bool) -> Any:
+        return SectionPolicy(
+            min_sources=0,
+            requires_primary=False,
+            max_tier_rank=5,
+            allow_forward_looking=False,
+            token_budget=1_000,
+            names_peers=names_peers,
+        )
+
+    async def test_a_confirmed_set_reaches_the_section_that_asked(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+
+        lines = await _peer_set_for(
+            db_session, job_id=scene["job"].id, policy=self._policy(names_peers=True)
+        )
+
+        assert lines == (
+            "Peer One plc — Same industry, similar revenue",
+            "Peer Two plc — Same end market",
+        )
+
+    async def test_every_other_section_is_told_nothing(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+
+        assert (
+            await _peer_set_for(
+                db_session, job_id=scene["job"].id, policy=self._policy(names_peers=False)
+            )
+            == ()
+        )
+
+    async def test_an_unconfirmed_set_costs_the_names_and_not_the_section(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        """`confirmed_peer_set` refuses rather than returning nothing, because an
+        unconfirmed set reaching a *comps table* would be a comparison nobody agreed to. A
+        section that cannot name its competitors is thinner, not wrong, and failing the
+        drafting step over it would trade a real defect for a worse one."""
+        await record_proposal(db_session, scene)
+
+        with pytest.raises(comps_service.PeerSetNotConfirmedError):
+            await comps_service.confirmed_peer_set(db_session, scene["job"])
+        assert (
+            await _peer_set_for(
+                db_session, job_id=scene["job"].id, policy=self._policy(names_peers=True)
+            )
+            == ()
+        )
+
+    def test_the_prompt_states_the_boundary_the_numeral_rule_cannot(self) -> None:
+        """A figure attributed to a peer would be refused for having no lineage. Nothing
+        refuses an unsupported *qualitative* claim about one, so the limit is said."""
+        composed = SectionWriterAgent().user_message(
+            SectionWriterInput(
+                section_key="industry_landscape",
+                title="Industry & Competitive Positioning",
+                company_name="Subject plc",
+                ticker="SUBJ",
+                as_of_date=AS_OF.isoformat(),
+                output_contract={},
+                peer_set=["Oracle Corp — Competes in enterprise cloud."],
+            )
+        )
+
+        assert "Oracle Corp — Competes in enterprise cloud." in composed
+        assert "no filings, figures or statements for any of them" in composed
+
+    def test_a_section_with_no_peers_gets_no_block(self) -> None:
+        composed = SectionWriterAgent().user_message(
+            SectionWriterInput(
+                section_key="balance_sheet",
+                title="Balance Sheet",
+                company_name="Subject plc",
+                ticker="SUBJ",
+                as_of_date=AS_OF.isoformat(),
+                output_contract={},
+            )
+        )
+
+        assert "confirmed these companies as comparable" not in composed

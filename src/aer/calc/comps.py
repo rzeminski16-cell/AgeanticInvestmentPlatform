@@ -48,12 +48,14 @@ __all__ = [
     "MULTIPLE_DEFINITIONS",
     "Audience",
     "CompsTable",
+    "ConfirmedPeer",
     "MultipleBand",
     "MultipleBasis",
     "MultipleDefinition",
     "MultipleResult",
     "PeerExclusion",
     "PeerRow",
+    "WithheldComps",
     "align_peers",
     "book_value_per_share",
     "implied_value_per_share_from_ev_multiple",
@@ -241,12 +243,38 @@ class PeerExclusion:
     **Recorded, never dropped.** A comparison whose exclusions are invisible is one a reader
     cannot check, and "we left out the two peers that would have moved the median" is exactly
     the thing a reader needs to be able to notice.
+
+    ``rationale`` is why the company was put forward as a comparable in the first place, and
+    it survives the exclusion because the two answer different questions. Since ADR 0059 was
+    amended the commonest exclusion is "this platform did not fetch its prices", which says
+    nothing at all about whether the company is a peer — and on the whole stored corpus that
+    is every peer, so an exclusion without the rationale beside it discards the only thing
+    the peer step produced that a reader wanted.
     """
 
     identifier: str
     name: str
     reason: str
     period_end: date | None = None
+    rationale: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmedPeer:
+    """One company a person agreed is a comparable, and why they said so.
+
+    The set as the operator confirmed it, whatever became of each company afterwards: a
+    peer with multiples and a peer excluded for want of a price are the same answer to
+    "who is this company comparable to", and only the second is the common case today.
+
+    **Never a source reference** (ADR 0074). A rationale is a view somebody held, not a
+    filed fact — there are no bytes to hash and nothing to re-read — so it reaches a reader
+    as prose and carries no marker. A footnote against it would tell a reader it had been
+    verified, and the honest account is that a person agreed with it.
+    """
+
+    name: str
+    rationale: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -330,6 +358,10 @@ class CompsTable:
         the vendor's series in another shape. So "may a derived figure be published?" is
         the whole question for this object, and a source whose answer is yes has nothing
         left to withhold.
+
+        **The confirmed set crosses either way** (ADR 0034's amendment of 2026-09-18). A
+        company's name and the reason a person chose it are the operator's own work, on the
+        same footing as the counts this ADR already disclosed: the vendor supplied neither.
         """
         if audience is Audience.INTERNAL or self.derived_figures_publishable:
             return self
@@ -341,7 +373,20 @@ class CompsTable:
             exclusion_reasons=tuple(
                 dict.fromkeys(row.reason for row in self.excluded if row.reason)
             ),
+            confirmed=self.confirmed_peers(),
         )
+
+    def confirmed_peers(self) -> tuple[ConfirmedPeer, ...]:
+        """The peer set a person agreed to, in the table's own order, priced or not.
+
+        Rows first, then exclusions, because that is the order the surfaces read them in
+        and on a run where both exist the priced peers are the comparison. A company with
+        no rationale on record is still named: the reason it was chosen is missing, not the
+        choice, and dropping the name would hide a member of the set somebody approved.
+        """
+        named = [ConfirmedPeer(name=row.name, rationale=row.rationale) for row in self.peers]
+        named.extend(ConfirmedPeer(name=row.name, rationale=row.rationale) for row in self.excluded)
+        return tuple(named)
 
     def median_of(self, key: str) -> Decimal | None:
         """The peer median for one multiple, ignoring the subject and the not-meaningfuls.
@@ -453,9 +498,10 @@ class CompsTable:
 class WithheldComps:
     """What a shareable surface gets instead of a comps table.
 
-    Carries no multiple, no peer name and no price-derived figure of any kind. The counts are
-    of *companies*, which were chosen by a person rather than supplied by the data vendor, so
-    they disclose the shape of the work without disclosing the licensed data.
+    Carries no multiple and no price-derived figure of any kind. The counts, the names and
+    the rationales are of *companies*, which were chosen by a person rather than supplied by
+    the data vendor, so they disclose the shape of the work without disclosing the licensed
+    data.
     """
 
     peer_count: int
@@ -467,6 +513,21 @@ class WithheldComps:
     # Reasons and not names: a reason is a statement about what this platform did, and
     # since ADR 0059 was amended it is usually the same statement about all of them.
     exclusion_reasons: tuple[str, ...] = ()
+
+    # The peer set a person confirmed, and why they said each one belongs. This class said
+    # "no peer name" for a year, on reasoning that never applied to a name: the licence is
+    # about the vendor's figures, and the set is the operator's own judgement. The cost was
+    # a report that told a reader eight peers had been considered and named none of them,
+    # which a judge called "no relative anchor of any kind" (ADR 0034, amended 2026-09-18).
+    confirmed: tuple[ConfirmedPeer, ...] = ()
+
+    def confirmed_peers(self) -> tuple[ConfirmedPeer, ...]:
+        """The peer set a person agreed to. The same question, answered the same way.
+
+        A method rather than the field, so a renderer handed either arm of the union asks
+        one thing and cannot learn which arm it has from the shape of the call.
+        """
+        return self.confirmed
 
     def as_paragraph(self) -> str:
         """The disclosure, written here so it cannot vary by template.

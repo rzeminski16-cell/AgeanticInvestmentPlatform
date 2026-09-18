@@ -1,8 +1,8 @@
 # ADR 0034 — A withheld figure is a type with no field for it
 
-**Status.** Accepted — **amended 2026-09-17**, see the amendment at the foot. The decision
-stands; its second half, the renderer's signature, is superseded by ADR 0030's amendment of
-2026-08-09.
+**Status.** Accepted — **amended 2026-09-17 and 2026-09-18**, see the amendments at the foot.
+The decision stands; its second half, the renderer's signature, is superseded by ADR 0030's
+amendment of 2026-08-09, and its third half now names the peers as well as counting them.
 **Date.** 2026-08-05
 **Implements.** ADR 0030 route 2 — the operator keeps the EODHD personal-use plan and builds
 for internal use, so nothing derived from market data may be published. *Route 2 was amended
@@ -167,3 +167,44 @@ field for a figure.
 withholding sentence, which the HTML notation converted by a special case. A fragment may
 not carry one notation's syntax, so the emphasis is gone and the sentence stands on its own
 words.
+
+## Amendment, 2026-09-18 — the peer set is named, and it was never the vendor's to withhold
+
+**The third decision above — "the counts are disclosed, because they are not the vendor's
+data" — was right and stopped one word short.** Its own argument is that the counts
+"describe work a person chose to do — the peer set is proposed and then confirmed by a
+human — and disclose nothing the subscription covers". Every word of that is true of the
+*names*, and of the reason written beside each one. Neither came from the feed. `EODHD`
+supplies prices; the set is the operator's judgement, recorded at a gate and hashed into an
+approval.
+
+`WithheldComps` nevertheless said "carries no multiple, no peer name and no price-derived
+figure of any kind", and `CompsTable` had no way to hand the set to a renderer at all. So
+both arms of the union dropped it, and the cost is on the record: a report told its reader
+that eight peers had been considered and all eight excluded, and named none of them. The
+judges' words were *"they are not even listed, so there is no relative anchor of any
+kind"* and *"No competitor is named anywhere in the document."* The platform held eight
+registry-confirmed names with written rationales and printed zero of them.
+
+**The amendment.** Both arms carry `confirmed_peers()`, returning the set as
+`ConfirmedPeer(name, rationale)` whatever became of each company — a peer with multiples
+and a peer excluded for want of a price are the same answer to *who is this comparable
+to*, and since ADR 0059 was amended the second is every peer on every run. The report
+names them.
+
+**No markers, and that is ADR 0074 rather than a formatting choice.** A rationale is a view
+somebody held: no bytes to hash, nothing to re-read, nothing a verifier could confirm. A
+footnote against it would tell a reader it had been checked. The block says instead, in
+words, that these are judgements and carry no source note — and the section that may name
+them is told the same thing, plus the boundary the numeral rule cannot state: this research
+holds no figures for these companies, so nothing else about them may be written.
+
+**Where the rationale is read from, and why not the comps record.** The comps step has
+never recorded it, so recording it now would leave every stored run without one — §3.19.8's
+lesson exactly. It is read instead from the peer set the gate approved, which
+`confirmed_peer_set` already verifies against the approval hash and which `comps_for`
+already loads and was already discarding. Every run the platform has ever made gets its
+reasons, and the string keeps one home.
+
+**What still cannot cross.** Unchanged: the price series, any chart of it, and any multiple
+computed from a feed whose determination says no. A name is not a figure.

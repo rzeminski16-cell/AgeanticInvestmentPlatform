@@ -3832,6 +3832,10 @@ async def comps_for(
         subject_identifier=request.ticker,
         subject_name=await subject_name(session, request),
         source_label=f"{COMPS_STEP}:{job.id}",
+        # The confirmed set was already read above, and its rationales were already
+        # dropped here — which is how a report came to tell a reader that eight peers had
+        # been considered without naming one of them (ADR 0034, amended 2026-09-18).
+        rationales={peer.identifier: peer.rationale for peer in confirmed},
     )
     if table is None:
         return None

@@ -329,6 +329,10 @@ A comparable-company analysis was attempted as at 30 June 2022, but its single p
 
 EV/EBITDA, EV/Sales, P/E, P/B, P/TBV and P/FFO were not computed, because this research does not hold the figures they need.
 
+The companies below are the comparable set for this research, each proposed with a stated reason and confirmed by the operator. The reasons are judgements rather than reported facts, and carry no source note.
+
+- **PEER CORP:** Scripted proposal: sells comparable software to comparable buyers.
+
 ## Scope and limitations
 
 - **Valuation — Discounted Cash Flow:** No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis.
