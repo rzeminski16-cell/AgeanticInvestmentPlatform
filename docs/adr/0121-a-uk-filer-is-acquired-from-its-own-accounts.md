@@ -271,11 +271,34 @@ under this platform's most trusted provider. The narrower control — admit a ho
 host it came *from* — does not exist in `policy.py` today. It is a security control either
 way, so it is the operator's to approve and it needs its own ADR.
 
-### 3. What was built anyway, because it holds under every option above
+### 3. What the operator decided, 18 September 2026
+
+Both questions were put with what each option admits, and both were answered the same day.
+
+**Where a London-listed company's numbers come from: its own ESEF annual financial report.**
+Since ESEF, a UK issuer's annual report is published as inline XBRL, and issuers put it on
+their own investor-relations site — `ISSUER_IR` is already an allowlisted provider with a
+licence position and a per-request host admission. It costs a discovery step per issuer and
+lands at the issuer tier rather than the regulatory one, and the numbers stay traceable to the
+company's own tagged document, which is the invariant that matters. The licensed feed was
+refused for the reason this ADR already gives; the NSM stays refused under ADR 0022.
+
+**The redirect: the narrow rule.** Landed the same day as **ADR 0127**, which also closed a
+credential defect and a content-negotiation defect that the first successful request exposed.
+Companies House documents are fetchable, the tagged copy is asked for by type, and a filing
+with no tagged copy is recorded as untagged rather than downloaded as a scan.
+
+**So §2 of this record is superseded in substance**: `fetch_facts` stays, correct for a filer
+that files through software, and it is no longer where a *listed* company's numbers come from.
+The ESEF route is a decision of its own and gets its own record when it is built.
+
+### 4. What was built anyway, because it holds under every option above
 
 The register vocabulary (`registry_of`), `research_requests.register`, the client's resolution
 by registered name and by company number, the profile's SIC codes and accounting reference
 date, `upsert_company` writing a company number rather than a CIK, and `acquire_accounts`.
-None of it assumes the documents are tagged. The dispatch in `acquire` is **held** until the
-questions above are answered, so that a UK run refuses at the request form as it does today
-rather than failing three layers down on a redirect.
+None of it assumes the documents are tagged.
+
+The dispatch in `acquire` was **held** while the questions above were open, so that a UK run
+refused at the request form rather than failing three layers down on a redirect. With both
+answered it is no longer blocked, and it lands with the ESEF route it now has to reach for.

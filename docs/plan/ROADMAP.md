@@ -1281,8 +1281,33 @@ found rather than as scope that was always there.
     eu-west-2, so admitting it for `COMPANIES_HOUSE` admits any URL that redirects there
     under this platform's most trusted provider. What is wanted is narrower — a redirect
     admitted because of where it came *from* — and it is a security control, so it is the
-    operator's to approve. **The class**: a mocked transport tests the parser and cannot test
-    the policy, and the two failures it hides are the ones that only appear in production.
+    operator's to approve. **Approved and landed the same day as ADR 0127**, with the origin
+    check, the one-hop property and the standing refusals all tested. **The class**: a mocked
+    transport tests the parser and cannot test the policy, and the failures it hides are the
+    ones that only appear in production — which is the theme of the next two items, both
+    found by the first request that got through.
+23. **The credential followed the redirect, 18 September 2026.** With the hop admitted, the
+    Companies House API key went to Amazon S3 — which answered 400, `Only one auth mechanism
+    allowed`, **quoting the `Authorization` header back in its error body**, which the fetcher
+    hashed and archived as it archives every failure. The header had always been attached by
+    provider, under a comment stating that a key for one publisher could never travel to
+    another's host: true while every admitted host was one of the provider's own, false the
+    moment one was not. A credential now goes only to a host on the provider's *standing*
+    allowlist. **The class**: a safety property held by a coincidence of the data — here "the
+    only hosts we fetch are the provider's own" — is a property nothing is testing, and it
+    expires without a sound when the data changes. The comment asserting it was the only
+    thing guarding it.
+24. **The register serves two copies of a filing and hands over the wrong one, 18 September
+    2026.** The document endpoint content-negotiates, and `fetch_facts` asked for nothing: a
+    small company's accounts came back as a 20 KB PDF with no extractable text by default and
+    as 19.6 KB of inline XBRL carrying **eight facts** when asked for by type. So the UK fact
+    path would have reported every filing as untagged — including the ones that are tagged —
+    and the sample in item 21 would have read as "no UK company files inline XBRL" rather
+    than "listed companies do not". A filing with no tagged copy answers **406**, which is a
+    better answer than the 14 MB scan behind the other representation: it settles "is this
+    filing tagged?" in one round trip and no megabytes. **The class**: when a publisher offers
+    a choice and the code expresses no preference, the default it gets is the one that suits
+    the publisher, and nothing in the code says which one that was.
 
 ### Before this leaves one machine
 

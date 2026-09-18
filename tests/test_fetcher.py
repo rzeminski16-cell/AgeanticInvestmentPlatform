@@ -236,6 +236,34 @@ class TestSsrfThroughTheFetcher:
         assert result.redirect_chain == (FILING_URL,)
 
     @respx.mock
+    async def test_the_register_is_followed_to_its_own_document_store(self, fetcher):
+        """ADR 0127, and the shape a mocked transport hid for thirty-two tests.
+
+        The Companies House document endpoint answers 302 to a pre-signed object-store URL.
+        Every offline test of that client passed because `respx` returned the body where the
+        register returns a redirect, so the first real UK document fetch was the first time
+        anything checked the hop.
+        """
+        content = "https://document-api.company-information.service.gov.uk/document/abc/content"
+        store = "https://s3.eu-west-2.amazonaws.com/ch-document-store/abc?X-Amz-Signature=x"
+        respx.get(content).mock(return_value=httpx.Response(302, headers={"location": store}))
+        respx.get(store).mock(return_value=httpx.Response(200, content=b"%PDF-1.7 accounts"))
+
+        result = await fetcher.fetch(content, provider=Provider.COMPANIES_HOUSE)
+
+        assert result.ok
+        assert result.redirect_chain == (content,)
+
+    @respx.mock
+    async def test_the_document_store_is_not_fetchable_on_its_own(self, fetcher):
+        """The delegation is a door the register opens, not one standing open."""
+        store = "https://s3.eu-west-2.amazonaws.com/ch-document-store/abc"
+        respx.get(store).mock(return_value=httpx.Response(200, content=b"%PDF-1.7"))
+
+        with pytest.raises(UrlNotAllowedError, match="not on the allowlist"):
+            await fetcher.fetch(store, provider=Provider.COMPANIES_HOUSE)
+
+    @respx.mock
     async def test_an_endless_redirect_chain_is_refused(self, fetcher):
         respx.get(url__regex=r"https://www\.sec\.gov/loop.*").mock(
             return_value=httpx.Response(302, headers={"location": "https://www.sec.gov/loop2"})

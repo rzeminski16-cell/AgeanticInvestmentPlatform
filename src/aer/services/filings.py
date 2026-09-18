@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -56,6 +56,7 @@ from aer.sources.base import DocumentRef, ResolvedEntity
 from aer.sources.sec.accession import substantive_exhibits
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
 from aer.sources.uk.companies_house import FACT_DEPTH as CH_FACT_DEPTH
+from aer.sources.uk.companies_house import NOT_TAGGED_STATUS
 from aer.storage.protocol import ArtefactStore
 
 __all__ = [
@@ -391,7 +392,15 @@ async def acquire_accounts(
             this, and left unbounded it would be a function of how long the company has
             existed rather than of what the research needs.
 
-    **These documents are both halves of the evidence at once**, which is what makes the UK
+    **Only the filings the register holds a tagged copy of**, and that is a measurement
+    rather than a preference. Asked for inline XBRL, the register serves it where the company
+    filed through software and answers **406** where it does not — and what sits behind the
+    other representation, for a listed company, is a scanned annual report of 8 to 36 MB with
+    no tagged figures and no extractable text at all. Acquiring those would cost the bandwidth
+    of a run to store pictures of pages nothing can read, so an untagged filing is recorded in
+    ``skipped`` saying so, which is a fact about the filing rather than a failure.
+
+    **A tagged document is both halves of the evidence at once**, which is what makes the UK
     path different rather than merely differently-sourced. A US run reads its numbers from
     EDGAR's aggregate and its prose from the filings beside it; here the accounts document is
     the only thing there is, so the same artefact is excerpted for citation *and* parsed for
@@ -433,6 +442,14 @@ async def acquire_accounts(
             accession=ref.accession or "",
             provider=Provider.COMPANIES_HOUSE,
             publisher=COMPANIES_HOUSE_PUBLISHER,
+            status_reasons={
+                NOT_TAGGED_STATUS: (
+                    f"The accounts filed on {_filed_on(ref)} are not tagged: the register "
+                    "holds them as a scanned document rather than as inline XBRL, so they "
+                    "carry no figures this platform can read and no text it can quote. "
+                    "That is how a listed company's accounts are filed."
+                )
+            },
         )
         if isinstance(outcome, str):
             skipped.append(outcome)
@@ -449,6 +466,11 @@ async def acquire_accounts(
         skipped=len(skipped),
     )
     return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
+
+
+def _filed_on(ref: DocumentRef) -> str:
+    """The day the register accepted this filing, for a sentence an operator reads."""
+    return ref.publication_date.strftime("%-d %B %Y")
 
 
 def _record_classification(company: Company, index: SubmissionsIndex) -> None:
@@ -603,6 +625,7 @@ async def _acquire_ref(
     accession: str,
     provider: Provider = Provider.SEC_EDGAR,
     publisher: str = SEC_PUBLISHER,
+    status_reasons: Mapping[int, str] | None = None,
 ) -> tuple[AcquiredFiling, int] | str:
     """One filed document: fetched, recorded, excerpted. The reason on any failure.
 
@@ -610,6 +633,11 @@ async def _acquire_ref(
     company's accounts (ADR 0121), so each is acquired *identically* — the same fetch
     layer, the same hash, the same tier, the same excerpting, the same date. A second path
     would be a second set of answers to questions this one has already settled.
+
+    ``status_reasons`` lets a caller say what one status *means* for its publisher, in the
+    sentence an operator reads. Companies House answers 406 to mean "this filing has no
+    tagged copy", which is a fact about the filing; "returned HTTP 406" says the same thing
+    in a language nobody outside this file speaks.
     """
     try:
         result = await client.fetch_document(ref)
@@ -617,7 +645,8 @@ async def _acquire_ref(
         return f"{form} {accession} could not be fetched: {refused.message}"
 
     if not result.ok:
-        return f"{form} {accession} returned HTTP {result.status_code}."
+        stated = (status_reasons or {}).get(result.status_code)
+        return stated or f"{form} {accession} returned HTTP {result.status_code}."
 
     acquisition = await record_acquisition(
         session,

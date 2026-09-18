@@ -136,6 +136,89 @@ class TestUrlAdmission:
         assert ".sec.gov" in excinfo.value.context["allowed"]
 
 
+class TestADelegatedDownload:
+    """ADR 0127. The register hands its documents to its own object store, and only there.
+
+    Measured on the live register on 18 September 2026: the document endpoint answers 302 to
+    a pre-signed `s3.eu-west-2.amazonaws.com` URL, so without this rule no UK filing can be
+    fetched at all. The rule is narrower than an allowlist entry in exactly one way, and it
+    is the way that matters — that host serves every AWS customer's bucket in the region.
+    """
+
+    STORE = "https://s3.eu-west-2.amazonaws.com/bucket/document.pdf"
+    DOCUMENT_API = "https://document-api.company-information.service.gov.uk/document/x/content"
+
+    def test_the_hop_the_register_sent_us_on_is_admitted(self):
+        policy = policy_for_url(self.STORE, Provider.COMPANIES_HOUSE, came_from=self.DOCUMENT_API)
+
+        assert policy.provider is Provider.COMPANIES_HOUSE
+        assert policy.source_tier is SourceTier.T1_REGULATORY
+
+    def test_the_same_url_asked_for_directly_is_refused(self):
+        """The whole difference between this and an allowlist entry.
+
+        A pre-signed URL that arrived in a search result, a filing footnote or a model's
+        reply is not the register handing over a document, and following it would fetch an
+        arbitrary bucket under the platform's most trusted provider.
+        """
+        with pytest.raises(UrlNotAllowedError, match="not on the allowlist"):
+            policy_for_url(self.STORE, Provider.COMPANIES_HOUSE)
+
+    def test_a_redirect_from_somewhere_else_does_not_admit_it(self):
+        with pytest.raises(UrlNotAllowedError):
+            policy_for_url(self.STORE, Provider.COMPANIES_HOUSE, came_from="https://evil.test/go")
+
+    def test_the_register_cannot_send_us_anywhere_it_likes(self):
+        """Only the one destination. A redirect to another host is still refused."""
+        with pytest.raises(UrlNotAllowedError):
+            policy_for_url(
+                "https://evil.test/document.pdf",
+                Provider.COMPANIES_HOUSE,
+                came_from=self.DOCUMENT_API,
+            )
+
+    def test_the_delegation_does_not_leak_to_another_provider(self):
+        with pytest.raises(UrlNotAllowedError):
+            policy_for_url(self.STORE, Provider.SEC_EDGAR, came_from=self.DOCUMENT_API)
+
+    def test_a_delegated_host_cannot_redirect_onward(self):
+        """One hop, by construction: the store's own redirect arrives with itself as origin,
+        matches no rule, and is refused — so a chain cannot walk out of the delegation."""
+        with pytest.raises(UrlNotAllowedError):
+            policy_for_url(
+                "https://elsewhere.test/x",
+                Provider.COMPANIES_HOUSE,
+                came_from=self.STORE,
+            )
+
+    def test_a_refused_host_is_still_refused_however_it_was_reached(self):
+        """The standing refusal is checked before any of this, and ADR 0022's is the one
+        that would matter: a redirect must not be a way into the FCA's hosts."""
+        with pytest.raises(UrlNotAllowedError, match="not fetched by this platform"):
+            policy_for_url(
+                "https://data.fca.org.uk/x",
+                Provider.COMPANIES_HOUSE,
+                came_from=self.DOCUMENT_API,
+            )
+
+    def test_only_the_one_provider_delegates_anything(self):
+        """Every other publisher serves its own bytes, and an empty tuple says so."""
+        delegating = {
+            provider for provider, policy in DEFAULT_POLICIES.items() if policy.delegated_downloads
+        }
+        assert delegating == {Provider.COMPANIES_HOUSE}
+
+    def test_every_delegation_states_why_it_exists(self):
+        for policy in DEFAULT_POLICIES.values():
+            for rule in policy.delegated_downloads:
+                assert rule.reason.strip(), policy.provider.value
+                assert rule.from_host.strip(), policy.provider.value
+
+    def test_the_default_is_no_delegation(self):
+        """A provider added tomorrow inherits none of this."""
+        assert FetchPolicy.__dataclass_fields__["delegated_downloads"].default == ()
+
+
 class TestRefusedHosts:
     """A standing refusal, and the three ways it could have been sidestepped."""
 

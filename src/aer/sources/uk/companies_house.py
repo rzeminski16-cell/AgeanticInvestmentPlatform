@@ -45,6 +45,8 @@ from aer.storage.protocol import ArtefactStore
 __all__ = [
     "ACCOUNTS_CATEGORIES",
     "FACT_DEPTH",
+    "IXBRL_MEDIA_TYPE",
+    "NOT_TAGGED_STATUS",
     "CompaniesHouseClient",
     "CompanyProfile",
     "FilingHistory",
@@ -69,6 +71,12 @@ DOCUMENT_ROOT: Final = "https://document-api.company-information.service.gov.uk"
 # registered-office changes and confirmation statements — real records, and not ones a research
 # report cites.
 ACCOUNTS_CATEGORIES: Final[frozenset[str]] = frozenset({"accounts"})
+
+# What a tagged filing is, and what to ask the document endpoint for. A filing that has no
+# such copy answers 406 rather than serving the scan, which is how this platform tells a
+# tagged filing from an untagged one without downloading either.
+IXBRL_MEDIA_TYPE: Final = "application/xhtml+xml"
+NOT_TAGGED_STATUS: Final = 406
 
 # A company number is eight characters: digits, or two letters and six digits for the Scottish
 # and Northern Irish registers. Validated because it goes into a URL path.
@@ -450,15 +458,32 @@ class CompaniesHouseClient:
         result = await self._get(f"{API_ROOT}/search/companies?{params}")
         return parse_search_results(await self._body(result))
 
-    async def fetch_document(self, ref: DocumentRef) -> FetchResult:
+    async def fetch_document(self, ref: DocumentRef, *, tagged: bool = True) -> FetchResult:
         """Fetch a filed document referenced by a history this client produced.
 
         The URL comes from a :class:`~aer.sources.base.DocumentRef`, only ever built from a
         document identifier the register issued. It is still validated against the allowlist by
         the fetch layer, because a chain of trusted construction is only as strong as its
         weakest link and this one crosses a module boundary.
+
+        **The tagged copy has to be asked for**, and this was measured rather than assumed. The
+        register serves one filing at two representations and hands over the PDF unless the
+        request says otherwise: a small company's accounts came back as an untagged 20 KB PDF
+        by default and as 19.6 KB of inline XBRL carrying eight facts when asked for by type.
+        Without the header, the fact extractor was being handed the wrong document and
+        reporting the filing as untagged.
+
+        ``tagged=False`` asks for whatever the register serves, which is the scanned PDF. The
+        default is the other way round because the caller that wants figures is the one that
+        would otherwise be silently wrong.
+
+        A filing with no tagged copy answers **406**, which is a better answer than the 14 MB
+        scan behind the other representation: it says "this filing is not tagged" in one round
+        trip and no megabytes. The caller decides what to do with it; this returns the result
+        rather than raising, exactly as it does for any other status.
         """
-        return await self._fetcher.fetch(ref.url, provider=self.provider)
+        accept = IXBRL_MEDIA_TYPE if tagged else None
+        return await self._fetcher.fetch(ref.url, provider=self.provider, accept=accept)
 
     # -- Adapter surface -------------------------------------------------------------------
 
@@ -622,6 +647,18 @@ class CompaniesHouseClient:
         """One accounts document's facts, joined to the filing that carried them."""
         ref = filing.to_ref(company_name=entity.name)
         result = await self.fetch_document(ref)
+        if result.status_code == NOT_TAGGED_STATUS:
+            # The register has no tagged copy of this filing. Said plainly rather than
+            # reported as an extraction failure, because it is a fact about the filing: a
+            # listed company's accounts are uploaded as a scan, and every one of them would
+            # otherwise be logged as a document this platform could not read.
+            _log.info(
+                "companies_house.filing_not_tagged",
+                company_number=entity.identifier,
+                transaction_id=filing.transaction_id,
+                filed_on=filing.filed_on.isoformat(),
+            )
+            return ()
         try:
             extraction = extract_ixbrl(await self._body(result))
         except AerError as unreadable:

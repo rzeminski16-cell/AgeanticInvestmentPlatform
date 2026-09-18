@@ -34,10 +34,12 @@ from aer.fetch.errors import UrlNotAllowedError
 __all__ = [
     "DEFAULT_POLICIES",
     "REFUSED_HOSTS",
+    "DelegatedDownload",
     "FetchPolicy",
     "HostRefusal",
     "RetentionClass",
     "host_matches",
+    "may_carry_credential",
     "policy_for",
     "policy_for_url",
     "refusal_for",
@@ -64,6 +66,26 @@ class RetentionClass(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class DelegatedDownload:
+    """A host a publisher hands its own document downloads off to (ADR 0127).
+
+    Not an allowlist entry, and the difference is the whole point. ``host`` is admitted
+    **only** as the target of a redirect issued by ``from_host``, so the platform follows
+    the register to its own object store and will not fetch that store on anybody else's
+    say-so — including its own, if a URL to it arrives by another route.
+    """
+
+    # The destination, matched exactly or as a domain suffix, like `allowed_hosts`.
+    host: str
+
+    # The one host whose redirect admits it. A hop from anywhere else is refused.
+    from_host: str
+
+    # Why this delegation exists, in a sentence, for the refusal message and the record.
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class FetchPolicy:
     """Everything the fetch layer needs to know about one provider."""
 
@@ -79,6 +101,10 @@ class FetchPolicy:
     licence_note: str
 
     requests_per_second: float
+
+    # Where this publisher's own downloads are served from, when that is not one of the
+    # hosts above (ADR 0127). Empty for every provider that serves its own bytes.
+    delegated_downloads: tuple[DelegatedDownload, ...] = ()
 
     # Whether the licence obliges deletion at some point. Almost everything here is
     # permanent; a paid feed is the exception, and it is the exception that decides
@@ -155,6 +181,21 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         allowed_hosts=(".companieshouse.gov.uk", ".company-information.service.gov.uk"),
         licence_note="Open Government Licence v3.0. Attribution required.",
         requests_per_second=1.8,
+        # The register's document endpoint answers 302 to a pre-signed object-store URL, so
+        # without this no UK filing can be fetched at all (ADR 0127). Admitted only as the
+        # target of a redirect from the document API itself: that host serves every AWS
+        # customer's bucket in the region, and allowlisting it outright would admit anything
+        # that redirected there under this platform's most trusted provider.
+        delegated_downloads=(
+            DelegatedDownload(
+                host="s3.eu-west-2.amazonaws.com",
+                from_host="document-api.company-information.service.gov.uk",
+                reason=(
+                    "Companies House serves filed documents from its own object store and "
+                    "redirects to a pre-signed URL there."
+                ),
+            ),
+        ),
         # The OGL permits copying and publishing with attribution, which the appendix gives.
         verbatim_excerpt_publishable=True,
         burst=2,
@@ -386,7 +427,11 @@ def host_matches(host: str, pattern: str) -> bool:
 
 
 def policy_for_url(
-    url: str, provider: Provider, *, extra_hosts: tuple[str, ...] = ()
+    url: str,
+    provider: Provider,
+    *,
+    extra_hosts: tuple[str, ...] = (),
+    came_from: str | None = None,
 ) -> FetchPolicy:
     """Return the provider's policy, having confirmed the URL's host is permitted.
 
@@ -396,6 +441,10 @@ def policy_for_url(
         extra_hosts: Additional hosts permitted for this request only. This is how an
             issuer's investor-relations domain is admitted once it has been resolved from
             a filing, without widening the standing allowlist for every future fetch.
+        came_from: The URL that redirected here, on a redirect hop only. Supplied by the
+            fetcher's own loop and never by a caller — which is what makes a delegated
+            download (ADR 0127) narrower than an allowlist entry: the host is reachable
+            only by following the publisher, not by asking for it.
 
     Raises:
         UrlNotAllowedError: If the host carries a standing refusal, or is not on the
@@ -423,6 +472,9 @@ def policy_for_url(
     if any(host_matches(host, pattern) for pattern in permitted):
         return policy
 
+    if came_from is not None and _is_delegated(policy, host=host, came_from=came_from):
+        return policy
+
     message = (
         f"{host or 'This host'} is not on the allowlist for {provider.value}. This "
         "platform fetches only from publishers it is configured to read, so an "
@@ -431,4 +483,41 @@ def policy_for_url(
     raise UrlNotAllowedError(
         message,
         context={"host": host, "provider": provider.value, "allowed": sorted(permitted)},
+    )
+
+
+def may_carry_credential(policy: FetchPolicy, url: str) -> bool:
+    """Whether this provider's credential may be sent to this URL (ADR 0127).
+
+    **Only to the publisher's own hosts.** A credential is issued by one publisher for its
+    own API, and every other host a fetch can reach — a delegated object store, an issuer
+    domain admitted for one request — is a third party as far as that credential is
+    concerned.
+
+    Measured, not theorised. The first real Companies House document fetch sent the API key
+    to Amazon S3 on the redirect, and S3 answered 400 *quoting the header back*, which the
+    fetcher then archived: a credential in a third party's error log and in this platform's
+    own artefact store. The header had always been attached by provider, which was sound
+    while every admitted host was one of the provider's own; a delegated download is the
+    case that makes the difference load-bearing.
+    """
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host_matches(host, pattern) for pattern in policy.allowed_hosts)
+
+
+def _is_delegated(policy: FetchPolicy, *, host: str, came_from: str) -> bool:
+    """Whether this hop is the publisher handing off its own download (ADR 0127).
+
+    Both ends are checked, and the origin end is the one doing the work: the destination
+    alone would be an allowlist entry by another name, while "only where the register sent
+    us" is a door that cannot be walked through from outside.
+
+    One hop only, by construction. A delegated host that redirects onward arrives here with
+    itself as the origin, matches no rule, and is refused — so a chain cannot walk out of
+    the delegation it was admitted by.
+    """
+    origin = (urlsplit(came_from).hostname or "").lower()
+    return any(
+        host_matches(host, rule.host) and host_matches(origin, rule.from_host)
+        for rule in policy.delegated_downloads
     )

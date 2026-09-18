@@ -77,7 +77,7 @@ class StubCompaniesHouse:
             if filing.is_fetchable
         )
 
-    async def fetch_document(self, ref: DocumentRef) -> FetchResult:
+    async def fetch_document(self, ref: DocumentRef, *, tagged: bool = True) -> FetchResult:
         self.fetched.append(ref.url)
         # Each filing's own bytes. Two years of accounts are not byte-identical, and a stub
         # that made them so would collapse into one artefact and one source document.
@@ -258,6 +258,33 @@ class TestWhatCannotBeHad:
         assert outcome.filings == ()
         assert "no accounts this platform can fetch" in outcome.skipped[0]
 
+    async def test_an_untagged_filing_says_what_it_is_rather_than_storing_a_scan(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Measured against the live register on 18 September 2026 (ADR 0127).
+
+        Asked for inline XBRL, Companies House answers **406** where the filing has no tagged
+        copy — and what sits behind the other representation, for a listed company, is a
+        scanned annual report: Tesco's is 14.3 MB over 236 pages and yields no tagged figures
+        and no extractable text at all. Storing those would spend a run's bandwidth on
+        pictures of pages nothing can read, so the filing is recorded as untagged instead.
+        """
+
+        class NotTagged(StubCompaniesHouse):
+            async def fetch_document(self, ref: DocumentRef, *, tagged: bool = True) -> FetchResult:
+                result = await super().fetch_document(ref, tagged=tagged)
+                result.status_code = 406
+                return result
+
+        outcome = await _acquire(scene, depth=2, client=NotTagged(scene["store"]))
+
+        assert outcome.filings == ()
+        assert len(outcome.skipped) == 2
+        assert "not tagged" in outcome.skipped[0]
+        assert "scanned document" in outcome.skipped[0]
+        # Dated in words, because this sentence is read by an operator rather than by code.
+        assert "25 July 2026" in outcome.skipped[0]
+
     async def test_one_refused_document_leaves_the_others_standing(
         self, scene: dict[str, Any]
     ) -> None:
@@ -265,13 +292,13 @@ class TestWhatCannotBeHad:
         other three with it."""
 
         class OneBad(StubCompaniesHouse):
-            async def fetch_document(self, ref: DocumentRef) -> FetchResult:
+            async def fetch_document(self, ref: DocumentRef, *, tagged: bool = True) -> FetchResult:
                 if len(self.fetched) == 1:
                     self.fetched.append(ref.url)
                     raise ExternalServiceError(
                         "That document could not be fetched.", provider="companies_house"
                     )
-                return await super().fetch_document(ref)
+                return await super().fetch_document(ref, tagged=tagged)
 
         outcome = await _acquire(scene, depth=3, client=OneBad(scene["store"]))
 

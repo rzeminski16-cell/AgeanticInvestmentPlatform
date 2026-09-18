@@ -42,7 +42,7 @@ from aer.errors import ExternalServiceError
 from aer.fetch.credentials import redact_credentials
 from aer.fetch.errors import ContentTypeMismatchError, FetchTooLargeError, SsrfBlockedError
 from aer.fetch.limits import CircuitBreaker, RateLimiter
-from aer.fetch.policy import FetchPolicy, policy_for_url
+from aer.fetch.policy import FetchPolicy, may_carry_credential, policy_for_url
 from aer.fetch.robots import RobotsCache
 from aer.fetch.ssrf import resolve_and_validate
 from aer.fetch.transport import PinnedAddressTransport
@@ -221,8 +221,17 @@ class SafeFetcher:
         expected_media_types: frozenset[str] | None = None,
         max_bytes: int | None = None,
         extra_hosts: tuple[str, ...] = (),
+        accept: str | None = None,
     ) -> FetchResult:
         """Fetch a URL, archive whatever came back, and describe it.
+
+        Args:
+            accept: What representation to ask for, where the publisher serves more than one
+                at the same address. Companies House offers a filing as a scanned PDF and,
+                where it was filed through software, as inline XBRL — and serves the PDF
+                unless asked otherwise, so the tagged copy is reachable only by asking
+                (ADR 0121). Sent as the request's ``Accept`` header and recorded nowhere
+                else: what came back is described by what was sniffed from the bytes.
 
         Raises:
             UrlNotAllowedError: The host is not on the provider's allowlist.
@@ -248,7 +257,9 @@ class SafeFetcher:
         total_attempts = 0
 
         for hop in range(MAX_REDIRECTS + 1):
-            response, attempts = await self._request_with_retries(current, policy, cap)
+            response, attempts = await self._request_with_retries(
+                current, policy, cap, accept=accept
+            )
             total_attempts += attempts
 
             location = response.headers.get("location")
@@ -268,8 +279,15 @@ class SafeFetcher:
                 redirect_chain.append(current)
                 # Resolved against the current URL so a relative Location works, then
                 # re-validated from scratch on the next pass: allowlist, SSRF, the lot.
-                current = urljoin(current, location)
-                policy = policy_for_url(current, provider, extra_hosts=extra_hosts)
+                #
+                # `came_from` is the hop that issued this redirect, and it is passed here
+                # rather than taken from any caller: it is what lets a publisher hand its
+                # downloads to its own object store without that store becoming fetchable
+                # by any other route (ADR 0127).
+                came_from, current = current, urljoin(current, location)
+                policy = policy_for_url(
+                    current, provider, extra_hosts=extra_hosts, came_from=came_from
+                )
                 continue
 
             return await self._finish(
@@ -377,7 +395,7 @@ class SafeFetcher:
         )
 
     async def _request_with_retries(
-        self, url: str, policy: FetchPolicy, cap: int
+        self, url: str, policy: FetchPolicy, cap: int, *, accept: str | None = None
     ) -> tuple[_Response, int]:
         """Try one URL up to :data:`MAX_ATTEMPTS` times.
 
@@ -398,7 +416,7 @@ class SafeFetcher:
 
             response: _Response | None = None
             try:
-                response = await self._request_once(url, policy, cap)
+                response = await self._request_once(url, policy, cap, accept=accept)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error, last_status = exc, None
             else:
@@ -441,7 +459,9 @@ class SafeFetcher:
             context={"url": safe_url, "attempts": MAX_ATTEMPTS},
         )
 
-    async def _request_once(self, url: str, policy: FetchPolicy, cap: int) -> _Response:
+    async def _request_once(
+        self, url: str, policy: FetchPolicy, cap: int, *, accept: str | None = None
+    ) -> _Response:
         """Validate, pin and perform one request, reading the body under a cap."""
         resolved = resolve_and_validate(
             url,
@@ -457,10 +477,14 @@ class SafeFetcher:
             "Accept-Encoding": "gzip, deflate",
             **policy.extra_headers,
         }
-        # Attached by provider, so a credential for one publisher can never travel to
-        # another's host — the policy has already confirmed the URL belongs to this provider.
+        if accept is not None:
+            headers["Accept"] = accept
+        # Attached by provider **and** checked against the host, because the two stopped
+        # being the same question the day a publisher started redirecting its downloads
+        # elsewhere: the key went to the object store, which answered 400 quoting the header
+        # back, and the fetcher archived the reply. See `may_carry_credential` and ADR 0127.
         credential = self._credentials.get(policy.provider)
-        if credential is not None:
+        if credential is not None and may_carry_credential(policy, url):
             headers["Authorization"] = credential
 
         async with self._client(policy) as client:

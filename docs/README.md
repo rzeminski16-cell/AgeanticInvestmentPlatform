@@ -144,7 +144,7 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
 
 ## Reference
 
-- [`adr/`](adr/) — 126 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 127 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 were drafted Proposed** —
   the ten V1.0 features that change a recorded decision or an invariant, argued before the

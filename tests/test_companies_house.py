@@ -26,7 +26,7 @@ from aer.errors import ValidationError
 from aer.fetch.client import SafeFetcher
 from aer.fetch.policy import policy_for
 from aer.logging import is_sensitive_name, redact_secrets
-from aer.sources.base import ResolvedEntity, SourceAdapter
+from aer.sources.base import DocumentRef, ResolvedEntity, SourceAdapter
 from aer.sources.uk.companies_house import (
     ACCOUNTS_CATEGORIES,
     API_ROOT,
@@ -663,6 +663,75 @@ class TestFetchingFacts:
         assert isinstance(client, SourceAdapter)
 
 
+class TestAskingForTheTaggedCopy:
+    """One filing, two representations, and the register serves the wrong one by default.
+
+    Measured against the live register on 18 September 2026 (ADR 0127). A small company's
+    accounts came back as a 20 KB PDF with no extractable text by default, and as 19.6 KB of
+    inline XBRL carrying eight facts when asked for by type — so without the header the fact
+    extractor was being handed the wrong document every time.
+    """
+
+    @pytest.fixture
+    def ref(self) -> DocumentRef:
+        return DocumentRef(
+            url=document_url("abc"),
+            title="Accounts — ACME HOLDINGS PLC",
+            publication_date=date(2026, 7, 25),
+            form="accounts",
+            accession="transaction-1",
+        )
+
+    async def test_the_tagged_representation_is_asked_for(self, client, respx_mock, ref) -> None:
+        route = respx_mock.get(ref.url).mock(
+            return_value=httpx.Response(
+                200, content=b"<html/>", headers={"content-type": "application/xhtml+xml"}
+            )
+        )
+
+        await client.fetch_document(ref)
+
+        assert route.calls[0].request.headers["accept"] == "application/xhtml+xml"
+
+    async def test_the_scan_can_still_be_asked_for_explicitly(
+        self, client, respx_mock, ref
+    ) -> None:
+        """A caller that wants the document as filed says so, and gets whatever is served."""
+        route = respx_mock.get(ref.url).mock(
+            return_value=httpx.Response(
+                200, content=b"%PDF-1.7", headers={"content-type": "application/pdf"}
+            )
+        )
+
+        await client.fetch_document(ref, tagged=False)
+
+        # httpx sends its own `*/*` when nothing is asked for; what matters is that the
+        # request does not narrow itself to a representation this filing may not have.
+        assert route.calls[0].request.headers["accept"] == "*/*"
+
+    async def test_a_filing_with_no_tagged_copy_costs_its_facts_and_nothing_else(
+        self, client, respx_mock
+    ) -> None:
+        """406 is the register saying "this filing is not tagged", in one round trip.
+
+        The alternative it is spared: 14 MB of scanned pages that yield nothing. A listed
+        company's history is entirely this case, so it must not read as an error.
+        """
+        respx_mock.get(url__startswith=f"{API_ROOT}/company/").mock(
+            return_value=_json("ch_filing_history_tesco.json")
+        )
+        respx_mock.get(url__startswith=f"{DOCUMENT_ROOT}/document/").mock(
+            return_value=httpx.Response(
+                406,
+                content=b'{"errors":[{"type":"ch:service"}]}',
+                headers={"content-type": "application/json"},
+            )
+        )
+        entity = ResolvedEntity(identifier="00445790", name="TESCO PLC", ticker="TSCO")
+
+        assert await client.fetch_facts(entity) == ()
+
+
 class TestTheCredential:
     """A secret that goes to the wrong host is a leaked secret."""
 
@@ -698,6 +767,31 @@ class TestTheCredential:
         await credentialled_fetcher.fetch(sec_url, provider=Provider.SEC_EDGAR)
 
         assert "authorization" not in route.calls[0].request.headers
+
+    async def test_it_does_not_follow_the_register_to_its_object_store(
+        self, credentialled_fetcher, respx_mock
+    ) -> None:
+        """**The one that was measured rather than imagined** (ADR 0127).
+
+        The register redirects a document download to a pre-signed object-store URL, and the
+        header had always been attached by provider — which was sound while every admitted
+        host was one of the provider's own. On the first real document fetch the key went to
+        Amazon S3, which answered 400 *quoting the header back*, and the fetcher archived the
+        reply: a credential in a third party's error log and in this platform's own store.
+        """
+        content = f"{DOCUMENT_ROOT}/document/abc/content"
+        store_url = "https://s3.eu-west-2.amazonaws.com/ch-document-store/abc?X-Amz-Signature=x"
+        first = respx_mock.get(content).mock(
+            return_value=httpx.Response(302, headers={"location": store_url})
+        )
+        second = respx_mock.get(store_url).mock(
+            return_value=httpx.Response(200, content=b"%PDF-1.7 accounts")
+        )
+
+        await credentialled_fetcher.fetch(content, provider=Provider.COMPANIES_HOUSE)
+
+        assert first.calls[0].request.headers["authorization"] == basic_auth_header(API_KEY)
+        assert "authorization" not in second.calls[0].request.headers
 
     async def test_a_fetcher_with_no_credentials_sends_none(
         self, fetch_settings, artefact_store, limiter, breaker, sleeper, respx_mock
