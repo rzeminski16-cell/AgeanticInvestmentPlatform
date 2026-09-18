@@ -244,3 +244,40 @@ would get it right on a different basis each run.
 **Map `revenue` to `InterestIncomeExpenseNet` alone for banks.** Simpler, no arithmetic, and
 wrong by $2,742m — a bank with a large fee business would be understated by a third, and
 nothing would flag it because the figure is plausible.
+
+## The footnote, 18 September 2026
+
+**What was parked above is built.** *What is given up* asked that a derived figure's note say
+what it is, and the paragraph beside it explained why waiting was safe: the surface that walks
+a derived row's components did not exist, and the footnote route resolves a marker to a source
+document rather than to a fact. Phase 4.9 built it, on Phase 4.8's printing work as this record
+said it should be.
+
+**A citation now carries the fact it names.** `CitationRef` gains `fact_id`, set from the
+content item's `financial_fact_id` — deliberately outside the dataclass's identity, so two
+figures that already shared a marker keep sharing it and no document's numbering moves. The
+fact is a property of the citation, not a second thing being cited.
+
+**A derived row takes a note of its own**, before the document note rather than beside it: the
+figure is not in the document, so describing the document is the wrong answer rather than an
+incomplete one. The note reads *"Derived, not reported. Revenue for FY2025 is $9,690m, being
+net interest income of $6,948m plus noninterest income of $2,742m. Each component is stated
+in …"*, and it is built **from the row's own workings** rather than from a second reading of
+the concepts it names — asking what those concepts say now is how a re-render comes to
+disagree with the report it re-renders (roadmap §3.19.8).
+
+**One object, two surfaces.** The drill-down page is handed the document's own
+`DerivedFootnote` rather than building a second account of the same derivation, so the exported
+note and the page a reader clicks through to cannot describe it differently. The page leads
+with the derivation and says the filing below is where the components were read, not where the
+figure was.
+
+**Found on the way.** `financial_facts.derivation` was a plain `JSONB` column, so
+`row.derivation = None` wrote the JSON value `null` rather than SQL NULL and the check
+constraint refused the row — loud, but for a reason nobody reading the traceback would guess.
+It is `JSONB(none_as_null=True)` now: serialisation only, no migration, and NULL means what
+this record says it means.
+
+**Still open**, and smaller than it was: a marker resolves to a *document*, and a fact walk —
+the page that would show a derived row's components as rows rather than as a sentence — does
+not exist. What is closed is the part that was actively misleading.

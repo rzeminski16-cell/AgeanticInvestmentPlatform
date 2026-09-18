@@ -45,6 +45,20 @@
 
     {{ ui.verdict("WHERE IT LEADS", verdict.composed, tone=verdict.tone.value) }}
 
+    {#
+      ADR 0114. The figure this marker names is one the platform computed at the fact
+      layer, and no filing states it — so the derivation comes *before* the source, and
+      the sentence is the exported note's own rather than this page's paraphrase of it.
+    #}
+    {% if derived %}
+      {% call ui.sheet("Derived, not reported") %}
+        <p class="max-w-prose type-body" id="derivation-statement">{{ derived.statement }}</p>
+        <p class="mt-3 max-w-prose type-body-sm text-ink-muted">
+          The document below is where its components were read, not where the figure was.
+        </p>
+      {% endcall %}
+    {% endif %}
+
     {% call ui.sheet("The source") %}
       <p class="type-body">
         <a

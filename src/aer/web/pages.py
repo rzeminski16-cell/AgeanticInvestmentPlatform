@@ -79,7 +79,7 @@ from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, enqueue_run, worker_health
 from aer.render import display
-from aer.render.document import UnresolvedFootnote, assemble_document
+from aer.render.document import DerivedFootnote, UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.render.summary import summary_document
@@ -2258,6 +2258,7 @@ async def footnote_drilldown(
             f"This document has {len(document.citations)} note(s); there is no note {number}.",
             status=HTTP_404_NOT_FOUND,
         )
+    note = document.footnotes[number - 1]
     return await _footnote_answer(
         request,
         session,
@@ -2265,6 +2266,10 @@ async def footnote_drilldown(
         research_request=research_request,
         number=number,
         reference=document.citations[number - 1],
+        # The document's own note, passed rather than rebuilt: a derived figure's page and
+        # the exported note must not be able to describe the same derivation differently,
+        # and the only way to guarantee that is for them to be the same object (ADR 0114).
+        derived=note if isinstance(note, DerivedFootnote) else None,
     )
 
 
@@ -2276,6 +2281,7 @@ async def _footnote_answer(
     research_request: ResearchRequest,
     number: int,
     reference: Any,
+    derived: DerivedFootnote | None = None,
 ) -> Response:
     """One marker's answer: the walk on, the evidence, or the honest dead end."""
     identifier = _uuid_or_none(reference.identifier)
@@ -2315,8 +2321,12 @@ async def _footnote_answer(
             "source": source,
             "rows": rows,
             "unresolved": None,
+            "derived": derived,
             "verdict": verdicts.sentence(
                 [
+                    # A derived figure leads with what it is: the document below is where
+                    # its components were read, not where the figure was.
+                    *(["derived rather than reported"] if derived is not None else []),
                     f"resolved to {source.title or source.url}",
                     verdicts.Count(
                         len(rows),
@@ -2352,6 +2362,7 @@ def _unresolved_footnote_page(
             "source": None,
             "rows": [],
             "unresolved": footnote,
+            "derived": None,
         },
     )
     return page

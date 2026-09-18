@@ -216,6 +216,32 @@ class TestTheSourceDrilldown:
         assert 'data-state="unverified"' in page.text
         assert "Not confirmed" in page.text
 
+    async def test_a_derived_figure_leads_with_the_derivation(self, served: Any) -> None:
+        """ADR 0114. The marker resolves to a filing that does not state the figure, so
+        the page says what the figure is before it describes the document — and says it
+        in the exported note's own words, because the page is handed that note rather
+        than building a second account of the same derivation."""
+        client, built = served
+        job_id = built["job"].id
+
+        page = await client.get(f"/runs/{job_id}/footnotes/{built['markers']['derived']}")
+        assert page.status_code == 200
+
+        assert "Derived, not reported" in page.text
+        # The verdict leads with it, capitalised by `verdict.sentence` as the first clause.
+        assert "Derived rather than reported;" in page.text
+        assert "net interest income" in page.text
+        assert "where its components were read, not where the figure was" in page.text
+
+    async def test_an_as_reported_figure_says_nothing_about_derivation(self, served: Any) -> None:
+        """The control: the same page, for the marker beside it, is unchanged."""
+        client, built = served
+        job_id = built["job"].id
+
+        page = await client.get(f"/runs/{job_id}/footnotes/{built['markers']['source']}")
+
+        assert "Derived, not reported" not in page.text
+
     async def test_it_links_each_claim_to_its_own_page(self, served: Any) -> None:
         client, built = served
         job_id = built["job"].id

@@ -422,8 +422,14 @@ fact with `basis = derived` and a `derivation` column (migration 0077) holding t
 both inputs by id and the code version. Found on the way, and fixed first: the turnover half
 of `calc/plausibility.py` had never fired at all, because `services/evaluations.py` asked for
 a concept named `total_assets` where the canonical one is `assets` — so the guard this
-finding produced had caught nothing on any run. The live M&T run and the stored run's
-re-render are what remain, and they wait on the keys.
+finding produced had caught nothing on any run. **The live M&T run followed the same day**:
+FY2025 revenue of $9,690m, a 29.4% net margin against the 172.1% the September run
+published, and the third refusal firing on the three years M&T stated the line itself —
+where the filer's own caption equals this sum to the dollar. **The note landed on 18
+September** as Phase 4.9, on Phase 4.8's printing work where the ADR said it belonged: a
+derived figure's footnote says what the figure is, because no filing states it, and the
+drill-down page is handed the document's own note rather than composing a second account
+of the same derivation.
 
 **2.11 A stopped run has no way forward that is not the terminal.** The audit lost **£14.41**
 on two runs — MSFT #2 and M&T — that reached a state the interface could not leave: a

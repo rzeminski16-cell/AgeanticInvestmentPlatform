@@ -97,6 +97,16 @@ class CitationRef:
     identifier: str
     label: str = ""
 
+    # The stored fact the cited figure *is*, where the item named one — carried so the
+    # footnote can tell a figure a filer stated from one this platform derived (ADR 0114).
+    # A bank's revenue appears in no filing, and without this the note resolves to the
+    # document its components came from and reads as though that document said it.
+    #
+    # **Not part of identity**, so two figures that already shared a marker keep sharing
+    # it and no document's numbering moves: the fact is a property of the citation rather
+    # than a second thing being cited.
+    fact_id: str = field(default="", compare=False)
+
     def __str__(self) -> str:
         return f"{self.kind}:{self.identifier}"
 
@@ -650,6 +660,7 @@ def _cite(
     reader chasing one should not have to guess that the other exists.
     """
     markers: list[int] = []
+    fact_id = str(item.get("financial_fact_id") or "")
     for key in CITATION_KEYS:
         identifier = item.get(key)
         if not identifier:
@@ -659,6 +670,9 @@ def _cite(
             kind=kind,
             identifier=str(identifier),
             label=str(item.get("label", "")),
+            # Only on the document's marker: a calculation's note already walks to its
+            # own inputs, and the question "did a filer say this?" is the document's.
+            fact_id=fact_id if kind == "source_document" else "",
         )
 
         if reference in citations:

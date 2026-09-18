@@ -28,6 +28,7 @@ from aer.render.document import (
     CalculationFootnote,
     ChartView,
     CoverageNote,
+    DerivedFootnote,
     Footnote,
     HeaderView,
     ReportDocument,
@@ -348,6 +349,17 @@ def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
             parts.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             parts.append(f"tier {footnote.tier}")
             return f"{', '.join(parts)}. <{footnote.url}>{_passage(footnote, style=style)}"
+        case DerivedFootnote():
+            named = ", ".join(f"[{title}]({url})" for title, url in footnote.sources)
+            stated = f" Each component is stated in {named}." if named else ""
+            # The code version, as a calculation's note carries one and for the same
+            # reason: the sum is this platform's arithmetic, not the filer's.
+            version = (
+                f" (code version `{footnote.code_version_prefix}`)"
+                if footnote.code_version_prefix
+                else ""
+            )
+            return f"**Derived, not reported.** {footnote.statement}{stated}{version}"
         case UnresolvedFootnote():
             return (
                 f"**Unresolved citation** — this claim references {footnote.kind_label} "

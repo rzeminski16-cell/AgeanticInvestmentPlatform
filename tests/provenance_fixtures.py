@@ -51,6 +51,7 @@ from aer.verify.citations import verify
 from tests.request_fixtures import research_request
 
 __all__ = [
+    "DERIVED_TOTAL",
     "FABRICATED",
     "FILING",
     "SUPPORTED_SENTENCE",
@@ -77,6 +78,18 @@ AS_OF = date(2026, 6, 30)
 # honest unresolved footnotes, and the drill-down must state the same dead end.
 MISSING_SOURCE_ID = uuid.UUID(int=0x5001)
 MISSING_CALC_ID = uuid.UUID(int=0x5002)
+
+# M&T's own halves, to the dollar, as the live run of 17 September 2026 recorded them.
+DERIVED_TOTAL = Decimal("9690000000")
+
+# The walk section's figure labels, named once. A citation's identity is its kind, its
+# target *and* its label, so two figures citing the same filing take two markers — which
+# is exactly what the derived row does, and what made resolving markers by (kind, target)
+# alone start returning the wrong number.
+_GROWTH_LABEL = "Revenue growth"
+_GHOST_FIGURE_LABEL = "Ghost figure"
+_GHOST_ARITHMETIC_LABEL = "Ghost arithmetic"
+_DERIVED_LABEL = "Total revenue, derived"
 
 # The root calculation's own formula, as the traced engine records it.
 WALK_FORMULA = "ratio = numerator / denominator"
@@ -301,14 +314,18 @@ async def _walk_markers(
     document = await _run_document(session, job=job, research_request=request)
     walk = next(view for view in document.sections if view.key == WALK_SECTION_KEY)
     targets = {
-        ("source_document", str(filing.id)): "source",
-        ("calculation", str(calculation.id)): "calculation",
-        ("source_document", str(MISSING_SOURCE_ID)): "missing_source",
-        ("calculation", str(MISSING_CALC_ID)): "missing_calc",
+        ("source_document", str(filing.id), _GROWTH_LABEL): "source",
+        ("calculation", str(calculation.id), _GROWTH_LABEL): "calculation",
+        ("source_document", str(MISSING_SOURCE_ID), _GHOST_FIGURE_LABEL): "missing_source",
+        ("calculation", str(MISSING_CALC_ID), _GHOST_ARITHMETIC_LABEL): "missing_calc",
+        ("source_document", str(filing.id), _DERIVED_LABEL): "derived",
     }
     markers: dict[str, int] = {}
     for ref in walk.citations:
-        name = targets.get((ref.kind, ref.identifier))
+        # Keyed on the label as well, because a citation's identity includes it: two
+        # figures citing one filing under different labels are two markers, and keying
+        # on the target alone silently returned whichever came last.
+        name = targets.get((ref.kind, ref.identifier, ref.label))
         if name is not None:
             markers[name] = list(document.citations).index(ref) + 1
     assert set(markers) == set(targets.values()), markers
@@ -416,6 +433,67 @@ async def _lineage_chain(
     return rows[-1]
 
 
+async def _derived_revenue(
+    session: AsyncSession, *, request: ResearchRequest, filing: SourceDocument
+) -> FinancialFact:
+    """A revenue row the platform computed rather than read (ADR 0114).
+
+    Dated **before** the two as-reported rows on purpose: every surface that wants *the*
+    revenue for a company takes the most recent period, and a fixture that quietly became
+    the answer to that question would be testing the derivation by changing every other
+    figure on the page.
+    """
+    period_end = date(2024, 6, 30)
+    found = await session.scalar(
+        select(FinancialFact).where(
+            FinancialFact.company_id == request.company_id,
+            FinancialFact.concept == "revenue",
+            FinancialFact.period_end == period_end,
+        )
+    )
+    if found is not None:
+        return found
+    fact = FinancialFact(
+        company_id=request.company_id,
+        source_document_id=filing.id,
+        concept="revenue",
+        value=DERIVED_TOTAL,
+        unit="USD",
+        period_end=period_end,
+        fiscal_year=2024,
+        fiscal_period="FY",
+        filed_date=date(2024, 7, 30),
+        form="10-K",
+        basis=FactBasis.DERIVED,
+        derivation={
+            "formula": "revenue = net_interest_income + noninterest_income",
+            "sector": "banks",
+            "code_version": "test",
+            "inputs": [
+                {
+                    "fact_id": str(uuid.uuid4()),
+                    "concept": "net_interest_income",
+                    "value": "6948000000",
+                    "unit": "USD",
+                    "period_end": period_end.isoformat(),
+                    "source_document_id": str(filing.id),
+                },
+                {
+                    "fact_id": str(uuid.uuid4()),
+                    "concept": "noninterest_income",
+                    "value": "2742000000",
+                    "unit": "USD",
+                    "period_end": period_end.isoformat(),
+                    "source_document_id": str(filing.id),
+                },
+            ],
+        },
+    )
+    session.add(fact)
+    await session.flush()
+    return fact
+
+
 async def _walk_section(
     session: AsyncSession, *, job: Job, request: ResearchRequest, filing: SourceDocument
 ) -> tuple[Calculation, ReportSection]:
@@ -427,6 +505,7 @@ async def _walk_section(
     line's "regardless of which section it came from".
     """
     calculation = await _lineage_chain(session, job=job, request=request, filing=filing)
+    derived = await _derived_revenue(session, request=request, filing=filing)
 
     # Looked up before created, like the user above: this builder commits for real, and a
     # second run against the same database must reuse the identity rows rather than trip
@@ -467,23 +546,34 @@ async def _walk_section(
         content={
             "figures": [
                 {
-                    "label": "Revenue growth",
+                    "label": _GROWTH_LABEL,
                     "value": "0.18",
                     "unit": "ratio",
                     "source_document_id": str(filing.id),
                     "calculation_id": str(calculation.id),
                 },
                 {
-                    "label": "Ghost figure",
+                    "label": _GHOST_FIGURE_LABEL,
                     "value": "9.99",
                     "unit": "x",
                     "source_document_id": str(MISSING_SOURCE_ID),
                 },
                 {
-                    "label": "Ghost arithmetic",
+                    "label": _GHOST_ARITHMETIC_LABEL,
                     "value": "1.23",
                     "unit": "x",
                     "calculation_id": str(MISSING_CALC_ID),
+                },
+                # A figure no filing states (ADR 0114). It cites the same filing as the
+                # first row and carries its own label, so it takes its own marker — and
+                # that marker resolves to the derivation rather than to the document,
+                # which is the whole of what the note exists to say.
+                {
+                    "label": _DERIVED_LABEL,
+                    "value": str(DERIVED_TOTAL),
+                    "unit": "USD",
+                    "source_document_id": str(filing.id),
+                    "financial_fact_id": str(derived.id),
                 },
             ],
         },

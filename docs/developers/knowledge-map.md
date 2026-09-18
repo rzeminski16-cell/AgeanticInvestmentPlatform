@@ -204,7 +204,7 @@ ADR-level decision, not a code change.
 |---|---|---|
 | 1 | Every externally derived fact traces to a hashed artefact | `storage/` + `tests/test_artefact_store.py`; `aer verify-artefacts` re-hashes the store |
 | 2 | The model may propose a citation; only code confirms one | `verify/` + `tests/test_citations.py` (ADR 0018) |
-| 3 | No figure reaches a report unless it is a stored fact or recorded calculation | `core/section_output.py` numeral scan + `sections/evidence.py` closed-world id checks |
+| 3 | No figure reaches a report unless it is a stored fact or recorded calculation | `core/section_output.py` numeral scan + `sections/evidence.py` closed-world id checks; and a fact the platform *derived* rather than read says so in its own footnote, because the document it cites does not state it (ADR 0114, `tests/test_derived_notes.py`) |
 | 4 | *Retired by ADR 0113* — a run reads the filings as they stand | `sources/sec/selection.py` (the latest filing's word on each period, the rest recorded as superseded; `tests/test_sec_selection.py`) + `tests/test_point_in_time_is_gone.py`, the scan that keeps the retired enforcement gone. The number is kept so the others keep theirs |
 | 5 | Units are carried through all arithmetic; mismatch raises | `calc/units.py` + `tests/test_units.py`, both operand orders |
 | 6 | Cost is metered and capped in code | `providers/costs.py`, `workflow/engine.py` BudgetGuard + `tests/test_budget.py` (ADRs 0051, 0052) |

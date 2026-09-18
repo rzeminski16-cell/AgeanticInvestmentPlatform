@@ -38,6 +38,7 @@ from aer.calc.comps import CompsTable, WithheldComps
 from aer.calc.units import SourceKind
 from aer.charts import Chart, ChartTable
 from aer.config import HouseStyle
+from aer.core.enums import FactBasis
 from aer.core.section_output import (
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
@@ -48,6 +49,7 @@ from aer.db.models import (
     Calculation,
     Company,
     Evaluation,
+    FinancialFact,
     Job,
     ReportSection,
     ResearchRequest,
@@ -85,6 +87,8 @@ __all__ = [
     "CalculationFootnote",
     "ChartView",
     "CoverageNote",
+    "DerivedFootnote",
+    "DerivedInput",
     "Footnote",
     "HeaderView",
     "ReportDocument",
@@ -372,6 +376,66 @@ class SourceFootnote:
 
 
 @dataclass(frozen=True, slots=True)
+class DerivedInput:
+    """One component of a derived figure, and the document that did state it."""
+
+    label: str
+    value: str
+    source_title: str
+    source_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class DerivedFootnote:
+    """A figure this platform computed at the fact layer, which no filing states.
+
+    ADR 0114 derives a bank's total revenue from net interest income and non-interest
+    income, because a bank has no revenue caption to extract. The row is a *fact* rather
+    than a calculation — it is what the filing would have said had it said one — and a
+    citation of it resolves to the document its components came from. Without this note
+    the reader meets "Form 10-K, published…, tier T1_REGULATORY" against a number the
+    10-K does not contain anywhere, which is the one thing a provenance chain must not do.
+
+    So the note says what the figure is: the sum, its components by name and value, and
+    each component's own document. The ADR asked for exactly this and parked it here.
+    """
+
+    number: int
+    label: str
+    value: str
+    period_label: str | None
+    inputs: tuple[DerivedInput, ...]
+    code_version_prefix: str
+
+    @property
+    def statement(self) -> str:
+        """The arithmetic in words, without the sources — each notation links those itself.
+
+        Built here rather than in each notation, because the two must not be able to
+        describe the same derivation differently — the same reason ``UnresolvedFootnote``
+        owns its wording.
+        """
+        period = f" for {self.period_label}" if self.period_label else ""
+        parts = " plus ".join(f"{one.label} of {one.value}" for one in self.inputs)
+        composed = f", being {parts}" if parts else ""
+        opening = self.label[:1].upper() + self.label[1:]
+        return f"{opening}{period} is {self.value}{composed}."
+
+    @property
+    def sources(self) -> tuple[tuple[str, str], ...]:
+        """The components' documents as (title, url), each once, in derivation order.
+
+        Deduplicated because the two halves of a bank's revenue are ordinarily two lines
+        of one filing, and naming it twice would read as two pieces of evidence.
+        """
+        seen: dict[str, str] = {}
+        for one in self.inputs:
+            if one.source_url and one.source_url not in seen:
+                seen[one.source_url] = one.source_title or one.source_url
+        return tuple((title, url) for url, title in seen.items())
+
+
+@dataclass(frozen=True, slots=True)
 class UnresolvedFootnote:
     """A citation whose target is gone.
 
@@ -420,7 +484,7 @@ class ChartView:
     table: ChartTable | None = None
 
 
-Footnote = CalculationFootnote | SourceFootnote | UnresolvedFootnote
+Footnote = CalculationFootnote | DerivedFootnote | SourceFootnote | UnresolvedFootnote
 
 
 @dataclass(frozen=True, slots=True)
@@ -643,7 +707,7 @@ async def assemble_document(
     # for want of a claim, only relocated by one.
     chart_views = [_chart_view(chart, citations) for chart in unclaimed.values()]
 
-    footnotes = await _footnotes(session, citations, job_id=job.id)
+    footnotes = await _footnotes(session, citations, job_id=job.id, style=active_style)
     appendix = await _appendix(session, citations)
     coverage = await _coverage(
         session,
@@ -986,7 +1050,11 @@ async def _coverage(
 
 
 async def _footnotes(
-    session: AsyncSession, citations: list[CitationRef], *, job_id: uuid.UUID
+    session: AsyncSession,
+    citations: list[CitationRef],
+    *,
+    job_id: uuid.UUID,
+    style: HouseStyle | None = None,
 ) -> tuple[Footnote, ...]:
     """One footnote per marker, in marker order, resolved to something checkable.
 
@@ -999,9 +1067,20 @@ async def _footnotes(
     **The passage prints once per document.** A reader arriving at a later marker for the
     same document is sent to the note that carries it rather than shown it again; see
     :class:`SourceFootnote`, and the measurement in its comment that decided this.
+
+    **A derived figure takes a note of its own** (ADR 0114): it is a fact, so it cites a
+    document, but the document does not state it — so the note says what it is instead of
+    describing a filing the reader would look in vain through. See
+    :class:`DerivedFootnote`.
     """
+    active = style if style is not None else HouseStyle()
     documents = await _load_source_documents(session, citations)
     calculations = await _load_calculations(session, citations)
+    derived = await _load_derived_facts(session, citations)
+    # A component's own filing need not be cited anywhere else in the report, so the
+    # documents a derived note names are loaded on top of the cited ones rather than
+    # assumed to be among them.
+    documents |= await _component_documents(session, derived, known=documents)
     excerpts = await printable_excerpts(
         session, job_id=job_id, source_document_ids=[row.id for row in documents.values()]
     )
@@ -1042,6 +1121,17 @@ async def _footnotes(
                 )
             )
             continue
+
+        fact = derived.get(reference.fact_id)
+        if fact is not None:
+            # Before the document note, not beside it: a derived figure is not in the
+            # document, so describing the document is the wrong answer rather than an
+            # incomplete one. The components' own documents are named in the note.
+            footnotes.append(
+                _derived_footnote(fact, number=number, documents=documents, style=active)
+            )
+            continue
+
         already = quoted_at.get(document.id)
         printed = excerpts.get(document.id) if already is None else None
         if printed is not None:
@@ -1104,7 +1194,12 @@ async def _definitions_for(
 async def _load_source_documents(
     session: AsyncSession, citations: list[CitationRef]
 ) -> dict[str, SourceDocument]:
-    ids = _uuids(citations, kind="source_document")
+    return await _documents_by_id(session, _uuids(citations, kind="source_document"))
+
+
+async def _documents_by_id(
+    session: AsyncSession, ids: list[uuid.UUID]
+) -> dict[str, SourceDocument]:
     if not ids:
         return {}
     rows = await session.scalars(select(SourceDocument).where(SourceDocument.id.in_(ids)))
@@ -1114,6 +1209,102 @@ async def _load_source_documents(
         # and a lazy load at render time would raise outside a greenlet.
         await session.refresh(row, ["artefact"])
     return {str(row.id): row for row in loaded}
+
+
+async def _load_derived_facts(
+    session: AsyncSession, citations: list[CitationRef]
+) -> dict[str, FinancialFact]:
+    """The cited facts this platform computed rather than read, by id.
+
+    Only the derived ones: an as-reported fact needs no note of its own, because the
+    document its citation already names is the document that states it. Loading the rest
+    would buy a query and change nothing.
+    """
+    ids: list[uuid.UUID] = []
+    for reference in citations:
+        if not reference.fact_id:
+            continue
+        try:
+            ids.append(uuid.UUID(reference.fact_id))
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not ids:
+        return {}
+    rows = await session.scalars(
+        select(FinancialFact).where(
+            FinancialFact.id.in_(ids), FinancialFact.basis == FactBasis.DERIVED
+        )
+    )
+    return {str(row.id): row for row in rows}
+
+
+async def _component_documents(
+    session: AsyncSession, derived: dict[str, FinancialFact], *, known: dict[str, SourceDocument]
+) -> dict[str, SourceDocument]:
+    """The filings a derived fact's components came from, minus the ones already loaded."""
+    wanted: list[uuid.UUID] = []
+    for fact in derived.values():
+        for part in (fact.derivation or {}).get("inputs") or []:
+            identifier = str(part.get("source_document_id", "")) if isinstance(part, dict) else ""
+            if not identifier or identifier in known:
+                continue
+            try:
+                wanted.append(uuid.UUID(identifier))
+            except (ValueError, AttributeError, TypeError):
+                continue
+    return await _documents_by_id(session, wanted)
+
+
+def _derived_footnote(
+    fact: FinancialFact,
+    *,
+    number: int,
+    documents: dict[str, SourceDocument],
+    style: HouseStyle,
+) -> DerivedFootnote:
+    """One derived fact as its note, read from the workings the row carries.
+
+    The inputs come from ``derivation`` rather than from a second query of the fact table:
+    the row recorded what it was computed from, at the moment it was computed, and reading
+    the components afresh would answer a subtly different question — what those concepts
+    say *now* — which is how a re-render comes to disagree with the report it re-renders.
+    """
+    workings = fact.derivation or {}
+    inputs: list[DerivedInput] = []
+    for part in workings.get("inputs") or []:
+        if not isinstance(part, dict):  # pragma: no cover -- the column's own shape
+            continue
+        source = documents.get(str(part.get("source_document_id", "")))
+        inputs.append(
+            DerivedInput(
+                label=str(part.get("concept", "")).replace("_", " "),
+                value=display.scalar(
+                    part.get("value"),
+                    style=style,
+                    unit=str(part.get("unit") or ""),
+                    label=str(part.get("concept", "")),
+                ),
+                source_title=(source.title or source.url) if source is not None else "",
+                source_url=source.url if source is not None else "",
+            )
+        )
+    return DerivedFootnote(
+        number=number,
+        label=fact.concept.replace("_", " "),
+        value=display.scalar(fact.value, style=style, unit=fact.unit, label=fact.concept),
+        period_label=_period_label(fact),
+        inputs=tuple(inputs),
+        code_version_prefix=str(workings.get("code_version", ""))[:_CODE_PREFIX],
+    )
+
+
+def _period_label(fact: FinancialFact) -> str | None:
+    """ "FY2025", or the period end where the filer's own labels are absent."""
+    if fact.fiscal_year is None:
+        return fact.period_end.isoformat()
+    if fact.fiscal_period and fact.fiscal_period.upper() not in {"FY", "Y"}:
+        return f"{fact.fiscal_period.upper()} {fact.fiscal_year}"
+    return f"FY{fact.fiscal_year}"
 
 
 async def _load_calculations(

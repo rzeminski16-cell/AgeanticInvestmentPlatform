@@ -36,6 +36,11 @@ of them:
 
 There is no third answer. A figure that is neither of those does not render.
 
+**One kind of stored fact says more.** A bank publishes no "total revenue" line, so the
+platform computes one from net interest income and noninterest income. That figure appears in
+no filing, and its note says so — the sum, both components with their values, and the filing
+each was read from. The page behind the marker leads with the same sentence.
+
 **The exported file now quotes as well as cites.** A source note carries the passage the run
 verified in that document, with the date it was retrieved and the first characters of the
 artefact's digest beside it — so the file you send somebody is checkable without opening the

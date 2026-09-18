@@ -130,7 +130,13 @@ class FinancialFact(Base):
     # "sector"}``, each input naming the fact it came from by id with its own concept,
     # value, unit and source document. NULL for every row a filer stated, which is all but
     # the few ADR 0114 computes.
-    derivation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # ``none_as_null`` because NULL here *means* something — "a filer said this, there are
+    # no workings" — and the check constraint above makes the two inseparable. Without it
+    # ``row.derivation = None`` writes the JSON value ``null``, which is not NULL, and the
+    # constraint refuses the row: loud rather than silent, but for the wrong reason, and
+    # the reason a reader of the traceback would not guess. Serialisation only; no
+    # migration, because the column's type is unchanged.
+    derivation: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
     created_at: Mapped[Timestamp] = created_at_column()
 

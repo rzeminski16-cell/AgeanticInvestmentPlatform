@@ -28,6 +28,7 @@ from aer.render import display
 from aer.render.document import (
     CalculationFootnote,
     ChartView,
+    DerivedFootnote,
     Footnote,
     ReportDocument,
     SourceFootnote,
@@ -319,6 +320,11 @@ def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
             pieces.append(f"tier {footnote.tier}")
             pieces.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             return ", ".join(pieces) + ". Follow the note to the excerpt behind it."
+        case DerivedFootnote():
+            return (
+                f"Derived, not reported. {footnote.statement} Follow the note to the "
+                "filings its components came from."
+            )
         case UnresolvedFootnote():
             return (
                 f"Unresolved citation: the cited {footnote.kind_label} is no longer "
@@ -393,6 +399,21 @@ def _footnote(
             text = Markup(
                 f'{joined}. <a href="{escape(footnote.url)}" class="src">'
                 f"{escape(footnote.url)}</a>{_passage(footnote, style=active)}"
+            )
+        case DerivedFootnote():
+            named = Markup(", ").join(
+                Markup(f'<a href="{escape(url)}" class="src">{escape(title)}</a>')
+                for title, url in footnote.sources
+            )
+            stated = Markup(f" Each component is stated in {named}.") if named else Markup("")
+            version = (
+                Markup(f" (code version <code>{escape(footnote.code_version_prefix)}</code>)")
+                if footnote.code_version_prefix
+                else Markup("")
+            )
+            text = Markup(
+                f"<strong>Derived, not reported.</strong> "
+                f"{escape(footnote.statement)}{stated}{version}"
             )
         case UnresolvedFootnote():
             text = Markup(
