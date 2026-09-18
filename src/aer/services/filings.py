@@ -43,7 +43,7 @@ from aer.db.models import Company, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
 from aer.services.acquisition import acquisition_root, record_acquisition
-from aer.services.extractions import record_excerpts
+from aer.services.extractions import MAX_EXCERPT_CHARS, record_excerpts
 from aer.sources.base import DocumentRef, ResolvedEntity
 from aer.sources.sec.accession import substantive_exhibits
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
@@ -118,14 +118,15 @@ MAX_EXCERPTS: Final = 60
 # and means nothing.
 MIN_EXCERPT_CHARS: Final = 120
 
-# The longest text one excerpt may carry. Splitting on blank lines assumed the extractor's
-# text has them; iXBRL-derived filings mostly do not, and the MTB run's 10-K arrived as
-# nine blocks averaging 36,000 characters — whole statutory items, none of them a citable
-# passage, and every section drafted against a pack truncated to fit them (gap A49's
-# instrumentation measured this). A block past this bound is re-cut at the last line
-# break inside it, failing that the last sentence end, failing that the last space, so a
-# filing with no blank lines still yields paragraph-sized excerpts.
-MAX_EXCERPT_CHARS: Final = 2_000
+# The longest text one excerpt may carry lives with the rows it bounds — see
+# `aer.services.extractions`, which owns them and which ADR 0119's printing gate reads it
+# from. Splitting on blank lines assumed the extractor's text has them; iXBRL-derived
+# filings mostly do not, and the MTB run's 10-K arrived as nine blocks averaging 36,000
+# characters — whole statutory items, none of them a citable passage, and every section
+# drafted against a pack truncated to fit them (gap A49's instrumentation measured this).
+# A block past the bound is re-cut at the last line break inside it, failing that the last
+# sentence end, failing that the last space, so a filing with no blank lines still yields
+# paragraph-sized excerpts.
 
 # Which extractor reads which kind. Anything else is archived and citable but not read:
 # the platform holds the bytes either way, and guessing at an extractor is how a parser

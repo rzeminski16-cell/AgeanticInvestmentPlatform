@@ -31,7 +31,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import aer.render.glance as glance_module
 from aer.calc.comps import WithheldComps
 from aer.config import HouseStyle
-from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
+from aer.core.enums import (
+    ClaimKind,
+    ExtractionKind,
+    JobStatus,
+    Provider,
+    SourceTier,
+    UserRole,
+)
 from aer.core.section_output import (
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
@@ -41,8 +48,11 @@ from aer.core.section_output import (
 from aer.db.models import (
     Artefact,
     Calculation,
+    Citation,
+    Claim,
     Company,
     Evaluation,
+    Extraction,
     FinancialFact,
     Job,
     ReportSection,
@@ -61,6 +71,7 @@ from aer.render.document import (
     CalculationFootnote,
     CoverageNote,
     ReportDocument,
+    SourceFootnote,
     _display_value,
     assemble_document,
 )
@@ -99,6 +110,8 @@ DOC_ONE_ID = uuid.UUID(int=0x2001)
 DOC_TWO_ID = uuid.UUID(int=0x2002)
 MISSING_CALC_ID = uuid.UUID(int=0x3001)
 MISSING_DOC_ID = uuid.UUID(int=0x3002)
+EXCERPT_ONE_ID = uuid.UUID(int=0x4001)
+EXCERPT_TWO_ID = uuid.UUID(int=0x4002)
 
 GENERATED_AT = datetime(2022, 7, 2, 9, 30, tzinfo=UTC)
 RETRIEVED_AT = datetime(2022, 7, 1, 12, 0, tzinfo=UTC)
@@ -267,8 +280,14 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         retrieved_at=RETRIEVED_AT,
         publication_date=None,
         quarantined=False,
+        # ADR 0119's second gate, exercised in the golden rather than only in a unit test:
+        # this document's passage is verified and still does not print, and its notes stay
+        # the references they were. Flagged is not quarantined — it is cited normally.
+        injection_flagged=True,
+        injection_findings=[{"signal": "hidden_text", "where": "golden scene"}],
     )
     db_session.add_all([dated, undated])
+    await db_session.flush()
 
     calculation = Calculation(
         id=CALC_ID,
@@ -427,6 +446,54 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         ),
     ]
     db_session.add_all(rows)
+    await db_session.flush()
+
+    # What the run verified, and what it therefore prints (ADR 0119). One passage per
+    # document: the SEC filing's prints under its first marker and is pointed at from its
+    # second; the issuer pack's is verified and withheld, because that document is flagged.
+    extractions = [
+        Extraction(
+            id=EXCERPT_ONE_ID,
+            source_document_id=DOC_ONE_ID,
+            kind=ExtractionKind.TEXT,
+            extractor="html",
+            extractor_version="1",
+            locator={"char_start": 0, "char_end": 74},
+            locator_hash="1" * 64,
+            excerpt="Revenue increased $30.2 billion or 18%, driven by growth in Azure.",
+            content_hash="2" * 64,
+        ),
+        Extraction(
+            id=EXCERPT_TWO_ID,
+            source_document_id=DOC_TWO_ID,
+            kind=ExtractionKind.TEXT,
+            extractor="html",
+            extractor_version="1",
+            locator={"char_start": 0, "char_end": 52},
+            locator_hash="3" * 64,
+            excerpt="Segment revenue is presented on the same basis as prior periods.",
+            content_hash="4" * 64,
+        ),
+    ]
+    db_session.add_all(extractions)
+    claim = Claim(
+        report_section_id=rows[0].id,
+        kind=ClaimKind.FACTUAL,
+        text="Azure drove the year's revenue growth.",
+    )
+    db_session.add(claim)
+    await db_session.flush()
+    db_session.add_all(
+        Citation(
+            claim_id=claim.id,
+            source_document_id=extraction.source_document_id,
+            extraction_id=extraction.id,
+            excerpt_verified=True,
+            verification_method="excerpt_match_v1",
+            verified_at=RETRIEVED_AT,
+        )
+        for extraction in extractions
+    )
     await db_session.flush()
 
     return {
@@ -732,6 +799,51 @@ class TestACheckCannotFailOnItsOwnOutput:
         # exactly the loop, so this arm failing means the guard has real work to do.
         assert presentation_integrity(unquoted, "<main></main>", sections=1).failures != ()
 
+    def test_a_quoted_passage_is_not_this_documents_typography(self) -> None:
+        """The same carve-out, for the same reason, on ADR 0119's printed passage. A filer
+        who writes 432183000 without a separator, or a stray asterisk run, must not make
+        *this* document fail a check about *this* document's presentation — and the
+        platform may not edit the passage, because an edited excerpt is not the one the
+        verifier confirmed.
+
+        **The passage is rendered rather than written out here**, because the exemption is
+        a pattern in one module matching a shape built in another: a hand-typed string
+        would hold the two together only until the renderer's wording moved.
+        """
+        rendered = _footnote_text(
+            SourceFootnote(
+                number=1,
+                title="Form 10-K",
+                url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
+                publisher=None,
+                publication_date=None,
+                retrieved=date(2022, 7, 1),
+                tier="T1_REGULATORY",
+                excerpt="Revenue of 432183000 was reported.",
+                digest_prefix="e3b0c44298fc",
+            ),
+            style=HouseStyle(),
+        )
+        note = f"# Note\n\n## Notes\n\n[^1]: {rendered}\n"
+
+        assert "432183000" in note
+        assert presentation_integrity(note, "<main></main>", sections=1).failures == ()
+        # The control, twice over: the same integer outside a passage is still a defect,
+        # and the words alone do not open the exemption — the attribution has to be there,
+        # so a section writing "Verified passage" cannot hide a number behind it.
+        lead = note[note.index("Verified passage") : note.index(': "') + 3]
+        assert presentation_integrity(note.replace(lead, ""), "<main></main>", sections=1).failures
+        forged = note.replace(lead, "Verified passage: ")
+        assert presentation_integrity(forged, "<main></main>", sections=1).failures
+
+    def test_a_quoted_passage_hides_no_asterisks_from_the_html_scan(self) -> None:
+        passage = '<blockquote class="passage">Note **3** to the accounts.</blockquote>'
+
+        assert (
+            presentation_integrity("# Note\n", f"<main>{passage}</main>", sections=1).failures == ()
+        )
+        assert presentation_integrity("# Note\n", "<main>**</main>", sections=1).failures != ()
+
     def test_the_html_cell_renders_the_quote_as_code(self) -> None:
         rendered = str(_coded("`unformatted integer '432183000'`"))
 
@@ -805,6 +917,13 @@ class TestTheGoldenMarkdown:
         assert "figures are withheld" in markdown  # comps disclosure
         assert "## Sources" in markdown  # appendix
         assert markdown.count("[^1]") >= 2  # markers and their definitions
+
+        # ADR 0119, all three states in one document: printed with its provenance,
+        # pointed at from the document's second marker, and withheld on the flagged one.
+        quotation = 'Verified passage (retrieved 1 July 2022, artefact `e3b0c44298fc`): "Revenue'
+        assert quotation in markdown
+        assert "The passage is quoted at note 1." in markdown
+        assert "Segment revenue is presented" not in markdown
 
         # Within-section de-duplication, counted exactly: the flagship object (2) and
         # the first figure row (2) cite under different labels so all four are distinct;

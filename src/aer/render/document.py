@@ -73,6 +73,7 @@ from aer.sections.render import (
     TableRow,
     render_section,
 )
+from aer.services.extractions import printable_excerpts
 
 __all__ = [
     "COMPS_TITLE",
@@ -355,6 +356,20 @@ class SourceFootnote:
     retrieved: date
     tier: str
 
+    # ADR 0119's printed passage, and the digest that lets a reader confirm it is the
+    # passage. Both ``None`` where the run verified nothing against this document, or
+    # where one of the three gates refused it — in which case the note is exactly the
+    # reference it was before, which is the state the ADR names as what is given up.
+    #
+    # **Printed once per document, at its first marker.** The stored runs carry 22 to 37
+    # source markers resolving to four or five distinct documents, so a passage repeated
+    # on every marker would be the same four paragraphs printed nine times each.
+    # ``quoted_at`` is the note that does carry it, set on the others so a reader is told
+    # where to look rather than left to notice.
+    excerpt: str | None = None
+    digest_prefix: str | None = None
+    quoted_at: int | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class UnresolvedFootnote:
@@ -628,7 +643,7 @@ async def assemble_document(
     # for want of a claim, only relocated by one.
     chart_views = [_chart_view(chart, citations) for chart in unclaimed.values()]
 
-    footnotes = await _footnotes(session, citations)
+    footnotes = await _footnotes(session, citations, job_id=job.id)
     appendix = await _appendix(session, citations)
     coverage = await _coverage(
         session,
@@ -970,16 +985,27 @@ async def _coverage(
     )
 
 
-async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tuple[Footnote, ...]:
+async def _footnotes(
+    session: AsyncSession, citations: list[CitationRef], *, job_id: uuid.UUID
+) -> tuple[Footnote, ...]:
     """One footnote per marker, in marker order, resolved to something checkable.
 
     A source footnote carries the URL, publisher, publication date, retrieval date and
-    tier — enough to find the bytes and confirm they are the bytes. A calculation
-    footnote carries the formula and the code version. A footnote that only said
-    "SEC EDGAR" would look like a citation and support nothing.
+    tier — enough to find the bytes and confirm they are the bytes — and, since ADR 0119,
+    the passage itself where the three gates permit one. A calculation footnote carries
+    the formula and the code version. A footnote that only said "SEC EDGAR" would look
+    like a citation and support nothing.
+
+    **The passage prints once per document.** A reader arriving at a later marker for the
+    same document is sent to the note that carries it rather than shown it again; see
+    :class:`SourceFootnote`, and the measurement in its comment that decided this.
     """
     documents = await _load_source_documents(session, citations)
     calculations = await _load_calculations(session, citations)
+    excerpts = await printable_excerpts(
+        session, job_id=job_id, source_document_ids=[row.id for row in documents.values()]
+    )
+    quoted_at: dict[uuid.UUID, int] = {}
 
     footnotes: list[Footnote] = []
     for number, reference in enumerate(citations, start=1):
@@ -1016,6 +1042,10 @@ async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tup
                 )
             )
             continue
+        already = quoted_at.get(document.id)
+        printed = excerpts.get(document.id) if already is None else None
+        if printed is not None:
+            quoted_at[document.id] = number
         footnotes.append(
             SourceFootnote(
                 number=number,
@@ -1025,6 +1055,13 @@ async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tup
                 publication_date=document.publication_date,
                 retrieved=document.retrieved_at.date(),
                 tier=document.source_tier.value,
+                excerpt=printed,
+                digest_prefix=(
+                    document.artefact.sha256[:_HASH_PREFIX]
+                    if printed is not None and document.artefact
+                    else None
+                ),
+                quoted_at=already,
             )
         )
 

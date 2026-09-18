@@ -97,9 +97,9 @@ A comparable-company analysis was performed against three peers as at 30 June 20
 
 ## Notes
 
-[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
+[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> Verified passage (retrieved 1 July 2022, artefact `e3b0c44298fc`): "Revenue increased $30.2 billion or 18%, driven by growth in Azure."
 [^2]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (code version `goldencode12`).
-[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
+[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> The passage is quoted at note 1.
 [^4]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (code version `goldencode12`).
 [^5]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
 [^6]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>

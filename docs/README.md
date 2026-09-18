@@ -157,7 +157,9 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
   signature on the 17th, and the peer set named on the 18th (Phase 4.6). 0126 (an
   accession is a set of documents, Phase 4.7) the same day, argued before its code and
   corrected by it: the endpoint the plan named turned out to carry an icon name where the
-  document type should be.
+  document type should be. And 0119 (a printed excerpt re-enters as data, Phase 4.8), whose
+  acceptance test is behavioural rather than structural — a report now quotes the passage
+  behind its footnotes, and a poisoned quotation fed back to a later planner moves nothing.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.

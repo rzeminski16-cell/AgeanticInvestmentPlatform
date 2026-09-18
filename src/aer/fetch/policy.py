@@ -100,6 +100,19 @@ class FetchPolicy:
     # sentence would be the most consequential undocumented change in this file.
     derived_figures_publishable: bool = False
 
+    # Whether a bounded passage of this provider's content may be reproduced **verbatim**
+    # in an exported document — the question ADR 0119 gates a printed excerpt on, and a
+    # different question from the one above: that one is about a figure computed from the
+    # content, this one is about the content itself.
+    #
+    # **Closed by default, for the reason the flag above is.** Silence is not permission,
+    # so a provider added tomorrow prints no excerpt until somebody reads its terms and
+    # says otherwise. Where it is open, the licence note beside it says so in words — the
+    # note is what is stamped on every source document and what answers "may we quote
+    # this?" years later, and a flag permitting more than the note claimed would be a
+    # permission with no stated basis.
+    verbatim_excerpt_publishable: bool = False
+
     burst: int = 1
 
     # Longest a single request may take. A provider that hangs must not hold a research
@@ -131,6 +144,8 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
             "is conditional on sending a descriptive User-Agent identifying the operator."
         ),
         requests_per_second=8.0,
+        # Not subject to copyright in the United States, as the note above states.
+        verbatim_excerpt_publishable=True,
         burst=8,
         honours_robots=False,
     ),
@@ -140,6 +155,8 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         allowed_hosts=(".companieshouse.gov.uk", ".company-information.service.gov.uk"),
         licence_note="Open Government Licence v3.0. Attribution required.",
         requests_per_second=1.8,
+        # The OGL permits copying and publishing with attribution, which the appendix gives.
+        verbatim_excerpt_publishable=True,
         burst=2,
         honours_robots=False,
     ),
@@ -159,6 +176,9 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
             "Quoted for research with attribution; not redistributed."
         ),
         requests_per_second=1.0,
+        # Quotation with attribution is exactly what the note reserves; the appendix is
+        # the attribution, and a bounded passage is not the document redistributed.
+        verbatim_excerpt_publishable=True,
     ),
     Provider.EODHD: FetchPolicy(
         provider=Provider.EODHD,
@@ -206,6 +226,10 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         # ending. An archive with no delete path cannot honour that, which is why one
         # exists — see ADR 0031.
         retention=RetentionClass.LICENSED,
+        # Left closed, and this is the provider the flag exists for. The terms prohibit
+        # displaying the information in original or repackaged form, and the bytes carry a
+        # deletion obligation: a purge that left them quoted in every exported PDF would
+        # not be a purge. See ADR 0119.
         burst=8,
         honours_robots=False,
     ),
@@ -218,6 +242,7 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
             "underlying series carry their own provider's terms."
         ),
         requests_per_second=2.0,
+        verbatim_excerpt_publishable=True,
         honours_robots=False,
     ),
     Provider.ONS: FetchPolicy(
@@ -232,6 +257,7 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         # in the sense it applies to an issuer's website -- but the pace stays conservative,
         # because one series pull per run does not need more.
         requests_per_second=2.0,
+        verbatim_excerpt_publishable=True,
         honours_robots=False,
     ),
     Provider.ECB: FetchPolicy(
@@ -248,6 +274,7 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         # disallow the route the ECB itself documents for programmatic access. A handful of
         # currency series per run needs nothing faster than this.
         requests_per_second=2.0,
+        verbatim_excerpt_publishable=True,
         honours_robots=False,
     ),
     Provider.ISSUER_IR: FetchPolicy(
@@ -263,6 +290,9 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
             "for research and reported with attribution."
         ),
         requests_per_second=1.0,
+        # Fair dealing for research is what the note claims, and a bounded quotation with
+        # its source named is the form that claim takes.
+        verbatim_excerpt_publishable=True,
     ),
     Provider.WEB_SEARCH: FetchPolicy(
         provider=Provider.WEB_SEARCH,
@@ -273,6 +303,10 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
             "quotation only, never reproduced."
         ),
         requests_per_second=1.0,
+        # "Short quotation only" is a permission and a bound in one sentence. The bound is
+        # the excerpt ceiling, which is what makes the passage a quotation rather than the
+        # reproduction the same sentence refuses.
+        verbatim_excerpt_publishable=True,
     ),
 }
 

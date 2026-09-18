@@ -15,11 +15,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import structlog
 
 from aer.config import HouseStyle
+from aer.core.schemas.extraction import normalise_whitespace
 from aer.render import display
 from aer.render.document import (
     DISCLAIMER,
@@ -47,6 +48,13 @@ if TYPE_CHECKING:
 __all__ = ["DISCLAIMER", "RenderedReport", "SectorNote", "render_markdown", "serialise_markdown"]
 
 _log = structlog.get_logger("aer.render.markdown")
+
+# What introduces a quoted passage (ADR 0119). Named because `aer.eval.runtime` carries the
+# matching pattern — the rest of that line is a filing's own words, which this platform may
+# not edit and must therefore not be scored on. The two are held together by a test that
+# scans *this module's own output*, not by an import: a metric importing a serialiser would
+# be the wrong direction, and a shared literal proves nothing about the shape around it.
+PASSAGE_LEAD: Final = "Verified passage"
 
 
 @dataclass(slots=True)
@@ -339,13 +347,41 @@ def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
                 parts.append(f"published {published}")
             parts.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             parts.append(f"tier {footnote.tier}")
-            return f"{', '.join(parts)}. <{footnote.url}>"
+            return f"{', '.join(parts)}. <{footnote.url}>{_passage(footnote, style=style)}"
         case UnresolvedFootnote():
             return (
                 f"**Unresolved citation** — this claim references {footnote.kind_label} "
                 f"`{footnote.identifier}`, which is no longer present. Do not rely on the "
                 "figure it supports."
             )
+
+
+def _passage(footnote: SourceFootnote, *, style: HouseStyle) -> str:
+    """The quoted passage, or the pointer to the note that carries it, or nothing.
+
+    **On one line, whitespace collapsed.** A footnote definition ends at the first line
+    that is not indented under it, so a passage carrying the document's own line breaks
+    would end its own note and continue as body text. The collapse is the same one the
+    verifier compares under, so what is printed is the excerpt as it was checked.
+
+    The provenance is the ADR's: where it came from, when it was retrieved, and the digest
+    of the bytes it came from — an excerpt printed without its origin is the unverifiable
+    quotation this platform argues against. It leads rather than trails, as an attribution
+    does, and because that puts the quotation last on its line: a filing's own text may
+    contain quotation marks, so nothing else can reliably say where it ends, and
+    `presentation_integrity` has to know exactly that to keep its scan off it.
+    """
+    if footnote.excerpt is None:
+        if footnote.quoted_at is None:
+            return ""
+        return f" The passage is quoted at note {footnote.quoted_at}."
+
+    retrieved = display.date_text(footnote.retrieved, style=style)
+    digest = f", artefact `{footnote.digest_prefix}`" if footnote.digest_prefix else ""
+    return (
+        f" {PASSAGE_LEAD} (retrieved {retrieved}{digest}): "
+        f'"{normalise_whitespace(footnote.excerpt)}"'
+    )
 
 
 def _appendix(rows: tuple[AppendixRow, ...], *, style: HouseStyle) -> list[str]:

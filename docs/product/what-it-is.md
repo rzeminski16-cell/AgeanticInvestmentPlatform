@@ -104,6 +104,12 @@ In the interface this is not a claim, it is a link. Click any footnote marker an
 the excerpt, the verifier's verdict and the document digest. Click any figure and you walk
 its arithmetic down to the filed facts and approved assumptions underneath it.
 
+**In the exported file it is a quotation.** A source note prints the passage the run verified
+in that document, with the date it was retrieved and the artefact's digest beside it, so a
+file that has left the machine is still checkable. Two kinds of source print no passage and
+say so by absence: a licensed feed, whose terms do not permit reproducing its content, and a
+document the injection scanner flagged. The reference and the hash survive in both cases.
+
 ## What it refuses to do
 
 The refusals are the product as much as the outputs are.

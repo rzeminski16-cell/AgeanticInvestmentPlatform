@@ -36,6 +36,20 @@ of them:
 
 There is no third answer. A figure that is neither of those does not render.
 
+**The exported file now quotes as well as cites.** A source note carries the passage the run
+verified in that document, with the date it was retrieved and the first characters of the
+artefact's digest beside it — so the file you send somebody is checkable without opening the
+platform at all. The passage appears once per document, at the first note that cites it, and
+the document's later notes say which note carries it.
+
+Two sources print no passage, and the note says only what it always said. One is a **licensed
+feed**, whose terms do not permit its content to be reproduced and whose copies this platform
+may one day have to delete; quoting it into a file that had already been sent would make that
+deletion meaningless. The other is a document the scanner **flagged** for hidden or
+instruction-shaped text — the sentence is still evidence and the claim still rests on it, but
+reproducing the text is how such a sentence travels. In both cases the reference and the hash
+are unchanged, and the drill-down page still shows you the excerpt.
+
 ## What each surface is for
 
 | Surface | What it answers |

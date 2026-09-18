@@ -23,6 +23,7 @@ from markupsafe import Markup, escape
 
 from aer.charts import svg_data_uri
 from aer.config import HouseStyle
+from aer.core.schemas.extraction import normalise_whitespace
 from aer.render import display
 from aer.render.document import (
     CalculationFootnote,
@@ -390,7 +391,8 @@ def _footnote(
             pieces.append(Markup(f"tier {escape(footnote.tier)}"))
             joined = Markup(", ").join(pieces)
             text = Markup(
-                f'{joined}. <a href="{escape(footnote.url)}" class="src">{escape(footnote.url)}</a>'
+                f'{joined}. <a href="{escape(footnote.url)}" class="src">'
+                f"{escape(footnote.url)}</a>{_passage(footnote, style=active)}"
             )
         case UnresolvedFootnote():
             text = Markup(
@@ -400,3 +402,31 @@ def _footnote(
             )
     drill_href = f"/runs/{job_id}/footnotes/{footnote.number}" if job_id is not None else None
     return {"number": footnote.number, "text": text, "drill_href": drill_href}
+
+
+def _passage(footnote: SourceFootnote, *, style: HouseStyle) -> Markup:
+    """ADR 0119's printed passage as a quotation with its provenance, or a pointer, or nothing.
+
+    Escaped like any fetched text, and quoted as a block rather than run into the
+    reference: a reader should be able to see where the platform's words stop and the
+    document's begin without reading carefully.
+    """
+    if footnote.excerpt is None:
+        if footnote.quoted_at is None:
+            return Markup("")
+        return Markup(
+            f' The passage is quoted at <a href="#fn-{footnote.quoted_at}">'
+            f"note {footnote.quoted_at}</a>."
+        )
+
+    retrieved = display.date_text(footnote.retrieved, style=style)
+    digest = (
+        Markup(f", artefact <code>{escape(footnote.digest_prefix)}</code>")
+        if footnote.digest_prefix
+        else Markup("")
+    )
+    return Markup(
+        f'<blockquote class="passage">{escape(normalise_whitespace(footnote.excerpt))}'
+        f"<footer>Verified passage, retrieved {escape(retrieved)}{digest}.</footer>"
+        "</blockquote>"
+    )

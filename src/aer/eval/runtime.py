@@ -256,8 +256,30 @@ _UUID: Final[re.Pattern[str]] = re.compile(
 )
 
 # What the defect scan must not read: link targets and autolinks (a SEC path carries long
-# digit runs), and code spans (an artefact digest or code version is deliberately literal).
-_INVISIBLE: Final[re.Pattern[str]] = re.compile(r"<https?://[^>]+>|\]\([^)]+\)|`[^`]*`")
+# digit runs), code spans (an artefact digest or code version is deliberately literal), and
+# a quoted passage (ADR 0119).
+#
+# **The passage is exempt because the platform may not edit it.** It is a filing's own
+# words, reproduced exactly or it is not the excerpt the verifier confirmed, so a filer who
+# writes 198270 without a separator would otherwise make this document fail a check about
+# *this document's* presentation. Same principle as the code spans above, and as gap R9's
+# quoting of a failed check's own findings: a scan must not fire on text that is
+# deliberately verbatim.
+#
+# Matched to end of line, and the renderer puts the quotation last on its line for exactly
+# this reason: a filing's text may contain quotation marks, so nothing inside the passage
+# can be trusted to say where it ends. The attribution in between keeps it specific — a
+# section writing the words "verified passage" does not open an exemption.
+_INVISIBLE: Final[re.Pattern[str]] = re.compile(
+    r"<https?://[^>]+>|\]\([^)]+\)|`[^`]*`|Verified passage \(retrieved [^)]*\):[^\n]*"
+)
+
+# The same exemption in the other notation, where the passage is a quoted block and the
+# only defect counted is a literal asterisk run. A filer who writes `**` is not this
+# document's typography either.
+_QUOTED_HTML: Final[re.Pattern[str]] = re.compile(
+    r'<blockquote class="passage">.*?</blockquote>', re.DOTALL
+)
 
 # The register check (report-quality R1 to R6): words about how the report was made, in a
 # document that should be entirely about a company. The CHRW note opened six sections with
@@ -323,7 +345,7 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
             for found in pattern.findall(visible)
         )
 
-    asterisks = html.count("**")
+    asterisks = _QUOTED_HTML.sub(" ", html).count("**")
     if asterisks:
         failures.append(f"literal '**' appears {asterisks} time(s) in the rendered HTML")
 

@@ -1,6 +1,6 @@
 # ADR 0119 — A printed excerpt re-enters as data, and the prior-research type stays narrow
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** **Accepted, 2026-09-18.** See *What landed* at the foot.
 **Date.** 2026-09-14
 **Extends.** ADR 0064 (prior research may shape the questions, never the answers) and ADR 0034
 (a withheld figure is a type with no field for it), whose structural argument this reuses.
@@ -139,3 +139,79 @@ rather than on a type with no field in it.
 runs at acquisition, where the document arrives and where its signal is recorded against the
 source. Running it again on prose derived from a document it already passed adds a second
 chance to be wrong and no new information.
+
+## What landed, 2026-09-18
+
+**The three gates are one function.** `aer.services.extractions.may_print_excerpt` applies all
+three together, and `printable_excerpts` is the only way a passage reaches a document. There is
+no argument that switches one off, so nothing that renders can apply two of them and forget the
+third — the shape ADR 0126 gave acquisition, for the same reason.
+
+**The licence question is answered where the licence note is.** `FetchPolicy` gains
+`verbatim_excerpt_publishable`, closed by default for the reason `derived_figures_publishable`
+is closed: silence is not permission, so a feed added tomorrow quotes nothing until somebody
+reads its terms. Reading today's nine notes answers it nine times — *not subject to
+copyright*, *Open Government Licence*, *quoted for research with attribution*, *short quotation
+only* — and leaves exactly one closed, EODHD, whose terms prohibit displaying the information
+in original or repackaged form and whose bytes carry a deletion obligation. A test holds every
+`RetentionClass.LICENSED` provider closed, so a second paid feed cannot be opened by
+inattention, and a second names the open set so opening one has to be written down twice.
+
+`MAX_EXCERPT_CHARS` moved to the module that owns the rows it bounds. Acquisition still cuts to
+it and now imports it; the third gate re-reads it, because a row recorded by some other path
+was never cut by the cutting that did not run.
+
+**Measured on the stored corpus, and the measurement changed the design.** Three of the
+audit's exported reports were counted — Microsoft's second run, AstraZeneca's second and
+M&T's. They carry 22 to 37 source markers each, resolving to **four or five distinct
+documents**, so a passage printed at every marker would be the same four paragraphs printed
+seven to nine times. It prints **once per document, at that document's first marker**, and the
+document's later markers say which note carries it.
+
+Against the four runs in the database every document with a verified citation passes all three
+gates: 5, 2, 5 and 3 documents, from 41, 14, 59 and 75 verified citations. The passage that
+prints is the one the run leaned on most rather than an arbitrary row — the most-leaned-on
+passage in each of the four carries 4, 8, 6 and 12 claims — and one per document costs 1.5 to
+7.7 KB on a report of about 100 KB.
+
+**Verified, never merely admissible.** A citation a person overrode is one the verifier could
+not find in the document it names. It keeps its footnote and its hash and earns no quotation
+marks, which is invariant 2 read out loud: the model may propose a citation, only code may
+confirm one, and only a confirmed one is quoted.
+
+**The provenance line is the retrieval date and the artefact digest**, beside a footnote that
+already names the source, its publisher, its publication date and its tier. The digest was in
+the appendix and is now also where the passage is, because that is where a reader is asked to
+believe a sentence came out of a filing.
+
+**A check must not fire on text the platform may not edit**, and this ADR turned out to need
+that said. `presentation_integrity` counts the rendered document's defects — a bare five-digit
+integer, a raw identifier, a stray asterisk run — and a quoted passage is a filing's own
+typography, reproduced exactly or it is not the excerpt the verifier confirmed. A filer who
+writes 198270 without a separator would otherwise fail a check about *this* document's
+presentation, and the only ways out would be editing the excerpt or not printing it. So the
+scan skips the passage, the same carve-out it already makes for code spans and for gap R9's
+quoting of its own findings. The Markdown puts the quotation last on its line for exactly this
+reason: a filing's text may contain quotation marks, so nothing inside the passage can be
+trusted to say where it ends, and the attribution in front of it is what keeps a section
+writing the words "verified passage" from opening an exemption.
+
+**The acceptance test is behavioural, as this ADR required.** `tests/test_printed_excerpts.py`
+runs the planner's own composition against a model with no judgement at all — it obeys any
+instruction it meets outside an `<untrusted_source>` block — and a poisoned prior and a clean
+one produce the same plan byte for byte. Two controls stop that being vacuous: the same model
+handed the same sentence unquoted does comply, and the sentence is asserted to be in the
+composed turn and absent from what a credulous reader takes as addressed to it. The payload is
+`tests/injection_fixtures.py`'s own.
+
+**The golden document carries all three states** — printed with its provenance, pointed at from
+the same document's second marker, and withheld on a flagged source — so a serialiser that
+drifted on any of them fails on bytes rather than on a claim.
+
+**What this did not need.** Rules 1 and 2 were already true: `PlannerAgent.untrusted_sources`
+declares the digests so the base does the wrapping, and `PriorResearch` had seven fields and no
+excerpt. They are now *held*: the seven are pinned, pinned equal to `PriorDigest`'s seven, and
+`extra="forbid"` is shown refusing an `excerpts` field rather than dropping it. Rule 3 has no
+code yet because the refresh does not exist; what is pinned is that `aer.services.history` holds
+no name for an extraction or a citation, so the cheap implementation cannot be written without
+first importing the thing this ADR forbids.

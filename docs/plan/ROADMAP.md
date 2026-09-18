@@ -893,7 +893,7 @@ authority on sequencing within this item.
 | F13 | The stated view, in two halves | ADR 0117, F9 |
 | F14 | Post-trade review and decision analytics | F10 |
 | F15 | Scheduling | — |
-| F16 | The evidence boundary | ADR 0119 |
+| F16 | The evidence boundary | ADR 0119 — **landed 18 September 2026**, Accepted: the passage prints behind three gates, and a poisoned prior moves no plan |
 | F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
 | F18 | Model portability | — |
 | F19 | The UK path | ADR 0121 — and it has its own number, **§3.17** |
@@ -1219,6 +1219,20 @@ found rather than as scope that was always there.
     layer, where it belongs. **The class**: when a model starts improvising around a
     structural gap, the improvisation is the measurement — it says exactly which door is
     shut, and it is cheaper to read than the report that came out of it.
+20. **A footnote is about a document, and there are only four or five of them, 18 September
+    2026.** §4.8 was written as "print the passage behind a footnote", which reads as one
+    passage per marker. Three of the exported reports were counted and they carry **22 to
+    37 source markers each, resolving to four or five distinct documents** — Microsoft's
+    second run, 37 markers over 4 URLs — and the database says it from the other end: one
+    run holds 75 verified citations over 3 documents. Printing per marker would have put
+    the same four paragraphs in the notes seven to nine times, so the passage prints once
+    per document and the document's later markers name the note that carries it. The
+    selection rule came out of the same numbers: the most-leaned-on passage carries 4 to 12
+    claims, where "first by row order" would have been arbitrary. Cost
+    measured rather than estimated — 1.5 to 7.7 KB on a report of about 100 KB, and all
+    four runs' cited documents pass all three of ADR 0119's gates. **The class**: a feature
+    phrased against the reader's gesture ("following a footnote") silently assumes a
+    cardinality, and the corpus is where the cardinality actually is.
 
 ### Before this leaves one machine
 
