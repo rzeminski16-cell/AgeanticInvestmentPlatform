@@ -50,6 +50,7 @@ from aer.db.models import (
 )
 from aer.render.glance import glance_content
 from aer.sections.evidence import SectionPolicy, gather_evidence
+from aer.services.facts import Dimensions
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import WORKFLOW_VERSION
 
@@ -128,6 +129,7 @@ async def _fact(
     concept: str,
     period_end: date,
     value: str,
+    member: str | None = None,
 ) -> FinancialFact:
     fact = FinancialFact(
         company_id=company.id,
@@ -141,6 +143,10 @@ async def _fact(
         fiscal_year=period_end.year,
         filed_date=period_end + timedelta(days=30),
         basis=FactBasis.AS_REPORTED,
+        # ADR 0118's carve-out reaches the same rows through the same scope, so the peer
+        # leak has to be shown closed for a breakdown row too, not only for a whole line.
+        dimension_axis=None if member is None else "us-gaap:StatementBusinessSegmentsAxis",
+        dimension_member=member,
     )
     session.add(fact)
     await session.flush()
@@ -231,6 +237,27 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         period_end=date(2026, 3, 31),
         value="9999",
     )
+    # A breakdown on each side, so the carve-out (ADR 0118) is exercised by these tests
+    # rather than by tests of its own: it is a second route from the store to a pack, and
+    # a second route is exactly where a two-line predicate gets dropped.
+    await _fact(
+        db_session,
+        company=subject,
+        document=subject_doc,
+        concept="revenue",
+        period_end=date(2025, 12, 31),
+        value="600",
+        member="subj:HomeSegmentMember",
+    )
+    await _fact(
+        db_session,
+        company=peer,
+        document=peer_doc,
+        concept="revenue",
+        period_end=date(2026, 3, 31),
+        value="8888",
+        member="peer:HomeSegmentMember",
+    )
     await db_session.commit()
 
     return {
@@ -260,10 +287,11 @@ def _internals(evidence: Any) -> list[dict[str, Any]]:
 
 
 class TestAPeersEvidenceNeverReachesASection:
+    @pytest.mark.parametrize("dimensions", list(Dimensions))
     async def test_no_fact_in_the_pack_belongs_to_another_company(
-        self, scene: dict[str, Any]
+        self, scene: dict[str, Any], dimensions: Dimensions
     ) -> None:
-        evidence = await _gather(scene)
+        evidence = await _gather(scene, dimensions=dimensions)
         session = scene["session"]
         for item in _internals(evidence):
             if "fact_id" not in item:
@@ -273,6 +301,16 @@ class TestAPeersEvidenceNeverReachesASection:
             assert fact.company_id == scene["subject"].id, (
                 f"a fact belonging to another company reached the pack: {item}"
             )
+
+    async def test_the_peers_breakdown_is_nowhere_in_the_prompt_either(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0118 widens what one section may see; it does not widen *whose*."""
+        evidence = await _gather(scene, dimensions=Dimensions.INCLUDE_SINGLE_AXIS)
+        shown = str(_internals(evidence))
+
+        assert "8888" not in shown
+        assert "600" in shown
 
     async def test_no_source_in_the_pack_belongs_to_another_company(
         self, scene: dict[str, Any]

@@ -28,6 +28,7 @@ from aer.charts.builders import (
 )
 from aer.charts.model import (
     Chart,
+    ChartTable,
     FootballFieldInput,
     HeatmapCell,
     HeatmapInput,
@@ -49,6 +50,7 @@ from aer.charts.model import (
 
 __all__ = [
     "Chart",
+    "ChartTable",
     "FootballFieldInput",
     "HeatmapCell",
     "HeatmapInput",

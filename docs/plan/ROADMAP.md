@@ -1133,6 +1133,55 @@ found rather than as scope that was always there.
     the composer's first draft read untagged rows as cases, and had the cells been untagged
     it would have printed ninety "scenarios" per method.
 
+14. **Fixing the `WHERE` clause would not have fed a bank's segment section, 18 September
+    2026.** ADR 0118 diagnoses the segment failure as one exclusion in `visible_facts`, and
+    it is right about that; what it does not say is that the exclusion is not the only thing
+    between the store and the section. The evidence pack ranks from a pool of the newest
+    four hundred rows by period, and a filer's segmentation is an *annual* disclosure
+    competing against every quarter since. Measured: M&T's 182 dimensioned facts begin at
+    rank 930 of its 23,416, so the carve-out alone would have delivered the bank exactly
+    what the blanket exclusion did. Fixed in §4.5 by drawing the breakdown as a pool of its
+    own and fetching the consolidated line for the spans it covers. **The class**: a cap
+    written as a bound on cost is a *selector* whenever the thing it cuts is rarer than the
+    thing it keeps — which is gap A39's lesson a second time, now about periodicity rather
+    than the alphabet. A39 was found by reading a report; this was found by counting rows
+    before writing the code, which is the only reason it did not ship.
+15. **The segment and revenue exhibits emptied on every second run of a company, 18
+    September 2026.** Both inputs reached their facts by joining to the run's *own* source
+    documents. The store deduplicates a fact it already holds under ADR 0058's identity
+    rule, so a second run re-fetches the filing and the rows keep the *first* run's
+    `source_document_id`: the join then matches nothing. Measured on the stored corpus —
+    Microsoft's second run reached 0 of the 55 segment rows and 0 of the consolidated
+    revenue rows the store held for it. It did not show as a blank chart, because
+    `RevenueMarginInput.is_empty` was satisfied by the margins alone: the exhibit rendered
+    an empty bar area under one margin line, titled "Revenue and margin history" and
+    captioned *"Every bar and point is a stored figure."* Fixed in §4.5 by scoping both at
+    company grain through `visible_facts`, and by making a revenue chart with no revenue
+    empty. **The class**: `job_id` reads as the safe scope because it is the narrowest one,
+    and it is wrong precisely where deduplication works — the better a store is at not
+    storing a fact twice, the more often the second run's join finds nothing. ADR 0061
+    already decided this for evidence and the exhibits were never brought across. It had a
+    second cost worth naming: two test scenes — `tests/test_exhibits.py` and
+    `tests/provenance_fixtures.py` — never set `request.company_id`, and their charts drew
+    anyway, because the `job_id` join did not need the subject resolved. A scope that works
+    without the thing it is supposed to be scoped by lets a fixture model a run that cannot
+    exist, and the fixture then guards nothing.
+16. **A geography axis is not a partition, and the subtotal check stops at twelve members,
+    18 September 2026.** `_without_subtotals` recognises an aggregate by arithmetic, which
+    is right, but declines entirely above `_SUBTOTAL_MEMBER_LIMIT = 12` because it
+    enumerates subsets. AstraZeneca tags 18 members on `ifrs-full:GeographicalAreasAxis`,
+    so the check never ran, and the exhibit draws *Outside United Kingdom* (54.4bn) beside
+    *United States* (24.0bn) and *United Kingdom* (4.36bn) as if they were parts of one
+    whole — three granularities on one axis. Pre-existing, and made legible rather than
+    caused by §4.5, which printed the values onto the bars. **The fix is identified**: both
+    overlaps are exact subset sums (54,380 = 27,557 + 13,455 + 13,368; 27,557 = 23,970 +
+    2,633 + 954), so raising the bound would catch them — it needs a subset-sum reachability
+    pass in place of `itertools.combinations`, and a decision about what the check does when
+    it cannot decide. Left for the backlog's own
+    `segments-guidance/segment-axis-preference-is-us-gaap-only` row rather than folded into
+    §4.5. **The class**: a guard that declines silently above a threshold is indistinguishable
+    from a guard that passed, and the threshold was set from what US filers do.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

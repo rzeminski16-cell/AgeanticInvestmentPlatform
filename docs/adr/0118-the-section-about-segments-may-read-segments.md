@@ -1,6 +1,6 @@
 # ADR 0118 — The section about segments may read segments
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** **Accepted, 2026-09-18.** See *What landed* at the foot.
 **Date.** 2026-09-14
 **Amends.** ADR 0058 (a dimensioned fact is a different observation, and never competes with
 the aggregate). The identity rule, the uniqueness index, the statement assembler's exclusion
@@ -132,3 +132,57 @@ rounding argument, and it still needs the dimensioned facts to reach the calcula
 **Wait for a general evidence-policy redesign.** The section has been broken on every run since
 the extractor landed. A carve-out with a named boundary now is better than a correct
 architecture later, and the boundary is narrow enough to be rewritten when the redesign comes.
+
+## What landed, 2026-09-18
+
+`visible_facts` takes `dimensions`, defaulting to `Dimensions.EXCLUDE`. `SectionPolicy` carries
+it, `policy_of_definition` reads it off the definition row, and migration 0079 sets
+`single_axis` on `segment_analysis` and on nothing else — asserted as a *count* in
+`tests/test_section_spine.py`, so the door this ADR says is not left open is held shut by a
+test rather than by intent. The custom-section boundary builds its policy from the pin's own
+columns, which have no field for it, so invariant 7 holds structurally: no wording in a skill
+file can open the carve-out. And because the carve-out is a *second route* from the store to a
+pack, ADR 0061's standing scope test now runs over both values of the property and over a
+peer's breakdown as well as its whole line: what one section may see is wider, whose it may
+see is not.
+
+**The aggregate travels with the breakdown, and it is fetched rather than hoped for.** The
+first cut required the consolidated line to be in the pool already, which is what "alongside"
+would most cheaply mean — and would have been true by coincidence for two subjects and false
+for the third. A carved-in section now draws the breakdown as a pool of its own, looks the
+consolidated line up for exactly the spans that breakdown covers, and admits a slice only
+behind its own whole; the ranking then sorts aggregates before slices so the budget's prefix
+cut cannot separate them.
+
+**Three corrections to this ADR's own reasoning, found by measurement.**
+
+1. *The `WHERE` clause was not the only thing in the way.* The pack ranks from the newest four
+   hundred rows by period, and a segmentation is an annual disclosure competing with every
+   quarter since — M&T's 182 dimensioned facts begin at rank 930 of its 23,416. The carve-out
+   alone would have left the bank's segment section exactly as empty as the blanket exclusion
+   did. Recorded as roadmap §3.19, item 14.
+2. *The pairing key is the span, not the fiscal label.* A filer tags segment revenue with the
+   same `FY` period as the consolidated line and tags a segment's balance-sheet figures with no
+   fiscal period at all. Pairing on the label would have left every balance-sheet breakdown an
+   orphan.
+3. *"The segment chart gets its values" was two defects, not one.* The bars were unlabelled,
+   which is what this ADR says; the exhibit was also emptying on every second run of a company,
+   because both chart inputs reached their facts through the run's own source documents while
+   the store deduplicates the rows. Roadmap §3.19, item 15.
+
+**Measured after the change**, on the stored corpus, for `segment_analysis`'s own policy:
+Microsoft 19 slices, AstraZeneca 18, M&T 19 — each with the consolidated line above it, and
+each slice naming its axis and member: *"Revenue · Geographical areas · United States"*,
+*"Revenue · Business segments · Intelligent cloud"*, rather than *"Revenue"*. All four stored
+runs now draw the segment exhibit with its figures on the bars, and the Markdown edition
+carries the values as a table. Before the change, Microsoft's second run reached none of the 55
+segment rows the store held for it.
+
+**What is not yet true.** The acceptance test above asks that a re-render of AZN must not
+contain the sentence about no segment-level figures being available. A re-render replays stored
+prose and cannot remove a sentence the model already wrote, so that half is only provable on
+the next live run of a subject — the rows, the labels, the exhibit and the table are provable
+offline and are proved. Separately, AstraZeneca's geography axis carries three granularities at
+once and the subtotal check declines above twelve members, so its exhibit still draws
+overlapping regions side by side; pre-existing, made legible by the bar values, and recorded
+with its fix as roadmap §3.19, item 16.

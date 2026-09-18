@@ -226,7 +226,9 @@ ones — read the ADR before touching its territory:
   (locators), 0018 (only code confirms a citation), 0024 (the evidence chain is a
   surface), 0031 (erasure is an appended event), 0044 (an aggregate is dated by its newest
   component), 0055 (evidence reaches a section ranked, and a thin report says so), 0058 (a
-  dimensioned fact is a different observation), 0061 (evidence is scoped to the subject, not
+  dimensioned fact is a different observation) — amended by 0118, which lets the one section
+  whose subject *is* the breakdown read it, single-axis, with the consolidated line beside it
+  and the axis and member named in the row — 0061 (evidence is scoped to the subject, not
   to the request), 0062 (a fiscal year belongs to the period, not to the filing), 0063 (a
   claim about how a number was produced is a claim about a calculation), 0069 (a scheduled
   filing is a date, not a catalyst), 0086 (a cited calculation must be the one the sentence

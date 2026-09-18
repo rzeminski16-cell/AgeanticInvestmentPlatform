@@ -52,6 +52,7 @@ from aer.sections.evidence import (
     validate_draft,
     word_ceiling,
 )
+from aer.services.facts import Dimensions
 from aer.services.subject import subject_name
 
 __all__ = [
@@ -185,7 +186,26 @@ def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
         excerpt_keywords=_names(stated.get("excerpt_keywords")),
         fact_basis=_basis(stated.get("fact_basis")),
         word_budget=_word_budget(stated.get("word_budget")),
+        dimensions=_dimensions(stated.get("dimensions")),
     )
+
+
+def _dimensions(value: object) -> Dimensions:
+    """Whether this definition opts into the filer's own breakdown (ADR 0118).
+
+    Read from the row rather than keyed to a section name in code, for the reason the
+    hardcoded-key guard exists: sections are rows. That it is set on exactly one row is a
+    property of the seed, asserted where the seed is — not a branch here.
+
+    Falling back to the exclusion for anything unrecognised, which is stricter than the
+    other preferences' fallbacks and deliberately so: a mistyped basis costs a preference,
+    and a mistyped carve-out would let a slice of the company into a section that is going
+    to state it as the whole.
+    """
+    try:
+        return Dimensions(str(value))
+    except ValueError:
+        return Dimensions.EXCLUDE
 
 
 def _word_budget(value: object) -> int:

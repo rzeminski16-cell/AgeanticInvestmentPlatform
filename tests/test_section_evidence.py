@@ -39,12 +39,14 @@ from aer.db.models import (
     User,
 )
 from aer.sections.evidence import (
+    _FACT_POOL,
     Evidence,
     SectionPolicy,
     _is_substantive,
     gather_evidence,
     policy_shortfalls,
 )
+from aer.services.facts import Dimensions
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import WORKFLOW_VERSION
 
@@ -105,6 +107,7 @@ def _policy(
     concept_priority: tuple[str, ...] = (),
     excerpt_keywords: tuple[str, ...] = (),
     fact_basis: str = "any",
+    dimensions: Dimensions = Dimensions.EXCLUDE,
 ) -> SectionPolicy:
     return SectionPolicy(
         min_sources=1,
@@ -115,6 +118,7 @@ def _policy(
         concept_priority=concept_priority,
         excerpt_keywords=excerpt_keywords,
         fact_basis=fact_basis,
+        dimensions=dimensions,
     )
 
 
@@ -476,6 +480,231 @@ class TestTheFactBasisFilter:
         assert annual["period_start"] == "2024-07-01"
         assert annual["period_end"] == "2025-06-30"
         assert annual["fiscal_year"] == 2025
+
+
+class TestASectionMayReadTheBreakdownItIsAbout:
+    """ADR 0118. ADR 0058 kept dimensioned facts from every reader of ``visible_facts``,
+    and was right about five of them; the sixth is the section whose entire subject is the
+    breakdown, which was handed a pack with every segment row removed and then wrote,
+    truthfully, that no segment-level figures were available to cite.
+
+    Four conditions bound the carve-out, and three of them are testable here: one section
+    opts in, the aggregate travels with the breakdown, and the payload says what it is.
+    The fourth — single-axis only — is a property of the sweep that writes the rows, and
+    ``test_ixbrl`` is where it lives.
+    """
+
+    _SPAN = (date(2025, 7, 1), date(2026, 6, 30))
+
+    @classmethod
+    async def _seed_breakdown(
+        cls, scene: dict[str, Any], *, consolidate: bool = True, orphan: bool = False
+    ) -> None:
+        """Revenue by geography for the newest year, with or without its own total."""
+        session: AsyncSession = scene["session"]
+        document_id = (await session.scalars(select(SourceDocument.id).limit(1))).first()
+        company_id = (await session.scalars(select(Company.id).limit(1))).first()
+        start, end = cls._SPAN
+
+        def _row(value: int, *, concept: str = "revenue", **dimension: str) -> FinancialFact:
+            return FinancialFact(
+                company_id=company_id,
+                source_document_id=document_id,
+                concept=concept,
+                value=Decimal(value),
+                unit="USD",
+                period_start=start,
+                period_end=end,
+                fiscal_year=end.year,
+                fiscal_period="FY",
+                basis=FactBasis.AS_REPORTED,
+                filed_date=end,
+                **dimension,
+            )
+
+        if consolidate:
+            session.add(_row(331_839))
+        for member, value in (
+            ("country:US", 170_794),
+            ("country:GB", 12_409),
+            ("us-gaap:NonUsMember", 161_045),
+        ):
+            session.add(
+                _row(
+                    value,
+                    dimension_axis="ifrs-full:GeographicalAreasAxis",
+                    dimension_member=member,
+                )
+            )
+        if orphan:
+            # A concept the filer broke down and never gave a total for. Nothing here can
+            # put it in proportion, which is the condition a slice is admitted under.
+            session.add(
+                _row(
+                    9_100,
+                    concept="deferred_revenue",
+                    dimension_axis="us-gaap:StatementBusinessSegmentsAxis",
+                    dimension_member="msft:IntelligentCloudMember",
+                )
+            )
+        await session.flush()
+
+    @staticmethod
+    def _slices(evidence: Any) -> list[str]:
+        return [concept for concept in _concepts(evidence) if " · " in concept]
+
+    async def test_a_section_that_did_not_ask_sees_no_slice(self, scene: dict[str, Any]) -> None:
+        """ADR 0058's rule, unchanged for the other five readers and the other seventeen
+        sections: a segment must never win a period from the aggregate."""
+        await self._seed_breakdown(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(concept_priority=("revenue",)),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert self._slices(evidence) == []
+        assert "revenue" in _concepts(evidence)
+
+    async def test_the_carved_out_section_sees_the_breakdown(self, scene: dict[str, Any]) -> None:
+        await self._seed_breakdown(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue",), dimensions=Dimensions.INCLUDE_SINGLE_AXIS
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert len(self._slices(evidence)) == 3
+
+    async def test_the_payload_says_which_part_of_the_company_each_row_is(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0058's worry, met: a row whose payload does not say 'this is one segment's
+        slice' must never reach a surface that would present it as the company's line."""
+        await self._seed_breakdown(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue",), dimensions=Dimensions.INCLUDE_SINGLE_AXIS
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert "Revenue · Geographical areas · United States" in _concepts(evidence)
+        # And the company's own line still says what it has always said, so a reader can
+        # tell the two apart without reading a second field.
+        assert "revenue" in _concepts(evidence)
+
+    async def test_the_aggregate_travels_with_the_breakdown(self, scene: dict[str, Any]) -> None:
+        """The structural defence: the whole is in the pack, right next to the parts."""
+        await self._seed_breakdown(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue",), dimensions=Dimensions.INCLUDE_SINGLE_AXIS
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert concepts.index("revenue") < concepts.index(
+            "Revenue · Geographical areas · United States"
+        )
+
+    async def test_a_slice_the_filer_never_consolidated_stays_out(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._seed_breakdown(scene, orphan=True)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue", "deferred_revenue"),
+                dimensions=Dimensions.INCLUDE_SINGLE_AXIS,
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        slices = self._slices(evidence)
+        assert len(slices) == 3
+        assert not any(concept.startswith("Deferred revenue") for concept in slices)
+
+    async def test_the_whole_breakdown_goes_when_the_total_does(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The same rule stated the other way round, because it is the expensive half: a
+        section sees nothing rather than three geographies it cannot put in proportion."""
+        await self._seed_breakdown(scene, consolidate=False)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue",), dimensions=Dimensions.INCLUDE_SINGLE_AXIS
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert self._slices(evidence) == []
+
+    async def test_the_breakdown_is_drawn_from_a_pool_of_its_own(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Measured on the stored corpus, and the reason the ``WHERE`` clause alone is not
+        the fix. M&T files quarterly and tags its business lines once a year, so the
+        consolidated pool — the newest four hundred rows by period — is four newer quarters
+        deep before it reaches the segment note's own year: its 182 dimensioned facts begin
+        at rank 930, and a pack built from one widened pool showed the bank nothing at all.
+        """
+        session: AsyncSession = scene["session"]
+        await self._seed_breakdown(scene)
+        document_id = (await session.scalars(select(SourceDocument.id).limit(1))).first()
+        company_id = (await session.scalars(select(Company.id).limit(1))).first()
+        # A newer quarter, wide enough on its own to fill the pool the ranking draws from.
+        session.add_all(
+            FinancialFact(
+                company_id=company_id,
+                source_document_id=document_id,
+                concept=f"AaQuarterlyDetail{index:03d}",
+                value=Decimal(index),
+                unit="USD",
+                period_start=date(2026, 7, 1),
+                period_end=date(2026, 9, 30),
+                fiscal_year=2027,
+                fiscal_period="Q1",
+                basis=FactBasis.AS_REPORTED,
+                filed_date=date(2026, 10, 28),
+            )
+            for index in range(_FACT_POOL + 20)
+        )
+        await session.flush()
+
+        evidence = await gather_evidence(
+            session,
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(
+                concept_priority=("revenue",), dimensions=Dimensions.INCLUDE_SINGLE_AXIS
+            ),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert len(self._slices(evidence)) == 3
+        # And the total came with them, fetched rather than hoped for: the consolidated
+        # pool is entirely quarterly detail, so nothing in it holds this span.
+        assert "revenue" in concepts
 
 
 class TestCalculationsReachASectionNewestFirst:

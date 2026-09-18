@@ -32,6 +32,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
+from enum import StrEnum
 from typing import Any, Final
 
 import structlog
@@ -50,6 +51,7 @@ from aer.sources.base import ResolvedEntity
 
 __all__ = [
     "DerivedRevenue",
+    "Dimensions",
     "derive_sector_revenue",
     "persist_facts",
     "retag_for_sector",
@@ -70,8 +72,38 @@ _log = structlog.get_logger("aer.services.facts")
 _PARAMETER_LIMIT: Final = 32_767
 
 
-def visible_facts(scope: EvidenceScope) -> Select[Any]:
-    """The facts a run may see: the subject's consolidated figures, as the store holds them.
+class Dimensions(StrEnum):
+    """Whether a reader may see a fact that describes part of the company.
+
+    ADR 0058 excluded dimensioned facts from every reader, and was right about five of
+    them: each assumes one value per concept-period, and a segment winning a period from
+    the aggregate makes every ratio downstream divide a fraction by the whole. ADR 0118
+    carves out the sixth — the section whose entire subject is the breakdown, which was
+    handed a pack with every segment row removed and then wrote, truthfully, that no
+    segment-level figures were available to cite.
+
+    **The default is the exclusion**, so a reader that has not thought about this gets
+    ADR 0058's rule, and opting in is a visible act at one call site.
+    """
+
+    EXCLUDE = "exclude"
+    """Consolidated figures only. What every reader got before ADR 0118, and what five of
+    the six still get."""
+
+    INCLUDE_SINGLE_AXIS = "single_axis"
+    """The breakdown as well, on one axis at a time.
+
+    A fact tagged on two axes at once — a product within a geography — stays out even
+    here. It is not wrong; it is a cell in a cross-tab, and a writer handed cells without
+    the table will state one as a total. ADR 0058's sweep already persists only
+    single-axis facts, so this names the boundary rather than adding a filter.
+    """
+
+
+def visible_facts(
+    scope: EvidenceScope, *, dimensions: Dimensions = Dimensions.EXCLUDE
+) -> Select[Any]:
+    """The facts a run may see for its subject, as the store holds them.
 
     **Scoped by company, not by request** (ADR 0061). Every consumer of a fact needs the
     same three predicates, and each one exists because getting it wrong produced a specific
@@ -94,14 +126,16 @@ def visible_facts(scope: EvidenceScope) -> Select[Any]:
     later run fetched is a fact the company filed: the store's most recent observation of
     each figure is the one every run should see.
 
-    *Consolidated only*, under ADR 0058: a segment's slice is indistinguishable from the
-    company's own line once it is in a pack, and a writer citing it would state a fraction
-    as the whole.
+    *Consolidated only by default*, under ADR 0058: a segment's slice is indistinguishable
+    from the company's own line once it is in a pack, and a writer citing it would state a
+    fraction as the whole. ``dimensions`` is ADR 0118's carve-out for the one reader whose
+    subject *is* the breakdown, and it is a parameter rather than a second query so the
+    scoping, the tier caps and the licence checks cannot drift between two places.
     """
     company_id = scope.company_id
-    statement = select(FinancialFact).where(
-        FinancialFact.company_id == company_id, FinancialFact.dimension_axis.is_(None)
-    )
+    statement = select(FinancialFact).where(FinancialFact.company_id == company_id)
+    if dimensions is Dimensions.EXCLUDE:
+        statement = statement.where(FinancialFact.dimension_axis.is_(None))
     if company_id is None:
         # Before `acquire` resolves the company there is nothing to show. `None` would match
         # no rows anyway; saying so here keeps that an intention rather than a coincidence

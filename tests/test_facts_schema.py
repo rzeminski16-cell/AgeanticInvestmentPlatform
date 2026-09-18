@@ -21,6 +21,7 @@ from aer.core.concepts import (
     UK_FRC_ALIASES,
     US_GAAP_ALIASES,
     canonical_concept,
+    dimension_label,
     is_canonical_concept,
     is_magnitude,
     refusal_reason,
@@ -273,6 +274,84 @@ class TestTheSignConvention:
 
     def test_an_inflow_is_not_a_magnitude(self):
         assert not is_magnitude("proceeds_from_debt")
+
+
+class TestAFactSaysWhichPartOfTheCompanyItIsAbout:
+    """ADR 0118's fourth condition: a slice never reaches a reader spelt like the whole.
+
+    The examples are the stored corpus's own axes and members — AstraZeneca's geographies,
+    Microsoft's segments and product lines, M&T's business lines — because the failure this
+    guards against is a transliteration that reads plausibly and names the wrong thing.
+    """
+
+    def test_the_consolidated_line_is_untouched(self):
+        # Every section but one sees only these, and has since the pack existed. A change
+        # here would move the concept key under seventeen sections' feet.
+        assert dimension_label("revenue", axis=None, member=None) == "revenue"
+
+    def test_a_geography_says_the_concept_the_axis_and_the_country(self):
+        assert (
+            dimension_label("revenue", axis="ifrs-full:GeographicalAreasAxis", member="country:US")
+            == "Revenue · Geographical areas · United States"
+        )
+
+    def test_a_segment_says_which_segment(self):
+        assert (
+            dimension_label(
+                "revenue",
+                axis="us-gaap:StatementBusinessSegmentsAxis",
+                member="msft:IntelligentCloudMember",
+            )
+            == "Revenue · Business segments · Intelligent cloud"
+        )
+
+    def test_an_acronym_keeps_its_capitals(self):
+        # `str.capitalize` would file this under "Xbox", which is a filer's own product
+        # name spelt wrong in a document a person is going to read.
+        assert dimension_label(
+            "revenue", axis="srt:ProductOrServiceAxis", member="msft:XBOXMember"
+        ).endswith("· XBOX")
+
+    def test_a_figure_in_a_member_is_its_own_word(self):
+        assert dimension_label(
+            "long_term_debt",
+            axis="ifrs-full:BorrowingsByNameAxis",
+            member="azn:CallableBond0.375PercentDue2029Member",
+        ).endswith("· Callable bond 0.375 percent due 2029")
+
+    def test_a_country_code_nobody_has_named_is_shown_as_the_filer_wrote_it(self):
+        # Honest rather than guessed: two letters in the member position still say "one
+        # geography's slice", and a country invented from a code would not be recoverable.
+        assert dimension_label(
+            "revenue", axis="ifrs-full:GeographicalAreasAxis", member="country:NZ"
+        ).endswith("· NZ")
+
+    def test_an_extension_member_still_reaches_the_reader(self):
+        # A filer's own element is the normal case for a UK filing. Dropping it would cost
+        # the row, and the rows existing is the whole of ADR 0118.
+        assert (
+            dimension_label(
+                "revenue",
+                axis="ifrs-full:GeographicalAreasAxis",
+                member="azn:EuropeExcludingUnitedKingdomMember",
+            )
+            == "Revenue · Geographical areas · Europe excluding united kingdom"
+        )
+
+    @pytest.mark.parametrize(
+        ("axis", "member"),
+        [
+            ("ifrs-full:GeographicalAreasAxis", "country:GB"),
+            ("us-gaap:StatementBusinessSegmentsAxis", "mtb:RetailBankingMember"),
+            ("srt:ProductOrServiceAxis", "us-gaap:FiduciaryAndTrustMember"),
+            ("dei:LegalEntityAxis", "mtb:MAndTMember"),
+            ("srt:StatementGeographicalAxis", "us-gaap:NonUsMember"),
+        ],
+    )
+    def test_every_label_carries_all_three_parts(self, axis, member):
+        # The invariant behind the rendering, whatever the transliteration makes of a
+        # particular element: three parts, so no slice can be read as the whole.
+        assert dimension_label("revenue", axis=axis, member=member).count(" · ") == 2
 
 
 class TestAccessionNumbers:

@@ -29,9 +29,9 @@ from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import delete, select
+from sqlalchemy import Select, delete, select
 
-from aer.core.concepts import is_canonical_concept
+from aer.core.concepts import dimension_label, is_canonical_concept
 from aer.core.enums import AnalysisMode, ClaimKind, SourceTier
 from aer.core.section_output import (
     MAX_GAP_SENTENCES,
@@ -52,14 +52,17 @@ from aer.db.models import (
 )
 from aer.services.calculations import indexed_calculations
 from aer.services.citations import record_citation, record_claim
-from aer.services.facts import visible_facts
+from aer.services.facts import Dimensions, visible_facts
 from aer.services.scope import scope_for_request, with_subject
 from aer.services.sources import visible_sources
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from aer.agents.custom_section import CustomSectionDraft, ProposedClaim
+    from aer.core.scope import EvidenceScope
 
 __all__ = [
     "EVIDENCE_ITEM_CAP",
@@ -103,6 +106,14 @@ EVIDENCE_ITEM_CAP: Final = 40
 # AvailableForSale…" to every section, and Revenue never survived the alphabet).
 _FACT_POOL: Final = 400
 _EXCERPT_POOL: Final = 200
+
+# The breakdown a carved-in section may choose from, drawn separately (ADR 0118). It has to
+# be separate: the consolidated pool is the newest 400 rows by period, and a bank filing
+# quarterly puts two thousand of them above the annual segment note it tags once a year —
+# measured on the stored corpus, M&T's 182 dimensioned facts begin at rank 930 and the pool
+# never reaches them. Bounded by what a filer actually tags rather than by the cap: the
+# three audited subjects carry 289, 182 and 155 dimensioned facts in total.
+_BREAKDOWN_POOL: Final = 200
 
 # The fiscal_period value a full-year fact carries — the same marker the analysis pass
 # filters on. A section declaring fact_basis "annual" sees only these; "interim" sees
@@ -239,6 +250,12 @@ class SectionPolicy:
     # a headroom factor (gap O4). Zero means unbounded — every definition seeded before
     # the row carried one, and every custom section.
     word_budget: int = 0
+
+    # Whether this section may see the breakdown as well as the consolidated line (ADR
+    # 0118). Excluded for every section but one: a segment's slice is indistinguishable
+    # from the company's own figure once it is in a pack, so the carve-out is set on the
+    # definition row of the section whose subject *is* the breakdown and nowhere else.
+    dimensions: Dimensions = Dimensions.EXCLUDE
 
     def as_prompt_payload(self) -> dict[str, Any]:
         """What the model is told about the floor. The budget is not the model's business."""
@@ -508,31 +525,33 @@ async def gather_evidence(
         # subject's" right up until a run acquired a peer's filings under the same request:
         # the pool then sorted by period end, a March year end outranked a December one, and
         # a section asking for annual figures was handed a pool with no subject in it.
-        selection = visible_facts(
-            with_subject(await scope_for_request(session, request), subject_company_id)
+        pool = await _fact_pool(
+            session,
+            scope=with_subject(await scope_for_request(session, request), subject_company_id),
+            policy=policy,
         )
-        # The section's declared basis, applied in the query rather than after ranking:
-        # a history section that wants annual figures should spend its whole fact budget
-        # on them, not on whatever quarterly rows out-ranked them on recency.
-        if policy.fact_basis == "annual":
-            selection = selection.where(FinancialFact.fiscal_period == _ANNUAL_PERIOD)
-        elif policy.fact_basis == "interim":
-            selection = selection.where(FinancialFact.fiscal_period != _ANNUAL_PERIOD)
-        pool = list(
-            await session.scalars(
-                selection.order_by(FinancialFact.period_end.desc(), FinancialFact.concept).limit(
-                    _FACT_POOL
-                )
-            )
-        )
-        pool.sort(key=lambda row: (concept_rank(row.concept), _period_recency(row)))
+        # `_is_slice` last, so a breakdown row never precedes the consolidated line for its
+        # own concept and period. The budget below cuts a prefix, so that ordering is what
+        # makes ADR 0118's "the aggregate travels with the breakdown" a guarantee rather
+        # than an observation: a slice can only be in the pack behind its own whole.
+        pool.sort(key=lambda row: (concept_rank(row.concept), _period_recency(row), _is_slice(row)))
         for row in pool:
             identifier = str(row.id)
             source_id = str(row.source_document_id)
             unit = EvidenceUnit(
                 internal={
                     "fact_id": identifier,
-                    "concept": row.concept,
+                    # **The payload says what it is** (ADR 0118). ADR 0058's worry was that
+                    # "a row whose payload does not say 'this is one segment's slice' must
+                    # never reach a surface that would present it as the company's line",
+                    # so a carved-in row reads "Revenue · Geographical areas · United
+                    # States" — in the concept itself, which is the field every writer and
+                    # every checker reads, rather than beside it where one of them could
+                    # miss it. A consolidated row is untouched and says `revenue`, as it
+                    # has to every section since the pack existed.
+                    "concept": dimension_label(
+                        row.concept, axis=row.dimension_axis, member=row.dimension_member
+                    ),
                     "value": str(row.value),
                     "unit": row.unit,
                     # The full span, not just its end. A June quarter and a nine-month
@@ -719,6 +738,127 @@ async def gather_evidence(
         )
 
     return evidence
+
+
+async def _fact_pool(
+    session: AsyncSession, *, scope: EvidenceScope, policy: SectionPolicy
+) -> list[FinancialFact]:
+    """The rows this section's ranking may choose from.
+
+    The consolidated figures, always — and for the one section ADR 0118 carves out, the
+    filer's own breakdown as well, drawn as a pool of its own. Two queries rather than one
+    widened one, because a single pool ordered by period makes the *cap* the selector: a
+    company filing quarterly puts thousands of consolidated rows above the annual segment
+    note, and the segment section would go on seeing none of it while the ``WHERE`` clause
+    looked fixed.
+
+    **A breakdown row reaches the pool only behind its own consolidated line**, for the
+    same concept over the same span — ADR 0118's structural defence against the failure ADR
+    0058 named, a slice presented as the whole. The aggregate is *fetched* for the spans the
+    breakdown covers rather than taken from the pool above, because the pool above is drawn
+    newest-first for a different purpose and "it happened to be in there" is not the word
+    the ADR uses. M&T is the case that settles it: it files quarterly and tags its business
+    lines once a year, so its consolidated revenue for the segment note's own year sits
+    nine hundred rows below the cap, and a pack built from the pool alone showed the bank's
+    segment section nothing at all.
+
+    A span the filer tagged by segment and never consolidated is an orphan — two of
+    AstraZeneca's 116 rows, none of Microsoft's — and stays out. Nothing here can put it in
+    proportion, and putting it in proportion is the condition it is admitted under.
+    """
+    consolidated = list(
+        await session.scalars(_ranked(_on_basis(visible_facts(scope), policy), limit=_FACT_POOL))
+    )
+    if policy.dimensions is Dimensions.EXCLUDE:
+        return consolidated
+
+    breakdown = list(
+        await session.scalars(
+            _ranked(
+                _on_basis(
+                    # `visible_facts` a second time rather than a query of its own: the
+                    # company scoping, the store's own supersession rule and everything else
+                    # it decides stay in one place, which is the alternative ADR 0118
+                    # rejected for exactly this reason.
+                    visible_facts(scope, dimensions=policy.dimensions).where(
+                        FinancialFact.dimension_axis.is_not(None)
+                    ),
+                    policy,
+                ),
+                limit=_BREAKDOWN_POOL,
+            )
+        )
+    )
+    held = {_span_of(row) for row in consolidated}
+    wanted = {_span_of(row) for row in breakdown} - held
+    aggregates = await _aggregates_for(session, scope=scope, policy=policy, spans=wanted)
+    whole = held | {_span_of(row) for row in aggregates}
+    return [
+        *consolidated,
+        *aggregates,
+        *(row for row in breakdown if _span_of(row) in whole),
+    ]
+
+
+async def _aggregates_for(
+    session: AsyncSession,
+    *,
+    scope: EvidenceScope,
+    policy: SectionPolicy,
+    spans: set[tuple[str, date | None, date]],
+) -> list[FinancialFact]:
+    """The consolidated lines for these spans, for the ones the pool did not already hold.
+
+    Queried on the concepts and the period ends and then matched on the whole span in
+    Python, rather than as a row-value comparison: a balance-sheet fact has no
+    ``period_start``, and SQL tuple equality over a null is null rather than true — which
+    would silently drop every breakdown of a balance sheet and look like missing data.
+    """
+    if not spans:
+        return []
+    concepts = {concept for concept, _, _ in spans}
+    period_ends = {period_end for _, _, period_end in spans}
+    rows = await session.scalars(
+        _on_basis(visible_facts(scope), policy).where(
+            FinancialFact.concept.in_(concepts), FinancialFact.period_end.in_(period_ends)
+        )
+    )
+    return [row for row in rows if _span_of(row) in spans]
+
+
+def _on_basis(selection: Select[Any], policy: SectionPolicy) -> Select[Any]:
+    """The section's declared reporting basis, applied in the query rather than after ranking.
+
+    A history section that wants annual figures should spend its whole fact budget on them,
+    not on whatever quarterly rows out-ranked them on recency.
+    """
+    if policy.fact_basis == "annual":
+        return selection.where(FinancialFact.fiscal_period == _ANNUAL_PERIOD)
+    if policy.fact_basis == "interim":
+        return selection.where(FinancialFact.fiscal_period != _ANNUAL_PERIOD)
+    return selection
+
+
+def _ranked(selection: Select[Any], *, limit: int) -> Select[Any]:
+    """Newest period first, then by concept, capped — how a pool is drawn."""
+    return selection.order_by(FinancialFact.period_end.desc(), FinancialFact.concept).limit(limit)
+
+
+def _span_of(row: FinancialFact) -> tuple[str, date | None, date]:
+    """What a consolidated line and its slices share: one concept over one span of time.
+
+    The span rather than the fiscal label, because the two disagree on the rows this has to
+    match. A filer tags segment revenue with the same ``FY`` period as the consolidated
+    line, and tags segment assets at a balance-sheet date with no fiscal period at all —
+    the store holds both faithfully, and pairing on the label would leave every balance
+    sheet breakdown an orphan.
+    """
+    return (row.concept, row.period_start, row.period_end)
+
+
+def _is_slice(row: FinancialFact) -> bool:
+    """Whether this row describes part of the company rather than the whole of it."""
+    return row.dimension_axis is not None
 
 
 def _concept_rank_for(declared: tuple[str, ...]) -> Callable[[str], int]:

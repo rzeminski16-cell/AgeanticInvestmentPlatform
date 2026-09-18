@@ -154,6 +154,13 @@ Revenue by fiscal period in USD, with recorded margin trajectories. Every bar an
 
 *Rendered in the HTML and PDF editions of this report.*
 
+| Period | Revenue, USDbn | Net margin |
+|---|---|---|
+| FY2017 | 90.0 | — |
+| FY2020 | 142 | 31.2% |
+| FY2021 | 168 | 36.5% |
+| FY2022 | 198 | — |
+
 ## Earnings Quality
 
 ### Commentary

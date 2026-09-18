@@ -27,6 +27,7 @@ from aer.db.models import (
     Disagreement,
     Evaluation,
     JobStep,
+    PlanSkillPin,
     ReportSection,
     ResearchPlan,
     SectionDefinition,
@@ -35,10 +36,13 @@ from aer.db.models import (
 from aer.eval.metrics import spoken_metric
 from aer.sections import deterministic as deterministic_sections
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
+from aer.sections.evidence import SectionPolicy
 from aer.sections.render import render_section
+from aer.sections.writing import policy_of_definition
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.evaluations import NUMERIC_CEILING
+from aer.services.facts import Dimensions
 from aer.skills.resolution import pinned_skills_for_work_order
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
@@ -291,6 +295,61 @@ class TestTheSeed:
                 assert stated == "section_writer_workhorse", row.key
             else:
                 assert stated is None, row.key
+
+    async def test_exactly_one_section_may_read_the_filers_own_breakdown(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0079 (ADR 0118): the dimension carve-out is set on the section whose
+        subject *is* the breakdown, and on no other.
+
+        The count is the assertion. ADR 0118 admits that one section can now state a figure
+        that is not the company's, and bounds the cost at one section — "whether a second
+        ever does is a decision with its own evidence, not a door left open". This is the
+        door, and this test is what keeps it shut.
+        """
+        rows = list(
+            await db_session.scalars(
+                select(SectionDefinition).where(SectionDefinition.origin == "builtin")
+            )
+        )
+        assert rows
+        carved_in = {
+            row.key
+            for row in rows
+            if policy_of_definition(row).dimensions is not Dimensions.EXCLUDE
+        }
+
+        assert carved_in == {"segment_analysis"}
+        for row in rows:
+            if row.key == "segment_analysis":
+                assert policy_of_definition(row).dimensions is Dimensions.INCLUDE_SINGLE_AXIS, (
+                    "the seeded value must be one `Dimensions` reads, or the carve-out is lost"
+                )
+
+    async def test_a_section_authored_by_a_skill_cannot_open_the_carve_out(self) -> None:
+        """Invariant 7, structurally. A skill file may add requirements and never relax
+        one, and the custom boundary builds its policy from the pin's own named columns —
+        so there is no wording an operator could write that lets a custom section state one
+        segment's figure as the company's.
+        """
+        assert SectionPolicy.__dataclass_fields__["dimensions"].default is Dimensions.EXCLUDE
+        assert "dimensions" not in PlanSkillPin.__table__.columns
+
+    async def test_a_definition_row_that_names_nonsense_keeps_the_exclusion(self) -> None:
+        """Stricter than the other preferences' fallbacks, deliberately: a mistyped basis
+        costs a preference, and a mistyped carve-out would let a slice of the company into
+        a section that is going to state it as the whole."""
+        for stated in ("segments", "", True, None, ["single_axis"]):
+            definition = SectionDefinition(
+                key="invented",
+                title="Invented",
+                position=Decimal("99.00"),
+                output_contract={},
+                evidence_policy={"dimensions": stated},
+                token_budget=1_000,
+            )
+
+            assert policy_of_definition(definition).dimensions is Dimensions.EXCLUDE, stated
 
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession

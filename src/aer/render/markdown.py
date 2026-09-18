@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from aer.calc.comps import CompsTable, WithheldComps
-    from aer.charts import Chart
+    from aer.charts import Chart, ChartTable
     from aer.db.models import Company, Job, ResearchRequest
 
 __all__ = ["DISCLAIMER", "RenderedReport", "SectorNote", "render_markdown", "serialise_markdown"]
@@ -223,7 +223,7 @@ def _sector_block(sector: SectorNote | None) -> list[str]:
 
 
 def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:
-    """The chart pack, as text: captions and markers, with the geometry deferred.
+    """The chart pack, as text: captions, markers and figures, with the drawing deferred.
 
     Markdown cannot carry the SVGs, and inlining them base64 would make the file
     unreadable for the one thing Markdown is kept for. So this notation carries each
@@ -248,6 +248,26 @@ def _exhibit_lines(chart: ChartView, *, level: int) -> list[str]:
         f"{chart.caption}{markers}",
         "",
         "*Rendered in the HTML and PDF editions of this report.*",
+        "",
+        *_exhibit_table(chart.table),
+    ]
+
+
+def _exhibit_table(table: ChartTable | None) -> list[str]:
+    """The exhibit's own values, beneath the deferral line.
+
+    Deferring the drawing used to defer the numbers with it, and for the segment mix the
+    exhibit was the only place in the whole document a reader could meet segment revenue
+    at all — so the Markdown edition of a report whose store held revenue for nine
+    geographies showed none of the nine. The values are the builder's, formatted once, so
+    the table and the bars say the same thing.
+    """
+    if table is None:
+        return []
+    return [
+        "| " + " | ".join(table.columns) + " |",
+        "|" + "|".join(["---"] * len(table.columns)) + "|",
+        *("| " + " | ".join(row) + " |" for row in table.rows),
         "",
     ]
 

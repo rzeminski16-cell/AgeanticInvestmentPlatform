@@ -44,6 +44,7 @@ name is that there is exactly one of it.
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 __all__ = [
@@ -56,6 +57,8 @@ __all__ = [
     "UK_FRC_ALIASES",
     "US_GAAP_ALIASES",
     "canonical_concept",
+    "country_named_by",
+    "dimension_label",
     "is_canonical_concept",
     "is_magnitude",
     "refusal_reason",
@@ -654,3 +657,157 @@ def is_magnitude(concept: str) -> bool:
     filer reported a payment, not a negative.
     """
     return concept in MAGNITUDE_CONCEPTS
+
+
+# -- Saying which part of the company a figure is about (ADR 0118) ---------------------------
+#
+# A dimensioned fact is the filer's own breakdown: `revenue` on
+# `ifrs-full:GeographicalAreasAxis` at member `country:US` is the United States' share, not
+# the company's revenue. ADR 0058 kept such rows away from every reader because a payload
+# saying only "revenue" would be read as the whole; ADR 0118 lets one section see them on
+# the condition that the payload says what it is. This is that condition, in the one place
+# both the axis and the member are turned into words.
+
+# Where a member is an ISO 3166-1 country code rather than a taxonomy element.
+_COUNTRY_NAMESPACE: Final = "country"
+
+# The codes the filings this platform reads actually use, named rather than transliterated.
+# Same posture as `performance._EXCHANGE_COUNTRY`: a code missing here is shown as the code
+# the filer wrote, which is honest and still unmistakably one geography's slice — never a
+# country guessed from two letters.
+_COUNTRY_NAMES: Final[dict[str, str]] = {
+    "AU": "Australia",
+    "BE": "Belgium",
+    "BR": "Brazil",
+    "CA": "Canada",
+    "CH": "Switzerland",
+    "CN": "China",
+    "DE": "Germany",
+    "DK": "Denmark",
+    "ES": "Spain",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "IE": "Ireland",
+    "IN": "India",
+    "IT": "Italy",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "MX": "Mexico",
+    "NL": "Netherlands",
+    "RU": "Russia",
+    "SE": "Sweden",
+    "SG": "Singapore",
+    "US": "United States",
+    "ZA": "South Africa",
+}
+
+# The suffixes an XBRL axis and member element carry by convention. Stripped because they
+# are grammar, not meaning: "Geographical areas axis" says nothing "Geographical areas"
+# does not, and the separator already says this is a dimension.
+_AXIS_SUFFIX: Final = "Axis"
+_MEMBER_SUFFIX: Final = "Member"
+
+# The same, at the front of an axis: ``StatementBusinessSegmentsAxis`` and
+# ``StatementGeographicalAxis`` are the taxonomy saying which statement the axis hangs off,
+# and what a reader needs is "Business segments" and "Geographical".
+_AXIS_PREFIX: Final = "Statement"
+
+# What separates the three parts. Not a comma or a dash: both appear inside member names,
+# and a reader scanning a listing needs the boundary to be unmistakable at a glance.
+_DIMENSION_SEPARATOR: Final = " · "
+
+# Element names are camel case, sometimes with an acronym run or a figure in them. The four
+# alternatives are, in order: an acronym not followed by its own lower-case tail (XBOX), a
+# capitalised word, a lower-case remainder, and a number — which is its own word, so
+# ``CallableBond0.375PercentDue2029`` reads as a bond and a rate rather than as one token.
+_ELEMENT_WORDS: Final = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9][0-9.]*")
+
+
+def dimension_label(concept: str, *, axis: str | None, member: str | None) -> str:
+    """What a fact's concept field should say, given the part of the company it describes.
+
+    A consolidated fact — no axis, no member — says its canonical concept and nothing else,
+    exactly as every reader has always seen it. A dimensioned one says all three parts:
+
+        >>> dimension_label("revenue", axis="ifrs-full:GeographicalAreasAxis", member="country:US")
+        'Revenue · Geographical areas · United States'
+
+    ADR 0118's condition, and the reason it is the concept field rather than two fields
+    beside it: every writer, every validator and every metric reads the concept, and a
+    qualifier carried alongside is a qualifier one of them can fail to read.
+
+    The words are the filer's own, transliterated rather than interpreted. A member this
+    module cannot name — a filer's extension element, an unlisted country code — still
+    reaches the reader as the filer's own text, because the alternative is dropping the row
+    and the whole point of ADR 0118 is that the rows exist.
+    """
+    if axis is None or member is None:
+        return concept
+    return _DIMENSION_SEPARATOR.join(
+        (
+            _sentence_case(concept.replace("_", " ")),
+            _axis_words(axis),
+            _member_words(member),
+        )
+    )
+
+
+def _axis_words(axis: str) -> str:
+    """One dimension axis in words, without the taxonomy's own grammar at either end."""
+    spoken = _element_words(axis, suffix=_AXIS_SUFFIX)
+    trimmed = spoken.removeprefix(f"{_AXIS_PREFIX} ")
+    return _sentence_case(trimmed) if trimmed else spoken
+
+
+def country_named_by(member: str) -> str | None:
+    """The country a dimension member names, or ``None`` if it does not name one.
+
+    ``country:US`` is a code, not a word, and a reader meeting "GB" in a segment table is
+    meeting an identifier — which is what makes this shared rather than reimplemented
+    beside the exhibit that also draws these members. A code this module cannot name
+    returns the code, because it is still the filer's own text; a member that is not a
+    country at all returns ``None``, so the caller keeps its own vocabulary for elements.
+    """
+    namespace, _, local = member.partition(":")
+    if namespace != _COUNTRY_NAMESPACE:
+        return None
+    return _COUNTRY_NAMES.get(local.upper(), local)
+
+
+def _member_words(member: str) -> str:
+    """One dimension member in words — a country by name, anything else by its element."""
+    named = country_named_by(member)
+    if named is not None:
+        return named
+    return _element_words(member, suffix=_MEMBER_SUFFIX)
+
+
+def _element_words(qualified: str, *, suffix: str) -> str:
+    """A prefixed XBRL element as a sentence: ``ifrs-full:GeographicalAreasAxis``.
+
+    The namespace prefix goes: ``ifrs-full`` and ``msft`` say which taxonomy defined the
+    element, which is provenance the source document already carries and noise in a line a
+    person reads.
+    """
+    _, _, local = qualified.rpartition(":")
+    if local.endswith(suffix) and local != suffix:
+        local = local[: -len(suffix)]
+    words = _ELEMENT_WORDS.findall(local)
+    if not words:
+        return qualified
+    return _sentence_case(" ".join(words))
+
+
+def _sentence_case(text: str) -> str:
+    """First word as written, the rest lower — but an acronym stays an acronym.
+
+    ``str.capitalize`` would turn ``XBOX`` into ``Xbox`` and ``US`` into ``Us``, which is a
+    filer's own name spelt wrong. Only words that are already all upper case survive
+    untouched, so ``Cloud`` lowers and ``XBOX`` does not.
+    """
+    words = text.split()
+    if not words:
+        return text
+    first = words[0] if words[0].isupper() else words[0][:1].upper() + words[0][1:]
+    rest = [word if word.isupper() and len(word) > 1 else word.lower() for word in words[1:]]
+    return " ".join([first, *rest])

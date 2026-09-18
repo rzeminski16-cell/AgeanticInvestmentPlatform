@@ -36,7 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.comps import CompsTable, WithheldComps
 from aer.calc.units import SourceKind
-from aer.charts import Chart
+from aer.charts import Chart, ChartTable
 from aer.config import HouseStyle
 from aer.core.section_output import (
     LENGTH_EDIT_NOTE,
@@ -379,6 +379,9 @@ class ChartView:
 
     ``markers`` are the chart's citations as global footnote numbers, in caption order —
     assigned here so no serialiser can renumber them, exactly as for a section's markers.
+
+    ``table`` is the builder's own values as text, carried for the Markdown edition, which
+    cannot show the drawing. ``None`` where the geometry is not rows.
     """
 
     key: str
@@ -388,6 +391,7 @@ class ChartView:
     markers: tuple[int, ...]
     placeholder: bool
     licence_note: str
+    table: ChartTable | None = None
 
 
 Footnote = CalculationFootnote | SourceFootnote | UnresolvedFootnote
@@ -842,6 +846,7 @@ def _chart_view(chart: Chart, citations: list[CitationRef]) -> ChartView:
         markers=markers,
         placeholder=chart.placeholder,
         licence_note=chart.licence_note,
+        table=chart.table,
     )
 
 

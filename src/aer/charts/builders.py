@@ -21,6 +21,7 @@ from matplotlib.patches import Rectangle
 
 from aer.charts.model import (
     Chart,
+    ChartTable,
     FootballFieldInput,
     HeatmapInput,
     PriceRelativeInput,
@@ -50,6 +51,15 @@ __all__ = [
 # from screenshots.
 _SIZE = (6.4, 3.1)
 
+# Headroom past the longest bar for the value printed at its end. Matplotlib sizes the
+# axis from the data and knows nothing about text drawn beside it, so without this the
+# largest segment's figure runs off the canvas.
+_BAR_LABEL_MARGIN = 0.12
+
+# What a table cell says where the run recorded nothing. The chart's own line simply has a
+# gap there, and an empty cell would read as a formatting fault rather than as an absence.
+_NOT_RECORDED = "—"
+
 
 def revenue_margin_history(data: RevenueMarginInput, *, hashsalt: str) -> Chart:
     """Revenue by period as bars, margins as lines on their own percentage axis."""
@@ -66,22 +76,24 @@ def revenue_margin_history(data: RevenueMarginInput, *, hashsalt: str) -> Chart:
         [point.citation for point in data.revenue]
         + [point.citation for series in data.margins for point in series.points]
     )
+    scale, suffix = _money_scale(max(point.value for point in data.revenue))
+    revenue_labels = [_compact(point.value / scale) for point in data.revenue]
 
     with pinned_context(hashsalt=hashsalt):
         figure = Figure(figsize=_SIZE)
         axis = figure.add_subplot()
 
-        periods = [point.period for point in data.revenue]
-        if data.revenue:
-            scale, suffix = _money_scale(max(point.value for point in data.revenue))
-            axis.bar(
-                periods,
-                [float(point.value / scale) for point in data.revenue],
-                color=PALETTE[0],
-                width=0.55,
-                label=f"Revenue ({data.currency}{suffix})",
-            )
-            axis.set_ylabel(f"Revenue, {data.currency}{suffix}")
+        # No `if data.revenue` guard: `is_empty` is what decides whether this chart exists,
+        # and since it turns on the revenue alone there is always at least one bar here.
+        bars = axis.bar(
+            [point.period for point in data.revenue],
+            [float(point.value / scale) for point in data.revenue],
+            color=PALETTE[0],
+            width=0.55,
+            label=f"Revenue ({data.currency}{suffix})",
+        )
+        axis.bar_label(bars, labels=revenue_labels, padding=2, fontsize=7, color=MUTED)
+        axis.set_ylabel(f"Revenue, {data.currency}{suffix}")
 
         if any(series.points for series in data.margins):
             margin_axis = axis.twinx()
@@ -114,6 +126,32 @@ def revenue_margin_history(data: RevenueMarginInput, *, hashsalt: str) -> Chart:
             f"trajectories. Every bar and point is a stored figure."
         ),
         citations=citations,
+        table=_history_table(data, labels=revenue_labels, suffix=suffix),
+    )
+
+
+def _history_table(data: RevenueMarginInput, *, labels: list[str], suffix: str) -> ChartTable:
+    """The bars and the lines as rows, one period each, in the order they are plotted.
+
+    A margin the run did not record for a period is an em dash, not a blank: the chart
+    draws the line with a gap there, and a table that left the cell empty would read as a
+    formatting accident rather than as an absence.
+    """
+    margins = {
+        series.label: {point.period: point.value for point in series.points}
+        for series in data.margins
+        if series.points
+    }
+    rows: list[tuple[str, ...]] = []
+    for point, label in zip(data.revenue, labels, strict=True):
+        cells = [point.period, label]
+        for by_period in margins.values():
+            recorded = by_period.get(point.period)
+            cells.append(_NOT_RECORDED if recorded is None else f"{_compact(recorded * 100)}%")
+        rows.append(tuple(cells))
+    return ChartTable(
+        columns=("Period", f"Revenue, {data.currency}{suffix}", *margins),
+        rows=tuple(rows),
     )
 
 
@@ -139,19 +177,25 @@ def segment_mix(data: SegmentMixInput, *, hashsalt: str) -> Chart:
 
     ordered = sorted(data.segments, key=lambda segment: segment.value, reverse=True)
     scale, suffix = _money_scale(max(segment.value for segment in ordered))
+    values = [_compact(segment.value / scale) for segment in ordered]
+    unit_label = f"{data.currency}{suffix}"
     with pinned_context(hashsalt=hashsalt):
         figure = Figure(figsize=_SIZE)
         axis = figure.add_subplot()
         labels = [segment.label for segment in ordered]
-        axis.barh(
+        bars = axis.barh(
             list(reversed(labels)),
             [float(segment.value / scale) for segment in reversed(ordered)],
             color=PALETTE[0],
             height=0.6,
         )
-        unit_label = f"{data.currency}{suffix}"
+        # The bars carry their own figures (F8). The exhibit was the only place a reader
+        # could meet segment revenue at all, and it showed a shape with no numbers on it.
+        axis.bar_label(bars, labels=list(reversed(values)), padding=3, fontsize=7, color=MUTED)
         axis.set_xlabel(f"Revenue, {unit_label}" if unit_label else "Revenue")
         axis.set_title(f"{title} — {data.period}" if data.period else title)
+        # Room at the right for the longest label, which otherwise runs off the canvas.
+        axis.set_xmargin(_BAR_LABEL_MARGIN)
 
     return Chart(
         key=key,
@@ -159,6 +203,12 @@ def segment_mix(data: SegmentMixInput, *, hashsalt: str) -> Chart:
         svg=render_svg(figure, hashsalt=hashsalt),
         caption=f"Revenue by reported segment{f', {data.period}' if data.period else ''}.",
         citations=_ordered([segment.citation for segment in ordered]),
+        table=ChartTable(
+            columns=("Segment", f"Revenue, {unit_label}" if unit_label else "Revenue"),
+            rows=tuple(
+                (segment.label, value) for segment, value in zip(ordered, values, strict=True)
+            ),
+        ),
     )
 
 

@@ -340,6 +340,11 @@ async def _lineage_chain(
         )
         session.add(company)
         await session.flush()
+    # The subject, as `acquire` writes it. Not optional: the exhibits read facts at company
+    # grain (ADR 0061), so a scene that left this unresolved would model a run that cannot
+    # exist and would quietly hand the chart pack nothing.
+    request.company_id = company.id
+    await session.flush()
 
     facts: list[FinancialFact] = []
     for year, value, accession in (

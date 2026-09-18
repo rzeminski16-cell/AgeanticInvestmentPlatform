@@ -13,7 +13,11 @@ from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from aer.charts import (
+    Chart,
+    ChartTable,
     FootballFieldInput,
     HeatmapCell,
     HeatmapInput,
@@ -187,6 +191,17 @@ class TestHonestPlaceholders:
         assert "No structured segment facts were recorded" in chart.caption
         assert "deliberately empty" in chart.caption
 
+    def test_a_margin_with_no_revenue_beside_it_is_not_a_chart(self):
+        """It used to take either, and that is how three of five approved reports carried
+        an empty bar area under a single line, titled "Revenue and margin history" and
+        captioned "Every bar and point is a stored figure". A margin without the revenue
+        it is a margin *of* is a line with no subject."""
+        data = replace(_revenue_input(), revenue=())
+        chart = revenue_margin_history(data, hashsalt="j")
+
+        assert data.is_empty
+        assert chart.placeholder
+
 
 class TestTheLicenceSplit:
     """ADR 0043: the withheld-figures rule applies to geometry."""
@@ -290,6 +305,129 @@ class TestCitations:
         assert len(labels) == 9
         inks = {"#ffffff" if "fill: #ffffff" in line else "dark" for line in labels}
         assert inks == {"#ffffff", "dark"}, "the light and the dark cells share one ink"
+
+
+def _segment_input() -> SegmentMixInput:
+    return SegmentMixInput(
+        currency="USD",
+        period="FY2022",
+        segments=(
+            SegmentRevenue(label="Cloud", value=Decimal("91200000000"), citation=_ref(1)),
+            SegmentRevenue(label="Devices", value=Decimal("74600000000"), citation=_ref(2)),
+        ),
+    )
+
+
+class TestAnExhibitCarriesItsOwnFigures:
+    """F8. The segment exhibit was the only place in a whole report where a reader could
+    meet segment revenue, and it drew a shape with no numbers on it — while the Markdown
+    edition, which cannot draw at all, deferred the picture and the figures with it.
+    """
+
+    def test_every_bar_is_labelled_with_its_value(self):
+        chart = segment_mix(_segment_input(), hashsalt="j")
+
+        # `svg.fonttype: none` keeps labels as text, so the figures are readable in the
+        # source — which is also how a PDF reader searches them.
+        assert "91.2" in chart.svg
+        assert "74.6" in chart.svg
+
+    def test_the_table_and_the_bars_say_the_same_thing(self):
+        chart = segment_mix(_segment_input(), hashsalt="j")
+
+        assert chart.table is not None
+        assert chart.table.columns == ("Segment", "Revenue, USDbn")
+        assert chart.table.rows == (("Cloud", "91.2"), ("Devices", "74.6"))
+        for _label, value in chart.table.rows:
+            assert value in chart.svg
+
+    def test_the_largest_bar_leaves_room_for_its_own_label(self):
+        # Matplotlib sizes the axis from the data and knows nothing about text drawn
+        # beside it. Without the headroom the biggest figure — the one a reader wants
+        # most — is the one that runs off the right-hand edge.
+        chart = segment_mix(_segment_input(), hashsalt="j")
+        canvas = float(chart.svg.split('width="')[1].split("pt")[0])
+        placed = [
+            float(line.split(' x="')[1].split('"')[0])
+            for line in chart.svg.splitlines()
+            if "<text" in line and ">91.2<" in line
+        ]
+
+        assert placed, "the largest bar carries no label"
+        assert max(placed) < canvas
+
+    def test_the_history_table_carries_the_periods_and_the_margins(self):
+        chart = revenue_margin_history(_revenue_input(), hashsalt="j")
+
+        assert chart.table is not None
+        assert chart.table.columns == ("Period", "Revenue, USDbn", "Net margin")
+        assert chart.table.rows[0] == ("FY2020", "2,020", "31.0%")
+
+    def test_a_period_with_no_recorded_margin_says_so(self):
+        data = _revenue_input()
+        thinned = replace(
+            data,
+            margins=(replace(data.margins[0], points=data.margins[0].points[:1]),),
+        )
+        chart = revenue_margin_history(thinned, hashsalt="j")
+
+        assert chart.table is not None
+        assert [row[-1] for row in chart.table.rows] == ["31.0%", "—", "—"]
+
+    def test_a_placeholder_carries_no_table(self):
+        for chart in (
+            segment_mix(SegmentMixInput(), hashsalt="j"),
+            revenue_margin_history(RevenueMarginInput(currency="USD"), hashsalt="j"),
+        ):
+            assert chart.table is None, chart.key
+
+    def test_an_internal_chart_cannot_be_given_a_table_at_all(self):
+        """Structural, not conventional. ADR 0043's point is that the withheld-figures
+        rule does not care whether the figures arrive as geometry or as digits, so the
+        type refuses the combination rather than trusting each builder to remember."""
+        with pytest.raises(ValueError, match="internal-only"):
+            Chart(
+                key="price_relative",
+                title="Price",
+                svg="<svg/>",
+                caption="",
+                exportable=False,
+                table=ChartTable(columns=("On", "Close"), rows=(("2026-01-02", "100"),)),
+            )
+
+    def test_the_licensed_geometry_is_never_tabulated(self):
+        """And the builders that draw it do not try: the two internal-only charts come
+        back with no table, so the refusal above is a backstop rather than the rule."""
+        charts = (
+            price_relative(
+                PriceRelativeInput(
+                    currency="USD",
+                    series=(
+                        PriceSeries(
+                            label="Subject",
+                            points=(
+                                PricePoint(at=date(2026, 1, 2), value=Decimal("100")),
+                                PricePoint(at=date(2026, 2, 2), value=Decimal("112")),
+                            ),
+                        ),
+                    ),
+                ),
+                hashsalt="j",
+            ),
+            football_field_with_comps(
+                _field_input(),
+                comps_band=ValueBand(
+                    label="Comps",
+                    low=Decimal("240"),
+                    high=Decimal("300"),
+                    citations=(_ref(9),),
+                ),
+                hashsalt="j",
+            ),
+        )
+        for chart in charts:
+            assert not chart.exportable, chart.key
+            assert chart.table is None, chart.key
 
 
 class TestTheDataUri:

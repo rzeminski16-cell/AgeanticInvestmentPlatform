@@ -121,6 +121,11 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
     db_session.add(company)
     await db_session.flush()
+    # The subject, as `acquire` writes it. The exhibits read facts at company grain now
+    # (ADR 0061), so a scene that left this unresolved would be modelling a run that
+    # cannot exist — and would quietly hand every chart an empty input.
+    request.company_id = company.id
+    await db_session.flush()
 
     artefact = Artefact(
         sha256="a" * 64, media_type="text/html", size_bytes=10, storage_key="exhibit/a"
@@ -330,22 +335,37 @@ class TestTheExportablePack:
         # notice, not a picture of absence, is where a thin run says so.
         assert "segment_mix" not in by_key
 
-    async def test_a_run_that_recorded_nothing_gets_no_exhibits(
+    async def test_a_run_whose_subject_has_nothing_stored_gets_no_exhibits(
         self, scene: dict[str, Any]
     ) -> None:
+        session: AsyncSession = scene["session"]
+        unread = Company(name="UNREAD PLC", cik="0000111222", ticker="UNRD", exchange="LSE")
+        session.add(unread)
+        await session.flush()
+        bare_request = research_request(
+            user_id=scene["request"].work_order.user_id,
+            company_name="Unread plc",
+            ticker="UNRD",
+            exchange="LSE",
+            as_of_date=AS_OF_DATE,
+            base_currency="GBP",
+            investment_horizon_months=12,
+            max_cost_gbp="2.50",
+        )
+        bare_request.company_id = unread.id
+        session.add(bare_request)
+        await session.flush()
         bare_job = Job(
-            work_order_id=scene["request"].id,
+            work_order_id=bare_request.id,
             workflow_version="exhibit_scene_v1",
             code_version="exhibitcode1234",
             status=JobStatus.RUNNING,
             started_at=GENERATED_AT,
         )
-        scene["session"].add(bare_job)
-        await scene["session"].flush()
+        session.add(bare_job)
+        await session.flush()
 
-        charts = await exportable_charts_for(
-            scene["session"], job=bare_job, request=scene["request"]
-        )
+        charts = await exportable_charts_for(session, job=bare_job, request=bare_request)
         assert charts == ()
 
     async def test_the_licence_note_reaches_the_field_caption(self, scene: dict[str, Any]) -> None:
@@ -519,6 +539,64 @@ class TestTheSegmentExhibit:
         assert "FY2021" in chart.svg
         assert "FY2022" in chart.svg
         assert len(chart.citations) == 3
+
+
+class TestASecondRunOfACompanyStillHasItsExhibits:
+    """The defect that stripped the bars out of three of five approved reports.
+
+    Both inputs used to reach their facts by joining to the run's *own* source documents.
+    The store deduplicates a fact it already holds under ADR 0058's identity rule, so a
+    second run of a company re-fetches the filing and the rows keep the first run's
+    ``source_document_id`` — the join then matches nothing, and the exhibits quietly
+    emptied. Measured on the stored corpus before the fix: Microsoft's second run reached
+    0 of the 55 segment rows and 0 of the consolidated revenue rows the store held for it,
+    under a caption reading "Every bar and point is a stored figure".
+    """
+
+    @staticmethod
+    async def _second_run(scene: dict[str, Any]) -> Job:
+        session: AsyncSession = scene["session"]
+        again = Job(
+            work_order_id=scene["request"].id,
+            workflow_version="exhibit_scene_v1",
+            code_version="exhibitcode1234",
+            status=JobStatus.RUNNING,
+            started_at=GENERATED_AT,
+        )
+        session.add(again)
+        await session.flush()
+        return again
+
+    async def test_the_revenue_bars_survive(self, scene: dict[str, Any]) -> None:
+        charts = {
+            chart.key: chart
+            for chart in await exportable_charts_for(
+                scene["session"], job=await self._second_run(scene), request=scene["request"]
+            )
+        }
+
+        assert "revenue_margin_history" in charts
+        assert charts["revenue_margin_history"].table is not None
+        assert [row[0] for row in charts["revenue_margin_history"].table.rows] == [
+            "FY2021",
+            "FY2022",
+        ]
+
+    async def test_the_segment_chart_survives(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(_segment_fact(scene, member="msft:CloudSegmentMember", value="91200000000"))
+        session.add(_segment_fact(scene, member="msft:DevicesSegmentMember", value="60300000000"))
+        await session.flush()
+
+        charts = {
+            chart.key: chart
+            for chart in await exportable_charts_for(
+                session, job=await self._second_run(scene), request=scene["request"]
+            )
+        }
+
+        assert "segment_mix" in charts
+        assert "Cloud" in charts["segment_mix"].svg
 
 
 class TestTheDocumentIntegration:

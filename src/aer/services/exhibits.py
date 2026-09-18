@@ -51,6 +51,7 @@ from aer.charts import (
     segment_mix,
     sensitivity_heatmap,
 )
+from aer.core.concepts import country_named_by
 from aer.core.enums import Provider
 from aer.db.models import (
     Calculation,
@@ -60,12 +61,13 @@ from aer.db.models import (
     ResearchRequest,
     Security,
     Sensitivity,
-    SourceDocument,
 )
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.sections.render import CitationRef
+from aer.services.facts import Dimensions, visible_facts
 from aer.services.prices import adjusted_series_for
 from aer.services.scenarios import scenarios_for_request
+from aer.services.scope import scope_for_request, with_subject
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -116,7 +118,7 @@ async def exportable_charts_for(
         revenue_margin_history(
             await _revenue_margin_input(session, job=job, request=request), hashsalt=salt
         ),
-        segment_mix(await _segment_input(session, job=job), hashsalt=salt),
+        segment_mix(await _segment_input(session, request=request), hashsalt=salt),
         scenario_bridge(await _scenario_input(session, job=job, request=request), hashsalt=salt),
         sensitivity_heatmap(await _heatmap_input(session, job=job), hashsalt=salt),
         football_field(
@@ -183,23 +185,28 @@ async def internal_charts_for(
 async def _revenue_margin_input(
     session: AsyncSession, *, job: Job, request: ResearchRequest
 ) -> RevenueMarginInput:
-    """Full-year revenue facts this run acquired, and the margin calculations it ran.
+    """The subject's full-year revenue, and the margin calculations this run ran.
 
     A margin calculation carries no period of its own — its period is its inputs', so it
     is recovered from the fact rows the calculation's recorded inputs cite. A margin whose
     period cannot be recovered is left off the chart rather than guessed onto a year.
+
+    The revenue is scoped by company for the reason `_segment_input` is, and the same
+    measurement: this is where the second run's revenue bars went. The margins stay scoped
+    to the job, correctly — a calculation *is* this run's work, and a stored one from a
+    previous run is a figure this report did not strike.
     """
     facts = list(
         await session.scalars(
-            select(FinancialFact)
-            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
+            # The consolidated line, which is `visible_facts` at its default: a segment's
+            # revenue here would win the year in `by_period` below and shrink the bar to
+            # one segment's size (ADR 0058, still unamended for this reader).
+            visible_facts(
+                with_subject(await scope_for_request(session, request), request.company_id)
+            )
             .where(
-                SourceDocument.job_id == job.id,
                 FinancialFact.concept == "revenue",
                 FinancialFact.fiscal_period == "FY",
-                # The consolidated line. A segment's revenue here would win the year in
-                # `by_period` below and shrink the bar to one segment's size.
-                FinancialFact.dimension_axis.is_(None),
             )
             .order_by(FinancialFact.period_end)
         )
@@ -321,20 +328,29 @@ _SEGMENT_AXES = (
 _NOT_A_SEGMENT = ("Elimination",)
 
 
-async def _segment_input(session: AsyncSession, *, job: Job) -> SegmentMixInput:
-    """The latest full year's revenue by segment, from the run's dimensioned facts.
+async def _segment_input(session: AsyncSession, *, request: ResearchRequest) -> SegmentMixInput:
+    """The latest full year's revenue by segment, from the subject's dimensioned facts.
 
     One axis and one period, chosen deterministically: the most recent fiscal year that
     has any dimensioned revenue, and the first axis in `_SEGMENT_AXES` present in it.
     Values are the stored facts, passed through unchanged — the builder draws them as
     they are, so nothing here is computed on the way through.
+
+    **Scoped by company, through the store's own reader** (ADR 0061, and the exclusion ADR
+    0118 carves out). It used to join to the run's own source documents, which silently
+    emptied the exhibit on every second run of a company: the store deduplicates a fact it
+    already holds, so the second run's rows keep the first run's ``source_document_id`` and
+    the join matches nothing. Measured on the stored corpus — Microsoft's second run
+    reached none of the 55 segment rows the store held for it — and the caption underneath
+    the vanished bars read "Every bar and point is a stored figure".
     """
     rows = list(
         await session.scalars(
-            select(FinancialFact)
-            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
+            visible_facts(
+                with_subject(await scope_for_request(session, request), request.company_id),
+                dimensions=Dimensions.INCLUDE_SINGLE_AXIS,
+            )
             .where(
-                SourceDocument.job_id == job.id,
                 FinancialFact.concept == "revenue",
                 FinancialFact.fiscal_period == "FY",
                 FinancialFact.dimension_axis.is_not(None),
@@ -419,7 +435,16 @@ def _segment_label(member: str) -> str:
     respace any word the filer glued a conjunction into. Initialisms survive because
     the boundary needs a lower-case letter on its left — ``IPhone`` stays ``IPhone``
     rather than becoming ``I Phone``.
+
+    A country code is not camel case and this surgery cannot help it, so it is named from
+    the shared vocabulary instead. Shared rather than copied because the evidence pack
+    draws the same members (ADR 0118) and a report whose section says "United Kingdom"
+    over an exhibit saying "GB" is a document disagreeing with itself — and "GB" is an
+    identifier reaching a reader, which nothing here is allowed to do.
     """
+    named = country_named_by(member)
+    if named is not None:
+        return named
     local = member.split(":", 1)[-1]
     local = local.removesuffix("SegmentMember").removesuffix("Member")
     spaced = _CAMEL_BOUNDARY.sub(" ", local)
