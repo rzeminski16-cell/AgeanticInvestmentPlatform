@@ -21,10 +21,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Index, String, Text, UniqueConstraint
+from sqlalchemy import Enum as SaEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from aer.core.sectors import SicScheme
 from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidPk
+
+
+def _enum(python_enum: type, name: str) -> SaEnum:
+    return SaEnum(python_enum, name=name, values_callable=lambda e: [m.value for m in e])
+
 
 if TYPE_CHECKING:
     from aer.db.models.financial_fact import FinancialFact
@@ -61,10 +68,23 @@ class Company(Base):
 
     # -- Classification ------------------------------------------------------------------
 
-    # SEC Standard Industrial Classification. Coarse and dated, and still the only sector
+    # A Standard Industrial Classification code. Coarse and dated, and still the only sector
     # label that arrives free with the filing index rather than from a licensed taxonomy.
     sic: Mapped[str | None] = mapped_column(String(8))
     sic_description: Mapped[str | None] = mapped_column(Text)
+
+    # **Which scheme the code above belongs to** (ADR 0121). Not decoration: US SIC and UK
+    # SIC 2007 assign the same digits to different industries — `631` is fire and marine
+    # insurance in one and data processing in the other — so a code stored without its
+    # scheme is a code that can classify a company as the wrong kind of business. Every
+    # company on the register today came from EDGAR, so the default is the US scheme and the
+    # migration backfills it; a Companies House subject sets the other.
+    sic_scheme: Mapped[SicScheme] = mapped_column(
+        _enum(SicScheme, "sic_scheme"),
+        nullable=False,
+        default=SicScheme.US_SIC,
+        server_default=SicScheme.US_SIC.value,
+    )
 
     # "MMDD" as EDGAR reports it, e.g. "0630" for a June year end. Needed to tell a fiscal
     # year from a calendar one, which is the difference between comparing like with like

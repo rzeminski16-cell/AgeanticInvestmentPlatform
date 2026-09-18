@@ -2481,7 +2481,11 @@ async def _classify(context: StepContext) -> StepResult:
         message = "The acquire step's company row is missing."
         raise StepPaused(message, gate=None, reason=PauseReason.ROW_MISSING)
 
-    proposal = propose_from_sic(company.sic or "")
+    # The scheme travels with the code, and reading one without the other is the
+    # misclassification ADR 0121 exists to stop: `631` is fire and marine insurance on the US
+    # register and data processing on the UK one, so the same digits would propose the
+    # insurers' profile for a London software company.
+    proposal = propose_from_sic(company.sic or "", scheme=company.sic_scheme)
     profile = proposal.profile
 
     output: dict[str, Any] = {

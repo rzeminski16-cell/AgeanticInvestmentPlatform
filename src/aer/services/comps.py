@@ -214,6 +214,11 @@ async def propose_peers_from_sic(
 
     A candidate with no stored financial facts is skipped, because a peer with no period end
     cannot be aligned against the subject and would be excluded a step later anyway.
+
+    **Within one classification scheme** (ADR 0121). Two codes sharing digits in different
+    schemes share nothing: major group `64` is banking on the UK register and insurance
+    broking on the US one, so a London bank would be proposed an insurance broker as a peer,
+    with a rationale saying the two share an industry group.
     """
     if not subject.sic or len(subject.sic) < SIC_PREFIX:
         return ()
@@ -225,6 +230,7 @@ async def propose_peers_from_sic(
             Company.id != subject.id,
             Company.sic.is_not(None),
             Company.sic.startswith(group),
+            Company.sic_scheme == subject.sic_scheme,
         )
         .order_by(Company.name)
         .limit(limit)

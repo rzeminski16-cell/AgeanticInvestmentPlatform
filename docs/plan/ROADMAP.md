@@ -950,7 +950,13 @@ Four things are genuinely missing, and only the second is large:
    fact is this platform's own parse rather than a registry's aggregation.
 3. Every `SectorProfile.sic_prefixes` is a US SIC code. UK SIC 2007 is a different scheme, so a
    UK bank matches nothing, the gate does not fire, and it takes the standard model — the ADR
-   0029 hole that produced §2.10's 172.1%. `companies.sic_scheme` is the one new column.
+   0029 hole that produced §2.10's 172.1%. **Landed 18 September 2026** as migration 0081, and
+   it is two columns rather than the one this list said: `companies.sic_scheme` records which
+   register issued the code, and `sector_profiles.uk_sic_prefixes` gives the code something to
+   match — seeded from the Companies House condensed SIC list, read rather than recalled. Every
+   writer states its scheme and every reader takes it; `631` reaching the insurers under one
+   scheme and early-stage technology under the other is the test that would have to be deleted
+   for the column to become decoration.
 4. No GBP risk-free series: `risk_free_series_for` refuses rather than defaulting, because the
    Bank of England's `robots.txt` disallows the CSV handler it documents (ADR 0026's
    Resolution). The gilt yield ships as an operator-confirmed assumption; an automated series is

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier, UserRole
 from aer.core.schemas.extraction import ExtractedText, Locator
+from aer.core.sectors import SicScheme
 from aer.db.models import Company, Extraction, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
@@ -239,8 +240,28 @@ class TestTheFilerSaysWhatKindOfBusinessItIs:
 
         await _acquire(scene, client=_IndexClient(scene["store"], index))
 
-        assert scene["company"].sic == "6022"
-        assert propose_from_sic(scene["company"].sic or "").sector_key == "banks"
+        company: Company = scene["company"]
+        assert company.sic == "6022"
+        proposal = propose_from_sic(company.sic or "", scheme=company.sic_scheme)
+        assert proposal.sector_key == "banks"
+
+    async def test_the_code_is_recorded_as_a_us_one_because_the_index_is_edgar_s(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A UK label left on a US code would classify the company as another business.
+
+        The default would give the right answer today and the wrong one the day a company
+        resolved from Companies House is read here too — `631` is fire and marine insurance
+        on this register and data processing on the other, so the scheme is stated rather
+        than assumed (ADR 0121).
+        """
+        company: Company = scene["company"]
+        company.sic_scheme = SicScheme.UK_SIC_2007
+
+        await _acquire(scene)
+
+        assert company.sic == "7372"
+        assert company.sic_scheme is SicScheme.US_SIC
 
     async def test_an_index_without_a_code_leaves_the_company_alone(
         self, scene: dict[str, Any]

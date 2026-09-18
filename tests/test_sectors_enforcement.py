@@ -38,6 +38,7 @@ from aer.core.sectors import (
     SECTOR_PROFILES,
     ModelNotPermittedError,
     SectorProfile,
+    SicScheme,
     ValuationMandate,
     ValuationModel,
     built_model_of,
@@ -455,20 +456,25 @@ class TestSuggestingFromSic:
         assert suggested_profiles("6512", profiles=(broad, narrow))[0].key == "narrow"
         assert suggested_profiles("6512", profiles=(narrow, broad))[0].key == "narrow"
 
-    def test_no_two_seeded_profiles_overlap_by_prefix(self):
+    @pytest.mark.parametrize("scheme", list(SicScheme))
+    def test_no_two_seeded_profiles_overlap_by_prefix(self, scheme):
         """Why the rule above is currently unobservable — and a warning when it stops being.
 
         A profile added with prefix `65` while REITs hold `6512` would make the ordering
         load-bearing for the first time. This fails on that day rather than after somebody
         notices a misclassification.
+
+        Per scheme, because an overlap only exists inside one: UK `642` and US `6421` would
+        never be compared against the same company's code, and asserting across the two sets
+        would forbid pairs that cannot collide.
         """
         pairs = [
             (a.key, prefix_a, b.key, prefix_b)
             for a in SECTOR_PROFILES
             for b in SECTOR_PROFILES
             if a.key != b.key
-            for prefix_a in a.sic_prefixes
-            for prefix_b in b.sic_prefixes
+            for prefix_a in a.prefixes_for(scheme)
+            for prefix_b in b.prefixes_for(scheme)
             if prefix_b.startswith(prefix_a)
         ]
         assert pairs == []
@@ -477,6 +483,76 @@ class TestSuggestingFromSic:
         """A code matching two profiles returns both rather than picking silently."""
         matches = {profile.key for profile in suggested_profiles("6512")}
         assert matches == {"reits"}
+
+
+class TestTheSchemeDecidesWhatACodeMeans:
+    """ADR 0121. The reason a SIC code may not travel without the register that issued it."""
+
+    def test_the_same_digits_reach_different_profiles_in_the_two_schemes(self):
+        """`631` is fire and marine insurance in the US and data processing in the UK.
+
+        The one test that would have to be deleted for the scheme to become decoration. A
+        London software company read under the US scheme is proposed as an insurer, and the
+        insurers' profile blocks the discounted cash flow the company should have had.
+        """
+        us = suggested_profiles("631", scheme=SicScheme.US_SIC)
+        uk = suggested_profiles("631", scheme=SicScheme.UK_SIC_2007)
+
+        assert [profile.key for profile in us] == ["insurers"]
+        assert [profile.key for profile in uk] == ["early_stage_tech"]
+
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            ("64191", "banks"),  # Banks
+            ("64192", "banks"),  # Building societies
+            ("65110", "insurers"),  # Life insurance
+            ("65202", "insurers"),  # Non-life reinsurance
+            ("64306", "reits"),  # Activities of investment trusts
+            ("68100", "reits"),  # Buying and selling of own real estate
+            ("35110", "utilities"),  # Production of electricity
+            ("36000", "utilities"),  # Water collection, treatment and supply
+            ("72110", "biotech_pre_revenue"),  # R&D on biotechnology
+            ("06100", "mining_energy"),  # Extraction of crude petroleum
+            ("62012", "early_stage_tech"),  # Business and domestic software development
+            ("64209", "holding_companies"),  # Activities of other holding companies
+        ],
+    )
+    def test_a_uk_code_reaches_its_profile(self, code, expected):
+        """Read from the Companies House condensed list rather than recalled.
+
+        The gate that fires on a specialist sector is the one that stops a bank taking the
+        standard model, and a profile holding only US prefixes matches nothing for a UK
+        filer — so the gate never fires and the run looks ordinary. These are the codes an
+        actual London bank, insurer or REIT files under.
+        """
+        assert suggested_profiles(code, scheme=SicScheme.UK_SIC_2007)[0].key == expected
+
+    def test_a_us_code_read_as_uk_matches_nothing_rather_than_something_close(self):
+        """`6021` is a US national commercial bank and is not a UK SIC code at all.
+
+        A near miss would be worse than silence: the answer must be "this does not classify"
+        rather than a profile picked because the digits looked familiar.
+        """
+        assert suggested_profiles("6021", scheme=SicScheme.UK_SIC_2007) == ()
+
+    def test_every_profile_carries_prefixes_in_both_schemes(self):
+        """A profile seeded in one scheme only is a gate that fires on one register only."""
+        for profile in SECTOR_PROFILES:
+            assert profile.sic_prefixes, profile.key
+            assert profile.uk_sic_prefixes, profile.key
+
+    def test_the_scheme_chooses_the_set_and_never_merges_them(self):
+        constructed = SectorProfile(
+            key="constructed",
+            label="Constructed",
+            sic_prefixes=("11",),
+            uk_sic_prefixes=("22",),
+        )
+
+        assert constructed.prefixes_for(SicScheme.US_SIC) == ("11",)
+        assert constructed.prefixes_for(SicScheme.UK_SIC_2007) == ("22",)
+        assert suggested_profiles("22", profiles=(constructed,)) == ()
 
 
 # -- The profiles themselves -----------------------------------------------------------------

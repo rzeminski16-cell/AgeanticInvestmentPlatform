@@ -431,7 +431,8 @@ async def _known_sector_keys(session: AsyncSession, *, request: ResearchRequest)
     company = await session.scalar(select(Company).where(Company.ticker == request.ticker))
     if company is None or not company.sic:
         return frozenset()
-    return frozenset(profile.key for profile in suggested_profiles(company.sic))
+    matched = suggested_profiles(company.sic, scheme=company.sic_scheme)
+    return frozenset(profile.key for profile in matched)
 
 
 async def _latest_version(session: AsyncSession, *, skill_id: Any) -> SkillVersion | None:

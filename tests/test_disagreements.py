@@ -884,6 +884,7 @@ class TestSectorProfileSeed:
             row = rows[profile.key]
             assert row.label == profile.label
             assert row.sic_prefixes == list(profile.sic_prefixes)
+            assert row.uk_sic_prefixes == list(profile.uk_sic_prefixes)
             assert row.icb_codes == list(profile.icb_codes)
             assert row.allowed_models == [model.value for model in profile.allowed_models]
             assert row.blocked_models == [model.value for model in profile.blocked_models]

@@ -30,6 +30,7 @@ from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef, Unit
 from aer.config import HouseStyle
 from aer.core.enums import Decision, GateKind, JobStatus, Provider, SourceTier, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
+from aer.core.sectors import SicScheme
 from aer.db.models import (
     Artefact,
     Calculation,
@@ -239,14 +240,31 @@ async def confirm(session: Any, scene: dict[str, Any], output: dict[str, Any]) -
 
 
 async def seed_two_companies(
-    session: Any, scene: dict[str, Any], *, subject_sic: str, peer_sic: str, peer_facts: bool = True
+    session: Any,
+    scene: dict[str, Any],
+    *,
+    subject_sic: str,
+    peer_sic: str,
+    peer_facts: bool = True,
+    subject_scheme: SicScheme = SicScheme.US_SIC,
+    peer_scheme: SicScheme = SicScheme.US_SIC,
 ):
     """A subject and one candidate peer, with the peer's facts optional."""
     subject = Company(
-        name="Subject plc", cik="0000000001", ticker="SUBJ", exchange="NASDAQ", sic=subject_sic
+        name="Subject plc",
+        cik="0000000001",
+        ticker="SUBJ",
+        exchange="NASDAQ",
+        sic=subject_sic,
+        sic_scheme=subject_scheme,
     )
     peer = Company(
-        name="Peer plc", cik="0000000002", ticker="PEER", exchange="NASDAQ", sic=peer_sic
+        name="Peer plc",
+        cik="0000000002",
+        ticker="PEER",
+        exchange="NASDAQ",
+        sic=peer_sic,
+        sic_scheme=peer_scheme,
     )
     session.add_all([subject, peer])
     await session.flush()
@@ -948,6 +966,43 @@ class TestTheDeterministicProposal:
             await service.propose_peers_from_sic(db_session, subject=subject, as_of=PERIOD_END)
             == ()
         )
+
+    async def test_a_company_whose_code_is_from_another_scheme_is_not(self, db_session, scene):
+        """Matching digits across schemes match nothing real (ADR 0121).
+
+        Major group `64` is banking on the UK register and insurance broking on the US one,
+        so without the scheme a London bank is proposed an insurance broker, and the
+        rationale tells the reviewer they share an industry group.
+        """
+        subject, _ = await seed_two_companies(
+            db_session,
+            scene,
+            subject_sic="64191",
+            peer_sic="6411",
+            subject_scheme=SicScheme.UK_SIC_2007,
+        )
+
+        assert (
+            await service.propose_peers_from_sic(db_session, subject=subject, as_of=PERIOD_END)
+            == ()
+        )
+
+    async def test_two_companies_in_the_same_scheme_and_group_still_are(self, db_session, scene):
+        """The control: the scheme narrows the lookup and does not switch it off."""
+        subject, peer = await seed_two_companies(
+            db_session,
+            scene,
+            subject_sic="64191",
+            peer_sic="64192",
+            subject_scheme=SicScheme.UK_SIC_2007,
+            peer_scheme=SicScheme.UK_SIC_2007,
+        )
+
+        proposals = await service.propose_peers_from_sic(
+            db_session, subject=subject, as_of=PERIOD_END
+        )
+
+        assert [p.identifier for p in proposals] == [str(peer.id)]
 
     async def test_a_candidate_with_no_facts_is_skipped(self, db_session, scene):
         """A peer with no period end cannot be aligned and would be excluded a step later."""

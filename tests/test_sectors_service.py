@@ -13,6 +13,7 @@ by *forgetting* rather than by deciding.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -20,8 +21,14 @@ from sqlalchemy import text
 
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.core.sectors import ModelNotPermittedError, ValuationModel, profile_for
-from aer.db.models import JobStep, SectionStatus, User
+from aer.core.sectors import (
+    SECTOR_PROFILES,
+    ModelNotPermittedError,
+    SicScheme,
+    ValuationModel,
+    profile_for,
+)
+from aer.db.models import Company, JobStep, SectionStatus, User
 from aer.render.markdown import SectorNote, _sector_block, render_markdown
 from aer.sections.registry import (
     create_report_sections,
@@ -39,6 +46,8 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
+from aer.workflow.engine import StepContext
+from aer.workflow.workflows.vertical_slice_v1 import _classify
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
@@ -338,6 +347,122 @@ class TestTheProposalFromSic:
         """A SIC code is self-reported and decades old in places. It proposes; it does not
         decide, and a confidence of 1.0 would invite treating it as though it did."""
         assert propose_from_sic("6021").confidence < 1.0
+
+
+class TestTheProposalReadsTheCodeInItsOwnScheme:
+    """ADR 0121. The scheme is an input to the proposal, not a label added afterwards."""
+
+    def test_a_london_bank_proposes_banks(self):
+        proposal = propose_from_sic("64191", scheme=SicScheme.UK_SIC_2007)
+
+        assert proposal.sector_key == "banks"
+        assert proposal.is_specialist
+        assert proposal.rationale == "UK SIC 2007 64191 matches Banks."
+
+    def test_the_same_digits_propose_differently_in_the_two_schemes(self):
+        """The failure this column exists to prevent, at the layer an operator sees.
+
+        `631` under the US scheme proposes insurers, which blocks the discounted cash flow.
+        Under the UK scheme it is data processing, which blocks nothing. A London software
+        company read with the wrong scheme meets a sector gate asking it to confirm that it
+        is an insurer.
+        """
+        as_us = propose_from_sic("631", scheme=SicScheme.US_SIC)
+        as_uk = propose_from_sic("631", scheme=SicScheme.UK_SIC_2007)
+
+        assert as_us.sector_key == "insurers"
+        assert as_uk.sector_key == ""
+        assert as_uk.sic_candidates == ("early_stage_tech",)
+
+    def test_the_rationale_names_the_scheme_so_a_reader_can_check_the_code(self):
+        """ "SIC 64191" sends a reader to the wrong register, where it means nothing."""
+        for scheme, expected in (
+            (SicScheme.US_SIC, "SIC 6021"),
+            (SicScheme.UK_SIC_2007, "UK SIC 2007 64191"),
+        ):
+            code = "6021" if scheme is SicScheme.US_SIC else "64191"
+            assert propose_from_sic(code, scheme=scheme).rationale.startswith(expected)
+
+    def test_an_unseeded_scheme_says_the_gap_is_here_rather_than_in_the_company(self):
+        """A scheme with no prefixes anywhere must not read as "an ordinary company".
+
+        This is the shape the UK path would have had if the profiles had been shipped with
+        US prefixes only: every London bank proposing nothing, meeting no gate and taking
+        the standard model, with a rationale that sounded like a finding about the company.
+        """
+        stripped = tuple(replace(profile, uk_sic_prefixes=()) for profile in SECTOR_PROFILES)
+        proposal = propose_from_sic("64191", scheme=SicScheme.UK_SIC_2007, profiles=stripped)
+
+        assert proposal.sector_key == ""
+        assert "gap here rather than a fact about the company" in proposal.rationale
+
+
+class TestTheClassifyStepReadsTheCompanySOwnScheme:
+    """The wiring, at the step that feeds the sector gate.
+
+    Everything above this is arithmetic on constants. This is the one that would still pass
+    if `_classify` read the code and dropped the scheme — and a London bank whose scheme was
+    dropped meets no gate and takes the standard model, which is ADR 0029's whole subject.
+    """
+
+    async def _classification(self, session: Any, scene: dict[str, Any], company: Company) -> dict:
+        step = JobStep(
+            job_id=scene["job"].id,
+            step_key=CLASSIFY_STEP,
+            sequence=3,
+            idempotency_key=f"{scene['job'].id}:{CLASSIFY_STEP}",
+            input_hash="0" * 64,
+        )
+        context = StepContext(
+            session=session,
+            job=scene["job"],
+            step=step,
+            services={},
+            outputs={"acquire": {"company_id": str(company.id)}},
+        )
+        result = await _classify(context)
+        return dict(result.output)
+
+    @pytest.fixture
+    async def barclays(self, db_session: Any) -> Company:
+        company = Company(
+            name="Barclays PLC",
+            company_number="00048839",
+            ticker="BARC",
+            exchange="LSE",
+            sic="64191",
+            sic_description="Banks",
+            sic_scheme=SicScheme.UK_SIC_2007,
+        )
+        db_session.add(company)
+        await db_session.flush()
+        return company
+
+    async def test_a_london_bank_is_classified_as_a_bank(
+        self, db_session: Any, scene: dict[str, Any], barclays: Company
+    ) -> None:
+        output = await self._classification(db_session, scene, barclays)
+
+        assert output["sector_key"] == "banks"
+        assert output["sector_label"] == "Banks"
+        assert ValuationModel.DCF_FCFF.value in output["blocked_models"]
+        assert output["rationale"] == "UK SIC 2007 64191 matches Banks."
+
+    async def test_the_same_bank_read_as_a_us_filer_is_classified_as_nothing(
+        self, db_session: Any, scene: dict[str, Any], barclays: Company
+    ) -> None:
+        """What dropping the scheme costs, stated as a test rather than as a comment.
+
+        `64191` is not a US SIC code, so the standard model runs on a bank and the gate that
+        would have stopped it never fires.
+        """
+        barclays.sic_scheme = SicScheme.US_SIC
+        await db_session.flush()
+
+        output = await self._classification(db_session, scene, barclays)
+
+        assert output["sector_key"] == ""
+        assert output["blocked_models"] == []
 
 
 # -- Required-metric disclosure --------------------------------------------------------------

@@ -34,6 +34,13 @@ class SectorProfile(Base):
     # Classification hints, deliberately coarse. The classifier is an agent whose proposal
     # a human confirms at the sector gate; these narrow the guess, they do not make it.
     sic_prefixes: Mapped[JsonList] = mapped_column(nullable=False, default=list)
+
+    # The same hints in UK SIC 2007 (ADR 0121). A second column rather than a scheme key on
+    # each prefix, because the two schemes are read one at a time — a company's code belongs
+    # to one of them — and a row keyed by scheme would make "this profile's prefixes" a query
+    # instead of a field.
+    uk_sic_prefixes: Mapped[JsonList] = mapped_column(nullable=False, default=list)
+
     icb_codes: Mapped[JsonList] = mapped_column(nullable=False, default=list)
 
     allowed_models: Mapped[JsonList] = mapped_column(nullable=False, default=list)

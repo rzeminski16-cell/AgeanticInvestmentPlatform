@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
 from aer.core.schemas.extraction import Excerpt
+from aer.core.sectors import SicScheme
 from aer.db.models import Company, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
@@ -360,10 +361,16 @@ def _record_classification(company: Company, index: SubmissionsIndex) -> None:
     An index that carries no code leaves what is there alone: absent is not a correction,
     and the permissive state must be reached by the data saying nothing, never by a later
     fetch overwriting what an earlier one knew.
+
+    The scheme is written with the code because this index is EDGAR's, and EDGAR's codes are
+    US SIC (ADR 0121). Stated rather than assumed from the column default: a company acquired
+    from Companies House first and read here second would otherwise keep a UK label on a US
+    code, and `631` means different industries in the two.
     """
     if index.sic and company.sic != index.sic:
         company.sic = index.sic
         company.sic_description = index.sic_description or ""
+        company.sic_scheme = SicScheme.US_SIC
         _log.info(
             "filings.classification_recorded",
             cik=index.cik,

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import JobStatus, RequestStatus, SkillKind
 from aer.core.hashing import canonical_json, sha256_hex
+from aer.core.sectors import SicScheme
 from aer.core.skill_applicability import ApplicabilityDecision, market_of, skill_applies
 from aer.db.models import (
     Company,
@@ -301,6 +302,39 @@ class TestPinningIsToAVersion:
         db_session.add(
             Company(
                 name="CONTOSO BANK", cik="0009999999", ticker="MSFT", exchange="NASDAQ", sic="6022"
+            )
+        )
+        await db_session.flush()
+
+        no_banks = MOAT_DURABILITY.replace(
+            "scope: global",
+            "scope: global\napplicability:\n  exclude_sectors: [banks]",
+        )
+        await save_skill(db_session, source=no_banks, actor=scene["user"])
+        await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
+
+        resolved = await _resolve(db_session, scene)
+
+        [pin] = resolved.pins
+        assert pin.status == SKIPPED_NOT_APPLICABLE
+        assert "banks" in pin.reason
+
+    async def test_a_uk_code_is_read_in_its_own_scheme(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """`64191` is a bank on the UK register and nothing at all on the US one.
+
+        Applicability is decided from the stored classification, so a scheme dropped here
+        applies a skill the operator excluded for banks to a bank (ADR 0121).
+        """
+        db_session.add(
+            Company(
+                name="CONTOSO BANK PLC",
+                company_number="00048839",
+                ticker="MSFT",
+                exchange="NASDAQ",
+                sic="64191",
+                sic_scheme=SicScheme.UK_SIC_2007,
             )
         )
         await db_session.flush()

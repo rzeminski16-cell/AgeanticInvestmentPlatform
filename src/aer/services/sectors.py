@@ -29,7 +29,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
@@ -41,6 +41,7 @@ from aer.core.sectors import (
     SECTOR_PROFILES,
     ModelNotPermittedError,
     SectorProfile,
+    SicScheme,
     ValuationMandate,
     ValuationModel,
     mandate_for,
@@ -64,6 +65,12 @@ __all__ = [
 ]
 
 _log = structlog.get_logger("aer.services.sectors")
+
+# What a rationale calls each scheme. A reader meets "UK SIC 2007 64191", not a column value.
+_SCHEME_NAMES: Final[dict[SicScheme, str]] = {
+    SicScheme.US_SIC: "SIC",
+    SicScheme.UK_SIC_2007: "UK SIC 2007",
+}
 
 CLASSIFY_STEP = "classify"
 """The workflow step whose output carries the proposal. One name, used by both halves."""
@@ -98,7 +105,13 @@ class ClassificationProposal:
         return self.profile is not None
 
 
-def propose_from_sic(sic_code: str, *, proposed_by: str = "sic_lookup") -> ClassificationProposal:
+def propose_from_sic(
+    sic_code: str,
+    *,
+    scheme: SicScheme = SicScheme.US_SIC,
+    proposed_by: str = "sic_lookup",
+    profiles: tuple[SectorProfile, ...] = SECTOR_PROFILES,
+) -> ClassificationProposal:
     """The classification a filer's own SIC code suggests. A starting point, not an answer.
 
     Deterministic and free, so it runs before any model call and gives the classifier
@@ -119,13 +132,18 @@ def propose_from_sic(sic_code: str, *, proposed_by: str = "sic_lookup") -> Class
     is that profile's own prefix and a gate that can only be approved or refused has no
     answer for a label that is merely wrong. Every match is still recorded in
     ``sic_candidates``, so a reviewer sees what the code suggested and what was set aside.
+
+    ``scheme`` says which register issued the code, and it decides which prefixes are read
+    (ADR 0121). ``profiles`` is the registry to read them from, defaulted and supplied only
+    by tests — the same arrangement :func:`~aer.core.sectors.suggested_profiles` uses, and
+    the only way to observe what this does for a scheme nobody has seeded.
     """
-    candidates = suggested_profiles(sic_code)
+    candidates = suggested_profiles(sic_code, scheme=scheme, profiles=profiles)
     chosen = next((profile for profile in candidates if profile.blocked_models), None)
 
     return ClassificationProposal(
         sector_key=chosen.key if chosen is not None else "",
-        rationale=_rationale(sic_code, chosen, candidates),
+        rationale=_rationale(sic_code, chosen, candidates, scheme=scheme, profiles=profiles),
         proposed_by=proposed_by,
         confidence=0.5 if chosen is not None else 0.0,
         sic_code=sic_code,
@@ -137,17 +155,37 @@ def _rationale(
     sic_code: str,
     chosen: SectorProfile | None,
     candidates: tuple[SectorProfile, ...],
+    *,
+    scheme: SicScheme,
+    profiles: tuple[SectorProfile, ...],
 ) -> str:
     """Why this code proposed what it did — including when it matched and was set aside."""
+    scheme_name = _SCHEME_NAMES[scheme]
+    named = f"{scheme_name} {sic_code}" if sic_code else f"{scheme_name} not reported"
     if chosen is not None:
-        return f"SIC {sic_code} matches {chosen.label}."
+        return f"{named} matches {chosen.label}."
     if candidates:
         names = ", ".join(profile.label for profile in candidates)
         return (
-            f"SIC {sic_code} matches {names}, which blocks no valuation model: the standard "
+            f"{named} matches {names}, which blocks no valuation model: the standard "
             "model runs and no confirmation is needed."
         )
-    return f"SIC {sic_code or 'not reported'} matches no specialist sector profile."
+    if sic_code and not _scheme_is_seeded(scheme, profiles):
+        # ADR 0121: a scheme nobody has seeded prefixes for proposes nothing **and says
+        # so**. Reporting "matches no specialist sector profile" would read as a finding
+        # about the company when it is a gap in this platform's own table — and it is the
+        # reading that lets a UK bank quietly take the standard model.
+        return (
+            f"{named} could not be read: this platform holds no {scheme_name} prefixes for "
+            "any sector profile, so the code was not matched against anything. That is a "
+            "gap here rather than a fact about the company."
+        )
+    return f"{named} matches no specialist sector profile."
+
+
+def _scheme_is_seeded(scheme: SicScheme, profiles: tuple[SectorProfile, ...]) -> bool:
+    """Whether any profile declares a prefix in this scheme."""
+    return any(profile.prefixes_for(scheme) for profile in profiles)
 
 
 def classification_payload(produced: Mapping[str, Any]) -> dict[str, Any]:

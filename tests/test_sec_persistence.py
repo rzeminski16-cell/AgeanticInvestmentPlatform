@@ -22,6 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError as DbIntegrityError
 
 from aer.core.enums import FactBasis, Provider, RequestStatus, SourceTier, UserRole
+from aer.core.sectors import SicScheme
 from aer.db.models import Artefact, Company, FinancialFact, ResearchRequest, SourceDocument, User
 from aer.errors import IntegrityError
 from aer.fetch.client import FetchResult
@@ -299,6 +300,40 @@ class TestCompanyIdentity:
 
         assert company.cik == MSFT_CIK
         assert company.sic == "7372"
+        assert company.sic_scheme is SicScheme.US_SIC
+
+    async def test_the_scheme_is_written_with_the_code_and_never_apart_from_it(
+        self, db_session
+    ) -> None:
+        """ADR 0121. Half an update is the misclassification the column exists to prevent.
+
+        A code replaced while the scheme is left behind reads as `64191` on the US register,
+        which is not a code at all — and `631` replaced the other way reads as fire and
+        marine insurance when the company writes software. An update carrying no code at all
+        leaves both alone: absent is not a correction.
+        """
+        entity = ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP")
+        company = await upsert_company(
+            db_session,
+            entity=entity,
+            ticker="MSFT",
+            exchange="NASDAQ",
+            sic="7372",
+            sic_scheme=SicScheme.US_SIC,
+        )
+
+        await upsert_company(
+            db_session,
+            entity=entity,
+            ticker="MSFT",
+            exchange="NASDAQ",
+            sic="62012",
+            sic_scheme=SicScheme.UK_SIC_2007,
+        )
+        assert (company.sic, company.sic_scheme) == ("62012", SicScheme.UK_SIC_2007)
+
+        await upsert_company(db_session, entity=entity, ticker="MSFT", exchange="NASDAQ")
+        assert (company.sic, company.sic_scheme) == ("62012", SicScheme.UK_SIC_2007)
 
     async def test_resolving_twice_reuses_the_row(self, db_session):
         entity = ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP")

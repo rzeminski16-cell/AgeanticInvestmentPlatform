@@ -45,6 +45,7 @@ __all__ = [
     "ModelNotPermittedError",
     "RevenueComposition",
     "SectorProfile",
+    "SicScheme",
     "ValuationMandate",
     "ValuationModel",
     "built_model_of",
@@ -130,6 +131,20 @@ class RevenueComposition:
         return concept
 
 
+class SicScheme(StrEnum):
+    """Which industry classification a company's code belongs to.
+
+    Two schemes, not one vocabulary with two dialects. **US SIC and UK SIC 2007 assign the
+    same digits to different industries** — `631` is fire, marine and casualty insurance in
+    the US scheme and data processing and web portals in the UK one — so a code read without
+    its scheme is a code that can classify a company as the wrong kind of business
+    altogether. Recorded on the company beside the code, and taken by every lookup.
+    """
+
+    US_SIC = "us_sic"
+    UK_SIC_2007 = "uk_sic_2007"
+
+
 @dataclass(frozen=True, slots=True)
 class SectorProfile:
     """What the platform may and may not do for one kind of business.
@@ -145,7 +160,15 @@ class SectorProfile:
     # Classification hints. Coarse on purpose: the classifier is a Phase 3 agent whose
     # proposal a human confirms, and a lookup table pretending to be exhaustive would
     # invite trusting it.
+    #
+    # **Per scheme, since ADR 0121, and this is the part that must not be skipped.** US SIC
+    # and UK SIC 2007 are different schemes with different codes, and the same digits mean
+    # different industries in each: `631` is fire and marine insurance in one and data
+    # processing in the other. A profile with only US prefixes matches nothing for a UK
+    # filer, the sector gate does not fire, and a bank takes the standard model — which is
+    # exactly the hole that produced M&T's 172.1% net margin.
     sic_prefixes: tuple[str, ...] = ()
+    uk_sic_prefixes: tuple[str, ...] = ()
     icb_codes: tuple[str, ...] = ()
 
     allowed_models: tuple[ValuationModel, ...] = ()
@@ -181,6 +204,14 @@ class SectorProfile:
     def permits(self, model: ValuationModel) -> bool:
         return model in self.allowed_models and model not in self.blocked_models
 
+    def prefixes_for(self, scheme: SicScheme) -> tuple[str, ...]:
+        """This profile's prefixes in one classification scheme, and only that one.
+
+        Never the two sets together: a prefix from the wrong scheme matching would be the
+        misclassification this split exists to stop.
+        """
+        return self.uk_sic_prefixes if scheme is SicScheme.UK_SIC_2007 else self.sic_prefixes
+
 
 _STANDARD: Final = (
     ValuationModel.DCF_FCFF,
@@ -194,6 +225,9 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="banks",
         label="Banks",
         sic_prefixes=("602", "6021", "6022", "6029"),
+        # 64191 Banks, 64192 Building societies. Not 64110 (central banking), which is
+        # not a company anybody researches.
+        uk_sic_prefixes=("6419",),
         icb_codes=("301010",),
         allowed_models=(
             ValuationModel.COMPS_MULTIPLES,
@@ -250,6 +284,9 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="insurers",
         label="Insurers",
         sic_prefixes=("631", "632", "633", "6311", "6331"),
+        # 65110 life, 65120 non-life, 65201/65202 reinsurance. Not 65300 (pension
+        # funding), which the US set leaves out too.
+        uk_sic_prefixes=("651", "652"),
         icb_codes=("303010", "303020"),
         allowed_models=(
             ValuationModel.COMPS_MULTIPLES,
@@ -290,6 +327,13 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="reits",
         label="REITs and property companies",
         sic_prefixes=("6798", "6512", "6531"),
+        # 64306 real estate investment trusts, 68100 buying and selling of own real
+        # estate, 68201/68202/68209 letting and operating it. The agency and
+        # management classes (68310, 68320) are deliberately left out: a letting
+        # agent earns fees and owns nothing, so the balance sheet this profile is
+        # about is not its balance sheet. The US set's 6531 includes them, which is
+        # a looseness worth not reproducing.
+        uk_sic_prefixes=("64306", "6810", "6820"),
         icb_codes=("351020", "351030"),
         allowed_models=(ValuationModel.COMPS_MULTIPLES, ValuationModel.NET_ASSET_VALUE),
         blocked_models=(ValuationModel.DCF_FCFF,),
@@ -305,6 +349,10 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="utilities",
         label="Utilities and regulated networks",
         sic_prefixes=("491", "492", "493", "4911", "4931"),
+        # 351 electricity, 352 gas, 353 steam, 36000 water, 37000 sewerage. Water is
+        # in and is not in the US set, because a listed water company is an ordinary
+        # part of the London market and is regulated the same way.
+        uk_sic_prefixes=("351", "352", "353", "36", "37"),
         icb_codes=("651010", "651020"),
         allowed_models=_STANDARD,
         required_metrics=("regulated_asset_base", "allowed_return", "regulatory_period_end"),
@@ -319,6 +367,11 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="biotech_pre_revenue",
         label="Pre-revenue biotechnology",
         sic_prefixes=("2836", "8731"),
+        # 72110 Research and experimental development on biotechnology, and only that.
+        # UK SIC separates research from manufacture where the US code 2836
+        # (biological products) conflates them, and a company manufacturing
+        # pharmaceutical preparations (21100, 21200) is not pre-revenue.
+        uk_sic_prefixes=("7211",),
         icb_codes=("201020",),
         allowed_models=(ValuationModel.COMPS_MULTIPLES,),
         blocked_models=(ValuationModel.DCF_FCFF, ValuationModel.DCF_FCFE),
@@ -334,6 +387,9 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="mining_energy",
         label="Mining, oil and gas",
         sic_prefixes=("101", "131", "1311", "1221"),
+        # 05 coal, 06 crude petroleum and natural gas, 07 metal ores, 08 other mining
+        # and quarrying, 09 support activities for mining.
+        uk_sic_prefixes=("05", "06", "07", "08", "09"),
         icb_codes=("551010", "601010"),
         allowed_models=_STANDARD,
         required_metrics=("reserve_life", "commodity_price_deck", "all_in_sustaining_cost"),
@@ -348,6 +404,11 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="early_stage_tech",
         label="Early-stage and loss-making technology",
         sic_prefixes=("737", "7372", "7379"),
+        # 582 software publishing, 62 computer programming and IT services, 631 data
+        # processing and web portals. **`631` is this profile in UK SIC and the
+        # insurers' in US SIC**, which is the whole reason a code travels with its
+        # scheme.
+        uk_sic_prefixes=("582", "62", "631"),
         icb_codes=("101010", "102010"),
         allowed_models=_STANDARD,
         required_metrics=("revenue_growth", "gross_margin", "rule_of_40", "cash_runway_months"),
@@ -360,6 +421,8 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         key="holding_companies",
         label="Holding companies and conglomerates",
         sic_prefixes=("6719", "6742"),
+        # 64201 to 64209, the holding-company classes.
+        uk_sic_prefixes=("642",),
         icb_codes=("302020",),
         allowed_models=(ValuationModel.COMPS_MULTIPLES,),
         required_metrics=("segment_revenue", "segment_operating_profit", "stake_percentages"),
@@ -630,7 +693,10 @@ def unclassified_mandate(model: ValuationModel, *, subject: str) -> ValuationMan
 
 
 def suggested_profiles(
-    sic_code: str, *, profiles: tuple[SectorProfile, ...] = SECTOR_PROFILES
+    sic_code: str,
+    *,
+    scheme: SicScheme = SicScheme.US_SIC,
+    profiles: tuple[SectorProfile, ...] = SECTOR_PROFILES,
 ) -> tuple[SectorProfile, ...]:
     """The profiles whose SIC prefixes match, longest prefix first.
 
@@ -645,6 +711,10 @@ def suggested_profiles(
     against a constructed pair, and a second test asserts the seed's non-overlap so that the
     day it stops holding, somebody is told rather than surprised.
 
+    ``scheme`` decides which set of prefixes is read, and it is not cosmetic: `631` is fire
+    and marine insurance under US SIC and data processing under UK SIC 2007, so the same
+    digits reach two different profiles depending on which register issued them.
+
     An empty code needs no special case: no profile declares an empty prefix, so nothing
     matches and the answer is already ``()``.
     """
@@ -653,7 +723,7 @@ def suggested_profiles(
     matched = [
         (len(prefix), profile)
         for profile in profiles
-        for prefix in profile.sic_prefixes
+        for prefix in profile.prefixes_for(scheme)
         if cleaned.startswith(prefix)
     ]
     seen: dict[str, SectorProfile] = {}

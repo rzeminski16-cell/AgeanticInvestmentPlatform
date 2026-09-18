@@ -296,6 +296,21 @@ not fire, and it takes the standard model — which is how M&T published a 172.1
 **Backfill.** Every existing row is `us_sic`, which is true of all three stored subjects. The
 column is nullable so a company whose code was never resolved stays honest about that.
 
+**Corrected on landing, 18 September 2026 (migration 0081).** The column is an enum, `NOT
+NULL`, defaulting to `us_sic`. Nullable would have created a third state — a code with no
+scheme — whose only sane handling is to read it as US SIC, which is the misclassification the
+column exists to prevent, arrived at by forgetting rather than by deciding. Keeping it honest
+for a company with no code would then need a `(sic IS NULL) = (sic_scheme IS NULL)` check, and
+that constraint makes the column `NOT NULL` wherever a code exists anyway. So the scheme is
+always present and always written *with* the code — `upsert_company` sets the two together and
+`_record_classification` states `us_sic` because the index it reads is EDGAR's — and the
+honest answer for a company with no code lives in `sic` being NULL, where it already was. A
+second column carrying "no scheme, because no code" would say the same thing twice.
+
+`sector_profiles` gains `uk_sic_prefixes` in the same migration, seeded from the Companies
+House condensed SIC list: the column above says which scheme a code belongs to, and without a
+second set of prefixes there is still nothing for a UK code to match.
+
 **And the identifier needs nothing.** `companies.company_number` already exists — `String(16)`,
 unique, reserved for the UK adapter — and the table's check constraint is:
 

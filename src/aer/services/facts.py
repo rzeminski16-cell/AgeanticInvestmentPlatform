@@ -45,7 +45,7 @@ from aer.calc.units import Quantity, UnitMismatchError
 from aer.core.enums import FactBasis
 from aer.core.schemas.facts import RawFact
 from aer.core.scope import EvidenceScope
-from aer.core.sectors import RevenueComposition, SectorProfile
+from aer.core.sectors import RevenueComposition, SectorProfile, SicScheme
 from aer.db.models import Company, FinancialFact, SourceDocument
 from aer.sources.base import ResolvedEntity
 
@@ -152,6 +152,7 @@ async def upsert_company(
     exchange: str,
     sic: str | None = None,
     sic_description: str | None = None,
+    sic_scheme: SicScheme = SicScheme.US_SIC,
     fiscal_year_end: str | None = None,
     isin: str | None = None,
 ) -> Company:
@@ -160,6 +161,11 @@ async def upsert_company(
     Matched on the registry identifier first and the listing second. The identifier is the
     stronger key: a company can change ticker or move exchange, and matching on the listing
     alone would create a second row for the same company the first time it did.
+
+    ``sic_scheme`` says which register issued ``sic`` and is written with it, never apart
+    from it (ADR 0121). The two are one fact: a Companies House code left labelled as a US
+    one classifies the company as the wrong kind of business, which is the failure the
+    column exists to prevent.
     """
     company = await session.scalar(select(Company).where(Company.cik == entity.identifier))
     if company is None:
@@ -175,6 +181,7 @@ async def upsert_company(
             exchange=exchange,
             sic=sic,
             sic_description=sic_description,
+            sic_scheme=sic_scheme,
             fiscal_year_end=fiscal_year_end,
             isin=isin,
         )
@@ -188,7 +195,9 @@ async def upsert_company(
     # company it identifies.
     company.name = entity.name or company.name
     company.cik = company.cik or entity.identifier
-    company.sic = sic or company.sic
+    if sic:
+        company.sic = sic
+        company.sic_scheme = sic_scheme
     company.sic_description = sic_description or company.sic_description
     company.fiscal_year_end = fiscal_year_end or company.fiscal_year_end
     company.isin = isin or company.isin
