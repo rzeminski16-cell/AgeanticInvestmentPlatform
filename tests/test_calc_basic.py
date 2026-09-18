@@ -120,7 +120,10 @@ class TestImpliedUpside:
     )
     def test_hand_computed_answers(self, context, value, price, expected):
         result = implied_upside(
-            context, value_per_share=per_share(value), price_per_share=per_share(price)
+            context,
+            value_per_share=per_share(value),
+            price_per_share=per_share(price),
+            measure="dcf",
         )
 
         assert result.value == Decimal(expected)
@@ -132,10 +135,10 @@ class TestImpliedUpside:
         *above* or *below* from this sign rather than from a comparison it repeats.
         """
         above = implied_upside(
-            context, value_per_share=per_share(138), price_per_share=per_share(100)
+            context, value_per_share=per_share(138), price_per_share=per_share(100), measure="dcf"
         )
         below = implied_upside(
-            context, value_per_share=per_share(62), price_per_share=per_share(100)
+            context, value_per_share=per_share(62), price_per_share=per_share(100), measure="dcf"
         )
 
         assert above.value > 0
@@ -148,7 +151,7 @@ class TestImpliedUpside:
         also defensible, and not the one a market comparison means.
         """
         result = implied_upside(
-            context, value_per_share=per_share(138), price_per_share=per_share(100)
+            context, value_per_share=per_share(138), price_per_share=per_share(100), measure="dcf"
         )
 
         assert result.value == Decimal("0.38")
@@ -159,17 +162,26 @@ class TestImpliedUpside:
         The arithmetic is `growth_rate`'s. A reader following this figure's footnote to a
         calculation called "growth_rate" would be told something grew, and nothing did.
         """
-        implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(100))
+        implied_upside(
+            context, value_per_share=per_share(138), price_per_share=per_share(100), measure="dcf"
+        )
 
         assert [record.name for record in context.records] == ["implied_upside"]
 
     def test_a_nil_price_raises(self, context):
         with pytest.raises(CalculationError, match="no positive price"):
-            implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(0))
+            implied_upside(
+                context, value_per_share=per_share(138), price_per_share=per_share(0), measure="dcf"
+            )
 
     def test_a_negative_price_raises(self, context):
         with pytest.raises(CalculationError, match="no positive price"):
-            implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(-5))
+            implied_upside(
+                context,
+                value_per_share=per_share(138),
+                price_per_share=per_share(-5),
+                measure="dcf",
+            )
 
     def test_two_currencies_raise_rather_than_converting(self, context):
         """A cross-currency distance is arithmetic nobody performed."""
@@ -178,19 +190,46 @@ class TestImpliedUpside:
                 context,
                 value_per_share=per_share(138),
                 price_per_share=per_share(100, currency="GBP"),
+                measure="dcf",
             )
 
     def test_a_whole_company_figure_against_a_per_share_one_raises(self, context):
         """Wrong by the share count, and it would look entirely ordinary."""
         with pytest.raises(UnitMismatchError):
-            implied_upside(context, value_per_share=usd(138), price_per_share=per_share(100))
+            implied_upside(
+                context, value_per_share=usd(138), price_per_share=per_share(100), measure="dcf"
+            )
 
     def test_the_result_is_dimensionless(self, context):
         result = implied_upside(
-            context, value_per_share=per_share(138), price_per_share=per_share(100)
+            context, value_per_share=per_share(138), price_per_share=per_share(100), measure="dcf"
         )
 
         assert result.unit.is_dimensionless
+
+    def test_the_measure_is_recorded_so_two_rows_can_be_told_apart(self, context):
+        """A run strikes one of these per terminal method. Rows differing only in an
+        input are rows nothing can label by reading them (roadmap §3.19.4)."""
+        for measure in ("gordon_growth", "exit_multiple"):
+            implied_upside(
+                context,
+                value_per_share=per_share(138),
+                price_per_share=per_share(100),
+                measure=measure,
+            )
+
+        recorded = [record.parameters["measure"] for record in context.records]
+        assert recorded == ["gordon_growth", "exit_multiple"]
+
+    def test_a_blank_measure_is_refused(self, context):
+        """A blank label is the same as no label, and this is the point of the field."""
+        with pytest.raises(CalculationError, match="name the valuation"):
+            implied_upside(
+                context,
+                value_per_share=per_share(138),
+                price_per_share=per_share(100),
+                measure="  ",
+            )
 
 
 class TestCagr:

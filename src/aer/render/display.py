@@ -50,6 +50,13 @@ _PERCENT_WORDS: Final[tuple[str, ...]] = (
     "percentage",
     "wacc",
     "cagr",
+    # An implied upside is a fraction of the price and reads as a percentage always.
+    # Without this the reading came off whichever *other* word the label happened to
+    # carry: ADR 0117's two rows are "perpetuity growth" and "exit multiple", so the
+    # first rendered 0.7% and the second -0.01x — the same kind of figure, two notations,
+    # neither chosen. Listed before the times words, which is the order `_pure_reading`
+    # checks, so a label naming both resolves as the percentage it is.
+    "upside",
 )
 
 # Labels that make a pure number a multiple, read "times".

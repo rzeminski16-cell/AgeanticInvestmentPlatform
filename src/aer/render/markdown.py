@@ -124,8 +124,11 @@ def serialise_markdown(document: ReportDocument) -> str:
     return "\n".join(
         [
             *_header(document.header, style=document.style),
-            # The front page's numbers (gap R10): first thing after the header, so the
-            # reader meets the figures before the prose.
+            # The composed view (ADR 0117) before the numbers, and the numbers before the
+            # prose: the judges' complaint was the absence of a position, and a position a
+            # reader meets after eighteen sections is one they meet last.
+            *(markdown_lines(document.view) if document.view else []),
+            # The front page's numbers (gap R10).
             *(markdown_lines(document.glance) if document.glance else []),
             *_coverage_block(document.coverage),
             *_sector_block(document.sector),
@@ -157,8 +160,14 @@ def _header(header: HeaderView, *, style: HouseStyle) -> list[str]:
     ]
 
     # "No view" is stated rather than omitted. A missing rating and a deliberate abstention
-    # look identical unless one of them says so.
-    lines.append(f"**Non-binding view:** {header.rating or 'no view reached'}  ")
+    # look identical unless one of them says so — and until ADR 0117 the line said it on
+    # every run, including the ones that had computed a range, because `reports.rating` was
+    # assigned `None` in one place and written nowhere. The composed range is what a run
+    # with a valuation says here; "no view reached" survives for a run with none, where it
+    # is true.
+    lines.append(
+        f"**Non-binding view:** {header.rating or header.composed_range or 'no view reached'}  "
+    )
     if header.confidence is not None:
         lines.append(f"**Confidence:** {header.confidence:.0%}  ")
 

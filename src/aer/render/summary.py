@@ -26,12 +26,18 @@ def summary_document(document: ReportDocument) -> ReportDocument:
     """The document narrowed to its one-page summary.
 
     A document none of whose sections claim a place still summarises honestly: header,
-    at-a-glance block and the trimmed apparatus — what the run holds, nothing invented.
+    the composed view, the at-a-glance block and the trimmed apparatus — what the run
+    holds, nothing invented.
+
+    **The view is kept, and it is the reason a one-pager is worth reading.** ADR 0117's
+    composed half is the document's conclusion; a summary that dropped it would carry the
+    evidence and not the position, which is the complaint the whole feature answers. Its
+    markers are walked here with the glance's, so the footnotes it needs survive the trim.
     """
     kept: list[SectionView] = [view for view in document.sections if view.one_pager]
 
     used: set[int] = set()
-    for fragment in document.glance:
+    for fragment in (*document.view, *document.glance):
         used |= _markers_in(fragment)
     for view in kept:
         for fragment in view.fragments:

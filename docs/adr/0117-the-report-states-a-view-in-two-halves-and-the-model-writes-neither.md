@@ -1,6 +1,9 @@
 # ADR 0117 — The report states a view in two halves, and the model writes neither
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** **Accepted in part, 2026-09-18** — the composed half has landed (Phase 4.4).
+The authored half, the redaction round and `RESERVED_OUTPUT_FIELDS`' extension to the
+report remain Proposed, and ship only after the composed half has been judged alone, which
+is what the two-shipping-events decision below is for.
 **Date.** 2026-09-14
 **Extends.** ADR 0087 (a verdict has two halves: one composed, one authored), whose split this
 applies to the report itself rather than to a page. ADR 0102 (a thesis is premises, and a
@@ -145,3 +148,47 @@ to avoid. Resolved by the redaction round: both ship, one round judges them apar
 **Store the view on the report rather than as a judgement.** A column is simpler. It also has
 no holder, no time, no basis and no falsifier, and the moment the operator revises the view
 there is nothing to supersede. ADR 0102's record already holds all five.
+
+
+## What landed, 2026-09-18 — the composed half
+
+`aer/render/view.py` composes the block; `assemble_document` places it first, before the
+at-a-glance numbers, because a position a reader meets after eighteen sections of evidence
+is a position they meet last. Every figure in it is a row the run struck, with a marker
+that resolves to the arithmetic.
+
+**Composed had to be given a sharper meaning than this ADR gave it.** "Composed on render"
+reads as though the renderer may do the arithmetic, and it may not: an implied upside is a
+*number*, and a number in this platform is a traced calculation recorded by the step that
+computes it. A renderer subtracting a price from a value would produce a figure no ledger
+row accounts for and no footnote could point at. So `calc.basic.implied_upside` is struck
+in the valuation step and the block assembles it. Composing is assembling; the word now
+says so wherever it appears here.
+
+**The distance is struck for both terminal methods and never their average.** ADR 0038
+carries the two terminal assumptions separately and says their disagreement is itself the
+finding; one tidy percentage would have discarded it at the last step.
+
+**The scenario spread is supported and empty**, on every run so far. A scenario is the
+operator's to define and none has defined one — the `scenarios` table is empty across the
+whole stored corpus — so "bear and bull, as figures" describes a category the block fills
+when a run has one and omits when it does not, exactly as the front page omits an empty
+category. Worth knowing before the composed half is judged: on today's corpus the reader
+sees a range, a distance and the levers, and no spread.
+
+**"What would change the view" is the sensitivity grid's own swing**, a lowest and a
+highest stored cell per grid with the two assumptions named in words. The first draft
+reported one row per axis and the extreme of a grid is the same cell whichever axis names
+it, so three levers came out reading $32.47, $32.47 and $32.25 under three different
+headings — a label describing nothing. The pair belongs to the grid.
+
+**The header line changed and `reports.rating` did not.** A run with a valuation prints its
+base-case range; *"no view reached"* survives for a run with none, where it is true. The
+rating column stays unwritten, as this ADR requires: a rating belongs to the authored half,
+stored as an ADR 0102 judgement with a holder, a time, a basis and a falsifier, and a
+column has none of those.
+
+**One display defect this block found**, and it is not the block's: a dimensionless figure
+takes its reading from words in its label, so the two upside rows — "perpetuity growth" and
+"exit multiple" — rendered as `0.7%` and `-0.01x`, the same kind of figure in two notations
+with neither chosen. "Upside" is now a percentage word and the rows are labelled with it.

@@ -98,9 +98,22 @@ def growth_rate(_context: CalculationContext, *, start: Quantity, end: Quantity)
     ),
 )
 def implied_upside(
-    _context: CalculationContext, *, value_per_share: Quantity, price_per_share: Quantity
+    _context: CalculationContext,
+    *,
+    value_per_share: Quantity,
+    price_per_share: Quantity,
+    measure: str,
 ) -> Quantity:
     """How far a valuation sits from the market price, as a fraction of the price.
+
+    ``measure`` names the valuation this is the distance of — "gordon_growth", a comps
+    band, whatever produced the value. It is a structural parameter in the sense
+    :mod:`aer.calc.engine` means: recorded verbatim, not evidence. **It exists because a
+    run strikes more than one of these.** Two rows sharing a name and differing only in
+    an input are two rows nothing can tell apart by reading them, which is roadmap
+    §3.19.4 exactly; a caller that must ask "which value_per_share fed this?" to label a
+    figure will eventually ask it of the wrong row. A string rather than an enum because
+    this module is general arithmetic and knows nothing about terminal methods.
 
     **The same arithmetic as :func:`growth_rate` and deliberately not that function.** A
     ledger row records the name it was computed under, and a reader following the footnote
@@ -121,6 +134,14 @@ def implied_upside(
             a negative one does not exist; either way the distance from it is not a number
             a report should carry.
     """
+    if not measure.strip():
+        message = (
+            "An implied upside has to name the valuation it is the distance of. A blank "
+            "label on a ledger row is the same as no label: a run strikes one of these "
+            "per method, and two rows that differ only in an input cannot be told apart."
+        )
+        raise CalculationError(message, context={"measure": repr(measure)})
+
     if value_per_share.unit != price_per_share.unit:
         message = (
             f"Cannot measure {value_per_share.unit.symbol} against "

@@ -72,8 +72,10 @@ def render_html(document: ReportDocument, *, contents: bool = True) -> str:
     titles = {
         footnote.number: _hover(footnote, style=document.style) for footnote in document.footnotes
     }
-    # Before the sections, in document order: the glance's markers are the document's
-    # first, and the first marker for a number carries the back-reference anchor.
+    # Before the sections, in document order: the view's markers are the document's first,
+    # the glance's follow, and the first marker for a number carries the back-reference
+    # anchor — so `seen` has to meet them in the order the assembler numbered them.
+    view_html = _blocks(document.view, seen=seen, titles=titles) if document.view else None
     glance_html = _blocks(document.glance, seen=seen, titles=titles) if document.glance else None
     sections = [
         {
@@ -94,6 +96,7 @@ def render_html(document: ReportDocument, *, contents: bool = True) -> str:
     comps_html = _blocks(document.comps, seen=seen, titles=titles) if document.comps else None
     return _ENV.get_template("report.html").render(
         document=document,
+        view_html=view_html,
         glance_html=glance_html,
         contents=contents,
         header=document.header,

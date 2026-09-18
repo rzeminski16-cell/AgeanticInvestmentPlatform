@@ -326,6 +326,7 @@ def _implied_upside(
                 ledger,
                 value_per_share=outcome.value_per_share,
                 price_per_share=price_per_share,
+                measure=method.value,
             )
     return found
 

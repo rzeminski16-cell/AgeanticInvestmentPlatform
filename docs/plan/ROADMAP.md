@@ -1106,6 +1106,33 @@ found rather than as scope that was always there.
     not have caught this: it reads model-written sections, and the comparables block is
     written by the platform.
 
+12. **The price step computed a price, used it, and threw it away, 18 September 2026.**
+    `_market_capitalisation` took the close, multiplied it by the share count, recorded the
+    product and discarded the multiplicand — so a company whose share count this build
+    cannot map held *no price either*, though the two fail for different reasons and an
+    implied upside needs only the price. The peer path had kept both since it was written;
+    the subject path had not, and nothing noticed because nothing downstream wanted a
+    price until ADR 0117's composed half did. Beside it, the capitalisation's recorded
+    source was the literal string `"market_capitalisation"`: the reader looked for a
+    `security_id` the record has never carried and fell back to a label that is not an id,
+    resolves to no row, and would have rendered as the document's own broken-citation
+    warning the moment anything footnoted it. **The class is §3.19.8's, twice**, and what
+    is new is the second half of it: recording *where* a figure came from is not enough if
+    the kind is assumed. A capitalisation is struck in the ledger and a dollar-quoted close
+    is a stored fact; recording both as calculations would have reproduced the defect one
+    layer along, invisibly, because a uuid-shaped id that resolves to nothing looks exactly
+    like one that resolves.
+13. **No run this platform has ever made had a scenario, 18 September 2026.** The
+    `scenarios` table is empty across the whole stored corpus, and 180 of the 186 per-share
+    rows are sensitivity cells tagged `case: "sensitivity"`. ADR 0117's composed half lists
+    "the scenario spread — bear and bull, as figures" as one of its four parts, so on
+    today's corpus the block a judge will read has three: a range, a distance and the
+    levers. Not a defect — a scenario is the operator's to define and none has been —
+    but it is a fact about what the composed half will be judged on, and the measurement
+    round should know it before it runs rather than after. It also nearly became a defect:
+    the composer's first draft read untagged rows as cases, and had the cells been untagged
+    it would have printed ninety "scenarios" per method.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

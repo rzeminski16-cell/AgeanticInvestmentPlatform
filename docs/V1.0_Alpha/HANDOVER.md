@@ -285,6 +285,28 @@ multiples below" and the offline full run printed it over an empty block, becaus
 renderer knows whether a figure follows. The promise is gone and the table's column carries
 the company's name instead.
 
+**4.4 made the report state a view**, which is ADR 0117's composed half and the answer to
+the judges' most-cited complaint: the console's document said what it thought and this one
+did not. It is a base-case range by method, the distance from the market price for *both*
+terminal methods, and the sensitivity swing in words — placed first, before the numbers,
+because a position a reader meets after eighteen sections is one they meet last. Every
+figure is a recorded calculation with a marker that resolves.
+
+Two corrections to the plan's own row, both of the kind this programme keeps making. It
+said "one render branch": an implied upside is a *number*, so it is struck in the valuation
+step, because a renderer doing arithmetic produces a figure no ledger row accounts for.
+And it pointed at `reports.rating`: that column belongs to the **authored** half, which ADR
+0117 stores as a judgement with a holder, a time, a basis and a falsifier precisely because
+a column has none of those. The column is still `None` and should be; the header line is
+what changed, and "no view reached" survives for a run with no valuation, where it is true.
+
+Three things the build found and §3.19 now carries: the price step computed a price and
+discarded it, so a run with no mappable share count held none either (§3.19.12); the market
+capitalisation's recorded source was a literal string that could never resolve; and **no run
+in the corpus has ever had a scenario** (§3.19.13), so the spread ADR 0117 lists as one of
+the composed half's four parts is a category the block supports and nothing has yet filled.
+The measurement round should know that before it runs.
+
 ## 6. Standing constraints on any session doing this work
 
 - **Branch.** Develop, commit and push on the branch the session is told to use. Never push

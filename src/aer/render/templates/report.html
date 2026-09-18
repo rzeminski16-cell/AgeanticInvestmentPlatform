@@ -154,7 +154,7 @@
     <dt>As-of date</dt><dd>{{ as_of_text }}</dd>
     <dt>Base currency</dt><dd>{{ header.base_currency }}</dd>
     <dt>Generated</dt><dd>{{ header.generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
-    <dt>Non-binding view</dt><dd>{{ header.rating or "no view reached" }}</dd>
+    <dt>Non-binding view</dt><dd>{{ header.rating or header.composed_range or "no view reached" }}</dd>
     {% if header.confidence is not none %}
     <dt>Confidence</dt><dd>{{ "%.0f%%" | format(header.confidence * 100) }}</dd>
     {% endif %}
@@ -168,6 +168,11 @@
   {% endif %}
 </header>
 
+{% if view_html %}
+<section class="report-section the-view" id="the-view">
+  {{ view_html }}
+</section>
+{% endif %}
 {% if glance_html %}
 <section class="report-section at-a-glance" id="at-a-glance">
   {{ glance_html }}

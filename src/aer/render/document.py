@@ -29,7 +29,7 @@ from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +59,7 @@ from aer.errors import ValidationError
 from aer.eval.metrics import spoken_metric
 from aer.render import display
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
+from aer.render.view import VIEW_CONTRACT, VIEW_TITLE, base_range, view_content
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
 from aer.sections.render import (
@@ -215,6 +216,12 @@ class HeaderView:
     generated_at: datetime
     rating: str | None
     confidence: float | None
+
+    # The base case as one line — "$412.60 to $486.10 a share" — composed from the same
+    # rows the view block prints, so the two cannot disagree (ADR 0117). ``None`` for a run
+    # that produced no valuation, which is the one state where *"no view reached"* is a
+    # true sentence rather than a column nobody ever wrote to.
+    composed_range: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -438,8 +445,14 @@ class ReportDocument:
     limitations: tuple[tuple[str, str], ...] = ()
 
     # The front page's numbers (gap R10), already walked into fragments — empty when the
-    # run holds nothing to show. Its markers are the document's first.
+    # run holds nothing to show.
     glance: tuple[Fragment, ...] = ()
+
+    # ADR 0117's composed half: the base-case range, the distance from the market and the
+    # levers, all of them recorded calculations. Empty for a run with no valuation, which
+    # is the one state where "no view reached" is true. Its markers are the document's
+    # first, because it is the first thing a reader meets.
+    view: tuple[Fragment, ...] = ()
 
     # The undated-source legend (the C3 marker), present exactly when some section
     # carries the symbol — a legend with no marker, or a marker with no legend, would
@@ -507,9 +520,27 @@ async def assemble_document(
     views: list[SectionView] = []
     citations: list[CitationRef] = []
 
-    # The front page's numbers (gap R10), first in reading order so its markers are the
-    # document's first. Assembled from stored rows alone; an empty run shows nothing
-    # here and the coverage notice carries the honest account.
+    # The composed view (ADR 0117), first of all: the judges' complaint was the absence of
+    # a position, and a position printed after eighteen sections of evidence is a position
+    # the reader meets last. Every figure in it is a row the run struck; nothing is
+    # computed here.
+    view_fragments: tuple[Fragment, ...] = ()
+    view = await view_content(session, job=job)
+    if view.content:
+        rendered_view = render_section(
+            key="the_view",
+            title=VIEW_TITLE,
+            contract=VIEW_CONTRACT,
+            content=view.content,
+            footnote_start=1,
+            style=active_style,
+        )
+        citations.extend(rendered_view.citations)
+        view_fragments = rendered_view.fragments
+
+    # The front page's numbers (gap R10), next in reading order. Assembled from stored rows
+    # alone; an empty run shows nothing here and the coverage notice carries the honest
+    # account.
     glance_fragments: tuple[Fragment, ...] = ()
     glance = await glance_content(session, job=job, request=request)
     if glance.content:
@@ -518,7 +549,7 @@ async def assemble_document(
             title=GLANCE_TITLE,
             contract=GLANCE_CONTRACT,
             content=glance.content,
-            footnote_start=1,
+            footnote_start=len(citations) + 1,
             style=active_style,
         )
         citations.extend(rendered_glance.citations)
@@ -612,6 +643,7 @@ async def assemble_document(
             generated_at=generated_at or datetime.now(UTC),
             rating=rating,
             confidence=confidence,
+            composed_range=_composed_range(view.content, style=active_style),
         ),
         sector=sector,
         sections=tuple(views),
@@ -644,6 +676,7 @@ async def assemble_document(
         coverage=coverage,
         undated_note=UNDATED_NOTE if any(view.undated for view in views) else None,
         glance=glance_fragments,
+        view=view_fragments,
     )
 
 
@@ -680,6 +713,22 @@ def _declared_exhibits(definition: SectionDefinition | None) -> list[str]:
     if not isinstance(stated, list):
         return []
     return [str(item) for item in stated]
+
+
+def _composed_range(content: dict[str, Any] | None, *, style: HouseStyle) -> str | None:
+    """The base case as the masthead's one line, in the house style, or ``None``.
+
+    Read off the block's own rows rather than recomputed, so the line and the table under
+    it cannot disagree — the failure `glance` was built to avoid, one page earlier. A
+    single method gives a point rather than a range, and says so by being one figure.
+    """
+    found = base_range(content)
+    if found is None:
+        return None
+    low, high, unit = found
+    currency = unit.split("/")[0]
+    shown = [display.money(value, currency, style=style) for value in (low, high)]
+    return shown[0] if low == high else f"{shown[0]} to {shown[1]} a share"
 
 
 def _comps_fragments(
