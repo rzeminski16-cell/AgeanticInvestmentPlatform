@@ -47,7 +47,7 @@ from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_repo
 from aer.calc.basic import cagr
 from aer.calc.comps import Audience, CompsTable, MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
-from aer.calc.units import Quantity, SourceRef, Unit, money
+from aer.calc.units import Quantity, SourceKind, SourceRef, Unit, money
 from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.disagreement import DisagreementKind
@@ -1620,10 +1620,14 @@ async def _value(context: StepContext) -> StepResult:
         analysis=analysis,
         mandate=mandate,
         years=FORECAST_YEARS,
-        # The price step's own figure, read the way the comps step reads it. Without this
-        # the capital structure weighed equity at book on every run and the report printed a
-        # caveat saying its own discount rate was therefore too low.
+        # The price step's own figures, read the way the comps step reads them. Without the
+        # capitalisation the capital structure weighed equity at book on every run and the
+        # report printed a caveat saying its own discount rate was therefore too low; the
+        # price beside it is what the implied upside is measured against (ADR 0117).
         market_capitalisation=_market_capitalisation_from(
+            context.outputs.get(PRICES_STEP, {}), currency=request.base_currency
+        ),
+        price_per_share=_price_per_share_from(
             context.outputs.get(PRICES_STEP, {}), currency=request.base_currency
         ),
     )
@@ -1720,24 +1724,64 @@ async def _comps(context: StepContext) -> StepResult:
 
 
 def _market_capitalisation_from(prices: Mapping[str, Any], *, currency: str) -> Quantity | None:
-    """The market capitalisation the price step computed, read back as a quantity.
+    """The market capitalisation the price step computed, read back as a quantity."""
+    return _recorded_figure(
+        prices.get("market_capitalisation"),
+        unit=Unit.currency(currency),
+        label="market capitalisation",
+    )
+
+
+def _price_per_share_from(prices: Mapping[str, Any], *, currency: str) -> Quantity | None:
+    """The close the price step recorded, read back as a per-share quantity."""
+    return _recorded_figure(
+        prices.get("price_per_share"),
+        unit=Unit.currency(currency) / Unit.base("shares"),
+        label="share price",
+    )
+
+
+def _recorded_figure(recorded: Any, *, unit: Unit, label: str) -> Quantity | None:
+    """One figure from a step's record, re-sourced to the calculation that produced it.
 
     Round-tripped through the step output rather than passed as an object, because that is
-    what the engine carries between steps — and it is re-sourced to the calculation that
-    produced it rather than left bare, since the unit system refuses an unsourced input and
-    a figure with no lineage has no business in a multiple.
+    what the engine carries between steps — and re-sourced rather than left bare, since the
+    unit system refuses an unsourced input and a figure with no lineage has no business in
+    a multiple or a distance from a price.
+
+    **The id used to be guessed and never resolved.** This read
+    ``prices.get("security_id", "market_capitalisation")`` against a record that has never
+    carried a ``security_id``, so every figure came back sourced to the literal string —
+    which is not a calculation id, resolves to no row, and would render as the document's
+    own broken-citation warning the moment anything tried to footnote it. The step now
+    records the source and its id (roadmap §3.19.8) and this reads them.
+
+    **And the kind is read, not assumed.** A market capitalisation is a calculation; a
+    close is a stored fact. Re-sourcing both as calculations would hand the price an id
+    that resolves to no ledger row — the same defect one layer along.
+
+    A record written before that keeps the older shape, a bare value string: it is sourced
+    to a calculation named for the figure, which is as much lineage as that record can
+    prove, and the figure still feeds the arithmetic it always did.
     """
-    value = prices.get("market_capitalisation")
+    if isinstance(recorded, Mapping):
+        value = recorded.get("value")
+        identifier = recorded.get("source_id")
+        kind = recorded.get("source_kind")
+    else:
+        value, identifier, kind = recorded, None, None
     if not value:
         return None
-    return Quantity.of(
-        Decimal(str(value)),
-        Unit.currency(currency),
-        source=SourceRef.calculation(
-            prices.get("security_id", "market_capitalisation"),
-            label="market capitalisation",
-        ),
-    )
+    return Quantity.of(Decimal(str(value)), unit, source=_source_of(kind, identifier, label=label))
+
+
+def _source_of(kind: Any, identifier: Any, *, label: str) -> SourceRef:
+    """The reference a recorded figure carried, rebuilt in its own kind."""
+    if not identifier:
+        return SourceRef.calculation(label, label=label)
+    if kind == SourceKind.FACT.value:
+        return SourceRef.security(str(identifier), label=label)
+    return SourceRef.calculation(str(identifier), label=label)
 
 
 async def _validate(context: StepContext) -> StepResult:

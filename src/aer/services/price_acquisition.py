@@ -43,7 +43,6 @@ from aer.errors import AerError
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.prices import (
     adjusted_series_for,
-    market_capitalisation_for,
     price_quantity,
     propose_computed_beta,
     record_actions,
@@ -116,6 +115,10 @@ class PriceAcquisition:
     bars: int = 0
     actions: int = 0
     market_capitalisation: Quantity | None = None
+    # The last close, per share and in major units. Recorded beside the capitalisation
+    # because the two fail independently: a run with no mappable share count still has a
+    # price, and the implied upside (ADR 0117) is measured against the price alone.
+    price_per_share: Quantity | None = None
     beta_proposed: bool = False
     # Why no beta was put forward, in the regression's own words, when none was. The
     # confirmation run asked the operator for a beta and recorded nothing about why: the
@@ -133,12 +136,16 @@ class PriceAcquisition:
             "bars": self.bars,
             "actions": self.actions,
             # The figure, not the series. A market capitalisation is derived and publishable
-            # under the 2026-08-09 determination; the bars behind it are not.
-            "market_capitalisation": (
-                str(self.market_capitalisation.value)
-                if self.market_capitalisation is not None
-                else None
-            ),
+            # under the 2026-08-09 determination; the bars behind it are not. The same is
+            # true of one close on one date, which is a figure rather than a series of them.
+            #
+            # **Each carries where it came from** (roadmap §3.19.8). A step output is the
+            # only thing a re-render sees, so a figure recorded without its source can
+            # never be footnoted by any later reader — the comps step had exactly this gap
+            # and it cost the report its multiples. The two are not the same kind of thing,
+            # and `_figure` records which rather than assuming.
+            "market_capitalisation": _figure(self.market_capitalisation),
+            "price_per_share": _figure(self.price_per_share),
             "beta_proposed": self.beta_proposed,
             "beta_reason": self.beta_reason,
             "market_proxy": self.proxy.label if self.proxy is not None else "",
@@ -231,14 +238,30 @@ async def acquire_prices(
         with_actions=False,
     )
 
-    capitalisation = await _market_capitalisation(
-        session,
-        client,
-        context,
-        security=subject.security,
-        symbol=symbol,
-        as_of=request.work_order.as_of_date,
-        filed_shares=shares_outstanding,
+    # The subject's own price, kept rather than consumed. It used to be computed inside the
+    # market capitalisation and discarded with it, so a run whose share count this build
+    # cannot map held no price either — and the implied upside (ADR 0117) needs only the
+    # price. The peer path has kept both since it was written.
+    series = await adjusted_series_for(
+        session, subject.security, as_of=request.work_order.as_of_date
+    )
+    price = (
+        _price_per_share(context, series, security=subject.security, symbol=symbol)
+        if series.bars
+        else None
+    )
+    capitalisation = (
+        await _market_capitalisation(
+            client,
+            context,
+            price=price,
+            security=subject.security,
+            symbol=symbol,
+            as_of=request.work_order.as_of_date,
+            filed_shares=shares_outstanding,
+        )
+        if price is not None
+        else None
     )
 
     beta_proposed, beta_reason = await _propose_beta(
@@ -270,10 +293,37 @@ async def acquire_prices(
         bars=subject.bars,
         actions=subject.actions,
         market_capitalisation=capitalisation,
+        price_per_share=price,
         beta_proposed=beta_proposed,
         beta_reason=beta_reason,
         proxy=proxy,
     )
+
+
+def _figure(quantity: Quantity | None) -> dict[str, str | None] | None:
+    """One figure as a step records it: the value, its unit, and where it came from.
+
+    ``None`` where there is no figure, because "not computed" and "computed as nothing"
+    are different claims.
+
+    **The source kind is recorded, not assumed.** These two are not the same kind of thing
+    and it would be easy to write as though they were: a market capitalisation is a
+    *calculation* — price times share count, struck in the ledger — while a close is a
+    **fact**, a stored bar that nothing derived. Recording both as calculations would give
+    the price an id that resolves to no ledger row, which is the failure mode this field
+    exists to prevent (roadmap §3.19.8). A dollar-quoted price is a fact; a pence-quoted
+    one has been through the minor-unit conversion and so is a calculation, and the record
+    says which without this module deciding.
+    """
+    if quantity is None:
+        return None
+    source = quantity.source
+    return {
+        "value": str(quantity.value),
+        "unit": quantity.unit.symbol,
+        "source_kind": source.kind.value if source is not None else None,
+        "source_id": source.identifier if source is not None else None,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,17 +399,11 @@ async def acquire_peer_prices(
     if not series.bars:
         return PeerPrices(reason=f"No usable bar for {symbol} inside the window.")
 
-    price = price_quantity(
-        series,
-        source=SourceRef.security(listing.security.id, label=f"{symbol} close"),
-    )
-    if series.currency in calc_prices.MINOR_UNITS:
-        price = calc_prices.price_in_major_units(context, quoted=price)
-
+    price = _price_per_share(context, series, security=listing.security, symbol=symbol)
     capitalisation = await _market_capitalisation(
-        session,
         client,
         context,
+        price=price,
         security=listing.security,
         symbol=symbol,
         as_of=request.work_order.as_of_date,
@@ -502,22 +546,48 @@ async def _record_listing(
     )
 
 
+def _price_per_share(
+    context: CalculationContext,
+    series: calc_prices.AdjustedSeries,
+    *,
+    security: Security,
+    symbol: str,
+) -> Quantity:
+    """The last close as a per-share quantity, in major units.
+
+    The minor-unit conversion is its own recorded calculation: a London listing quotes in
+    pence, and skipping it gives a figure a hundred times too large, which reads as a large
+    company rather than as a bug. Both the subject and a peer go through here, so neither
+    can quietly do it differently.
+    """
+    price = price_quantity(series, source=SourceRef.security(security.id, label=f"{symbol} close"))
+    if series.currency in calc_prices.MINOR_UNITS:
+        price = calc_prices.price_in_major_units(context, quoted=price)
+    return price
+
+
 async def _market_capitalisation(
-    session: AsyncSession,
     client: PriceClient,
     context: CalculationContext,
     *,
+    price: Quantity,
     security: Security,
     symbol: str,
     as_of: date,
     filed_shares: Quantity | None,
 ) -> Quantity | None:
-    """The subject's market capitalisation, or nothing if the share count is unknown.
+    """The market capitalisation for an already-priced security, or nothing without a count.
 
     **The filed share count is preferred to the vendor's**, because it is a fact with a
     hashed filing behind it and the vendor's is a number in a JSON document. The vendor's is
     used only when the filings carry none, which happens for a company whose taxonomy this
     build does not map.
+
+    **The price is passed in rather than fetched here**, which is what lets a run hold one
+    without the other. A company whose share count this build cannot map still *has* a
+    price, and the implied upside (ADR 0117) needs only the price — so a missing share count
+    now costs the capitalisation and nothing else. It also stops the series being read twice
+    per security: both callers already had it and this function loaded its own.
     """
     shares = filed_shares
     if shares is None:
@@ -536,16 +606,7 @@ async def _market_capitalisation(
             ),
         )
 
-    series = await adjusted_series_for(session, security, as_of=as_of)
-    if not series.bars:
-        return None
-
-    return market_capitalisation_for(
-        context,
-        series=series,
-        shares=shares,
-        price_source=SourceRef.security(security.id, label=f"{symbol} close"),
-    )
+    return calc_prices.market_capitalisation(context, price=price, shares=shares)
 
 
 async def _propose_beta(

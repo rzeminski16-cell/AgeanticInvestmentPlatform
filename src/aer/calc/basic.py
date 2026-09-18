@@ -1,9 +1,15 @@
 """The first calculations, and the shape every later one follows.
 
-Six functions. None of them is difficult, and that is the point: a growth rate is four
+Seven functions. None of them is difficult, and that is the point: a growth rate is four
 lines of arithmetic, and the reason it lives here rather than in a prompt is that four
 lines of arithmetic are *verifiable* whereas a sentence asking for a growth rate is not.
 Phase 3's discounted cash flow will be forty lines in this same shape.
+
+**Two of them do the same arithmetic on purpose.** :func:`implied_upside` is
+:func:`growth_rate` with a different denominator rule and a different name, and the name
+is the reason: a ledger row records what a figure was computed *as*, and a reader
+following "38% above the market" to a calculation called ``growth_rate`` is told that
+something grew. Collapsing them would save four lines and cost the provenance its meaning.
 
 **Guards, and why they refuse rather than return zero.** Several of these have inputs for
 which no meaningful answer exists — growth from a base of zero, a compound rate over zero
@@ -35,6 +41,7 @@ from aer.calc.units import (
 __all__ = [
     "cagr",
     "growth_rate",
+    "implied_upside",
     "margin",
     "ratio",
     "weighted_average",
@@ -77,6 +84,66 @@ def growth_rate(_context: CalculationContext, *, start: Quantity, end: Quantity)
         raise CalculationError(message, context={"end": str(end.value)})
 
     return (end - start) / abs(start)
+
+
+@traced(
+    name="implied_upside",
+    formula="implied upside = (value per share - price per share) / price per share",
+    assumptions=(
+        "The price is what the market asked on the date the run reads it, and the value is "
+        "what this run's method produced. The distance between them is a statement about "
+        "the two figures and not a forecast of either.",
+        "Both are per-share and in the same currency; a valuation in one currency against a "
+        "price in another is refused rather than converted here.",
+    ),
+)
+def implied_upside(
+    _context: CalculationContext, *, value_per_share: Quantity, price_per_share: Quantity
+) -> Quantity:
+    """How far a valuation sits from the market price, as a fraction of the price.
+
+    **The same arithmetic as :func:`growth_rate` and deliberately not that function.** A
+    ledger row records the name it was computed under, and a reader following the footnote
+    on "38% above the market" to a calculation called ``growth_rate`` learns the wrong
+    thing about what the platform did — nothing grew. The name is the figure's, not the
+    formula's (roadmap §3.19.4).
+
+    The denominator is the price rather than the value, because the reader's question is
+    "how far from what I would pay?". Signed, so a valuation below the price comes back
+    negative and the document can say *below* rather than quoting a magnitude with no
+    direction.
+
+    Raises:
+        UnitMismatchError: If the two are not the same per-share unit — which for this
+            pair means two currencies, and a cross-currency distance is arithmetic
+            nobody performed.
+        CalculationError: If the price is not positive. A nil price is a data fault, and
+            a negative one does not exist; either way the distance from it is not a number
+            a report should carry.
+    """
+    if value_per_share.unit != price_per_share.unit:
+        message = (
+            f"Cannot measure {value_per_share.unit.symbol} against "
+            f"{price_per_share.unit.symbol}. An implied upside compares a valuation with "
+            "the price of the same share in the same currency."
+        )
+        raise UnitMismatchError(
+            message,
+            context={
+                "value": value_per_share.unit.symbol,
+                "price": price_per_share.unit.symbol,
+            },
+        )
+
+    if price_per_share.value <= 0:
+        message = (
+            f"The price is {price_per_share.value}. A share with no positive price has no "
+            "distance from one, and a report quoting a percentage against it would be "
+            "quoting arithmetic rather than a market."
+        )
+        raise CalculationError(message, context={"price": str(price_per_share.value)})
+
+    return (value_per_share - price_per_share) / price_per_share
 
 
 @traced(

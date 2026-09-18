@@ -135,7 +135,11 @@ async def _confirm_extra(scene: dict[str, Any], name: str, value: str) -> None:
 
 
 async def _value(
-    scene: dict[str, Any], *, years: int = 5, market_capitalisation: Quantity | None = None
+    scene: dict[str, Any],
+    *,
+    years: int = 5,
+    market_capitalisation: Quantity | None = None,
+    price_per_share: Quantity | None = None,
 ) -> ValuationOutcome:
     return await value_the_business(
         scene["session"],
@@ -145,6 +149,7 @@ async def _value(
         mandate=MANDATE,
         years=years,
         market_capitalisation=market_capitalisation,
+        price_per_share=price_per_share,
     )
 
 
@@ -154,6 +159,15 @@ def _market_cap(value: str, currency: str = "USD") -> Quantity:
         Decimal(value),
         Unit.currency(currency),
         source=SourceRef.calculation("market-capitalisation", label="market capitalisation"),
+    )
+
+
+def _price(value: str, currency: str = "USD") -> Quantity:
+    """What the price step hands the valuation: one close, per share, as a stored fact."""
+    return Quantity.of(
+        Decimal(value),
+        Unit.currency(currency) / Unit.base("shares"),
+        source=SourceRef.security("a-listing", label="close"),
     )
 
 
@@ -343,6 +357,83 @@ class TestAConfirmedRunProducesAValuation:
         at_market = await _value(scene, market_capitalisation=_market_cap("900000000"))
 
         assert at_market.as_dict()["equity_basis"] == "market"
+
+    async def test_the_distance_from_the_price_is_struck_here_not_at_render(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0117's composed half is *composed* on render and computed here.
+
+        The distinction is the platform's founding rule: a renderer that subtracted a
+        price from a value would be doing arithmetic no ledger row could account for, and
+        the figure would carry no footnote because there would be nothing to point at.
+        """
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, price_per_share=_price("40"))
+
+        assert set(outcome.implied_upside) == {"gordon_growth", "exit_multiple"}
+        for figure in outcome.implied_upside.values():
+            assert figure.unit.is_dimensionless
+
+    async def test_both_terminal_methods_get_their_own_distance(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0038 carries the two terminal assumptions separately and says their
+        disagreement is the finding. One tidy averaged percentage would discard it."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, price_per_share=_price("40"))
+
+        gordon = outcome.implied_upside["gordon_growth"]
+        exit_multiple = outcome.implied_upside["exit_multiple"]
+
+        assert gordon.value != exit_multiple.value
+
+    async def test_each_distance_names_the_row_that_struck_it(self, scene: dict[str, Any]) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        recorded = (await _value(scene, price_per_share=_price("40"))).as_dict()
+
+        stored = {
+            str(row.id)
+            for row in await scene["session"].scalars(
+                select(Calculation).where(Calculation.name == "implied_upside")
+            )
+        }
+        assert stored
+        for figure in recorded["implied_upside"].values():
+            assert figure["calculation"] in stored
+
+    async def test_no_price_leaves_a_valuation_with_no_distance(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The ordinary state of a machine with no subscription: a valuation, and silence
+        about the market rather than a fabricated comparison with one."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene)
+
+        assert outcome.ran is True
+        assert outcome.implied_upside == {}
+        assert outcome.as_dict()["implied_upside"] == {}
+
+    async def test_a_price_in_another_currency_costs_the_distance_and_not_the_valuation(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A cross-currency comparison is a conversion nobody performed. Losing the whole
+        forecast over it would be the wrong trade — the valuation is still sound."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene, price_per_share=_price("40", "GBP"))
+
+        assert outcome.ran is True
+        assert outcome.base is not None
+        assert outcome.implied_upside == {}
 
     async def test_the_bridge_is_net_debt_alone_and_says_so(self, scene: dict[str, Any]) -> None:
         await seed_years(scene, _YEARS)

@@ -39,13 +39,17 @@ absent rather than showing an empty page.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from decimal import Decimal
 from typing import Any, Final
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc import basic
 from aer.calc.dcf import (
     DcfInputs,
     DcfResult,
@@ -56,7 +60,7 @@ from aer.calc.dcf import (
 )
 from aer.calc.engine import CalculationContext
 from aer.calc.ratios import net_debt, working_capital
-from aer.calc.units import Quantity
+from aer.calc.units import Quantity, SourceKind
 from aer.calc.wacc import (
     CapitalStructure,
     CostOfCapital,
@@ -133,6 +137,10 @@ class ValuationOutcome:
     grids: tuple[SensitivityGrid, ...] = ()
     caveats: tuple[str, ...] = ()
 
+    # How far each terminal method's answer sits from the market price, keyed by method.
+    # Empty where the run holds no price. ADR 0117's composed half reads this.
+    implied_upside: Mapping[str, Quantity] = dataclass_field(default_factory=dict)
+
     def as_dict(self) -> dict[str, Any]:
         if not self.ran or self.base is None or self.cost_of_capital is None:
             return {"valued": False, "reason": self.reason}
@@ -144,6 +152,15 @@ class ValuationOutcome:
             "exit_multiple_per_share": str(self.base.exit_multiple.value_per_share.value),
             "terminal_share": str(self.base.gordon.terminal_share.value),
             "years": len(self.base.years),
+            # Each with the calculation behind it, so the composed half can footnote the
+            # figure rather than assert it (roadmap §3.19.8).
+            "implied_upside": {
+                method: {
+                    "value": str(figure.value),
+                    "calculation": _calculation_id(figure),
+                }
+                for method, figure in self.implied_upside.items()
+            },
             "scenarios": [
                 {"key": item.key, "label": item.label, "overridden": list(item.overridden)}
                 for item in self.scenarios
@@ -169,6 +186,7 @@ async def value_the_business(
     mandate: ValuationMandate,
     years: int,
     market_capitalisation: Quantity | None = None,
+    price_per_share: Quantity | None = None,
 ) -> ValuationOutcome:
     """Run the base case, the scenarios and the grids, and store every calculation.
 
@@ -177,6 +195,11 @@ async def value_the_business(
             capital structure weighs equity at market where this is usable and at book
             otherwise — see :func:`_capital_structure` — so the discount rate stops being
             computed from a measure the report then caveats as too low.
+        price_per_share: The close the price step recorded. The two arrive separately
+            because they fail separately: a run whose share count this build cannot map
+            has a price and no capitalisation, and the implied upside needs only the
+            first. ``None`` leaves the run with a valuation and no distance from a market,
+            which is what a machine with no subscription produces.
 
     Returns a :class:`ValuationOutcome` rather than raising when the run simply cannot
     produce a forecast: a company with one filed year or an unconfirmed assumption is an
@@ -224,6 +247,12 @@ async def value_the_business(
     base = await run_valuation(
         session, job_id=job_id, inputs=inputs, mandate=mandate, context=ledger, case="base"
     )
+
+    # ADR 0117's composed half is *composed* on render and computed here, which is the
+    # difference between assembling recorded figures and doing arithmetic in a renderer.
+    # The upside goes into the same ledger as everything else, so the document can footnote
+    # it and `aer replay-run` can re-derive it.
+    upside = _implied_upside(ledger, base, price_per_share=price_per_share)
     await persist_context(session, ledger, job_id=job_id)
 
     scenarios = await _scenarios(
@@ -242,6 +271,7 @@ async def value_the_business(
     )
     return ValuationOutcome(
         ran=True,
+        implied_upside=upside,
         cost_of_capital=capital,
         base=base,
         scenarios=tuple(scenarios),
@@ -256,6 +286,48 @@ _BRIDGE_CAVEAT: Final = (
     "build, so a business carrying material non-operating items is valued as though it does "
     "not."
 )
+
+
+def _calculation_id(figure: Quantity) -> str | None:
+    """The ledger row behind a figure, when its source is one."""
+    source = figure.source
+    if source is None or source.kind is not SourceKind.CALCULATION:
+        return None
+    return source.identifier
+
+
+def _implied_upside(
+    ledger: CalculationContext, base: DcfResult, *, price_per_share: Quantity | None
+) -> dict[str, Quantity]:
+    """How far each terminal method's answer sits from the market, by method.
+
+    Empty where the run holds no price, which is the ordinary state of a machine with no
+    market-data subscription: a valuation with no distance from a market is still a
+    valuation, and the composed half simply says less about it.
+
+    **Both methods, not their average.** ADR 0038 carries the two terminal assumptions
+    through separately and says their disagreement is itself the finding; collapsing them
+    here to give the reader one tidy percentage would throw that away at the last step.
+
+    A refusal is caught rather than raised. A nil price is a data fault and a currency
+    mismatch is a conversion nobody performed — neither is a reason to lose the whole
+    valuation, and both are figures the composed half can be silent about.
+    """
+    if price_per_share is None:
+        return {}
+
+    found: dict[str, Quantity] = {}
+    for method, outcome in (
+        (TerminalMethod.GORDON_GROWTH, base.gordon),
+        (TerminalMethod.EXIT_MULTIPLE, base.exit_multiple),
+    ):
+        with suppress(AerError):
+            found[method.value] = basic.implied_upside(
+                ledger,
+                value_per_share=outcome.value_per_share,
+                price_per_share=price_per_share,
+            )
+    return found
 
 
 # -- The discount rate ---------------------------------------------------------------------

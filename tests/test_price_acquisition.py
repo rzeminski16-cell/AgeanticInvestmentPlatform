@@ -31,6 +31,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.errors import ExternalServiceError
 from aer.fetch.client import FetchResult
 from aer.services.calculations import new_context
 from aer.services.price_acquisition import BETA_WINDOW_YEARS, acquire_prices
@@ -163,8 +164,13 @@ class StubPriceClient:
     async def fetch_shares_outstanding(self, symbol: str, *, as_of: date) -> SharesResponse:
         self.share_calls.append(symbol)
         if self._shares is None:
-            message = "no dated share count"
-            raise AssertionError(message)
+            # `ExternalServiceError`, which is what the real client raises when the
+            # fundamentals document carries no dated count at or before the as-of date.
+            # It used to raise `AssertionError` — which `_market_capitalisation` does not
+            # catch, so this stub turned an ordinary vendor gap into a crash no production
+            # path can produce. The same unfaithful-stub shape as roadmap §3.19.6.
+            message = f"{symbol} has no dated share count at or before {as_of.isoformat()}."
+            raise ExternalServiceError(message, provider=Provider.EODHD)
         return SharesResponse(
             symbol=symbol,
             as_of=as_of,
@@ -220,7 +226,8 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     }
 
 
-async def _acquire(scene: dict[str, Any], client: Any) -> Any:
+async def _acquire(scene: dict[str, Any], client: Any, *, context: Any = None) -> Any:
+    """One acquisition. ``context`` is passed in where a test needs the ledger back."""
     return await acquire_prices(
         scene["session"],
         client,
@@ -228,7 +235,7 @@ async def _acquire(scene: dict[str, Any], client: Any) -> Any:
         request=scene["request"],
         company=scene["company"],
         job_id=scene["job_id"],
-        context=new_context(),
+        context=context if context is not None else new_context(),
     )
 
 
@@ -336,6 +343,101 @@ class TestAcquiringTheSubjectAndItsMarket:
         assert "bars" in payload
         assert isinstance(payload["bars"], int), "a count, never the prices themselves"
         assert not any(isinstance(value, list) for value in payload.values())
+
+
+class TestTheFiguresCarryTheCalculationBehindThem:
+    """Roadmap §3.19.8: a step output is the only thing a re-render sees.
+
+    The comps step recorded each multiple's value without the calculation that produced
+    it, so the report could print the figure and footnote nothing — and the footnote is
+    what makes a figure checkable. These two are the same shape, found before they cost
+    anything, because ADR 0117's composed half is about to print both.
+    """
+
+    async def test_the_price_is_recorded_beside_the_capitalisation(
+        self, scene: dict[str, Any]
+    ) -> None:
+        outcome = await _acquire(scene, StubPriceClient(scene["store"]))
+
+        assert outcome.price_per_share is not None
+        assert outcome.price_per_share.value > 0
+        # Per-share, not a bare currency: it is what a valuation per share is compared with.
+        assert "shares" in outcome.price_per_share.unit.symbol
+
+    async def test_each_recorded_figure_names_where_it_came_from(
+        self, scene: dict[str, Any]
+    ) -> None:
+        payload = (await _acquire(scene, StubPriceClient(scene["store"]))).as_dict()
+
+        for key in ("market_capitalisation", "price_per_share"):
+            recorded = payload[key]
+            assert recorded is not None, key
+            assert recorded["value"]
+            assert recorded["source_kind"], f"{key} must say what kind of thing it is"
+            assert uuid.UUID(recorded["source_id"]), f"{key} must name a row"
+
+    async def test_the_two_are_different_kinds_of_thing(self, scene: dict[str, Any]) -> None:
+        """A capitalisation is struck; a dollar-quoted close is merely stored.
+
+        Recording both as calculations would have given the price an id that resolves to
+        no ledger row — the §3.19.8 defect one layer along, and invisible until something
+        tried to footnote it. A pence-quoted close goes through the minor-unit conversion
+        and *is* a calculation; the record says which without this module deciding.
+        """
+        payload = (await _acquire(scene, StubPriceClient(scene["store"]))).as_dict()
+
+        assert payload["market_capitalisation"]["source_kind"] == "calculation"
+        assert payload["price_per_share"]["source_kind"] == "fact"
+
+    async def test_the_capitalisation_names_a_row_the_ledger_holds(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Not merely uuid-shaped — the id has to resolve, or a footnote resolves to
+        nothing and the document prints its own broken-citation warning."""
+        ledger = new_context()
+        payload = (await _acquire(scene, StubPriceClient(scene["store"]), context=ledger)).as_dict()
+
+        struck = {str(record.id) for record in ledger.records}
+
+        assert payload["market_capitalisation"]["source_id"] in struck
+
+    async def test_the_series_itself_is_still_absent(self, scene: dict[str, Any]) -> None:
+        """One close on one date is a figure; the bars behind it are the vendor's series.
+
+        The determination of 2026-08-09 permits the first and not the second, so adding
+        the price to the record must not have added the series with it (ADR 0030).
+        """
+        payload = (await _acquire(scene, StubPriceClient(scene["store"]))).as_dict()
+
+        assert not any(isinstance(value, list) for value in payload.values())
+        assert isinstance(payload["bars"], int), "a count, never the prices themselves"
+
+
+class TestAPriceWithoutAShareCount:
+    """They fail separately, so they are recorded separately.
+
+    The price used to be computed inside the market capitalisation and discarded with it,
+    so a company whose share count this build cannot map held no price either — and an
+    implied upside needs only the price.
+    """
+
+    async def test_a_run_with_no_share_count_still_holds_a_price(
+        self, scene: dict[str, Any]
+    ) -> None:
+        client = StubPriceClient(scene["store"], shares=None)
+
+        outcome = await _acquire(scene, client)
+
+        assert outcome.price_per_share is not None
+        assert outcome.market_capitalisation is None
+
+    async def test_the_record_says_which_of_the_two_is_missing(self, scene: dict[str, Any]) -> None:
+        client = StubPriceClient(scene["store"], shares=None)
+
+        payload = (await _acquire(scene, client)).as_dict()
+
+        assert payload["price_per_share"] is not None
+        assert payload["market_capitalisation"] is None
 
 
 class TestASecondRunOverTheSameCompany:

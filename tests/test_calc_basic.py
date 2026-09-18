@@ -1,4 +1,4 @@
-"""The first six calculations, against answers computed by hand.
+"""The first seven calculations, against answers computed by hand.
 
 Known-answer tests, not round-trips. A test that checks ``cagr`` against a second
 implementation of ``cagr`` proves the two agree, which is worth very little when both were
@@ -21,6 +21,7 @@ from aer.calc.basic import (
     as_percent,
     cagr,
     growth_rate,
+    implied_upside,
     margin,
     periods_between,
     ratio,
@@ -32,6 +33,7 @@ from aer.calc.units import (
     CalculationError,
     Quantity,
     SourceRef,
+    Unit,
     UnitMismatchError,
     money,
     shares,
@@ -52,6 +54,17 @@ def usd(value):
 
 def pure_sourced(value):
     return pure(value, source=SOURCE)
+
+
+def per_share(value, *, currency="USD"):
+    """A per-share figure, which is what a price and a value per share both are.
+
+    Built rather than divided: dividing two sourced quantities gives a result with no
+    source, because a derived value's source is the calculation that derived it.
+    """
+    return Quantity.of(
+        Decimal(str(value)), Unit.currency(currency) / Unit.base("shares"), source=SOURCE
+    )
 
 
 class TestGrowthRate:
@@ -89,6 +102,95 @@ class TestGrowthRate:
 
     def test_the_result_is_dimensionless(self, context):
         assert growth_rate(context, start=usd(100), end=usd(110)).unit.is_dimensionless
+
+
+class TestImpliedUpside:
+    """ADR 0117's composed half rests on this one: the distance from the market price."""
+
+    @pytest.mark.parametrize(
+        ("value", "price", "expected"),
+        [
+            (138, 100, "0.38"),
+            (100, 100, "0"),
+            (62, 100, "-0.38"),
+            (50, 200, "-0.75"),
+            (200, 50, "3"),
+        ],
+        ids=["38pc-above", "at-the-price", "38pc-below", "three-quarters-below", "four-times"],
+    )
+    def test_hand_computed_answers(self, context, value, price, expected):
+        result = implied_upside(
+            context, value_per_share=per_share(value), price_per_share=per_share(price)
+        )
+
+        assert result.value == Decimal(expected)
+
+    def test_the_sign_carries_the_direction(self, context):
+        """A magnitude with no direction is the one thing a reader cannot use.
+
+        "38%" against a price could be either side of it, and the composed half says
+        *above* or *below* from this sign rather than from a comparison it repeats.
+        """
+        above = implied_upside(
+            context, value_per_share=per_share(138), price_per_share=per_share(100)
+        )
+        below = implied_upside(
+            context, value_per_share=per_share(62), price_per_share=per_share(100)
+        )
+
+        assert above.value > 0
+        assert below.value < 0
+
+    def test_the_denominator_is_the_price_not_the_value(self, context):
+        """The reader's question is how far from what they would pay.
+
+        Over the value instead, 138 against 100 would read 27.5% — a different number,
+        also defensible, and not the one a market comparison means.
+        """
+        result = implied_upside(
+            context, value_per_share=per_share(138), price_per_share=per_share(100)
+        )
+
+        assert result.value == Decimal("0.38")
+
+    def test_it_is_recorded_under_its_own_name(self, context):
+        """Roadmap §3.19.4: a ledger row records the name a figure was computed under.
+
+        The arithmetic is `growth_rate`'s. A reader following this figure's footnote to a
+        calculation called "growth_rate" would be told something grew, and nothing did.
+        """
+        implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(100))
+
+        assert [record.name for record in context.records] == ["implied_upside"]
+
+    def test_a_nil_price_raises(self, context):
+        with pytest.raises(CalculationError, match="no positive price"):
+            implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(0))
+
+    def test_a_negative_price_raises(self, context):
+        with pytest.raises(CalculationError, match="no positive price"):
+            implied_upside(context, value_per_share=per_share(138), price_per_share=per_share(-5))
+
+    def test_two_currencies_raise_rather_than_converting(self, context):
+        """A cross-currency distance is arithmetic nobody performed."""
+        with pytest.raises(UnitMismatchError, match="same currency"):
+            implied_upside(
+                context,
+                value_per_share=per_share(138),
+                price_per_share=per_share(100, currency="GBP"),
+            )
+
+    def test_a_whole_company_figure_against_a_per_share_one_raises(self, context):
+        """Wrong by the share count, and it would look entirely ordinary."""
+        with pytest.raises(UnitMismatchError):
+            implied_upside(context, value_per_share=usd(138), price_per_share=per_share(100))
+
+    def test_the_result_is_dimensionless(self, context):
+        result = implied_upside(
+            context, value_per_share=per_share(138), price_per_share=per_share(100)
+        )
+
+        assert result.unit.is_dimensionless
 
 
 class TestCagr:
