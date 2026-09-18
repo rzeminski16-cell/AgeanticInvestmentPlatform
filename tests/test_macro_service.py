@@ -369,6 +369,15 @@ class TestTheRiskFreeRate:
         """Not defaulted to the US yield: that error is the whole rate differential."""
         with pytest.raises(SeriesRefusedError, match="rate differential"):
             await macro_service.risk_free_rate_as_at(
+                db_session, currency="JPY", as_of=date(2024, 6, 28)
+            )
+
+    async def test_sterling_is_refused_by_naming_the_gilt(self, db_session, clean):
+        """The other refusal, and it reaches the operator through this door too: sterling's
+        proxy is settled and only its retrieval is closed, so the sentence says what to
+        enter rather than that nothing is documented."""
+        with pytest.raises(SeriesRefusedError, match="ten-year gilt yield"):
+            await macro_service.risk_free_rate_as_at(
                 db_session, currency="GBP", as_of=date(2024, 6, 28)
             )
 
