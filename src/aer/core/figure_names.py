@@ -320,10 +320,27 @@ def denial_span(clause: str) -> str:
     **It ends at the word about the record, not at the end of the clause.** "Where no cloud
     margin is disclosed, the consolidated operating income line is the fallback" denies the
     cloud margin and then goes on to *use* the operating income, and a span running to the
-    end of the clause reads the second as denied too — the last false positive the corpus
-    held. The exception is a negator that is itself a word about the record, where there is
-    nothing between the two to end at: "the evidence is silent on interest cover" negates and
-    speaks about the record in one word, and its subject follows.
+    end of the clause reads the second as denied too. The exception is a negator that is
+    itself a word about the record, where there is nothing between the two to end at: "the
+    evidence is silent on interest cover" negates and speaks about the record in one word,
+    and its subject follows.
+
+    **An opening absolute phrase is closed by its comma, and that is the exception's
+    exception.** The September measurement round's one recorded false positive was *"Absent
+    that comparison, the capital allocation posture described here should be read as a
+    single-year snapshot: reinvestment-led, with capital expenditure roughly five times the
+    combined shareholder distribution"* — logged as denying capital expenditure, in a clause
+    that uses it. ``absent`` is both a negator and a word about the record, so the span ran
+    from it to the end of the clause and swept up a positive statement twenty words later.
+    What the negation actually governs is *that comparison*, and what says so is the comma:
+    an absolute phrase opening a clause is closed by one. So the self-negating branch stops
+    there — but only when the word **opens** the clause, because "the evidence is silent on
+    interest cover" has its subject after the negator and no comma anywhere.
+
+    The comma cannot end a span in general, and the sentence in :func:`denies` is why: "No
+    discounted cash flow, cost of equity, weighted average cost of capital, terminal value,
+    value per share or peer multiple sits on this record" is an enumeration held together by
+    commas, and ending at the first would drop five of its six figures.
 
     Empty where nothing negates, which a caller should already have ruled out with
     :func:`denies`.
@@ -333,12 +350,23 @@ def denial_span(clause: str) -> str:
     if negated is None:
         return ""
     if words[negated] in EVIDENCE_WORDS:
-        return " ".join(words[negated:])
+        opener = _absolute_phrase(clause) if negated == 0 else ""
+        return opener or " ".join(words[negated:])
     ends = next(
         (index for index in range(negated + 1, len(words)) if words[index] in EVIDENCE_WORDS),
         len(words) - 1,
     )
     return " ".join(words[negated : ends + 1])
+
+
+def _absolute_phrase(clause: str) -> str:
+    """The clause's opening phrase where a comma closes one, normalised, else empty.
+
+    Read off the raw clause rather than the normalised words, because :func:`normalised`
+    reduces every run of non-alphanumerics to a space and the comma is the whole signal.
+    """
+    head, separator, _ = clause.partition(",")
+    return normalised(head) if separator else ""
 
 
 # What may stand in front of a subject without displacing it. Determiners and possessives

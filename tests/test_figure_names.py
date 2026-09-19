@@ -254,6 +254,47 @@ class TestWhatTheNegationReaches:
         assert denial_span("The value per share is 485.29") == ""
 
 
+class TestAnOpeningAbsolutePhraseIsClosedByItsComma:
+    """The measurement round's one recorded false positive — roadmap §3.19 item 37.
+
+    `absent` is both a negator and a word about the record, so the self-negating branch
+    carried its span to the end of the clause and swept up a positive statement twenty
+    words later. What the negation governs is the phrase the comma closes.
+    """
+
+    FALSE_POSITIVE = (
+        "Absent that comparison, the capital allocation posture described here should be "
+        "read as a single-year snapshot: reinvestment-led, with capital expenditure "
+        "roughly five times the combined shareholder distribution"
+    )
+
+    def test_the_span_ends_where_the_absolute_phrase_does(self) -> None:
+        assert denial_span(self.FALSE_POSITIVE) == "absent that comparison"
+
+    def test_a_figure_the_clause_goes_on_to_use_is_not_denied(self) -> None:
+        """Logged as denying capital expenditure, in a clause that states it is five
+        times the shareholder distribution."""
+        assert denies(self.FALSE_POSITIVE)
+        assert not mentions(denial_span(self.FALSE_POSITIVE), "capital expenditure")
+        assert not opens_with(self.FALSE_POSITIVE, "capital expenditure")
+
+    def test_a_self_negating_opener_with_no_comma_still_reaches_the_end(self) -> None:
+        clause = "Absent a cash flow statement no free cash flow can be stated"
+        assert mentions(denial_span(clause), "free cash flow")
+
+    def test_the_subject_after_a_mid_clause_self_negating_word_is_untouched(self) -> None:
+        """ "The evidence is silent on interest cover" does not *open* with the word."""
+        assert mentions(denial_span("The evidence is silent on interest cover"), "interest cover")
+
+    def test_the_comma_never_ends_an_enumeration(self) -> None:
+        """msft1's sentence is held together by commas; ending at the first drops five
+        of its six figures. Its negator is not a word about the record, so the rule
+        cannot reach it — and this is the assertion that keeps it that way."""
+        span = denial_span(AUDIT_DENIALS[0])
+        assert mentions(span, "value per share")
+        assert mentions(span, "cost of equity")
+
+
 class TestNarrows:
     @pytest.mark.parametrize(
         "clause",

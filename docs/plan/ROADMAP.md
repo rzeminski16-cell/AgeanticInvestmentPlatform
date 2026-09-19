@@ -1630,12 +1630,29 @@ found rather than as scope that was always there.
     the curated seven in `consistency.py` would be **the fifth instance in one day** of one
     rule written twice with one copy rotting.
 
-    *Not fixed, and recorded so it is not mistaken for done.* The same run produced a
-    **false positive**: *"Absent that comparison, the capital allocation posture … with
-    capital expenditure roughly five times the combined shareholder distribution"* was
-    logged as denying capital expenditure, in a sentence that uses it. Recall was the
-    urgent half — a missed contradiction ships, a spurious one is a line in an appendix —
-    but the precision half is real and open.
+    *The precision half, closed the same day.* The same run produced a **false positive**:
+    *"Absent that comparison, the capital allocation posture … with capital expenditure
+    roughly five times the combined shareholder distribution"* was logged as denying capital
+    expenditure, in a clause that states it is five times the shareholder distribution.
+
+    The cause is one word in two lists. `absent` is a negator **and** a word about the
+    record, so `denial_span` took its self-negating branch — written for *"the evidence is
+    silent on interest cover"*, where the subject follows the word and nothing stands
+    between them — and carried the span to the end of the clause, sweeping up a positive
+    statement twenty words later. What the negation governs is *that comparison*, and what
+    says so is the comma: an absolute phrase opening a clause is closed by one. The branch
+    stops there now, and only when the word **opens** the clause, because "the evidence is
+    silent on…" has no comma anywhere.
+
+    A comma cannot end a span in general, and msft1's own sentence is why — *"No discounted
+    cash flow, cost of equity, weighted average cost of capital, terminal value, value per
+    share or peer multiple sits on this record"* is an enumeration held together by commas,
+    and ending at the first would drop five of its six figures. Its negator is not a word
+    about the record, so the rule cannot reach it, and a test says so.
+
+    *Measured on the round's own MSFT run, read-only both ways:* **2 denials before, 1
+    after** — the false positive gone, the true one (free cash flow denied and printed)
+    standing, because that one is caught by `opens_with` rather than by the span.
 
 38. **The two terminal methods contradicted each other and the document called it a width,
     19 September 2026.** The measurement round's largest finding, and the one all three AZN
