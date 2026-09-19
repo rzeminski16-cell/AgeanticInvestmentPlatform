@@ -1384,6 +1384,22 @@ found rather than as scope that was always there.
     recorded documents and the 406 that produced ADR 0128, and the verdict asserts no job
     exists and that the refusal names the filing. **The class**: a check placed in its callers
     rather than in the thing it guards is a check that a new caller silently opts out of.
+28. **A failure no page expected reached the operator as JSON, 19 September 2026.** Found while
+    settling a journey row rather than by meeting it: the row `problem.aer_error` had sat
+    unconstructed since the harness landed, recorded as *"no route on the run's pages catches a
+    bare `AerError`"*. Reading the routes to decide whether the branch was dead showed the
+    recorded reason was exactly true — `web/pages.py` refuses the two failures it expects, a
+    page that moved under a form and a rule the approval service refused, and catches nothing
+    else — so **the row asserted nothing and is deleted**, which is what the harness's own rule
+    prescribes for a branch nothing can reach. But the reading also showed where such a failure
+    *did* go: the application's handler answered it with an RFC 9457 problem document whatever
+    the caller asked for, so an `IntegrityError` or a `ConfigError` raised inside a page handler
+    arrived in a browser window as JSON with nothing to press — a worse dead end than the one
+    §2.11 spent a phase removing. A caller that says it renders HTML now gets the refusal page,
+    with a way back to the run derived from the path, since the raising code did not expect to
+    be there and cannot be asked to supply one. **The class**: a row that cannot be constructed
+    is worth reading the code to settle rather than leaving on a list — the row was wrong and
+    what it was pointing at was real.
 
 ### Before this leaves one machine
 

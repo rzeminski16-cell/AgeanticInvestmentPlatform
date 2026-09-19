@@ -72,6 +72,28 @@ def _probe_router() -> APIRouter:
     return router
 
 
+PROBE_JOB_ID = "11111111-2222-3333-4444-555555555555"
+
+
+def _page_router() -> APIRouter:
+    """Routes at the paths a browser is on, failing the way a page handler can.
+
+    Unprefixed, because what the handler reads to decide whether the operator can be sent
+    back to their run is the path — and a probe under `/_probe` would never look like one.
+    """
+    router = APIRouter()
+
+    @router.get("/runs/{job_id}/probe-failure")
+    async def on_a_run_page(job_id: str) -> None:
+        raise IntegrityError("Artefact hash mismatch", context={"sha256": "deadbeef"})
+
+    @router.get("/probe-elsewhere")
+    async def off_a_run_page() -> None:
+        raise IntegrityError("Artefact hash mismatch", context={"sha256": "deadbeef"})
+
+    return router
+
+
 @pytest.fixture
 async def probe_client(api_settings, broken_engine, fake_redis):
     # The probes never touch a dependency, so an unreachable database keeps this file
@@ -239,3 +261,75 @@ class TestRequestId:
         # request is joinable by it, error line and access line alike.
         assert all(event["request_id"] == "trace-me" for event in events)
         assert {"aer_error", "request.completed"} <= {event["event"] for event in events}
+
+
+class TestABrowserIsAnsweredWithAPage:
+    """One shape for clients is this module's whole point, and a problem document rendered
+    into a browser window is not a shape: it is JSON on a white background with nothing to
+    press. The two failures a run page expects it refuses itself; anything else used to
+    arrive here and leave as a document.
+
+    The row in the journey inventory that asked about this was removed on 19 September 2026
+    — no route catches a bare `AerError`, so it stood for a state nothing could reach — and
+    reading the routes to settle it is what found this. The class of failure is real and
+    every route could produce one tomorrow; `IntegrityError` is the probe because an
+    artefact hash mismatch is a failure no page handler expects.
+    """
+
+    @pytest.fixture
+    async def page_client(self, api_settings, broken_engine, fake_redis):
+        app = build_app(api_settings, engine=broken_engine, redis=fake_redis)
+        app.include_router(_page_router())
+        async for client in client_for(app):
+            yield client
+
+    async def test_a_browser_gets_the_refusal_page(self, page_client):
+        response = await page_client.get(
+            f"/runs/{PROBE_JOB_ID}/probe-failure", headers={"accept": "text/html"}
+        )
+
+        assert response.status_code == 500
+        assert response.headers["content-type"].startswith("text/html")
+        assert "Not available" in response.text
+        assert "Artefact hash mismatch" in response.text
+
+    async def test_the_page_leads_back_to_the_run_the_operator_was_reading(self, page_client):
+        """The control the row wanted. A refusal whose only way on is the request list is the
+        dead end §2.11 names, and the raising code did not expect to be here and cannot be
+        asked to supply the way back — so it comes from the path."""
+        response = await page_client.get(
+            f"/runs/{PROBE_JOB_ID}/probe-failure", headers={"accept": "text/html"}
+        )
+
+        assert f'href="/runs/{PROBE_JOB_ID}"' in response.text
+        assert "Back to the run" in response.text
+
+    async def test_a_page_outside_a_run_offers_no_run_to_go_back_to(self, page_client):
+        """Invented rather than omitted would be worse: a link to a run this failure has
+        nothing to do with."""
+        response = await page_client.get("/probe-elsewhere", headers={"accept": "text/html"})
+
+        assert response.status_code == 500
+        assert "Back to the run" not in response.text
+        assert "All requests" in response.text
+
+    async def test_a_client_that_did_not_ask_for_html_still_gets_the_document(self, probe_client):
+        """Nothing about the document changes. `curl` sends `*/*` and an API client sends
+        `application/json`; the test is for the media type being named, never for its
+        absence."""
+        for accept in ("application/json", "*/*"):
+            response = await probe_client.get("/_probe/integrity", headers={"accept": accept})
+
+            assert response.headers["content-type"].startswith(PROBLEM_MEDIA_TYPE), accept
+            assert response.json()["code"] == "integrity_error"
+
+    async def test_the_documents_context_is_not_printed_onto_the_page(self, page_client):
+        """The document carries redacted context for a client to parse. A page carries a
+        sentence for a person to read, and the two are not the same surface: a context key
+        printed into HTML is a code identifier on an operator's screen (§2.11)."""
+        response = await page_client.get(
+            f"/runs/{PROBE_JOB_ID}/probe-failure", headers={"accept": "text/html"}
+        )
+
+        assert "sha256" not in response.text
+        assert "deadbeef" not in response.text

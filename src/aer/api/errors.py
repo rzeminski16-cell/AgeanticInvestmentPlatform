@@ -14,10 +14,20 @@ The line this module draws:
   unhandled exception is written by whichever library raised it, and library messages
   routinely contain connection strings, file paths and query fragments. The full detail
   is logged with its traceback; none of it is sent.
+
+**And a browser is answered with a page.** One shape for clients is the point of this
+module, and a problem document rendered into a browser window is not a shape at all: it is
+JSON on a white background with nothing to press, which is a worse dead end than the one the
+vocabulary work spent a phase removing. The web pages catch the two failures they expect —
+a page that moved under a form, a rule the approval service refused — and handle both
+themselves; anything else reaching a page handler used to arrive here and leave as JSON. A
+caller that says it can render HTML now gets the refusal page, with a way back to the run it
+came from. Nothing about the document changes for a caller that asked for JSON.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any, Final
 
 import structlog
@@ -48,6 +58,11 @@ _TYPE_PREFIX: Final = "/errors/"
 _GENERIC_DETAIL: Final = (
     "An unexpected error occurred. The failure has been logged; quote the request id when "
     "reporting it."
+)
+
+# A run-scoped page's path, so a refusal can point back at the run the operator was reading.
+_RUN_PATH: Final = re.compile(
+    r"^/runs/(?P<job_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/|$)"
 )
 
 _log = structlog.get_logger("aer.api.errors")
@@ -101,7 +116,7 @@ def problem_response(
     )
 
 
-async def _handle_aer_error(_request: Request, exc: Exception) -> Response:
+async def _handle_aer_error(request: Request, exc: Exception) -> Response:
     error = exc if isinstance(exc, AerError) else AerError(str(exc))
     status = error.http_status
 
@@ -112,12 +127,55 @@ async def _handle_aer_error(_request: Request, exc: Exception) -> Response:
     else:
         _log.warning("aer_error", error_code=error.code, http_status=status)
 
+    page = _page_for(request, message=error.message, status=status)
+    if page is not None:
+        return page
+
     return problem_response(
         status=status,
         code=error.code,
         detail=error.message,
         context=error.context,
     )
+
+
+def _wants_a_page(request: Request) -> bool:
+    """Whether this caller is a browser asking for a page rather than a client for JSON.
+
+    Read from ``Accept``, which is the only thing a caller states about what it can render.
+    A browser leads with ``text/html``; an API client sends ``application/json`` and `curl`
+    sends ``*/*``, and both of those want the problem document. So the test is for the media
+    type being named, never for its absence — a caller that says nothing keeps what it has
+    always been given.
+    """
+    return "text/html" in request.headers.get("accept", "")
+
+
+def _page_for(request: Request, *, message: str, status: int) -> Response | None:
+    """The refusal page for a browser, or ``None`` when the caller wants the document.
+
+    ``back`` is the run's own console where the path names a run, because a refusal that
+    leaves an operator on a page whose only control is the request list is the dead end the
+    journey harness exists to find. Derived from the path rather than passed, for the reason
+    this handler exists at all: the raising code did not expect to be here and cannot be
+    asked to supply it.
+
+    Imported inside the function. The web layer renders through the application's own
+    templating, which reads settings and the shell, and importing it at module scope would
+    make every consumer of this module — including the CLI's error formatting — pull the
+    template engine in with it.
+    """
+    if not _wants_a_page(request):
+        return None
+    from aer.web.pages import problem_page  # noqa: PLC0415 -- see the docstring
+
+    return problem_page(request, message, status=status, back=_run_console_of(request))
+
+
+def _run_console_of(request: Request) -> str | None:
+    """``/runs/{id}`` where this request was for a run-scoped page, else ``None``."""
+    found = _RUN_PATH.match(request.url.path)
+    return f"/runs/{found['job_id']}" if found else None
 
 
 async def _handle_request_validation_error(_request: Request, exc: Exception) -> Response:

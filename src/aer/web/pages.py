@@ -172,7 +172,7 @@ async def start_run_page(  # noqa: PLR0917 -- every one is an injected dependenc
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
 
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was started.",
             status=HTTP_403_FORBIDDEN,
@@ -181,11 +181,13 @@ async def start_run_page(  # noqa: PLR0917 -- every one is an injected dependenc
     try:
         request_id = uuid.UUID(submitted.get("request_id", ""))
     except ValueError:
-        return _problem(request, "That is not a research request.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, "That is not a research request.", status=HTTP_404_NOT_FOUND)
 
     found = await session.get(ResearchRequest, request_id)
     if found is None or found.work_order.user_id != user.id:
-        return _problem(request, f"No research request {request_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(
+            request, f"No research request {request_id}.", status=HTTP_404_NOT_FOUND
+        )
 
     # Asked before the job exists, so a subject this platform cannot research costs nothing
     # rather than a planning call and a gate the operator reads (ADR 0128). The refusal is
@@ -197,7 +199,7 @@ async def start_run_page(  # noqa: PLR0917 -- every one is an injected dependenc
         companies_house_client=registers.companies_house_client,
     )
     if not available.researchable:
-        return _problem(request, available.reason, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, available.reason, status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     job = await run_service.start_run(session, request=found)
     await session.commit()
@@ -244,7 +246,7 @@ async def run_console(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     state = await run_service.run_state(session, job_id=job_id)
     research_request = await mandate_of(session, job)
@@ -565,13 +567,13 @@ async def resume_run_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
 
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was resumed.",
             back=f"/runs/{job_id}",
@@ -589,7 +591,7 @@ async def resume_run_page(
         )
     except ConflictError as exc:
         why = f" {stranding.reason}" if stranding is not None else ""
-        return _problem(
+        return problem_page(
             request, exc.message + why, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT
         )
 
@@ -617,12 +619,12 @@ async def reseal_run_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was re-sealed.",
             back=f"/runs/{job_id}",
@@ -642,9 +644,9 @@ async def reseal_run_page(
             session, job=job, actor=user, reason="re-sealed from the console"
         )
     except ConflictError as exc:
-        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
+        return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
     except ValidationError as exc:
-        return _problem(
+        return problem_page(
             request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
         )
 
@@ -671,12 +673,12 @@ async def remeasure_run_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was re-measured.",
             back=f"/runs/{job_id}",
@@ -688,9 +690,9 @@ async def remeasure_run_page(
         await gates_service.remeasure_checks(session, job=job, actor=user, reason=reason)
         await resume_service.resume_run(session, job=job, actor=user, reason=reason)
     except ConflictError as exc:
-        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
+        return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
     except ValidationError as exc:
-        return _problem(
+        return problem_page(
             request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
         )
 
@@ -721,13 +723,13 @@ async def raise_run_cap(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
 
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was changed.",
             back=f"/runs/{job_id}",
@@ -736,13 +738,13 @@ async def raise_run_cap(
 
     research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot outlive its request
-        return _problem(request, f"No request for run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No request for run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     raw = (submitted.get("max_cost_gbp") or "").strip()
     try:
         asked = Decimal(raw)
     except InvalidOperation:
-        return _problem(
+        return problem_page(
             request,
             f"{raw!r} is not an amount. Give the new ceiling in pounds, as a number.",
             back=f"/runs/{job_id}",
@@ -758,7 +760,7 @@ async def raise_run_cap(
             ceiling_gbp=settings.per_run_budget_gbp,
         )
     except ValidationError as exc:
-        return _problem(
+        return problem_page(
             request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
         )
 
@@ -782,13 +784,13 @@ async def cancel_run_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
 
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was cancelled.",
             back=f"/runs/{job_id}",
@@ -802,7 +804,7 @@ async def cancel_run_page(
     except ConflictError as exc:
         # The run finished between the page rendering and the button being pressed. Nothing
         # went wrong; there is simply nothing left to stop, and the page says so.
-        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
+        return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
@@ -819,7 +821,7 @@ async def plan_review(
     """Gate 1: what the run intends to do, what it will cost, and what it may get wrong."""
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     plan = await session.scalar(
         select(ResearchPlan)
@@ -827,7 +829,7 @@ async def plan_review(
         .order_by(ResearchPlan.created_at.desc())
     )
     if plan is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not produced a plan yet. There is nothing to approve.",
             status=HTTP_404_NOT_FOUND,
@@ -897,18 +899,18 @@ async def financials_review(
     """The conditional gate: tags this platform's concept map could not place."""
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     produced = await _step_output(session, job_id=job_id, step_key="extract")
     if produced is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not extracted anything yet. There is nothing to confirm.",
             status=HTTP_404_NOT_FOUND,
         )
 
     if not unmapped_gate_required(produced):
-        return _problem(
+        return problem_page(
             request,
             "Every tag in this filing mapped onto a canonical concept, so this gate does not "
             "apply to this run. There is nothing to confirm.",
@@ -971,18 +973,18 @@ async def sector_review(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     produced = await _step_output(session, job_id=job_id, step_key=CLASSIFY_STEP)
     if produced is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not classified the company yet. There is nothing to confirm.",
             status=HTTP_404_NOT_FOUND,
         )
 
     if not sector_gate_required(produced):
-        return _problem(
+        return problem_page(
             request,
             "This company was not classified into a specialist sector, so this gate does not "
             "apply to this run. The standard model applies and there is nothing to confirm.",
@@ -1032,11 +1034,11 @@ async def peer_review(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     produced = await _step_output(session, job_id=job_id, step_key=PEER_SET_STEP)
     if produced is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not proposed a peer set yet. There is nothing to confirm.",
             status=HTTP_404_NOT_FOUND,
@@ -1056,7 +1058,7 @@ async def peer_review(
         # A run that asked no model is a third situation again (ADR 0059, second
         # amendment), and the reason is the operator's to read: a subscription, not a fault.
         not_asked = str(produced.get("model_skipped_because", "")).strip()
-        return _problem(
+        return problem_page(
             request,
             "This run proposed no comparable companies, so this gate does not apply to it. "
             "No comparables table will be produced and the report says so."
@@ -1112,17 +1114,17 @@ async def theme_review(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     produced = await _step_output(session, job_id=job_id, step_key=THEME_STEP)
     if produced is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not proposed themes yet. There is nothing to confirm.",
             status=HTTP_404_NOT_FOUND,
         )
     if not theme_set_required(produced):
-        return _problem(
+        return problem_page(
             request,
             "This run proposed no themes, so this gate does not apply to it. The company "
             "is filed under nothing new, and that is a fact rather than a failure.",
@@ -1188,18 +1190,18 @@ async def assumptions_review(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     produced = await _step_output(session, job_id=job_id, step_key=ASSUMPTIONS_STEP)
     if produced is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has not proposed any assumptions yet. There is nothing to confirm.",
             status=HTTP_404_NOT_FOUND,
         )
 
     if not assumptions_gate_required(produced):
-        return _problem(
+        return problem_page(
             request,
             "This run has nothing to confirm here: either its sector mandate does not "
             "permit a discounted cash flow, or the run proposed no assumptions and left "
@@ -1254,14 +1256,14 @@ async def draft_review(
     """Gate 2: the drafted sections, exactly as the report will carry them."""
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     payload = await _payload_for(session, job=job, gate=GateKind.FINAL)
     # Rows exist from the moment a plan is approved; content arrives only when the draft
     # step runs. Testing for rows rather than for content would show an empty document and
     # invite an approval of nothing.
     if not any(section["content"] for section in payload["sections"]):
-        return _problem(
+        return problem_page(
             request,
             "This run has drafted nothing yet. There is nothing to approve.",
             status=HTTP_404_NOT_FOUND,
@@ -1269,7 +1271,7 @@ async def draft_review(
 
     research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
-        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
     # Matched on the listing rather than a foreign key: a request names a ticker somebody
     # typed, and only the acquire step turns that into a company row. Before then there is
@@ -1541,17 +1543,17 @@ async def run_preview(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
-        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
     exists = await session.scalar(
         select(ReportSection.id).where(ReportSection.job_id == job_id).limit(1)
     )
     if exists is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has no sections yet, so there is no document to preview. Sections "
             "appear once the plan is approved.",
@@ -1581,17 +1583,17 @@ async def run_summary(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
-        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
     exists = await session.scalar(
         select(ReportSection.id).where(ReportSection.job_id == job_id).limit(1)
     )
     if exists is None:
-        return _problem(
+        return problem_page(
             request,
             "This run has no sections yet, so there is no document to summarise.",
             status=HTTP_404_NOT_FOUND,
@@ -1652,12 +1654,12 @@ async def replay_run_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was replayed.",
             back=f"/runs/{job_id}",
@@ -1769,12 +1771,12 @@ async def settle_disagreement_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was settled.",
             status=HTTP_403_FORBIDDEN,
@@ -1785,14 +1787,14 @@ async def settle_disagreement_page(
     # run, and a settle posted at the wrong run is a mistake worth refusing rather than
     # silently honouring.
     if found is None or found.job_id != job_id:
-        return _problem(
+        return problem_page(
             request, f"No disagreement {disagreement_id} on this run.", status=HTTP_404_NOT_FOUND
         )
 
     try:
         outcome = ResolutionOutcome(submitted.get("outcome", ""))
     except ValueError:
-        return _problem(
+        return problem_page(
             request, "That is not a side of this disagreement.", status=HTTP_404_NOT_FOUND
         )
 
@@ -1826,7 +1828,7 @@ async def settle_disagreement_page(
         # The service's messages name the rule they enforce — "a human resolution needs a
         # reason", "this was settled by rule and is not open" — and each is the useful
         # answer to what the operator just tried.
-        return _problem(request, str(problem), status=HTTP_400_BAD_REQUEST)
+        return problem_page(request, str(problem), status=HTTP_400_BAD_REQUEST)
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/review#disagreements", status_code=HTTP_303_SEE_OTHER)
@@ -1896,12 +1898,12 @@ async def add_theme(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was added.",
             status=HTTP_403_FORBIDDEN,
@@ -1916,7 +1918,7 @@ async def add_theme(
             actor=user,
         )
     except ValidationError as refused:
-        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/themes", status_code=HTTP_303_SEE_OTHER)
@@ -1947,12 +1949,12 @@ async def add_peer(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was added.",
             status=HTTP_403_FORBIDDEN,
@@ -1961,7 +1963,7 @@ async def add_peer(
     try:
         company_id = uuid.UUID(submitted.get("company_id", ""))
     except ValueError:
-        return _problem(
+        return problem_page(
             request, "That is not a company on this platform.", status=HTTP_404_NOT_FOUND
         )
 
@@ -1974,7 +1976,7 @@ async def add_peer(
             actor=user,
         )
     except ValidationError as refused:
-        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/peers", status_code=HTTP_303_SEE_OTHER)
@@ -1999,13 +2001,13 @@ async def decide_gate_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
 
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was decided.",
             back=f"/runs/{job_id}",
@@ -2026,7 +2028,7 @@ async def decide_gate_page(
     # this build cannot read returns an empty payload, and the deep check still holds.
     current = await _payload_for(session, job=job, gate=gate)
     if current and submitted.get("payload_hash", "") != payload_hash_for(current):
-        return _problem(
+        return problem_page(
             request,
             "The proposal changed after this page was opened. Nothing was approved. "
             "Review the current version and decide again.",
@@ -2059,11 +2061,11 @@ async def decide_gate_page(
         # Shown rather than swallowed. Every refusal from the approval service names a
         # rule the operator can act on -- already decided, or out of order -- and hiding
         # that behind a generic error would make the gates feel arbitrary.
-        return _problem(
+        return problem_page(
             request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
         )
     except ConflictError as exc:
-        return _problem(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
+        return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
 
     await session.commit()
 
@@ -2089,7 +2091,7 @@ async def run_sources(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     sources = await provenance.sources_for_run(session, job_id)
     research_request = await mandate_of(session, job)
@@ -2148,7 +2150,7 @@ async def run_claims(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     claims = await provenance.claims_for_run(session, job_id)
     research_request = await mandate_of(session, job)
@@ -2194,11 +2196,11 @@ async def claim_detail(
     check that may never have happened, which is worse than showing nothing.
     """
     if not await _claim_is_visible(session, claim_id=claim_id, user_id=user.id):
-        return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
 
     view = await provenance.claim_view(session, claim_id)
     if view is None:  # pragma: no cover -- visibility already proved it exists
-        return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
 
     states = [citation.state for citation in view.citations]
     verified = states.count("verified")
@@ -2260,14 +2262,14 @@ async def footnote_drilldown(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
     research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
-        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
     document = await _run_document(session, job=job, research_request=research_request)
     if number < 1 or number > len(document.citations):
-        return _problem(
+        return problem_page(
             request,
             f"This document has {len(document.citations)} note(s); there is no note {number}.",
             status=HTTP_404_NOT_FOUND,
@@ -2407,7 +2409,7 @@ async def valuation_page(
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
-        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     research_request = await mandate_of(session, job)
 
@@ -2620,11 +2622,11 @@ async def calculation_detail(
     """
     calculation = await session.get(Calculation, calculation_id)
     if calculation is None:
-        return _problem(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
 
     job = await _owned_job(session, job_id=calculation.job_id, user=user)
     if job is None:
-        return _problem(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
 
     tree = await calculation_service.lineage(session, calculation_id)
 
@@ -2713,7 +2715,7 @@ async def save_settings(
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was changed.",
             status=HTTP_403_FORBIDDEN,
@@ -2757,7 +2759,7 @@ async def save_standing_settings(
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was changed.",
             status=HTTP_403_FORBIDDEN,
@@ -3074,7 +3076,7 @@ async def company_page(
         session, company_id=company_id, user_id=user.id
     )
     if company is None:
-        return _problem(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
 
     views = await history_service.valuation_history_for(session, company_id=company.id)
 
@@ -3191,12 +3193,12 @@ async def resolve_catalyst(
         session, company_id=company_id, user_id=user.id
     )
     if company is None:
-        return _problem(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was recorded.",
             status=HTTP_403_FORBIDDEN,
@@ -3205,7 +3207,7 @@ async def resolve_catalyst(
     try:
         outcome = CatalystOutcomeKind(submitted.get("outcome", ""))
     except ValueError:
-        return _problem(
+        return problem_page(
             request,
             "The outcome must be one of: occurred, did not occur, superseded.",
             status=HTTP_422_UNPROCESSABLE_CONTENT,
@@ -3220,7 +3222,7 @@ async def resolve_catalyst(
             actor=user,
         )
     except ValidationError as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
     return RedirectResponse(f"/companies/{company_id}", status_code=HTTP_303_SEE_OTHER)
@@ -3241,7 +3243,7 @@ async def report_detail(
         .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
-        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
     content: dict[str, Any] = dict(report.content or {})
     research_request = await session.get(ResearchRequest, report.request_id)
@@ -3297,12 +3299,12 @@ async def withdraw_report_page(
         .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
-        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was withdrawn.",
             status=HTTP_403_FORBIDDEN,
@@ -3312,9 +3314,9 @@ async def withdraw_report_page(
             session, report=report, reason=submitted.get("reason", ""), actor=user
         )
     except ValidationError as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
     except ConflictError as exc:
-        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+        return problem_page(request, exc.message, status=HTTP_409_CONFLICT)
     await session.commit()
     return RedirectResponse(f"/reports/{report_id}", status_code=HTTP_303_SEE_OTHER)
 
@@ -3339,12 +3341,12 @@ async def export_obsidian_page(
         .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
-        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
     form = await request.form()
     submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return _problem(
+        return problem_page(
             request,
             "This form's security token was missing or had expired. Nothing was exported.",
             status=HTTP_403_FORBIDDEN,
@@ -3353,7 +3355,7 @@ async def export_obsidian_page(
     try:
         await export_report(session, settings=settings, report_id=report.id)
     except (ObsidianExportError, VaultWriteError) as exc:
-        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+        return problem_page(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
     return RedirectResponse(f"/reports/{report_id}", status_code=HTTP_303_SEE_OTHER)
@@ -3384,12 +3386,12 @@ async def report_preview(
         .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
-        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
     job = await session.get(Job, report.job_id)
     research_request = await session.get(ResearchRequest, report.request_id)
     if job is None or research_request is None:  # pragma: no cover -- FK-guaranteed rows
-        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
     company = (
         await session.get(Company, report.company_id) if report.company_id is not None else None
@@ -3508,9 +3510,16 @@ async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> di
     return dict(await builder(session, job=job, gate=gate.value))
 
 
-def _problem(request: Request, message: str, *, status: int, back: str | None = None) -> Response:
+def problem_page(
+    request: Request, message: str, *, status: int, back: str | None = None
+) -> Response:
     """The refusal page. ``back`` is where the operator was: a refusal that leaves them at
-    a page whose only control is the request list is a dead end of its own (§2.11)."""
+    a page whose only control is the request list is a dead end of its own (§2.11).
+
+    Public because the application's own error handler renders it for a browser that meets a
+    failure no route expected (:mod:`aer.api.errors`). One refusal page, whether a route
+    chose to show it or a handler had to.
+    """
     response: Response = render(
         request, "runs/problem.html", {"message": message, "back": back}, status_code=status
     )

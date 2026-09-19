@@ -303,13 +303,29 @@ def _final_rows() -> list[StoppedState]:
     return rows
 
 
-def _problem_rows() -> list[StoppedState]:
-    """One row per error class the runs pages catch onto the problem page.
+# The failures a run page refuses by name, and therefore the states a row can stand for. A
+# conflict is a page that moved under a form (the stale hash a decision was posted with); a
+# validation error is a rule the approval service refused (a decision out of gate order, a
+# second decision over unchanged content).
+#
+# **A bare `AerError` was a third row here and is deliberately gone, 19 September 2026.** The
+# list was written by hand, and the docstring's claim — "whatever else a route catches" — was
+# not true of any route: `src/aer/web/pages.py` contains no `except AerError`, so nothing
+# could put a run into that state and the row asserted nothing about the product. Generating
+# it was the harness overstating what it had read.
+#
+# Removing it changed something real, which is why it is worth the paragraph. Reading the
+# routes to settle the row is what found that an unexpected `AerError` reaching a page left
+# as an RFC 9457 document — JSON in a browser window, with nothing to press. That is fixed
+# where it belongs, in the application's own handler, and it is not this row: it is a class
+# of failure no route produces today and every route could tomorrow.
+_PAGE_REFUSALS: Final = (errors.ValidationError, errors.ConflictError)
 
-    A conflict is a page that moved under a form (the stale hash a decision was posted
-    with); a validation error is a rule the approval service refused (a decision out of
-    gate order, a second decision over unchanged content); a bare `AerError` is whatever
-    else a route catches. The page is the same; what it offers is what the row measures.
+
+def _problem_rows() -> list[StoppedState]:
+    """One row per failure a runs page refuses onto the problem page.
+
+    The page is the same for both; what it offers is what the row measures.
     """
     return [
         StoppedState(
@@ -322,10 +338,11 @@ def _problem_rows() -> list[StoppedState]:
             press=Press.NAVIGATE,
             navigates_to=r"/runs/",
             notes=(
-                "`_problem` renders `runs/problem.html`, whose only control is 'All requests'.",
+                "`problem_page` renders `runs/problem.html`, whose only control was "
+                "'All requests'.",
             ),
         )
-        for cls in (errors.ValidationError, errors.ConflictError, errors.AerError)
+        for cls in _PAGE_REFUSALS
     ]
 
 
@@ -396,7 +413,6 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
         "the scripted section brain cites only real excerpts; a brain that plants an "
         "unverifiable one is not written yet"
     ),
-    "problem.aer_error": "no route on the run's pages catches a bare AerError on the fake scene",
 }
 
 # Rows that fail today, by which of the three assertions fails and why — measured by running
