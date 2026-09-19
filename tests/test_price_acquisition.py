@@ -594,20 +594,35 @@ async def _share_document(scene: dict[str, Any]) -> Any:
 
 
 async def _seed_share_fact(
-    scene: dict[str, Any], *, on: date, filed: date, shares: str
+    scene: dict[str, Any],
+    *,
+    on: date,
+    filed: date,
+    shares: str,
+    concept: str = "shares_outstanding",
+    dimension_axis: str | None = None,
+    dimension_member: str | None = None,
 ) -> FinancialFact:
     """A cover-page share count, as the concept map stores it.
 
     `dei:EntityCommonStockSharesOutstanding` is dated the day the annual report was signed,
     which is why it is the freshest count a filing carries and why it is an instant.
+
+    ``concept`` and ``dimension_axis`` are open because a filer may tag that count *per
+    share class* — AstraZeneca does — and the shape that produces is the one the Phase 5
+    round tripped over.
     """
     document = await _share_document(scene)
     fact = FinancialFact(
         company_id=scene["company"].id,
         source_document_id=document.id,
-        concept="shares_outstanding",
+        concept=concept,
         raw_concept="EntityCommonStockSharesOutstanding",
         taxonomy="dei",
+        # Both halves or neither: the schema's own check, because an axis with no member
+        # names a dimension nobody can resolve.
+        dimension_axis=dimension_axis,
+        dimension_member=dimension_member,
         value=Decimal(shares),
         unit="shares",
         period_start=None,
@@ -696,6 +711,138 @@ class TestTheFiledShareCountIsPreferred:
     async def test_no_filed_count_is_nothing_rather_than_a_guess(
         self, scene: dict[str, Any]
     ) -> None:
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
+
+        assert found is None
+
+
+class TestAFilerThatTagsItsCountPerShareClass:
+    """AstraZeneca's shape, and what it cost before this was here.
+
+    Its cover-page count is tagged per share class — five dimensioned rows and no plain
+    one — while its basic and diluted counts are undimensioned. This function asked only
+    for an undimensioned `shares_outstanding`, found nothing, and returned nothing.
+
+    The damage was not a blank in a table. No share count means no market capitalisation;
+    no market capitalisation means the capital structure weighs equity at book; and AZN's
+    Phase 5 discount rate came out at 5.62 % on book weights, which the report itself had
+    to caveat as making "every valuation discounted at it correspondingly too high". All
+    three judges comparing that document quoted that sentence back.
+
+    **The arithmetic, measured rather than asserted**: AZN's book equity is $48.7bn and its
+    market capitalisation on the round's own price is $257.4bn, which moves the equity
+    weight from 0.622 to 0.897 and the WACC from 5.62 % to 6.11 % — **49 basis points**.
+    Worth having, and not the whole of the complaint: the judges objected to a document
+    that discredits its own valuation in a footnote, and that sentence is what goes away.
+    The rest of AZN's low discount rate is the 0.27 beta, which is a different argument.
+    """
+
+    async def test_the_basic_count_answers_when_the_cover_page_is_per_class(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="777000000",
+            dimension_axis="StatementClassOfStockAxis",
+            dimension_member="OrdinarySharesMember",
+        )
+        await _seed_share_fact(
+            scene,
+            on=date(2025, 12, 31),
+            filed=date(2026, 2, 1),
+            shares="1550970000",
+            concept="basic_shares_outstanding",
+        )
+
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
+
+        assert found is not None, (
+            "a filer that tags its cover page per share class still has a basic count, and "
+            "no capitalisation at all is the worse answer"
+        )
+        assert found.value == Decimal("1550970000")
+
+    async def test_an_undimensioned_cover_page_count_still_wins(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The order is a preference, not a replacement: basic is the fallback, not the rule.
+
+        A weighted average over a period is not a count at an instant, so it is used
+        because the alternative is nothing — never in front of the figure it approximates.
+        """
+        await _seed_share_fact(
+            scene, on=date(2026, 1, 24), filed=date(2026, 2, 1), shares="1234567"
+        )
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="9999999",
+            concept="basic_shares_outstanding",
+        )
+
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
+
+        assert found is not None
+        assert found.value == Decimal("1234567")
+
+    async def test_basic_is_preferred_to_diluted(self, scene: dict[str, Any]) -> None:
+        """The reverse of `share_count`'s order, and deliberate.
+
+        A per-share value divides by the diluted count because ignoring options in issue
+        flatters it. A capitalisation multiplies by the shares that exist, and diluted adds
+        shares nobody has bought.
+        """
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="1600000000",
+            concept="diluted_shares_outstanding",
+        )
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="1550970000",
+            concept="basic_shares_outstanding",
+        )
+
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
+
+        assert found is not None
+        assert found.value == Decimal("1550970000")
+
+    async def test_which_count_answered_reaches_the_reader(self, scene: dict[str, Any]) -> None:
+        """A capitalisation resting on a weighted average is weaker than one resting on the
+        cover page, and the difference has to travel with the figure."""
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="1550970000",
+            concept="basic_shares_outstanding",
+        )
+
+        found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
+
+        assert found is not None
+        assert "basic" in str(found.source.label).lower()
+
+    async def test_only_dimensioned_rows_is_still_nothing(self, scene: dict[str, Any]) -> None:
+        """Summing the classes would need them proved exhaustive and non-overlapping, and
+        nothing here can establish that. Falling through is the honest answer."""
+        await _seed_share_fact(
+            scene,
+            on=date(2026, 1, 24),
+            filed=date(2026, 2, 1),
+            shares="777000000",
+            dimension_axis="StatementClassOfStockAxis",
+            dimension_member="OrdinarySharesMember",
+        )
+
         found = await _filed_share_count(_step_context(scene), company_id=scene["company"].id)
 
         assert found is None

@@ -1557,6 +1557,37 @@ found rather than as scope that was always there.
     guessing. That is a precision policy for the shared formatter, with every surface
     downstream of it, and it wants its own change rather than a ride on this one.
 
+36. **One question, two functions, and a discount rate the document had to apologise for,
+    19 September 2026.** The first thing the Phase 5 round bought, and it was bought with
+    evidence: all three AZN judges quoted the same sentence back at the platform — *"a 5.6%
+    WACC built on book equity weights it admits makes every valuation discounted at it
+    correspondingly too high"*.
+
+    *The seam.* "How many shares are there" was answered in two places with two lists.
+    `valuation_run.share_count` tries `diluted_`, then plain, then `basic_shares_outstanding`;
+    `_filed_share_count`, which feeds the market capitalisation, tried **only** plain
+    `shares_outstanding` and only undimensioned. AstraZeneca tags its cover-page count *per
+    share class* — five dimensioned rows, no plain one — while its basic and diluted counts
+    are undimensioned. So the same filings gave AZN a per-share value and no market
+    capitalisation; with no capitalisation the capital structure fell back to book equity;
+    and Phase 4.2, *prefer market equity in the WACC*, was never reached. MSFT, whose
+    cover-page count is undimensioned, took the market path and came out at 9.70 %.
+
+    *Measured, not asserted.* Book equity $48.7bn against a market capitalisation of
+    $257.4bn on the round's own price moves the equity weight from 0.622 to 0.897 and the
+    WACC from 5.62 % to 6.11 % — **49 basis points**. The first draft of this entry said four
+    hundred, which was wrong by a factor of eight and is corrected here rather than quietly:
+    the rest of AZN's low discount rate is its 0.27 beta, which is a different argument. What
+    the fix removes is not mainly the basis points but **a document that discredits its own
+    valuation in a footnote**, which is the part the judges actually quoted.
+
+    *The class, for the fourth time in one day.* A rule stated twice, where one statement
+    rotted: the test-cleanup predicate (`568ed6d`), the `trimmed` filter beside the document's
+    own validator table, the display formatter's two doors, and now this. The two lists here
+    still differ, because the two questions differ — a per-share value divides by the diluted
+    count, a capitalisation multiplies by the shares that exist — but neither may now be empty
+    where the other is full, and `tests/test_price_acquisition.py` holds that.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

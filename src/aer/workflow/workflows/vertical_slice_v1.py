@@ -3005,6 +3005,25 @@ async def _acquire_prices(context: StepContext) -> StepResult:
     return StepResult(output=outcome.as_dict())
 
 
+# What a market capitalisation will count, best first, and why in that order.
+#
+# `shares_outstanding` is the cover-page figure (`dei:EntityCommonStockSharesOutstanding`)
+# and is what a capitalisation actually wants: the shares in issue on the day the report was
+# signed. The other two are weighted averages over a period rather than a count at an
+# instant, so they are approximations — but they are *filed* approximations, and the
+# alternative to using one is not a better number, it is no market capitalisation at all.
+#
+# Basic before diluted, which is the reverse of `share_count`'s order and deliberate. A
+# per-share value divides by the diluted count because ignoring options in issue flatters
+# it; a market capitalisation multiplies by the shares that exist, and diluted adds shares
+# nobody has bought yet.
+_MARKET_CAP_SHARE_CONCEPTS: Final[tuple[tuple[str, str], ...]] = (
+    ("shares_outstanding", "shares outstanding"),
+    ("basic_shares_outstanding", "basic weighted-average shares, for want of a filed count"),
+    ("diluted_shares_outstanding", "diluted weighted-average shares, for want of any other"),
+)
+
+
 async def _filed_share_count(context: StepContext, *, company_id: uuid.UUID) -> Quantity | None:
     """The most recent share count the filings carry, or nothing.
 
@@ -3017,29 +3036,53 @@ async def _filed_share_count(context: StepContext, *, company_id: uuid.UUID) -> 
     Deliberately not restricted to annual periods. A share count is an instant, and after
     gap A45 an instant no longer defines a period at all; that rule is about which years
     have statements, and this is a different question asked of the same rows.
-    """
-    statement = (
-        select(FinancialFact)
-        .where(
-            FinancialFact.company_id == company_id,
-            FinancialFact.concept == "shares_outstanding",
-            FinancialFact.unit == "shares",
-            # Consolidated only, for the reason `analysis` gives: a dimensioned row is one
-            # class of stock, and a class is not the company.
-            FinancialFact.dimension_axis.is_(None),
-        )
-        .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
-        .limit(1)
-    )
 
-    fact = await context.session.scalar(statement)
-    if fact is None:
-        return None
-    return Quantity.of(
-        fact.value,
-        Unit.base("shares"),
-        source=SourceRef.financial_fact(fact.id, label="shares outstanding"),
-    )
+    **Three concepts rather than one, and the Phase 5 round is why.** This asked only for
+    `shares_outstanding` and only undimensioned, and AstraZeneca tags its cover-page count
+    *per share class* — five dimensioned rows and not one plain figure — so it found
+    nothing. The consequence was not a missing number in a table. With no share count there
+    is no market capitalisation; with no market capitalisation the capital structure falls
+    back to book equity; and AZN's discount rate came out at 5.62 % on book weights, which
+    the report then had to caveat as making "every valuation discounted at it
+    correspondingly too high". All three judges comparing that document named the discount
+    rate, and the comparison went to the console.
+
+    **The class is the one that keeps recurring**: "how many shares are there" was answered
+    by two functions with different lists — :func:`~aer.services.valuation_run.share_count`
+    tries all three concepts and this tried one, so a filing could have a per-share value
+    and no capitalisation from the same rows. The lists still differ, because the two
+    questions differ (see :data:`_MARKET_CAP_SHARE_CONCEPTS`), but neither may now be empty
+    where the other is full.
+
+    The label records *which* concept answered, because a capitalisation resting on a
+    weighted average is a weaker figure than one resting on the cover page, and the
+    difference has to reach the reader rather than stopping here.
+    """
+    for concept, label in _MARKET_CAP_SHARE_CONCEPTS:
+        statement = (
+            select(FinancialFact)
+            .where(
+                FinancialFact.company_id == company_id,
+                FinancialFact.concept == concept,
+                FinancialFact.unit == "shares",
+                # Consolidated only, for the reason `analysis` gives: a dimensioned row is
+                # one class of stock, and a class is not the company. Summing the classes
+                # would need them proved exhaustive and non-overlapping, which nothing here
+                # can establish — so a company that only tags per class falls through to
+                # the next concept rather than to an invented total.
+                FinancialFact.dimension_axis.is_(None),
+            )
+            .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
+            .limit(1)
+        )
+        fact = await context.session.scalar(statement)
+        if fact is not None:
+            return Quantity.of(
+                fact.value,
+                Unit.base("shares"),
+                source=SourceRef.financial_fact(fact.id, label=label),
+            )
+    return None
 
 
 async def _extract(context: StepContext) -> StepResult:
