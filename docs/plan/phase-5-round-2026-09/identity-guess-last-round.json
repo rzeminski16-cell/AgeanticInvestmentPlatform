@@ -1,0 +1,90 @@
+{
+  "model": "claude-opus-5",
+  "effort": "medium",
+  "seed": 20260919,
+  "started_at": "2026-09-19T12:06:47.936751+00:00",
+  "finished_at": "2026-09-19T12:06:53.571415+00:00",
+  "cost_gbp": "0.82353155",
+  "asked": 3,
+  "answered": 3,
+  "hit_rate": "1",
+  "by_confidence": {
+    "certain": {
+      "hits": 3,
+      "misses": 0
+    }
+  },
+  "assignment": [
+    {
+      "subject": "msft1",
+      "A": "platform",
+      "B": "baseline"
+    }
+  ],
+  "guesses": [
+    {
+      "subject": "msft1",
+      "lens": "operator",
+      "guessed": "A",
+      "platform_was": "A",
+      "right": true,
+      "usage": {
+        "input_tokens": 68155,
+        "output_tokens": 248,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.27411025",
+      "answer": {
+        "platform_is": "A",
+        "confidence": "certain",
+        "what_gave_it_away": "Document A carries machine artefacts of a pipeline: a 'Validation & Disagreements' section with named validator metrics and thresholds ('citation accuracy 1.00 / at least 0.98'), beta quoted as '1.064553313698', and provenance strings like 'proposed by the platform's own code... confirmed by the operator at the assumptions gate'.",
+        "about_presentation_or_substance": "substance",
+        "second_thing": "Document B repeatedly narrates interactive search limits — 'before search capacity was exhausted', 'I was unable to fetch Microsoft's most recent definitive proxy statement' — which is the signature of an assistant working a search tool live."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "sceptic",
+      "guessed": "A",
+      "platform_was": "A",
+      "right": true,
+      "usage": {
+        "input_tokens": 68174,
+        "output_tokens": 263,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.27448155",
+      "answer": {
+        "platform_is": "A",
+        "confidence": "certain",
+        "what_gave_it_away": "Document A's footnotes are machine-emitted calculation records — \"Calculated: `net margin = net income / revenue` = 0.4031 (rounded; full precision stored) ... (formula and code version recorded)\" — plus a \"Validation Metrics\" table with thresholds and an internal red-team disagreement log escalated 'at approval'.",
+        "about_presentation_or_substance": "substance",
+        "second_thing": "Document B reads as interactive research with tool limits — \"search capacity was exhausted\", \"I was unable to fetch Microsoft's most recent definitive proxy statement\", and secondary aggregators (Yahoo, stockanalysis.com) used where filings couldn't be retrieved."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "reader",
+      "guessed": "A",
+      "platform_was": "A",
+      "right": true,
+      "usage": {
+        "input_tokens": 68160,
+        "output_tokens": 289,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.27493975",
+      "answer": {
+        "platform_is": "A",
+        "confidence": "certain",
+        "what_gave_it_away": "Document A carries machine artefacts of a pipeline: 'Calculated: `gross margin = gross profit / revenue` = 0.6794 (rounded; full precision stored) ... (formula and code version recorded)', a validation metrics table with thresholds and verdicts, beta quoted as 1.064553313698, and an internal 'Red team' disagreement log escalated 'for human decision at approval'.",
+        "about_presentation_or_substance": "substance",
+        "second_thing": "Document B reads like interactive search work — 'I was unable to source', 'search capacity was exhausted', reliance on Yahoo/CNBC/Substack secondary sources, and self-flagged unreconciled discrepancies, which is the signature of an assistant with a web tool rather than a deterministic filing fetcher."
+      }
+    }
+  ],
+  "failures": []
+}

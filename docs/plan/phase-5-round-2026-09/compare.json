@@ -1,0 +1,270 @@
+{
+  "model": "claude-opus-5",
+  "effort": "medium",
+  "seed": 20260919,
+  "started_at": "2026-09-19T18:11:25.551312+00:00",
+  "finished_at": "2026-09-19T18:12:12.590090+00:00",
+  "cost_gbp": "2.06351160",
+  "asked": 6,
+  "answered": 6,
+  "score": {
+    "comparisons": 6,
+    "handed_to_the_console": 6,
+    "no_longer_chose_the_console": 0,
+    "handed_to_the_platform": 0,
+    "by_dimension": {
+      "better_answers_the_brief": {
+        "platform": 0,
+        "baseline": 6,
+        "equal": 0
+      },
+      "better_on_the_focus_questions": {
+        "platform": 0,
+        "baseline": 6,
+        "equal": 0
+      },
+      "better_on_recent_developments": {
+        "platform": 0,
+        "baseline": 6,
+        "equal": 0
+      },
+      "better_on_verifiability": {
+        "platform": 2,
+        "baseline": 4,
+        "equal": 0
+      },
+      "better_argued": {
+        "platform": 0,
+        "baseline": 6,
+        "equal": 0
+      },
+      "more_complete_against_the_checklist": {
+        "platform": 0,
+        "baseline": 6,
+        "equal": 0
+      }
+    },
+    "dimension_verdicts_to_the_platform": 2,
+    "dimension_verdicts_equal": 0,
+    "september_for_reference": {
+      "comparisons": 9,
+      "handed_to_the_console": 9,
+      "dimension_verdicts_to_the_platform": 0,
+      "dimension_verdicts_equal": 3
+    }
+  },
+  "compares": [
+    {
+      "subject": "azn",
+      "lens": "reader",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 86000,
+        "output_tokens": 680,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.35313",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A gives a usable, internally reconciled number set: \"Net debt (30 Jun 2026) $26,912m\", \"Market capitalisation $247,596m ... $159.64 × 1,550.97m\", plus a net-debt bridge that reconciles ($24,570m − $1,196m = $23,374m; + $3,538m = $26,912m). It also covers H1 2026 and Q2 2026 (+5% CER), the CARDIO-TTRansform failure of 9 July 2026, the NYSE listing harmonisation, and answers the three brief questions (US pricing, patent cliff, oncology) with explicit workings and named gaps.",
+        "what_B_has_that_A_lacks": "B has machine-traceable XBRL citations for every income-statement and balance-sheet line, a geographic revenue split (\"United States 24.0 / China 6.64 / Japan 3.56\"), and an unusually frank self-audit: it publishes its own failed validators (\"cited figure agreement ... fail\", \"source coverage 0.8824\") and eight red-team challenges, including that year-one FCF of ~$20.5bn is ~1.74x FY2025 actual FCF.",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because a reader can trust and reuse its numbers without the interface: price, share count, net debt, market cap and multiples all cross-check, and it states its gaps precisely. B's headline is self-defeating — it prints two base cases $357.62 and $158.58, a 5.6% WACC built on book equity weights it admits makes \"every valuation discounted at it correspondingly too high\", and a garbage segment cell (\"Other Europe | ,Ó\") — so nothing in its valuation can be taken at face value."
+      }
+    },
+    {
+      "subject": "azn",
+      "lens": "sceptic",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 86014,
+        "output_tokens": 785,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.35525905",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A ties nearly every figure to a named filing with a URL and shows the arithmetic: e.g. \"FCF yield (OCF less capex, FY2025) 4.57% | ($14,575m − $3,270m) ÷ $247,596m\", and a Validation section that reconciles the net debt bridge ($24,570m − $1,196m = $23,374m; + $3,538m = $26,912m) and explicitly discards bad third-party data (\"Dukascopy's enterprise value is wrong ... I discard its market-cap, EV and P/E figures\"). It also covers H1 2026, Q2 2026 CER +5%, the 9 July 2026 CARDIO-TTRansform failure, and the NYSE ordinary-share listing change — none of which appear in B.",
+        "what_B_has_that_A_lacks": "B exposes its own machine-checkable audit trail — every number cites a formula and a stored calculation (e.g. \"Calculated: `WACC = Ke * E/(D+E) + Kd_after_tax * D/(D+E)` = 0.0562\"), plus a red-team log that flags the model's own incoherence: \"projected revenue of ~USD 103.2bn ... yet projected EBIT of ~USD 14.7bn ... implying operating margin collapses from ~23.4% to roughly half\". It also carries a geographic revenue split from the 20-F that A admits it could not source (\"I could not extract the equivalent FY2025 non-US regional split\").",
+        "which_would_you_hand_to_a_colleague_and_why": "A, without hesitation. Every material figure in A can be walked back to a specific 6-K, 20-F or RNS, the cross-checks are shown, and gaps are named rather than filled with guesses. B's own validators report failures (\"cited figure agreement ... fail\", \"source coverage ... fail\"), its base case spans $158 to $358, and its headline DCF rests on a book-value equity weight and a beta of 0.27 that its own red team calls indefensible — a sceptic cannot get from that output to anything checkable."
+      }
+    },
+    {
+      "subject": "azn",
+      "lens": "operator",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 85995,
+        "output_tokens": 920,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.35785025",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A gives an actionable, priced view with a decomposed disagreement: \"Probability-weighting bear ($71), base ($127) and bull ($203) at 25/50/25 gives $132, a −17.3% capital return\", plus a reverse-DCF stating exactly what the market pays for (\"a cost of equity of 7.20% ... or a 3.90% perpetual growth rate ... or a sustained operating cash-flow margin of 30.8%\"). It also carries current-period facts B lacks entirely — H1 2026 revenue $30,672m, Q2 CER +5%, the 9 July 2026 CARDIO-TTRansform failure and ~9-10% share fall, Farxiga US LOE, and a segment-level answer (\"Oncology contributed approximately +6.9 percentage points of group CER growth\").",
+        "what_B_has_that_A_lacks": "B has a machine-traceable FY2025 geographic revenue split from the 20-F (\"United States 24.0 ... China 6.64 ... Japan 3.56\" USDbn) that A explicitly could not source, and a longer FY2021–25 margin series. It also publishes an adversarial audit against itself, e.g. \"projected revenue of ~USD 103.2bn is nearly double FY2025 revenue, yet projected EBIT of ~USD 14.7bn is barely above FY2025 operating income\" — honest, but it is an indictment of its own model.",
+        "which_would_you_hand_to_a_colleague_and_why": "A, without hesitation. B's own validators fail (\"cited figure agreement ... fail\", \"source coverage ... fail\"), its two terminal methods produce $357.62 versus $158.58, its beta of 0.27 and book-value equity weight give a 5.6% WACC the document itself calls too low, and it admits its 9.05% growth rate rests on one quarter of management commentary. A, by contrast, states its weakest link plainly (\"Cost of equity: 8.5% — an assumption, not a derivation\") and still delivers a defensible, sensitised position an investor can act on."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "operator",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "platform",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 74735,
+        "output_tokens": 1374,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.32233975",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "A",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A's numbers are almost all traced to primary SEC sources with artefact hashes and verified passages (e.g. the 8-K segment table quoted in full at note [24]), and it publishes an explicit adversarial audit — 'the run's own recorded implied upside is negative 10.4%... none of the listed claims discloses the market capitalisation' — which is a level of self-policing B lacks. It also carries a machine-checked validation table (citation accuracy 1, primary source ratio 0.9418).",
+        "what_B_has_that_A_lacks": "B gives the operator an actionable, defensible view: 'Target price $405 ... total expected return of −17.1%', with a 30-cell WACC × g grid where 'Only one of thirty cells ... exceeds the current price', and reverse-DCF framings ('the market's implied WACC is 7.94%, or its implied perpetual growth rate is 5.78%'). It also answers the cloud-margin question with arithmetic A declines to attempt — 'Intelligent Cloud gross margin fell 420bp in FY26 (62.2% → 58.0%)' and the +116bp operating-margin bridge being '100% opex leverage' — plus FY27 guidance, the $329.1bn uncommenced lease stack and the useful-life/capex reclassification.",
+        "which_would_you_hand_to_a_colleague_and_why": "B, first and clearly. It reaches a position, shows the price the market is paying ('the current price is my bull case'), and stress-tests it; A explicitly refuses to state a view, prints two terminal values that 'do not bracket a range; they disagree' by 2.9x, and flags its own unresolved self-contradiction — useful as a caution list but not something I could size a position from. I'd hand A alongside only for its primary-source trail on the FY26 statements.",
+        "confidence": "high"
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "reader",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 74740,
+        "output_tokens": 1999,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.33470325",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "B",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A anchors nearly every figure in primary SEC sources with the exact formula behind it — e.g. note [16] 'Calculated: free cash flow = operating cash flow - capital expenditure = 66987000000 USD for FY2026', and a Cost of Capital table showing beta 1.067513930704 and the derivation 'Kd = interest expense / average debt'. It also publishes a full adversarial critique of itself, including the damning line 'the run's own recorded implied upside is negative 10.4%'.",
+        "what_B_has_that_A_lacks": "B gives the reader a checkable arithmetic chain and an explicit reconciliation table: 'Segment revenues sum to group total: 139,996 + 137,791 + 54,052 = 331,839 ✓' and 'FY26 capex: 9M $80.146bn + Q4 $35.802bn = $115.948bn, vs FY25 $64.6bn + disclosed $51.4bn increase = $116.0bn ✓'. It also labels its weak numbers rather than burying them — 'The 30 June 2026 balance sheet figures below are therefore drawn from secondary aggregators… and should be verified against the 10-K before use' — and names its assumptions as assumptions ('Equity risk premium 5.0% — This is my assumption, not a sourced figure').",
+        "which_would_you_hand_to_a_colleague_and_why": "B, first and without hesitation. A cannot be trusted on its own numbers: it states in Historical Financial Analysis that 'no cash flow line — neither operating cash flow nor capital expenditure — is present, so free cash flow cannot be stated at all' while printing $182.9bn OCF and $115.9bn capex elsewhere, describes two reportable segments in one section and three in another, and offers two base-case values ($227.90 and $442.26) with no resolution. B carries one number you can act on ($405 target, −17.1% total return), shows its working, and tells you exactly which cells are weakly sourced."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "sceptic",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "platform",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 74754,
+        "output_tokens": 2276,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.3402293",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "A",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A's figures are individually traceable: each note gives a formula, a rounded value, a publisher, a URL and a retrieval date (e.g. note [24] carries a verified quoted passage from the 8-K segment exhibit with artefact hash `61b3404537d6`), and it publishes an adversarial audit against itself — including that 'the recorded terminal value share is 0.888' and that 'the run's own recorded implied upside is negative 10.4%... none of the listed claims discloses the market capitalisation'. It also discloses a failed validation check and an internal contradiction, both with both sides published.",
+        "what_B_has_that_A_lacks": "B actually answers the posed questions with arithmetic rather than declaring them unanswerable: 'Intelligent Cloud gross margin fell 420bp in FY26 (62.2% → 58.0%)', a decomposition showing '+116bp' of group margin is '−88bp' gross offset by '+204bp' opex, and a capitalisation magnitude check ('$115.95bn of cash... charged somewhere between $24bn and $44bn'). Where A says of AI revenue only that disclosures 'do not answer' it, B derives '$45.6bn (91%) came from Microsoft Cloud and approximately $29bn (58%) from Azure' and explicitly refuses to estimate beyond that. It also carries dated forward items A omits entirely (A: 'no catalyst can be dated here').",
+        "which_would_you_hand_to_a_colleague_and_why": "B, first — it takes a position, shows the working behind every derived figure ('calculated here'), and is candid about exactly which cells are unsourced ('§17.2 as unbuilt', balance sheet 'the weakest-sourced part of the note'). A is better wired for citation-chasing and its self-audit is valuable, but it repeatedly concedes it cannot address the questions asked and contradicts itself on whether capex/FCF exist; I would hand A over second as a source-check companion."
+      }
+    }
+  ],
+  "failures": []
+}
