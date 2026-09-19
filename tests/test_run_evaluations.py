@@ -792,7 +792,10 @@ class TestAClaimThatQuotesTheWrongFigure:
         row = rows["cited_figure_agreement"]
         assert row.passed is False
         (failure,) = row.details["failures"]
-        assert "quick_ratio" in failure
+        # The failure line is read on the gate an operator decides at, so it names the
+        # calculation as a sentence does rather than as the column stores it.
+        assert "quick ratio" in failure
+        assert "quick_ratio" not in failure
         assert "1.567" in failure
         assert "0.93" in failure
 

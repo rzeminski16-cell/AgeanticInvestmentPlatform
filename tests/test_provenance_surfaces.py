@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import AsyncIterator
+from html import unescape
 from typing import Any
 
 import pytest
@@ -451,10 +452,14 @@ class TestTheSourcesPage:
         html = (await client.get(f"/runs/{built['job'].id}/sources")).text
         row = re.search(rf'<tr\s+id="source-{built["quarantined"].id}".*?</tr>', html, re.DOTALL)
         assert row is not None
-        cells = row.group(0)
+        # Unescaped, because the tier is now a phrase rather than a code and one of the
+        # six has an apostrophe in it: a reader meets "the issuer's own material" where the
+        # markup carries `&#39;`, and the assertion is about what the reader meets.
+        cells = unescape(row.group(0))
 
         assert 'data-field="undated">Undated<' in cells
-        assert "recorded T2_ISSUER" in cells
+        # In words for the reader, by value in the `data-` attribute a filter sorts on.
+        assert f"recorded as {SourceTier.T2_ISSUER.spoken}" in cells
         assert f'data-evidence-tier="{SourceTier.T5_SECONDARY.value}"' in cells
 
     async def test_the_tier_is_printed_and_not_only_coloured(self, served: Any) -> None:
