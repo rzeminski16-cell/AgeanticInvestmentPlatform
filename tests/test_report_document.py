@@ -592,6 +592,18 @@ class TestTheReportFacesTheReader:
         assert _display_value(Decimal("15")) == "15"
         assert _display_value(Decimal("0.025")) == "0.025"
 
+    def test_a_stored_scale_of_zeros_is_not_a_reason_to_print_twelve_places(self) -> None:
+        """The case the scale-blind equality let through for as long as the rule existed.
+
+        `Decimal("0.1800") == Decimal("0.180000000000")` is `True`, so the "nothing was
+        lost, print it untouched" branch printed the untouched *scale* as well — and
+        `fx_report`'s golden carried `0.180000000000` in a footnote because of it. Nothing
+        was lost, and the shorter rendering is the same number.
+        """
+        assert _display_value(Decimal("0.180000000000")) == "0.18"
+        assert _display_value(Decimal("2.00")) == "2"
+        assert "rounded" not in _display_value(Decimal("0.180000000000"))
+
     async def test_a_section_resting_on_an_undated_source_carries_the_marker(
         self, scene: dict[str, Any]
     ) -> None:

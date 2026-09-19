@@ -1524,21 +1524,38 @@ found rather than as scope that was always there.
     one XBRL feed against thirty heterogeneous web sources. Those are the product, not its
     wrapping. **So row 7's "hit rate at chance" is a condition written before anyone had
     measured the thing it was about, and it cannot be met at any price** — the same shape as
-    row 6, and the operator's call in the same way. The pre-registration, hashed before any of
-    this ran, already decided what a high rate means: a caveat on the six comparisons, never
-    omitted, rather than a void. What it now also means is that **ISSUE 2's own question needs
-    reading with care**: a panel that knows which document is the platform's is a panel whose
-    preference may follow identity.
+    row 6. The pre-registration, hashed before any of this ran, already decided what a high
+    rate means: a caveat on the six comparisons, never omitted, rather than a void.
+
+    **The operator restated the row on the measurement, the same day and the same way as row
+    6**: the blinding must remove the presentation and the rate must be *measured and
+    recorded* rather than assumed, with the caveat attached above chance. The round proceeds,
+    and its report leads with the finding rather than footnoting it — because **ISSUE 2's own
+    question needs reading with care now**: a panel that knows which document is the
+    platform's is a panel whose preference may follow identity. That was already true of
+    September's number, unmeasured. It is now measured.
 
 35. **The renderer prints a stored Decimal to a reader, 19 September 2026.** Found as the one
     thing the blinding refuses to fix: `beta quoted as 1.064553313698`, which a judge named
     unprompted, and `0E-8` in the validator's table where a reader expects zero. Removing it in
     the blinder would mean rewriting a digit, and a figure rounded wrongly is invisible in a way
-    a mis-numbered marker is not — so the remedy is in the renderer, and **today's renderer
-    still does it**: `tests/fixtures/full_run/golden.md` carries five `0E-8` and twenty numbers
-    at seven or more decimal places. The same class as the `tier T1_REGULATORY` footnote in item
-    30 — a machine artefact reaching the page under a figure a reader is being asked to trust —
-    and it reaches the measurement round's own documents.
+    a mis-numbered marker is not — so the remedy is in the renderer. The same class as the
+    `tier T1_REGULATORY` footnote in item 30, and it reaches the round's own documents.
+
+    **Half fixed, and the half that was broken is the interesting one.** The validator's table
+    in the *document* built its cells with `str(Decimal)` — while the review page beside it had
+    been fixing the identical column through a `trimmed` filter since Phase 1.4, with a
+    docstring explaining exactly why eight decimal places is the wrong thing to show a person.
+    One rule, written twice, and the copy nobody looked at stayed wrong. It is now
+    `aer.render.display.stored`, which the filter calls and the section builder calls: **the
+    same duplication `568ed6d` removed from the test cleanup this morning, one layer up, and
+    the second time in one day that a rule stated twice had one statement rot.**
+
+    *What remains:* `display.scalar`'s fallback for a dimensionless number whose label states
+    no meaning passes the value through at full stored precision — deliberately, because
+    guessing a unit is worse, but twelve decimal places is not the only alternative to
+    guessing. That is a precision policy for the shared formatter, with every surface
+    downstream of it, and it wants its own change rather than a ride on this one.
 
 ### Before this leaves one machine
 

@@ -417,15 +417,13 @@ of this must be true before the round is allowed to spend:**
    `not_as_recorded: []`; the browser half's 50 rows pass inside `pytest tests/e2e`. See
    [the eight rows nothing could reach](#the-eight-rows-nothing-could-reach--19-september-2026).
 6. Every stored run with an approved report re-rendered, with zero contradictions.
-7. The blinding dry run over September's texts passing, with the identity-guess hit rate at
-   chance. **Measured 19 September 2026, and the second half of this row cannot be met**:
-   fifteen judge reads over the blinded pairs came back fifteen correct, every one *certain*.
-   Not because the blinding is weak — six tells the list had never heard of went in and closed
-   — but because what is left distinguishing the two documents is the validator's scoreboard,
-   the approval trail and the evidence base, which are the product rather than its wrapping.
-   The reading is [`phase-5-gate.md` row 7](../plan/phase-5-gate.md); the consequence is the
-   caveat the pre-registration fixed in advance, and a decision for the operator on the row's
-   wording, as row 6 needed.
+7. ~~The blinding dry run over September's texts passing, with the identity-guess hit rate at
+   chance.~~ **Restated 19 September 2026 on the operator's decision — see below.** The
+   blinding dry run over September's texts passing, with **the identity-guess hit rate
+   measured and recorded**, and the pre-registration's caveat attached to every comparison
+   when it is above chance. **Met**: `tests/test_blinding.py` and `tests/test_judge_panel.py`
+   pass offline, and the rate is 1.0 over fifteen reads, recorded in
+   [`phase-5-gate.md`](../plan/phase-5-gate.md) and carried into the round's report.
 8. The pre-registration file committed and hashed. **Landed 19 September 2026**:
    [`docs/plan/phase-5-pre-registration.json`](../plan/phase-5-pre-registration.json), hashing
    to `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047`, with the readings
@@ -438,6 +436,39 @@ of this must be true before the round is allowed to spend:**
 
 A round that starts with any row unmet produces a number nobody can defend, and the number is
 the only reason to run it.
+
+### Row 7 said "at chance" — restated 19 September 2026
+
+The row asked for a hit rate at chance, and the rate is **1.0: fifteen judge reads over the
+blinded pairs, fifteen correct, every one stated as *certain*.** The measurement, the three
+rounds behind it and the six tells it added are in
+[`phase-5-gate.md` row 7](../plan/phase-5-gate.md).
+
+**It is not the blinding that failed.** The first round found that the tell list had been
+written by reading the documents' surface and had never looked inside the prose, where the
+renderer prints the machinery that made each figure — 367 code identifiers across the three
+reports against none in any console note. Six tells closed that. Then the rate did not move,
+because what the judges named next was the validator's scoreboard, the red-team log escalated
+for human decision, and, in every one of the fifteen reads, the evidence base: one XBRL feed
+against thirty heterogeneous web sources.
+
+**Those are the product, not its wrapping**, and a blinding that removed them would be
+blinding the thing being judged. So the row as written asked for something no price could buy
+— a condition set before anyone had measured the thing it was about, which is exactly row 6's
+shape below.
+
+**The operator's decision, taken on the measurement:** hold the row to what a blinding can
+honestly deliver. The presentation must be neutralised, asserted offline and pinned against
+`LEFT_STANDING`; the identity-guess rate must be *measured and recorded* rather than assumed;
+and where it is above chance the pre-registration's caveat — *"a hit rate materially above
+chance does not void the comparison; it attaches a caveat to it, and the caveat is never
+omitted"* — attaches to all six comparisons. That wording was committed and hashed **before**
+any of this was measured, which is the only reason it can be relied on now.
+
+**What the round's report must therefore say, in its own words and not in a footnote: every
+judge could tell which document the platform wrote.** ISSUE 2's number is read knowing that a
+panel which knows the author is a panel whose preference may follow the author. It was already
+true of September, unmeasured; it is now measured.
 
 ### Row 6 said "all five stored runs" — corrected 19 September 2026
 

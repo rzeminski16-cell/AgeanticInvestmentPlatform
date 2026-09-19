@@ -29,7 +29,7 @@ from typing import Any, Final
 from aer.config import HouseStyle
 from aer.core.dates import format_date
 
-__all__ = ["cell", "date_text", "money", "multiple", "prose", "scalar"]
+__all__ = ["cell", "date_text", "money", "multiple", "prose", "scalar", "stored"]
 
 _SYMBOLS: Final[dict[str, str]] = {"USD": "$", "GBP": "£", "EUR": "€"}
 
@@ -314,3 +314,19 @@ def _trimmed(value: Decimal) -> str:
     """The number with trailing zeros dropped: ``46.20`` prints ``46.2``, ``2.00`` ``2``."""
     text = f"{value:f}"
     return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def stored(value: Decimal | None) -> str:
+    """A stored figure as a reader reads it, for a table the formatter never saw.
+
+    The validator's scoreboard printed `str(Decimal)` straight into the document — `0E-8`
+    where a reader expects zero, `1.00000000` where they expect one — and a judge asked to
+    identify the document's author named that table before anything else (ROADMAP §3.19
+    item 35). `f"{value:f}"` is what turns the stored exponent back into digits; the
+    trailing zeros are the stored *scale*, which is a storage fact and not a measurement.
+
+    Nothing here rounds. The scale a metric is stored at carries no information a reader
+    can use, and dropping it changes no value — which is the whole of ADR 0056: formatting
+    is a projection of the stored value at render, never a rewrite of what was stored.
+    """
+    return "\N{EM DASH}" if value is None else _trimmed(value)

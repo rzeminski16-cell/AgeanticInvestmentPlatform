@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from aer.config import HouseStyle
 from aer.render import display
+from aer.web.figures import trimmed
 
 STYLE = HouseStyle()
 TIMES = "\N{MULTIPLICATION SIGN}"
@@ -123,3 +124,38 @@ class TestDates:
     def test_the_format_is_configuration(self) -> None:
         style = HouseStyle(date_format="%Y-%m-%d")
         assert display.date_text(date(2026, 8, 17), style=style) == "2026-08-17"
+
+
+class TestAStoredFigureAsAReaderReadsIt:
+    """`display.stored`, which the document's validator table now goes through.
+
+    It printed `str(Decimal)` straight into the report for as long as the web page beside
+    it was fixing the identical column with its own filter, and a judge asked to name the
+    author of a blinded report named that table before anything else (ROADMAP §3.19 item
+    35). The two are one rule now, and these pin what it does.
+    """
+
+    def test_decimals_own_exponent_reads_as_zero(self) -> None:
+        """`0E-8` is zero, written the way the column stores it."""
+        assert display.stored(Decimal("0E-8")) == "0"
+
+    def test_the_stored_scale_goes_and_the_value_stays(self) -> None:
+        assert display.stored(Decimal("1.00000000")) == "1"
+        assert display.stored(Decimal("0.98000000")) == "0.98"
+        assert display.stored(Decimal("0.00500000")) == "0.005"
+
+    def test_a_significant_digit_is_never_dropped(self) -> None:
+        """Nothing here rounds: the stored scale is a storage fact, the digits are not."""
+        assert display.stored(Decimal("1.064553313698")) == "1.064553313698"
+
+    def test_a_hundred_does_not_come_back_as_an_exponent(self) -> None:
+        """`Decimal("100").normalize()` is `1E+2` — the same number, unreadable in a table."""
+        assert display.stored(Decimal("100.00")) == "100"
+
+    def test_nothing_measured_is_an_em_dash(self) -> None:
+        assert display.stored(None) == "\N{EM DASH}"
+
+    def test_the_web_filter_and_the_document_agree(self) -> None:
+        """One rule, two doors. Two statements of it is how one of them stays wrong."""
+        for value in ("0E-8", "1.00000000", "0.98000000", "100.00", "1.064553313698"):
+            assert trimmed(Decimal(value)) == display.stored(Decimal(value))

@@ -42,6 +42,7 @@ from aer.core.disagreement import (
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.eval.metrics import spoken_metric
+from aer.render.display import stored
 from aer.sections.registry import sections_for_job
 from aer.sections.valuation_method import (
     commentary_problems,
@@ -304,11 +305,11 @@ def _spoken_list(names: list[str]) -> str:
 
 
 def _validation_row(row: Evaluation) -> dict[str, str]:
-    threshold = str(row.threshold)
+    threshold = stored(row.threshold)
     try:
         _, direction = THRESHOLDS[Metric(row.metric)]
         bound = "at least" if direction is Direction.AT_LEAST else "at most"
-        threshold = f"{bound} {row.threshold}"
+        threshold = f"{bound} {stored(row.threshold)}"
     except (ValueError, KeyError):
         # A metric name this code version does not know still renders its stored
         # threshold; the direction is the only thing that cannot be recovered.
@@ -322,14 +323,14 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
         verdict = "not exercised"
 
     if row.value is None:
-        score = "\N{EM DASH}"
+        score = stored(None)
     elif row.value == NUMERIC_CEILING:
         # The column's saturation value, not a measurement: an infinite replay delta is
         # stored clamped (the true value lives in the details). Twelve nines in a printed
         # table read as a crashed validator, so the rendering says what the row means.
         score = "unbounded (clamped at 1e12)"
     else:
-        score = str(row.value)
+        score = stored(row.value)
 
     return {
         "metric": spoken_metric(row.metric),

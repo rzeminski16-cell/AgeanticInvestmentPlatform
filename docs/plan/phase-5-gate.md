@@ -68,8 +68,20 @@ failing on a unique-key violation and then on a review page naming two probes; t
 
 > **233 passed in 817.07s**
 
-The default process's own confirming run — the whole process green in one pass, with the three
-fixes in the tree — is the last thing this row waits on.
+**Default suite, 19 September 2026 at `51b43d3`** — alone on the machine, declared order:
+
+> **1 failed, 7,569 passed, 2 deselected in 2399.79s (40m)**
+
+The one failure was ADR 0113's document scan, firing on a line of *this file* that named a
+test module whose own filename carries the retired phrase — **a line I had already corrected
+by the time the suite reached that test.** The scan reads the documents from disk at run time,
+so a forty-minute suite measures whatever the tree says in the minute each test runs, and
+editing documentation while it runs invalidates every test that reads documentation. Not a
+defect in `51b43d3`, and not a green run either: **the lesson is that a long suite needs a
+still tree**, and the confirming run below was taken on one.
+
+**Default suite, 19 September 2026 at `bdd0e07`** — *owed*: the confirming run on a still
+tree, after the renderer fixes. Until it lands this row is measured but not met.
 
 ## Row 2 — the evaluation gate
 
@@ -120,7 +132,10 @@ footnote), and `replay_run` re-derives calculations and re-reads artefacts by ha
 than re-rendering, so the proof stands — but the row's own instruction is to re-run all three
 commands before the round rather than trust a table, and that still applies.
 
-## Row 7 — the blinding dry run, with the identity-guess rate at chance
+## Row 7 — the blinding dry run, with the identity-guess rate measured and recorded
+
+*Restated from "at chance" on 19 September 2026, on the operator's decision, after the
+measurement below showed the original condition could not be met at any price.*
 
 **Offline half met, 19 September 2026 at `e551dc7`**: `tests/test_blinding.py` and
 `tests/test_judge_rubric.py`, **27 passed**.
@@ -188,18 +203,39 @@ attaches a caveat to it, and the caveat is never omitted."* 1.0 is above the 0.7
 the round's six comparisons carry that caveat — **every judge knew which document was the
 platform's** — and it is never reported without it.
 
-**Row 7 as §5 words it — *"with the identity-guess hit rate at chance"* — therefore cannot be
-met**, at this price or any other, and the row is not claimed. It is the same shape as row 6:
-a condition written before anyone had measured the thing it was about. The operator's call,
-as it was for row 6.
+**Row 7 as §5 worded it — *"with the identity-guess hit rate at chance"* — cannot be met**, at
+this price or any other. It is the same shape as row 6: a condition written before anyone had
+measured the thing it was about.
+
+**Restated on the operator's decision, 19 September 2026, and met as restated.** The blinding
+must remove the presentation — asserted offline, pinned against `LEFT_STANDING` — and the
+identity-guess rate must be *measured and recorded* rather than assumed; above chance, the
+pre-registration's caveat attaches to all six comparisons and is never omitted. The round
+proceeds, and **its report leads with the fact that every judge could tell which document the
+platform wrote** rather than burying it. The restatement's reasoning is in
+[§5's own section](../V1.0_Alpha/11-testing-strategy.md).
 
 **One thing the blinding refuses to do, recorded as `LEFT_STANDING`.** Two of the six
 documents still fire one tell after neutralising — full stored precision, `1.064553313698`
 where a reader wants 1.06. Removing it means rewriting a digit, and this module will not: a
 marker renumbered wrongly points at the wrong source, which a reader can see, while a figure
 rounded wrongly is simply false, which nobody can see. The remedy is in the renderer, which
-should not print a stored Decimal to a reader at all — and **today's renderer still does**,
-which is ROADMAP §3.19 item 34 and reaches the round's own documents.
+should not print a stored Decimal to a reader at all — ROADMAP §3.19 item 35, **half fixed
+in the same sitting** because it reaches the round's own documents:
+
+- the document's validator table built its cells with `str(Decimal)` — `0E-8`, `1.00000000`
+  — while the review page beside it had been fixing the identical column through a `trimmed`
+  filter since Phase 1.4. One rule written twice, and the copy nobody looked at stayed wrong.
+  Both now call `aer.render.display.stored`;
+- the calculation footnote's *"did the rounding lose anything?"* test compared
+  `quantised == value`, and `Decimal` equality is blind to scale — so
+  `Decimal("0.1800") == Decimal("0.180000000000")` is `True` and every value whose stored
+  digits ended in zeros took the untouched branch and printed all twelve places. `fx_report`'s
+  golden had carried `0.180000000000` for as long as the rule existed;
+- what remains is `display.scalar`'s fallback for a dimensionless number whose label states
+  no meaning. It passes the value through at full precision rather than guess a unit, which
+  is right — but twelve decimal places is not the only alternative to guessing, and a
+  precision policy for the shared formatter wants its own change.
 
 The redaction round for F13 is still owed.
 

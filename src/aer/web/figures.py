@@ -697,6 +697,14 @@ def trimmed(value: object) -> str:
     Normalised through `:f` rather than printed from `normalize()` directly, because
     `Decimal("100").normalize()` is `1E+2` — which is the same number and not a number
     anybody wants to read in a table.
+
+    **The rule itself is `aer.render.display.stored`**, and this filter is the template's
+    door to it rather than a second copy. The document's own validator table printed
+    `str(Decimal)` — `0E-8`, `1.00000000` — for as long as this filter was fixing the same
+    column on the web page beside it, and a judge asked to name the author of a blinded
+    report named that table first (ROADMAP §3.19 item 35). Two statements of one rule is
+    how one of them stays wrong: the same mistake as the cleanup predicate `568ed6d`
+    de-duplicated, one layer up.
     """
     if value is None:
         return NOT_AVAILABLE
@@ -704,4 +712,4 @@ def trimmed(value: object) -> str:
         quantity = Decimal(str(value))
     except (ArithmeticError, ValueError):
         return str(value)
-    return f"{quantity.normalize():f}"
+    return display.stored(quantity)

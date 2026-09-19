@@ -1329,13 +1329,21 @@ def _display_value(value: Decimal) -> str:
     asset turnover, which is storage precision leaking into prose. The stored value is
     untouched and the drill-down page shows it in full; this is presentation, and it
     says so when it rounds rather than pretending the shorter number is the recorded one.
+
+    **The "did I lose anything?" test was scale-blind, and let the worst cases through.**
+    ``Decimal("0.1800") == Decimal("0.180000000000")`` is ``True`` — equality compares
+    value, not scale — so every calculation whose stored digits happened to end in zeros
+    took the untouched branch and printed all twelve places anyway. `fx_report`'s golden
+    carried ``0.180000000000`` under that rule for as long as the rule has existed. Both
+    branches now go through :func:`~aer.render.display.stored`, which says the number at
+    whatever scale it is handed and never at the column's.
     """
     exponent = value.as_tuple().exponent
     needs_rounding = isinstance(exponent, int) and exponent < _DISPLAY_EXPONENT
     quantised = value.quantize(_DISPLAY_QUANTUM) if needs_rounding else value
     if quantised == value:
-        return str(value)
-    return f"{quantised.normalize():f} (rounded; full precision stored)"
+        return display.stored(quantised)
+    return f"{display.stored(quantised)} (rounded; full precision stored)"
 
 
 def _uuids(citations: list[CitationRef], *, kind: str) -> list[uuid.UUID]:

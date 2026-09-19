@@ -313,15 +313,15 @@ The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. 
 
 | Metric | Score | Threshold | Verdict |
 |---|---|---|---|
-| assumption completeness | — | at least 1.00000000 | not exercised |
-| citation accuracy | 1.00000000 | at least 0.98000000 | pass |
-| cited figure agreement | 0E-8 | at most 0E-8 | pass |
-| figure plausibility | 0E-8 | at most 0E-8 | pass |
-| hallucinated citation rate | 0E-8 | at most 0E-8 | pass |
-| numerical consistency | 0E-8 | at most 0.00500000 | pass |
-| presentation integrity | 0E-8 | at most 0E-8 | pass |
-| primary source ratio | 1.00000000 | at least 0.60000000 | pass |
-| source coverage | 1.00000000 | at least 0.90000000 | pass |
+| assumption completeness | — | at least 1 | not exercised |
+| citation accuracy | 1 | at least 0.98 | pass |
+| cited figure agreement | 0 | at most 0 | pass |
+| figure plausibility | 0 | at most 0 | pass |
+| hallucinated citation rate | 0 | at most 0 | pass |
+| numerical consistency | 0 | at most 0.005 | pass |
+| presentation integrity | 0 | at most 0 | pass |
+| primary source ratio | 1 | at least 0.6 | pass |
+| source coverage | 1 | at least 0.9 | pass |
 
 ## Comparable companies
 
