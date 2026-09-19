@@ -1463,6 +1463,46 @@ found rather than as scope that was always there.
     on purpose, so that they cannot drift into two ideas of what a way forward is — but they
     do not share their *scene reset*, and that is where they drifted.
 
+32. **September's judges were told they were reading blind, and were not, 19 September 2026.**
+    Found while building row 7's blinding as code, and measured over the recorded texts rather
+    than argued. The platform's MSFT report carries 316 Markdown footnote markers and the
+    console note carries none; the console note carries 451 `[S12]` sources and the report
+    carries none; the console numbers its sections and the eighteen-section spine never does;
+    the report carries a six-line header block and a standing disclaimer the console has no
+    equivalent of; the console says "my calculation" thirty-nine times and the report never
+    says "my". **And all three console notes open with the assistant's own working** — *"I'll
+    research this thoroughly before writing. Let me begin with the primary sources."* — two of
+    them running straight into the title with no newline between.
+
+    Every one of those separates the two sides completely, and a judge needed one. So the
+    September comparison was between two documents whose authorship was legible in the first
+    line, and **ISSUE 2's number inherits that caveat whatever Phase 5 finds**. It is not a
+    reason to discard September: the judges' *reasons* are detailed, specific and mostly about
+    substance, and the pre-registration already decided in advance that a high identity-guess
+    rate attaches a caveat rather than voiding a comparison. It is a reason the round must be
+    blinded properly and must record the rate, which is what row 7 is.
+
+    `audit/judges/blinding.py` takes both sides through one shape and
+    `tests/test_blinding.py` asserts no tell survives on any of the six documents. **The class**:
+    a control nobody measured is a control nobody has. The panel was *described* as blind in
+    its own system prompt, and the description was the only thing holding it up.
+
+33. **A tell that fires on both sides is not a tell, 19 September 2026.** Found inside item 32,
+    by the test written to hold the tells honest rather than by reading them. §3.5 names *"the
+    word 'as at'"* as a platform-ism to remove, and it is — the renderer says it — but the AZN
+    console note says it twice as well, once inside a source's own title. So it distinguishes
+    nothing, and a blinding test that counted it as evidence of authorship would have been
+    reporting a leak where there was a shared habit. It is still normalised on both sides,
+    because the strategy is right that the habit is worth losing; what it is not is a tell.
+
+    Two smaller ones from the same test: the AZN console note cites through Markdown links and
+    a numbered table rather than inline markers, so "every document renumbers its markers from
+    one" was wrong for a citation style it never used; and `AGREEMENT_KEYS` was written off a
+    truncated print and was missing three of its ten keys, which the both-directions key diff
+    named on its first run. **The class**: a constant derived from a partial read of a record
+    is a guess wearing the record's authority, and the cheap defence is to diff against the
+    record rather than to read it carefully.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

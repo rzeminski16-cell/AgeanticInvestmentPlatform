@@ -298,6 +298,36 @@ is used again**, and the code is tested offline against September's recorded rea
   authored half of the view removed, so *"the view moved the verdict"* and *"the operator's
   own words moved the verdict"* are separable. Extra judge reads, no extra live run.
 
+#### What building it found — 19 September 2026
+
+The rubric and the blinding landed as `audit/judges/rubric.py` and
+`audit/judges/blinding.py`, with `tests/test_judge_rubric.py` and `tests/test_blinding.py`
+(27 passed, offline). Before they asserted anything they measured the recorded corpus, and
+**September's panel was not blind.** Counted across all three pairs:
+
+| tell | platform | console |
+|---|---|---|
+| Markdown footnote markers `[^12]` | 316 | 0 |
+| bracketed sources `[S12]` | 0 | 451 |
+| numbered section headings | 0 | 18 |
+| the run's header block | 1 | 0 |
+| the standing disclaimer | 2 | 0 |
+| the author's first person | 0 | 39 |
+| the assistant's own working | 0 | 1 |
+
+Each separates the two sides completely, and a judge needed one. All three console notes open
+with the assistant's narration before the title, two of them running into it with no newline.
+**ISSUE 2's September number carries that caveat whatever this round finds** — not a reason to
+discard it, because the judges' stated reasons are substantive and the pre-registration
+already decided that a high guess rate attaches a caveat rather than voiding a comparison, but
+a reason this round must be blinded properly and must record the rate.
+
+One correction to the list above, from the test that holds the tells honest: *"as at"* is
+named here as a platform-ism and is not a **tell** — the AZN console note uses it twice, once
+inside a source's own title. It is still normalised on both sides; it is simply not evidence
+of authorship, and a test that counted it as such would report a leak where there is a shared
+habit.
+
 Every one of these tests runs offline. The judge reads themselves are marked `live_llm` and
 are excluded from the default suite, as every billable call already is.
 
