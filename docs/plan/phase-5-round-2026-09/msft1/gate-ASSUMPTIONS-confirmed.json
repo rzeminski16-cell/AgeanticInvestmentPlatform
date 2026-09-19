@@ -1,0 +1,98 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "1.067513930704",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-19, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.202619000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1205, 0.1326, 0.1814, 0.2291, 0.3494.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.087170000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.0736, 0.0637, 0.0816, 0.0994, 0.1175.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.441750000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.4206, 0.4177, 0.4464, 0.4562, 0.4678.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "14.000000000000",
+        "unit": "pure",
+        "justification": "Anchored to the company's own derived economics rather than to trading comparables. EBIT margin 44.2% plus D&A intensity 8.7% implies EBITDA near 53% of revenue; at a 17.5% tax rate and terminal capex reverting to roughly the depreciation level, free cash conversion of EBITDA is near two-thirds, which against a ~8-9% discount rate and 3.0% perpetual growth supports roughly 12-14x. I set 14x at the upper end for franchise durability. The risk is capex: intensity ran 34.9% of revenue in FY2026 and finance-lease interest nearly doubled, so if the buildout does not normalize, conversion falls and 10-11x is fairer. Of the two, I regard the 3.0% perpetuity as the better terminal estimate, because it is built from the derived cash flows; this multiple is a cross-check on it.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.45
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.137411000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2022-06-30 to 2026-06-30, over 4 year(s): revenue moved from 198,270,000,000 to 331,839,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.049400000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 4.94% on 2026-09-17, as published by 2026-09-19 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.0494.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.174698000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1311, 0.1898, 0.1823, 0.1763, 0.1940.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken as below a discount rate of at least 7% \u2014 with the 4.94% risk-free from the filings-derived set, any ordinary equity cost for MSFT sits well above that, so 3.0% is safely below the WACC eventually confirmed. It rests on the view that a perpetual rate cannot exceed long-run nominal GDP; 3.0% places Microsoft at roughly economy-level growth with a small premium for a cloud/productivity franchise the research describes as one of two scale leaders. The 13.7% trailing CAGR is a forecast-period input, not evidence for perpetuity. I would lower it toward 2.0-2.5% if the terminal state is judged to be a slower-growing, capex-heavy infrastructure business rather than a software one, and raise it toward 3.5% only with evidence that AI demand durably lifts the category's long-run nominal growth. Note this is partly convention: no filing supports a perpetual rate.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "0.237834000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "458850f42740b837b110af89f18378496d106c828d0d4f3708c19135102959b8"
+}

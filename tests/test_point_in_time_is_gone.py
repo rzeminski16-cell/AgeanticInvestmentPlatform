@@ -86,6 +86,14 @@ DOC_ALLOWED: Final = (
     "docs/archive/",
     "docs/plan/readiness-audit-2026-09/",
     "docs/plan/readiness-audit-2026-09.md",
+    # The Phase 5 measurement round's committed run records, on the same reasoning as
+    # `audit/out/` one list up: a run's export carries the model's own prose, and the MSFT
+    # run's red team wrote *"the reverse DCF takes a point-in-time diluted share count"* —
+    # the accounting sense, a share count as at a date, in a sentence about dilution. The
+    # scan asks whether the *enforcement* has a name left in the documents that describe how
+    # the platform behaves. A record of what a model said is not such a document, and it is
+    # not the rule growing back.
+    "docs/plan/phase-5-round-2026-09/",
     "docs/plan/ROADMAP.md",
     "docs/V1.0_Alpha/",
     # The index names ADR 0113 by its title, and the knowledge map's invariant table records
