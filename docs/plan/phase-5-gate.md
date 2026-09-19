@@ -292,6 +292,41 @@ The redaction round for F13 is still owed.
 `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047`, recorded in §5 row 8 and
 asserted by `tests/test_pre_registration.py`.
 
+### The assumptions block was corrected before the round — and the finding behind it
+
+**Found in the last check before the £21 spent**, which is what that check is for: *nothing
+in the runner reads the pre-registration.* Grepped rather than assumed — only the judges'
+panel (for the blinding seed) and two tests open the file. The round's assumptions come from
+`audit/subjects.py`, the platform's own proposals, and the audit policy's bounds, and where
+this file and that code disagreed the code would have won **silently**.
+
+They disagreed in four places:
+
+| assumption | the file said | the runner would have done |
+|---|---|---|
+| MSFT `tax_rate` | fixed 0.21 | 0.18, cited to the FY2025 10-K effective rate |
+| MSFT `terminal_growth` | fixed 0.030 | 0.025, and only as a gap-filler — the platform proposes this |
+| `exit_multiple` | fixed 13.0 / 12.0 | states none, so a run whose platform proposed none **halts** |
+| `beta`, both subjects | "derived from prices" | the typed 0.9 and 0.4 were still there and fire whenever the regression proposes nothing — as it did in September |
+
+**The beta row is the one that mattered.** The file named those two typed betas as
+corrections this round must apply, and the mechanism that would apply them did not exist. A
+correction written into a hashed document with nothing enforcing it is worse than no
+correction, because it reads as a guarantee.
+
+**The operator's decision, taken on the finding:** correct the assumptions block — and only
+that block — to state what the runner does, and make the beta correction true rather than
+written. So the typed beta *and* the typed risk-free rate are gone from `azn` and `msft1`,
+the round's two commissions; a run that cannot derive either now halts at the assumptions
+gate and names it, which is a finding, where quietly valuing on 0.9 is not.
+
+**Corrected hash `6bbba8e3ff91d72fb09b62859dc16a46fb9cc10879f1244782cf29746d34336c`**, with
+the previous one kept beside it in §5 row 8. The readings are untouched, and the correction
+landed in a commit carrying no result — which is the hash mechanism working rather than being
+got around. Editing a pre-registration after a result is what the hash exists to expose;
+editing it before, with the reason attached and both hashes on the page, is what it exists to
+make safe.
+
 ## Row 9 — `aer preflight` ready, and `test-live` passing
 
 **Met, 19 September 2026 at `0a771c1`.** Every preflight row green but the worker, which is

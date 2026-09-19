@@ -431,12 +431,29 @@ of this must be true before the round is allowed to spend:**
    pass offline, and the rate is 1.0 over fifteen reads, recorded in
    [`phase-5-gate.md`](../plan/phase-5-gate.md) and carried into the round's report.
 8. The pre-registration file committed and hashed. **Landed 19 September 2026**:
-   [`docs/plan/phase-5-pre-registration.json`](../plan/phase-5-pre-registration.json), hashing
-   to `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047`, with the readings
-   verbatim from the delivery plan's kill-gate table on the operator's decision. The hash is
-   recorded here rather than only in git so that editing the readings after the round is a
-   two-file change a reader can see; `tests/test_pre_registration.py` fails if the two ever
-   disagree.
+   [`docs/plan/phase-5-pre-registration.json`](../plan/phase-5-pre-registration.json), with
+   the readings verbatim from the delivery plan's kill-gate table on the operator's decision.
+   The hash is recorded here rather than only in git so that editing the readings after the
+   round is a two-file change a reader can see; `tests/test_pre_registration.py` fails if the
+   two ever disagree.
+
+   | hash | when | what changed |
+   |---|---|---|
+   | `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047` | landed | the readings, the blinding and the assumptions as first written |
+   | `6bbba8e3ff91d72fb09b62859dc16a46fb9cc10879f1244782cf29746d34336c` | corrected, before the round | **the assumptions block only.** The readings are untouched |
+
+   **Both hashes stay here, which is the mechanism working rather than a hole in it.** The
+   correction was made *before the round ran and before any result existed*, in a commit that
+   carries no verdict, and it is legible here as one line rather than as a diff somebody has
+   to go looking for. What it fixed: nothing in the runner reads this file, and the
+   assumptions block described a different round from the one the code would have run — a
+   tax rate and a terminal growth that disagreed with `audit/subjects.py`, an exit multiple
+   the runner states nowhere, and two beta corrections with no mechanism behind them at all.
+   The last of those is now true rather than written down: the typed beta and the typed
+   risk-free rate are gone from both of the round's commissions, so a run that cannot derive
+   one halts and names it. Correcting a pre-registration *after* a result is the thing the
+   hash exists to expose; correcting it before, with the reason attached, is the thing it
+   exists to make safe.
 9. `aer preflight` reading *Ready to run*, and `just test-live` passing — the fraction of a
    penny that proves the key, the router and the ledger work before £21 depends on them.
 

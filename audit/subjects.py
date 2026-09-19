@@ -206,11 +206,26 @@ SUBJECTS: Final[tuple[Subject, ...]] = (
         horizon_months=12,
         focus_questions=_MSFT_QUESTIONS,
         use_case="First deep dive on a US large cap before taking a position.",
+        # **No typed beta and no typed risk-free rate**, unlike every other subject here, and
+        # deliberately: this is one of the two commissions the Phase 5 measurement round uses,
+        # and `docs/plan/phase-5-pre-registration.json` names both as *derived and not fixed*.
+        #
+        # The corpus is why. MSFT's approved September run valued on a hand-typed beta of
+        # 0.900 where the platform had derived 1.068 for the same company in its other run —
+        # the single most leveraged input to the discount rate, overridden by a guess, and
+        # invisible in the result. The typed value only ever fired because it was *there*: the
+        # policy supplies a stated value for anything the gate lists outstanding, so a
+        # derivation that silently produced nothing was silently replaced.
+        #
+        # With nothing to fall back on, the run stops at the assumptions gate instead, and a
+        # stop naming `beta` is a finding. That is the point: a round that halts and says the
+        # price layer derived no beta has told us something, and one that quietly values on
+        # 0.9 has told us nothing while looking like it did. The risk-free rate is here for
+        # the same reason — Phase 1.6 wired the macro stack precisely so the platform fetches
+        # it at the run's vintage, and a typed fallback would hide that not working.
         assumptions=(
-            _RISK_FREE,
             _ERP,
             _TERMINAL_GROWTH,
-            _beta("0.9", "Microsoft's published five-year monthly beta sits near 0.9."),
             _COST_OF_DEBT,
             *_MSFT_DERIVED,
         ),
@@ -246,11 +261,13 @@ SUBJECTS: Final[tuple[Subject, ...]] = (
         horizon_months=12,
         focus_questions=_AZN_QUESTIONS,
         use_case="A UK plc researched through its 20-F, under IFRS.",
+        # No typed beta and no typed risk-free rate: the round's other commission, on the
+        # reasoning written against `msft1` above. AZN's approved September run valued on a
+        # hand-typed beta of 0.300 — far below any plausible pharmaceutical beta, and nothing
+        # in the record defends it.
         assumptions=(
-            _RISK_FREE,
             _ERP,
             _TERMINAL_GROWTH,
-            _beta("0.4", "A large pharmaceutical's published beta sits well below one."),
             _COST_OF_DEBT,
             *_AZN_DERIVED,
         ),

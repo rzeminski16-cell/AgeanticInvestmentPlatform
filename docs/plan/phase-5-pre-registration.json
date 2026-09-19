@@ -15,11 +15,16 @@
   "committed_at_commit": "84b8fa5",
   "budget_gbp": "21.00",
   "signed_off_by_operator": true,
-
   "round": {
     "runs": [
-      { "subject": "azn", "count": 1 },
-      { "subject": "msft", "count": 1 }
+      {
+        "subject": "azn",
+        "count": 1
+      },
+      {
+        "subject": "msft",
+        "count": 1
+      }
     ],
     "comparator": [
       "The three console notes recorded in September 2026, under docs/plan/readiness-audit-2026-09/baseline/.",
@@ -27,7 +32,6 @@
     ],
     "panel": "audit/judges/, as code, over the rubric lifted verbatim from docs/plan/readiness-audit-2026-09/judges/reads.json"
   },
-
   "readings": [
     {
       "id": "thesis_holds",
@@ -48,14 +52,12 @@
       "then": "Stop. Narrow the product's claim to what the readiness audit section 4.3 already scores yes — an evidence base and a checking instrument — and spend the remaining sessions on ISSUE 1 alone."
     }
   ],
-
   "blinding": {
     "assignment_seed": 20260919,
     "identity_guess_at_chance": "0.5",
     "identity_guess_reported_with_caveat_above": "0.7",
     "$comment": "A hit rate materially above chance does not void the comparison; it attaches a caveat to it, and the caveat is never omitted."
   },
-
   "assumptions": {
     "$comment": [
       "What is fixed here is the *operator's* typing, not the platform's work. An assumption the",
@@ -67,26 +69,75 @@
       "What must not vary is a number somebody typed, because two runs that differ only in the",
       "operator's typing produce two valuations and no information.",
       "",
-      "Read off the re-seeded corpus on 19 September 2026, which showed why this row exists:",
-      "MSFT's approved run carried a hand-typed beta of 0.900 where the platform had derived",
-      "1.068 from prices, and AZN's carried a hand-typed 0.300 — implausibly low for a",
-      "pharmaceutical company and, on the evidence, a placeholder nobody revisited. Either",
-      "number would have made this round's valuation a measurement of the typing."
+      "CORRECTED 19 September 2026, before the round ran and before any result existed.",
+      "The rule above was right and the two lists under it were not: they were written from an",
+      "idea of what a discounted cash flow needs, rather than from what this runner does, and",
+      "nothing in the runner reads this file. The round's assumptions come from",
+      "audit/subjects.py, the platform's own proposals, and the audit policy's bounds. Where",
+      "this file and that code disagreed, the code would have won silently — which is the",
+      "failure this file exists to prevent, arriving through the file itself.",
+      "",
+      "Four things were wrong. MSFT's tax rate was fixed at 0.21 where the runner states 0.18,",
+      "cited to the FY2025 10-K effective rate. MSFT's terminal growth was fixed at 0.030 where",
+      "the runner states 0.025. An exit multiple was fixed for both subjects and the runner",
+      "states none at all, so a run whose platform proposed none would have halted rather than",
+      "used 13.0. And the two beta corrections named below had no mechanism behind them: the",
+      "typed betas were still in the runner and would have fired exactly as they did in",
+      "September. That last one is now true rather than merely written: the typed beta and the",
+      "typed risk-free rate are gone from both of the round's commissions, so a run that cannot",
+      "derive them stops and says so.",
+      "",
+      "The kill-gate readings above are untouched. This correction moves the recorded hash, in",
+      "this file and in the strategy document, in a commit that carries no result — which is",
+      "the whole mechanism working as designed, and is why it is safe to do before the round",
+      "and would not have been after it.",
+      "",
+      "`derived_and_not_fixed` names what no typed value exists for in the round's two",
+      "commissions, so the round takes the platform's own or it halts. `also_derived_when_the",
+      "_platform_can` names what the platform proposes and the round takes as proposed, each of",
+      "which also has a typed value below used only where the gate lists it outstanding — and",
+      "recorded as a completeness finding when it is."
     ],
-    "rule": "Prefer the platform's own derived value wherever it can derive one. Where it cannot, the operator supplies the value named below, identically in every run of the round.",
+    "rule": "Prefer the platform's own derived value wherever it can derive one. Where it cannot, the operator supplies the value named below, identically in every run of the round — except for the two named as derived, for which no typed value exists in the round's commissions, so a run that cannot derive one halts at the assumptions gate instead.",
     "derived_and_not_fixed": [
       "beta",
       "risk_free_rate",
+      "exit_multiple"
+    ],
+    "also_derived_when_the_platform_can": [
       "equity_risk_premium",
+      "terminal_growth",
+      "cost_of_debt",
       "revenue_growth",
       "ebit_margin",
       "capex_intensity",
       "depreciation_intensity",
-      "working_capital_intensity"
+      "working_capital_intensity",
+      "tax_rate"
     ],
     "operator_supplied_and_fixed": {
-      "azn": { "exit_multiple": "12.0", "tax_rate": "0.20", "terminal_growth": "0.025" },
-      "msft": { "exit_multiple": "13.0", "tax_rate": "0.21", "terminal_growth": "0.030" }
+      "azn": {
+        "equity_risk_premium": "0.045",
+        "terminal_growth": "0.025",
+        "cost_of_debt": "0.05",
+        "revenue_growth": "0.12",
+        "ebit_margin": "0.22",
+        "capex_intensity": "0.05",
+        "depreciation_intensity": "0.10",
+        "working_capital_intensity": "0.00",
+        "tax_rate": "0.20"
+      },
+      "msft": {
+        "equity_risk_premium": "0.045",
+        "terminal_growth": "0.025",
+        "cost_of_debt": "0.05",
+        "revenue_growth": "0.15",
+        "ebit_margin": "0.45",
+        "capex_intensity": "0.25",
+        "depreciation_intensity": "0.10",
+        "working_capital_intensity": "0.00",
+        "tax_rate": "0.18"
+      }
     },
     "corrections_from_the_corpus": [
       {
@@ -94,16 +145,24 @@
         "assumption": "beta",
         "corpus_value": "0.900",
         "corpus_source": "operator:audit",
-        "round_value": "derived from prices",
-        "why": "The platform derived 1.068 for the same subject in the other run. A typed 0.900 overrides the product with a guess, at the single most leveraged input to the discount rate."
+        "round_value": "derived from prices, or the run halts",
+        "why": "The platform derived 1.068 for the same subject in the other run. A typed 0.900 overrides the product with a guess, at the single most leveraged input to the discount rate. The typed value is now removed from the commission rather than merely deprecated here, so the correction has a mechanism: a run that derives no beta stops at the assumptions gate and names it."
       },
       {
         "subject": "azn",
         "assumption": "beta",
         "corpus_value": "0.300",
         "corpus_source": "operator:audit",
-        "round_value": "derived from prices",
-        "why": "0.300 is far below any plausible pharmaceutical beta and no justification in the record defends it. Left in, the round's AZN valuation would be indefensible for a reason that has nothing to do with what the round is measuring."
+        "round_value": "derived from prices, or the run halts",
+        "why": "0.300 is far below any plausible pharmaceutical beta and no justification in the record defends it. Left in, the round's AZN valuation would be indefensible for a reason that has nothing to do with what the round is measuring. Removed from the commission, on the same mechanism as MSFT's."
+      },
+      {
+        "subject": "both",
+        "assumption": "risk_free_rate",
+        "corpus_value": "0.0483",
+        "corpus_source": "operator:audit",
+        "round_value": "fetched at the run's vintage, or the run halts",
+        "why": "Phase 1.6 wired the macro stack so the platform fetches the published series at the run's own vintage and proposes it at the gate. A typed fallback beside that would hide the wiring not working, in the same way the typed beta hid the regression not working — so it is removed from both of the round's commissions for the same reason, and a run that fetches nothing halts."
       }
     ]
   }
