@@ -17,6 +17,19 @@ commentary field, and :func:`commentary_problems` is the deterministic edge of i
 policy: a commentary that names a method input the calculation store does not contain is
 refused, because the only true statements about this valuation's inputs are the ones the
 record can back.
+
+**Market-value weights were on that list of lies and no longer are** (Phase 4.2): the
+capital structure weighs equity at market wherever the run holds a usable capitalisation,
+so on such a run the equity weight *is* a market capitalisation, and a commentary saying
+so is true. The block names the basis on the weight rows and the guard keys on it, because
+a refusal is only defensible while the thing it refuses is genuinely absent.
+
+**And the block stopped asserting what the whole run holds**, which it was never in a
+position to know. A book-weighted AZN report said *"no market prices were used"* three
+times, under a header section called *Against the market price* stating a 115.3% upside
+against a close of $166.08: the equity weight fell back to book because no share count
+could be mapped, not because the run held no price. Book weights are a fact about the
+weights. The caveats below the table say why book was used, truthfully, and always did.
 """
 
 from __future__ import annotations
@@ -79,6 +92,21 @@ _FORECAST_ASSUMPTIONS: Final[tuple[tuple[str, str], ...]] = (
 _METHOD_LABELS: Final[tuple[tuple[str, str], ...]] = tuple(
     (method.value, method.spoken) for method in TerminalMethod
 )
+
+# The two capital weights, and what each row's label says about the measure behind it.
+#
+# **In the label rather than the provenance**, because two things read it: a reader, and
+# :func:`commentary_problems`, which admits a term only where the block carries a matching
+# label. Before this the market case said nothing at all — so a reader of a market-weighted
+# run was not told which equity value the weight came from, and a commentary saying "the
+# equity is weighted at its market value" was refused for describing something the run had
+# done. A basis this build does not know is left unqualified rather than guessed at.
+_WEIGHT_NAMES: Final[frozenset[str]] = frozenset({"equity_weight", "debt_weight"})
+
+_WEIGHT_BASIS_LABELS: Final[dict[str, str]] = {
+    "book": ", at book value",
+    "market": ", at market value",
+}
 
 # The value the value step records for a bank's model. Written out rather than imported
 # from `aer.core.sectors`, for the same reason `_VALUE_STEP` is: this package is imported by
@@ -188,9 +216,9 @@ def _method_note(produced: dict[str, Any]) -> str:
     years = produced.get("years")
     horizon = f"a {years}-year explicit forecast" if years else "an explicit forecast"
     weights = (
-        "book values from the filed balance sheet — no market prices were used"
+        "book values from the filed balance sheet"
         if str(produced.get("equity_basis")) == "book"
-        else "the recorded capital-structure values"
+        else "the equity at its market value against the filed debt"
     )
     return (
         f"Free cash flows from {horizon} of consolidated figures were discounted at the "
@@ -247,10 +275,15 @@ def _cost_of_capital_rows(
         calculation = _base_case(calculations, name=name)
         if calculation is None:
             continue
-        provenance = f"computed: {calculation.formula}"
-        if name in {"equity_weight", "debt_weight"} and basis == "book":
-            provenance += " (book values — this run holds no market prices)"
-        rows.append(_calculation_row(calculation, label=label, provenance=provenance))
+        rows.append(
+            _calculation_row(
+                calculation,
+                label=f"{label}{_WEIGHT_BASIS_LABELS.get(basis, '')}"
+                if name in _WEIGHT_NAMES
+                else label,
+                provenance=f"computed: {calculation.formula}",
+            )
+        )
     return rows
 
 
@@ -490,16 +523,18 @@ def method_only(block: dict[str, Any]) -> str:
 
 # -- The commentary's deterministic edge -----------------------------------------------------
 
-# Method inputs this workflow never holds, whatever the run: market prices, traded debt,
-# return regressions. A commentary reaching for one is describing work that did not happen.
+# Method inputs no discount rate in this build is ever computed from: traded debt, a per-share
+# quote, a return regression. A commentary reaching for one is describing work that did not
+# happen, on any run, whatever else the run holds.
+#
+# **The market-weight terms used to be here and are not**, because Phase 4.2 made them true:
+# the capital structure weighs equity at market wherever a usable capitalisation exists, so on
+# such a run the equity weight *is* a market capitalisation. They moved to `_COMPONENT_TERMS`,
+# keyed on the label the weight rows carry, so they are admitted exactly when the block shows
+# them and refused otherwise — which is what this guard was always for.
 _NEVER_HELD: Final[tuple[str, ...]] = (
     r"share price",
     r"closing price",
-    r"market price",
-    r"market capitalisation",
-    r"market capitalization",
-    r"market[- ]value weights?",
-    r"market weights?",
     r"traded yields?",
     r"bond yields?",
     r"note coupons?",
@@ -520,6 +555,14 @@ _COMPONENT_TERMS: Final[tuple[tuple[str, str], ...]] = (
     (r"terminal growth", "terminal growth"),
     (r"exit multiple", "exit multiple"),
     (r"wacc|discount rate", "wacc"),
+    # The equity risk premium's pattern already claims "market risk premium", and the
+    # alternation is ordered, so a commentary naming the premium is judged against the
+    # premium's row rather than against the weights.
+    (
+        r"market price|market capitalisation|market capitalization"
+        r"|market[- ]values?|market weights?",
+        "at market value",
+    ),
 )
 
 
@@ -530,25 +573,33 @@ def commentary_problems(content: dict[str, Any], block: dict[str, Any]) -> list[
     method is the platform's, and the boundary is enforced by refusing a commentary that
     names an input absent from the rendered block. Each problem names the term so a retry
     can remove it rather than guess.
+
+    **Both refusals are about the block, and say so.** The first used to read *"this run
+    holds no such input — no prices, no traded debt, no return series"*, which is a claim
+    about the whole run and one this function is in no position to make: a run can hold a
+    close, print a distance from it in its header, and still weight its capital at book
+    because no share count could be mapped. The guard checks what the block carries, and
+    that is now what it tells the writer.
     """
     commentary = str(content.get("commentary") or "")
     if not commentary:
         return []
 
     problems = [
-        f"The commentary mentions {_found(commentary, pattern)!r}, and this run holds no "
-        "such input — no prices, no traded debt, no return series. The method is rendered "
-        "above the commentary from the run's own records; interpret the figures instead of "
-        "describing how they might have been produced."
+        f"The commentary mentions {_found(commentary, pattern)!r}, and no discount rate in "
+        "this build is computed from one — there is no traded debt, no return series and no "
+        "per-share quote behind any figure above. The method is rendered above the "
+        "commentary from the run's own records; interpret the figures instead of describing "
+        "how they might have been produced."
         for pattern in _NEVER_HELD
         if _found(commentary, pattern)
     ]
 
     labels = " | ".join(_block_labels(block)).lower()
     problems.extend(
-        f"The commentary mentions {_found(commentary, pattern)!r}, and the run's "
-        "calculation store contains no such component. Only inputs the rendered method "
-        "block states may be discussed."
+        f"The commentary mentions {_found(commentary, pattern)!r}, and the method block "
+        "rendered above it carries no such component. Only inputs that block states may be "
+        "discussed."
         for pattern, required in _COMPONENT_TERMS
         if _found(commentary, pattern) and required not in labels
     )

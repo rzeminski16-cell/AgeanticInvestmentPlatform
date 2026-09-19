@@ -1675,6 +1675,42 @@ found rather than as scope that was always there.
     not: it groups by function *and inputs*, and two terminal methods genuinely are two
     questions. A contradiction between them is not one figure published twice.
 
+39. **The report said no market prices were used, in a document whose header measured
+    against one, 19 September 2026.** The round's second AZN defect, and the one a reader
+    needs no expertise to catch: line 22 of that document is a section headed *Against the
+    market price*, stating a 115.3% upside on the perpetuity value and −4.5% on the exit
+    multiple, both struck against a close of $166.08. Line 424 says the capital was weighted
+    at *"book values from the filed balance sheet — no market prices were used"*, and lines
+    437 and 438 each append *"(book values — this run holds no market prices)"*.
+
+    *The claim was about the weights and was written as a claim about the run.* The equity
+    weight fell back to book because no market capitalisation could be formed — §3.19.36's
+    share-count defect, fixed the same day — not because the run held no price. The price
+    step had one, and the header used it. `valuation_method` sees a rendered block and the
+    value step's record; it was never in a position to say what the whole run holds, and the
+    caveats below the table already said the true thing, which is that no *capitalisation*
+    was available.
+
+    *Fixed by saying what is true of the weights.* The note says book or market; the weight
+    rows carry the basis in the **label** — `Equity weight, at book value` — rather than in a
+    parenthesis, because two things read it: a reader, and the commentary guard.
+
+    **And Phase 4.2 had left that guard refusing something the platform now does.** The WACC
+    prefers market equity since 4.2, so on a market-weighted run the equity weight *is* a
+    market capitalisation — while `_NEVER_HELD` still refused any commentary naming one, as
+    *"a methodology the run never executed"*. A writer describing the run correctly was
+    refused, and the refusal's own message (*"this run holds no such input — no prices, no
+    traded debt, no return series"*) was the same falsehood a third time. The market terms
+    moved to the block-conditional list, keyed on the new label, so they are admitted exactly
+    where the block shows them; `_NEVER_HELD` keeps only what no discount rate in this build
+    is ever computed from — traded debt, a per-share quote, a return regression — and its
+    message now describes the block it actually checks.
+
+    *The class.* A guard written against one state of the code and not revisited when the
+    code gained the capability it was guarding against. Distinct from §3.19's recurring
+    duplicate-rule class, and worth watching for separately: every refusal in this tree is a
+    claim about what the platform cannot do, and each one ages.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

@@ -194,11 +194,31 @@ class TestTheBlockIsTheLedgers:
     async def test_the_weights_say_they_are_book_values(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
+        """In the label, so a reader and the commentary guard read the same statement."""
         block = await block_for(db_session, scene)
-        weight = rows_by_label(block, "cost_of_capital")["Equity weight"]
+        labels = rows_by_label(block, "cost_of_capital")
 
-        assert "book values" in weight["provenance"]
+        assert "Equity weight, at book value" in labels
+        assert "Debt weight, at book value" in labels
         assert "book values" in block["method_note"]
+
+    async def test_the_block_does_not_claim_the_run_holds_no_prices(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Roadmap §3.19 item 39, and the contradiction the round's judges could see.
+
+        AZN's book-weighted report said *"no market prices were used"* in its method note
+        and *"this run holds no market prices"* on both weight rows, under a header
+        section called *Against the market price* stating a 115.3% upside against a close
+        of $166.08. The weights fell back to book because no share count could be mapped,
+        not because the run held no price; a statement about the weights had been written
+        as a statement about the run.
+        """
+        block = await block_for(db_session, scene)
+        rendered = str(block).lower()
+
+        assert "no market prices" not in rendered
+        assert "holds no market" not in rendered
 
     async def test_both_terminal_methods_reach_the_block_with_their_own_rows(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -379,7 +399,7 @@ class TestTheCommentaryEdge:
 
         assert len(problems) == 1
         assert "'cost of debt'" in problems[0]
-        assert "calculation store" in problems[0]
+        assert "carries no such component" in problems[0]
 
     async def test_prices_bonds_and_regressions_are_always_refused(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -395,7 +415,59 @@ class TestTheCommentaryEdge:
         for commentary in offending:
             problems = commentary_problems({"commentary": commentary}, block)
             assert problems, commentary
-            assert "holds no such input" in problems[0]
+            assert "no discount rate in this build is computed from one" in problems[0]
+
+    async def test_the_refusal_makes_no_claim_about_what_the_run_holds(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """This function sees a block. It is in no position to speak for the run.
+
+        The old wording — *"this run holds no such input — no prices, no traded debt, no
+        return series"* — was false on any priced run, which is every run since the price
+        step was built.
+        """
+        block = await block_for(db_session, scene)
+
+        problems = commentary_problems({"commentary": "Beta was estimated by regression."}, block)
+
+        assert problems
+        assert "this run holds no" not in problems[0]
+        assert "no prices" not in problems[0]
+
+    async def test_a_book_weighted_run_still_refuses_a_market_weight_claim(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The scene is book-weighted, so the market terms have no label to stand on."""
+        block = await block_for(db_session, scene)
+
+        problems = commentary_problems(
+            {"commentary": "The capital is weighted at market value."}, block
+        )
+
+        assert len(problems) == 1
+        assert "carries no such component" in problems[0]
+
+    async def test_a_market_weighted_run_may_say_so(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Phase 4.2 made the claim true and left the guard refusing it.
+
+        The capital structure weighs equity at market wherever the run holds a usable
+        capitalisation, so on such a run the equity weight *is* a market capitalisation —
+        and a commentary saying so was refused for describing work the run had done.
+        """
+        block = await block_for(db_session, scene)
+        at_market = [
+            {**row, "label": row["label"].replace("at book value", "at market value")}
+            for row in block["cost_of_capital"]
+        ]
+
+        problems = commentary_problems(
+            {"commentary": "The capital is weighted at the equity's market capitalisation."},
+            {**block, "cost_of_capital": at_market},
+        )
+
+        assert problems == []
 
     async def test_an_interpreting_commentary_passes(
         self, db_session: AsyncSession, scene: dict[str, Any]
