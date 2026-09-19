@@ -21,7 +21,9 @@ class TestAThesisPositionShowsItsTierAlone:
     def test_the_placeholder_zero_never_reaches_a_reader(self) -> None:
         stored = {"value": "0", "unit": THESIS_UNIT, "tier": "T1_REGULATORY"}
 
-        assert position_figure(stored) == "tier T1_REGULATORY"
+        # In words: the tier is what differs between the two sides, and "T1_REGULATORY" is
+        # the ordering rule's name for it rather than a reader's.
+        assert position_figure(stored) == "a regulatory filing"
 
     def test_the_two_sides_still_differ_where_they_genuinely_do(self) -> None:
         """Dropping the count must not flatten the sides into one another: the tier is the
@@ -36,14 +38,14 @@ class TestAFactBackedPositionKeepsItsQuantity:
     def test_the_figure_and_its_tier_both_survive(self) -> None:
         stored = {"value": "1585000000", "unit": "USD", "tier": "T1_REGULATORY"}
 
-        assert position_figure(stored) == "1585000000 USD (T1_REGULATORY)"
+        assert position_figure(stored) == "1585000000 USD (a regulatory filing)"
 
     def test_a_genuine_zero_is_not_mistaken_for_the_placeholder(self) -> None:
         """A filed figure that happens to be zero is a real answer, and the rule keys on
         the unit rather than on the value precisely so it survives."""
         stored = {"value": "0", "unit": "USD", "tier": "T1_REGULATORY"}
 
-        assert position_figure(stored) == "0 USD (T1_REGULATORY)"
+        assert position_figure(stored) == "0 USD (a regulatory filing)"
 
 
 class TestTheRuleSurvivesAMalformedRecord:
@@ -53,7 +55,14 @@ class TestTheRuleSurvivesAMalformedRecord:
         assert position_figure({}) == "()"
 
     def test_a_record_with_only_a_tier_still_says_the_tier(self) -> None:
-        assert position_figure({"unit": THESIS_UNIT, "tier": "T3_EXCHANGE"}) == "tier T3_EXCHANGE"
+        assert position_figure({"unit": THESIS_UNIT, "tier": "T3_OFFICIAL_STATS"}) == (
+            "official statistics"
+        )
+
+    def test_a_tier_this_build_no_longer_has_is_spelled_out_rather_than_refused(self) -> None:
+        """A position stored under a build whose tier table this one does not share still
+        renders: the approval page must not go down over a word."""
+        assert position_figure({"unit": THESIS_UNIT, "tier": "T3_EXCHANGE"}) == "t3 exchange"
 
 
 class TestTheSurfacesShareIt:
@@ -67,7 +76,7 @@ class TestTheSurfacesShareIt:
             p={"value": "0", "unit": THESIS_UNIT, "tier": "T1_REGULATORY"}
         )
 
-        assert rendered == "tier T1_REGULATORY"
+        assert rendered == "a regulatory filing"
 
     def test_no_surface_still_prints_the_placeholder_by_hand(self) -> None:
         """The reason the rule moved into code: four sites had to agree, and a conditional

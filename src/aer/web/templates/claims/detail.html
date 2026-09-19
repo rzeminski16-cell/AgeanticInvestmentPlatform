@@ -92,8 +92,8 @@
                 {{ citation.source.title or citation.source.url }}
               </a>
               <p class="mt-1 type-data-sm text-ink-muted">
-                {{ citation.source.provider.value }} &middot;
-                <span data-field="tier">{{ citation.source.source_tier.value }}</span> &middot;
+                {{ citation.source.provider.value | provider_words }} &middot;
+                <span data-field="tier">{{ citation.source.source_tier.value | tier_words }}</span> &middot;
                 <span title="{{ citation.source.sha256 }}">{{ citation.source.short_hash }}</span>
               </p>
             </div>

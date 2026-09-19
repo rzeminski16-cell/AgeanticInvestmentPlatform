@@ -467,12 +467,15 @@ class TestTheSourcesPage:
 
         html = (await client.get(f"/runs/{built['job'].id}/sources")).text
 
-        badges = re.findall(r'data-field="tier"[^>]*>\s*([A-Z0-9_]+)\s*<', html)
+        badges = re.findall(r'data-field="tier"[^>]*>\s*([^<]+?)\s*<', html)
         # The evidence tier, which is what the badge is for: the fixture's undated
         # announcement is tier 2 on the record and worth tier 5 (ADR 0111), and the row
         # says both — see `test_an_undated_source_says_so_and_shows_both_tiers`.
-        assert SourceTier.T1_REGULATORY.value in badges
-        assert SourceTier.T5_SECONDARY.value in badges
+        #
+        # In words since 19 September 2026: the badge said `T1_REGULATORY` at a reader,
+        # which distinguishes a regulator from a blog only if you already know the table.
+        assert SourceTier.T1_REGULATORY.spoken in badges
+        assert SourceTier.T5_SECONDARY.spoken in badges
 
     async def test_the_artefact_digest_is_shown(self, served: Any) -> None:
         client, built = served

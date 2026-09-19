@@ -17,7 +17,12 @@ from jinja2 import StrictUndefined
 from starlette.requests import Request
 
 from aer.config import get_settings
-from aer.core.disagreement import challenge_heading, position_figure
+from aer.core.disagreement import (
+    challenge_heading,
+    position_figure,
+    spoken_rule,
+    spoken_tier,
+)
 from aer.version import version
 from aer.web.csrf import (
     CSRF_FIELD_NAME,
@@ -95,6 +100,8 @@ templates.env.filters["trimmed"] = trimmed
 # The disagreement rule (gap A68), so four surfaces read one answer rather than four
 # copies of a conditional living in Jinja.
 templates.env.filters["position_figure"] = position_figure
+templates.env.filters["rule_words"] = spoken_rule
+templates.env.filters["tier_words"] = spoken_tier
 templates.env.filters["challenge_heading"] = challenge_heading
 # Undefined variables raise instead of rendering as empty. A silently blank figure in a
 # research report is the exact failure mode this whole project exists to prevent, and a

@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
+from aer.core.disagreement import DisagreementKind, ResolutionOutcome
 from aer.core.enums import (
     AnalysisMode,
     Decision,
@@ -57,6 +58,7 @@ from aer.db.models.report_section import SectionStatus
 __all__ = [
     "ANALYSIS_MODES",
     "DECISIONS",
+    "DISAGREEMENT_KINDS",
     "GATES",
     "GRADES",
     "JOB_STATES",
@@ -67,6 +69,7 @@ __all__ = [
     "PROVIDERS",
     "QUARANTINE_REASONS",
     "REQUEST_STATES",
+    "RESOLUTION_OUTCOMES",
     "SECTION_STATES",
     "SHOCK_KINDS",
     "SKILL_KINDS",
@@ -403,6 +406,47 @@ DECISIONS: Final[dict[Decision, HumanState]] = {
     Decision.APPROVED: HumanState("Approved", Tone.SUCCESS),
     Decision.REJECTED: HumanState("Rejected", Tone.MUTED),
     Decision.AMENDED: HumanState("Amended", Tone.INFO),
+}
+
+
+# -- Disagreements -------------------------------------------------------------------------
+
+# What a recorded conflict is, and what happened to it. **The review page printed all three
+# as their stored values** — `source_conflict · same_tier_same_date · escalated` under a
+# conflict's own topic — and nothing reached that table until the journey harness could
+# raise a trigger at the final gate (19 September 2026): a clean fake run records no
+# disagreement, so the line rendered on every real run and on no test.
+#
+# `ResolutionRule` is not here: it already carries `spoken`, written for the report's own
+# appendix, and a second set of words for the same rungs would be two sets to keep true.
+DISAGREEMENT_KINDS: Final[dict[DisagreementKind, HumanState]] = {
+    DisagreementKind.SOURCE_CONFLICT: HumanState(
+        "Two sources disagree",
+        Tone.FAILURE,
+        "Two documents report different values for the same measured thing.",
+    ),
+    DisagreementKind.CALCULATION_CONFLICT: HumanState(
+        "Two routes, two answers",
+        Tone.FAILURE,
+        "A reported total and the sum of its own parts do not agree.",
+    ),
+    DisagreementKind.THESIS_CONFLICT: HumanState(
+        "The red team objects",
+        Tone.INFO,
+        "The adversary's conclusion against the draft's. Never settled by rule.",
+    ),
+    DisagreementKind.SELF_CONTRADICTION: HumanState(
+        "The document contradicts itself",
+        Tone.FAILURE,
+        "Both sides are this run's own output, so there is no source to prefer.",
+    ),
+}
+
+RESOLUTION_OUTCOMES: Final[dict[ResolutionOutcome, HumanState]] = {
+    ResolutionOutcome.AGREED: HumanState("They agree", Tone.SUCCESS),
+    ResolutionOutcome.CHOSE_A: HumanState("Settled — the first stands", Tone.INFO),
+    ResolutionOutcome.CHOSE_B: HumanState("Settled — the second stands", Tone.INFO),
+    ResolutionOutcome.ESCALATED: HumanState("Open — nothing settles it", Tone.WARNING),
 }
 
 
@@ -884,6 +928,8 @@ _BY_VALUE: Final[dict[str, str]] = {
             PREMISE_VERDICTS,
             PROCESS_QUALITIES,
             TRIGGER_KINDS,
+            DISAGREEMENT_KINDS,
+            RESOLUTION_OUTCOMES,
             SECTION_STATES,
             JOB_STATES,
             REQUEST_STATES,

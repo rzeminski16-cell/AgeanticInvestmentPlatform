@@ -317,7 +317,7 @@ def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
             pieces = [footnote.title]
             if footnote.publisher:
                 pieces.append(footnote.publisher)
-            pieces.append(f"tier {footnote.tier}")
+            pieces.append(footnote.tier)
             pieces.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             return ", ".join(pieces) + ". Follow the note to the excerpt behind it."
         case DerivedFootnote():
@@ -394,7 +394,7 @@ def _footnote(
             pieces.append(
                 Markup(f"retrieved {display.date_text(footnote.retrieved, style=active)}")
             )
-            pieces.append(Markup(f"tier {escape(footnote.tier)}"))
+            pieces.append(escape(footnote.tier))
             joined = Markup(", ").join(pieces)
             text = Markup(
                 f'{joined}. <a href="{escape(footnote.url)}" class="src">'

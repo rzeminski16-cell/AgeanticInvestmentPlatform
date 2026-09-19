@@ -358,6 +358,11 @@ class SourceFootnote:
     publisher: str | None
     publication_date: date | None
     retrieved: date
+
+    # What kind of source it is, in words (`SourceTier.spoken`). The note used to read
+    # "…, retrieved 12 March 2026, tier T1_REGULATORY", in the published document, at a
+    # reader being asked to trust the figure above it. The tier *number* is the ordering
+    # rule the ladder decides conflicts by and stays on the row; a footnote is prose.
     tier: str
 
     # ADR 0119's printed passage, and the digest that lets a reader confirm it is the
@@ -1144,7 +1149,7 @@ async def _footnotes(
                 publisher=document.publisher,
                 publication_date=document.publication_date,
                 retrieved=document.retrieved_at.date(),
-                tier=document.source_tier.value,
+                tier=document.source_tier.spoken,
                 excerpt=printed,
                 digest_prefix=(
                     document.artefact.sha256[:_HASH_PREFIX]
@@ -1174,7 +1179,7 @@ async def _appendix(session: AsyncSession, citations: list[CitationRef]) -> tupl
             publisher=document.publisher,
             publication_date=document.publication_date,
             retrieved=document.retrieved_at.date(),
-            tier=document.source_tier.value,
+            tier=document.source_tier.spoken,
             digest_prefix=(document.artefact.sha256[:_HASH_PREFIX] if document.artefact else None),
         )
         for document in ordered

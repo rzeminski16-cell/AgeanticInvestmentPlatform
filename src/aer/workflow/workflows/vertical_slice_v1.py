@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -2173,6 +2173,14 @@ async def _gate_final(context: StepContext) -> StepResult:
     return await _require_approval(context, gate=GateKind.FINAL, of_step=_SEAL_STEP)
 
 
+def _listed(phrases: Iterable[str]) -> str:
+    """Phrases as a sentence lists them: "a, b and c"."""
+    items = list(phrases)
+    if not items[1:]:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 async def _pause_naming_triggers(context: StepContext) -> None:
     """Pause an undecided run with the fired §2.4 triggers in the message.
 
@@ -2206,12 +2214,17 @@ async def _pause_naming_triggers(context: StepContext) -> None:
     if not fired:
         return
 
-    names = ", ".join(trigger.kind.value for trigger in fired)
+    # In words, not in kinds. The console prints this before anybody opens the review
+    # page, and `low_source_coverage, material_missing_section` was the first thing an
+    # operator read about their own run — the roadmap §2.11 defect, on the one message
+    # written specifically to tell somebody what is wrong. The stored `context` below
+    # keeps the values, because that is the record.
+    names = _listed(trigger.kind.spoken for trigger in fired)
     plural = "s" if len(fired) != 1 else ""
     message = (
-        f"This run is waiting for the final gate, and {len(fired)} escalation "
-        f"trigger{plural} raised the banner: {names}. Nothing further happens, and "
-        "nothing further is spent, until somebody approves or rejects it with the "
+        f"This run is waiting for the {GateKind.FINAL.spoken} gate, and {len(fired)} "
+        f"escalation trigger{plural} raised the banner: {names}. Nothing further happens, "
+        "and nothing further is spent, until somebody approves or rejects it with the "
         "banner in view."
     )
     raise StepPaused(

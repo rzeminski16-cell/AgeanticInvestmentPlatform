@@ -360,7 +360,7 @@
               {{ escalation.position_a.label }}: {{ escalation.position_a | position_figure }}
               &middot;
               {{ escalation.position_b.label }}: {{ escalation.position_b | position_figure }}
-              &middot; rule: {{ escalation.rule }}
+              &middot; {{ escalation.rule | rule_words }}
             </p>
             {# `escalation` is a payload dict rather than a row, so the macro is given the
                two fields it needs. Everything in this list is escalated by construction. #}
@@ -387,7 +387,7 @@
               {{ row.topic }}
               {% if row.material %}{{ ui.status("warning", "Material") }}{% endif %}
               <span class="ml-2 type-data-sm text-ink-muted">
-                {{ row.kind.value }} &middot; {{ row.rule.value }} &middot; {{ row.resolution.value }}
+                {{ row.kind | in_words }} &middot; {{ row.rule.spoken }} &middot; {{ row.resolution | in_words }}
               </span>
             </p>
             <div class="mt-2 grid gap-3 sm:grid-cols-2">
@@ -410,7 +410,7 @@
               {% if row.detail.evidence %}
                 <p class="mt-1 type-body-sm text-ink-muted">
                   <span class="type-label">Cited evidence:</span>
-                  {{ row.detail.evidence.facts | length }} fact(s), {{ row.detail.evidence.calculations | length }} calculation(s), {{ row.detail.evidence.sources | length }} source(s) &mdash; best tier {{ row.position_b.tier }}.
+                  {{ row.detail.evidence.facts | length }} fact(s), {{ row.detail.evidence.calculations | length }} calculation(s), {{ row.detail.evidence.sources | length }} source(s) &mdash; best source {{ row.position_b.tier | tier_words }}.
                 </p>
               {% endif %}
             {% endif %}

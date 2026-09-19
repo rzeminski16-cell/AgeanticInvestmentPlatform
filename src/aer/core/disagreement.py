@@ -97,6 +97,8 @@ __all__ = [
     "position_figure",
     "relative_difference",
     "resolve",
+    "spoken_rule",
+    "spoken_tier",
     "thesis_conflict",
 ]
 
@@ -246,6 +248,33 @@ _RULE_WORDS: Final[dict[ResolutionRule, str]] = {
 }
 
 
+def spoken_rule(name: str) -> str:
+    """A stored rung name in words, for a rule this code version may not know.
+
+    The same shape as :func:`aer.eval.metrics.spoken_metric`, for the same reason: a
+    disagreement recorded under a build whose ladder had a rung this one does not must
+    still render, so an unknown name is spelled out from its own words rather than
+    refused. The gate payload stores the value, so a page reading one back has a string
+    rather than a member.
+    """
+    try:
+        return ResolutionRule(name).spoken
+    except ValueError:
+        return name.replace("_", " ")
+
+
+def spoken_tier(name: str) -> str:
+    """A stored tier name in words, for a tier this code version may not know.
+
+    The same shape as :func:`spoken_rule`, and for the same reason: a position was stored
+    as JSONB, so a page reading one back has a string rather than a member.
+    """
+    try:
+        return SourceTier(name).spoken
+    except ValueError:
+        return name.replace("_", " ").lower()
+
+
 def position_figure(position: Mapping[str, Any]) -> str:
     """How one stored position's quantity reads on a page.
 
@@ -268,13 +297,13 @@ def position_figure(position: Mapping[str, Any]) -> str:
         # The run's own draft denying a figure has neither a quantity nor a publisher, so
         # there is nothing here but the absence itself (ADR 0125). The red team's side of a
         # thesis conflict does have a publisher behind its evidence, and keeps its tier.
-        return "no figure" if computed else f"tier {tier}"
+        return "no figure" if computed else spoken_tier(tier)
     if computed:
         # A calculation has no publisher, so there is no tier to print (ADR 0125). Printing
         # one would attribute this platform's own arithmetic to a regulator, on the page
         # where the operator decides whether to publish it.
         return f"{position.get('value', '')} {unit} (this run's own arithmetic)".strip()
-    return f"{position.get('value', '')} {unit} ({tier})".strip()
+    return f"{position.get('value', '')} {unit} ({spoken_tier(tier)})".strip()
 
 
 def challenge_heading(detail: Mapping[str, Any] | None, *, fallback: str) -> str:
@@ -513,8 +542,9 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
             ResolutionOutcome.CHOSE_A,
             ResolutionRule.LOWER_TIER_WINS,
             (
-                f"{position_a.label} is {position_a.tier.value} and {position_b.label} is "
-                f"{position_b.tier.value}. The lower tier number carries more weight, so "
+                f"{position_a.label} is {position_a.tier.spoken} and {position_b.label} "
+                f"is {position_b.tier.spoken}. The more authoritative source carries more "
+                f"weight, so "
                 f"{position_a.value} stands and {position_b.value} is retained as the "
                 "rejected position."
             ),
@@ -530,8 +560,8 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
             ResolutionOutcome.ESCALATED,
             ResolutionRule.BASIS_MISMATCH,
             (
-                f"{position_a.label} is {position_a.basis.value} and {position_b.label} is "
-                f"{position_b.basis.value}. Both can be true of the same period, because "
+                f"{position_a.label} is {position_a.basis.spoken} and {position_b.label} "
+                f"is {position_b.basis.spoken}. Both can be true of the same period, because "
                 "they answer different questions, and preferring one by date would answer "
                 "a question nobody asked."
             ),
@@ -548,7 +578,7 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
             ResolutionOutcome.CHOSE_B,
             ResolutionRule.LATER_FILING_WINS,
             (
-                f"Both are {position_a.tier.value} and {position_a.basis.value}. "
+                f"Both are {position_a.tier.spoken}, {position_a.basis.spoken}. "
                 f"{position_b.label} was filed on {position_b.filed_date.isoformat()}, "
                 f"after {position_a.label} on {position_a.filed_date.isoformat()}, so it "
                 "is the same publisher's later word on the same basis."
@@ -566,7 +596,7 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
             ResolutionRule.SAME_TIER_SAME_DATE,
             (
                 f"{position_a.label} and {position_b.label} are both "
-                f"{position_a.tier.value}, both {position_a.basis.value}, both filed "
+                f"{position_a.tier.spoken}, both {position_a.basis.spoken}, both filed "
                 f"{position_a.filed_date.isoformat()}, and report {position_a.value} "
                 f"against {position_b.value}. There is nothing left to prefer one by."
             ),

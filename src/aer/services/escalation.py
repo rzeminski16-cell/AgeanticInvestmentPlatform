@@ -44,6 +44,7 @@ from aer.db.models import (
 )
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.db.models.section_definition import SKILL
+from aer.eval.metrics import spoken_metric
 from aer.sections.registry import section_outcomes, sections_for_job
 from aer.services.disagreements import disagreements_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
@@ -147,6 +148,9 @@ async def _metric_scores(session: AsyncSession, *, job: Job) -> tuple[MetricScor
             threshold=row.threshold,
             failures=tuple(str(item) for item in row.details.get("failures", [])),
             disputes=_disputes(row),
+            # `spoken_metric` rather than `Metric(...).spoken`, so a row written under a
+            # build that measured something this one does not still words itself.
+            label=spoken_metric(row.metric),
         )
         for row in await evaluations_for_job(session, job.id)
     )
@@ -188,6 +192,7 @@ async def _section_scenes(
             SectionScene(
                 key=section.section_key,
                 status=section.status.value,
+                title=section.definition.title,
                 required=section.definition.required,
                 custom=section.definition.origin == SKILL,
                 has_primary=covered.has_primary if covered is not None else False,
@@ -246,13 +251,14 @@ async def _policy_clamps(session: AsyncSession, *, job: Job) -> tuple[PolicyClam
             # difference between what was written and what happened.
             continue
         for clamp in pin.clamps or []:
-            clamps.append(_clamp(pin.skill.key, clamp))
+            clamps.append(_clamp(pin.skill.key, pin.skill_version.title, clamp))
     return tuple(clamps)
 
 
-def _clamp(skill_key: str, clamp: dict[str, Any]) -> PolicyClamp:
+def _clamp(skill_key: str, skill_title: str, clamp: dict[str, Any]) -> PolicyClamp:
     return PolicyClamp(
         skill_key=skill_key,
+        skill_title=skill_title,
         field=str(clamp.get("field", "")),
         requested=str(clamp.get("requested", "")),
         effective=str(clamp.get("effective", "")),

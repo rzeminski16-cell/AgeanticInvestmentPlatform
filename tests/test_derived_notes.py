@@ -327,8 +327,12 @@ class TestBothNotationsSayIt:
         # platform's arithmetic and a reader is entitled to know which version did it.
         assert "(code version `derivedcode1`)" in markdown
         # The reference the note replaces: no tier, no retrieval date, nothing that would
-        # read as the filing having stated the figure.
-        assert "tier T1_REGULATORY" not in markdown.split("## Notes")[1].split("## Sources")[0]
+        # read as the filing having stated the figure. Asserted on the words a source note
+        # now carries — "a regulatory filing" — rather than on the tier code it used to,
+        # which would pass on a page that had simply stopped saying anything.
+        notes = markdown.split("## Notes")[1].split("## Sources")[0]
+        assert SourceTier.T1_REGULATORY.spoken not in notes
+        assert "retrieved" not in notes
 
     async def test_the_html_note_says_the_same_thing(self, db_session: AsyncSession) -> None:
         document = await _document(await _scene(db_session))

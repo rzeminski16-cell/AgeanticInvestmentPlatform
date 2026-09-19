@@ -1401,6 +1401,55 @@ found rather than as scope that was always there.
     is worth reading the code to settle rather than leaving on a list — the row was wrong and
     what it was pointing at was real.
 
+29. **The escalation banner was written in the wrong language, 19 September 2026.** The last
+    eight unconstructed journey rows were the §2.4 triggers at the final gate, and no test had
+    ever rendered that state: a clean fake run fires no trigger, and the fake run is the only
+    run the suite has. Constructing them found no defect in the platform's reasoning and a
+    vocabulary leak on every surface the state touches. The console named the fired conditions
+    as `low_source_coverage, material_missing_section` — *the one message written to tell an
+    operator what had gone wrong with their run*. The review page's evidence named sections and
+    metrics by key; a failed check listed `balance_sheet_liquidity/cagr#4`; the disagreements
+    table printed `source_conflict · same_tier_same_date · escalated`; and the conflict
+    ladder's own rationale said "both are T4_LICENSED_MARKET, both as_reported" — on the review
+    page **and in the report's published appendix**, the section whose whole job is to make the
+    rest of the report trustworthy. `TriggerKind`, `SourceTier` and `FactBasis` gained `spoken`,
+    on the pattern `GateKind.spoken` and `ResolutionRule.spoken` already set, and the trigger
+    scenes now carry a section's title, a metric's label and a skill's title so the pure engine
+    words its evidence without importing a registry. **The class is §3.19.8's**: a surface
+    nothing could reach is a surface nobody has read, and the ratchet Phase 1.4 ran could only
+    ratchet what a test could render.
+
+30. **The instrument had a hole the shape of a real identifier, and a tier code behind it, 19
+    September 2026.** Found inside item 29. The harness's shouted-enum pattern required two
+    leading letters, so `T4_LICENSED_MARKET` — letter, then digit — passed it, and every
+    `SourceTier` value had been passing since the harness landed. Closing the hole turned
+    **seventeen green rows red**, all on one word: the plan gate printed `T1_REGULATORY` in
+    its planned-sources table, the review page printed it in the draft preview's footnotes,
+    and `position_figure` printed it beside both sides of a conflict. The renderer's version
+    is the one that matters most — *"Form 10-K, fiscal 2022, published 15 June 2022,
+    retrieved 1 July 2022, tier T1_REGULATORY"* is a footnote in the **published report**,
+    under a figure the reader is being asked to trust. `SourceTier.spoken` now says "a
+    regulatory filing" there and on the four other surfaces that printed the code; the tier
+    *number* is the ladder's ordering rule and stays on the row. The golden report fixtures
+    moved with it.
+
+    A second instrument fault, same session: a row met at a gate read only the console, so the
+    trigger *summaries* were asserted clean while the evidence under them was not.
+
+    **The class**: an assertion that passes for the wrong reason is worse than no assertion,
+    because the second is visible. Seventeen rows had been reporting green on a page carrying
+    a code identifier, and the ratchet Phase 1.4 ran could not have caught it.
+
+31. **A cleanup could not empty a table it was half-preserving, 19 September 2026.** The
+    journey row that enables a skill was the first test to run a skill through a real run and
+    then reset. `tests/db_cleanup.py` preserved `section_definitions` whole, because migration
+    0023 seeds the eighteen-section spine into it — but a run with an enabled custom-section
+    skill writes its own row there too, with a `RESTRICT` reference to `skills`. So the sweep
+    left that row behind and then failed on `DELETE FROM "skills"` with a foreign-key
+    violation. The table is now visited in its proper place and emptied of everything that is
+    not `origin = 'builtin'`, which is what a fresh database has. **The class**: "reference
+    data" was a property of *rows*, recorded against a table.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

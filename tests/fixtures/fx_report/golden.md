@@ -97,12 +97,12 @@ A comparable-company analysis was performed against three peers as at 30 June 20
 
 ## Notes
 
-[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> Verified passage (retrieved 1 July 2022, artefact `e3b0c44298fc`): "Revenue increased $30.2 billion or 18%, driven by growth in Azure."
+[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, a regulatory filing. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> Verified passage (retrieved 1 July 2022, artefact `e3b0c44298fc`): "Revenue increased $30.2 billion or 18%, driven by growth in Azure."
 [^2]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (code version `goldencode12`).
-[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> The passage is quoted at note 1.
+[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, a regulatory filing. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm> The passage is quoted at note 1.
 [^4]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (code version `goldencode12`).
-[^5]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
-[^6]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
+[^5]: Segment data pack, retrieved 1 July 2022, the issuer's own material. <https://www.microsoft.com/investor/segment-data.html>
+[^6]: Segment data pack, retrieved 1 July 2022, the issuer's own material. <https://www.microsoft.com/investor/segment-data.html>
 [^7]: **Unresolved citation** — this claim references source document `00000000-0000-0000-0000-000000003002`, which is no longer present. Do not rely on the figure it supports.
 [^8]: **Unresolved citation** — this claim references calculation `00000000-0000-0000-0000-000000003001`, which is no longer present. Do not rely on the figure it supports.
 
@@ -111,8 +111,8 @@ A comparable-company analysis was performed against three peers as at 30 June 20
 
 | Source | Publisher | Published | Retrieved | Tier | Artefact |
 |---|---|---|---|---|---|
-| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 1 July 2022 | T2_ISSUER | `a3b0c44298fc` |
-| [Form 10-K, fiscal 2022](https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm) | US Securities and Exchange Commission | 15 June 2022 | 1 July 2022 | T1_REGULATORY | `e3b0c44298fc` |
+| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 1 July 2022 | the issuer's own material | `a3b0c44298fc` |
+| [Form 10-K, fiscal 2022](https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm) | US Securities and Exchange Commission | 15 June 2022 | 1 July 2022 | a regulatory filing | `e3b0c44298fc` |
 
 
 ---

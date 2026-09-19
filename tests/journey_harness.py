@@ -44,7 +44,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer import errors
-from aer.core.enums import Decision, GateKind, JobStatus, UserRole
+from aer.core.disagreement import Position
+from aer.core.enums import Decision, GateKind, JobStatus, SourceTier, UserRole
 from aer.core.escalation import TriggerKind
 from aer.db.models import (
     Approval,
@@ -54,6 +55,8 @@ from aer.db.models import (
     Job,
     JobStep,
     ReportSection,
+    Skill,
+    SourceDocument,
     User,
     WorkOrder,
 )
@@ -61,6 +64,8 @@ from aer.eval.metrics import Metric
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.disagreements import resolve_and_record
+from aer.services.skills import save_skill
 from aer.workflow.engine import WorkflowDefinitionError
 from aer.workflow.pauses import PauseReason
 from aer.workflow.workflows.vertical_slice_v1 import build_steps, gate_payload, seal_step_for
@@ -85,7 +90,9 @@ from tests.workflow_fixtures import (
     DEFAULT_PER_RUN_BUDGET_GBP,
     UNMAPPED_FACTS_FIXTURE,
     make_provider,
+    make_provider_that_misquotes_its_figures,
     owner_of,
+    seed_starved_section,
     the_only_user,
 )
 
@@ -268,7 +275,12 @@ def _shell_commands() -> re.Pattern[str]:
 
 SHELL: Final = _shell_commands()
 SNAKE_CASE: Final = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
-SHOUTED_ENUM: Final = re.compile(r"\b[A-Z]{2,}(?:_[A-Z0-9]+)+\b")
+# A leading digit counts. `[A-Z]{2,}` missed `T4_LICENSED_MARKET` — the second character
+# is a digit — and behind that hole sat a real one: the conflict ladder's own rationale,
+# on the review page and in the report's appendix, read "both T4_LICENSED_MARKET, both
+# as_reported". A regex with a shape a real identifier does not have is an assertion that
+# passes for the wrong reason, which is worse than not having it.
+SHOUTED_ENUM: Final = re.compile(r"\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b")
 XBRL_TAG: Final = re.compile(r"\b[a-z-]+:[A-Z][A-Za-z]+\b")
 MODULE_PATH: Final = re.compile(r"\baer\.[a-z_][a-z_.]+\b")
 
@@ -308,6 +320,7 @@ async def reset_scene(url: str) -> None:
     The shape half runs every row on one database, and a row that inherits the previous
     row's runs is a row whose monthly spend — and whose "the only user" — depends on
     ordering.
+
     """
     engine = _engine(url)
     try:
@@ -754,6 +767,259 @@ async def _unverified_citations(url: str, job_id: uuid.UUID) -> tuple[str, ...]:
         await engine.dispose()
 
 
+# --- the eight §2.4 conditions, each held before the run seals its own gate ----------------
+#
+# **Every one of these is arranged before the `revise` step.** The fired triggers ride
+# inside the gate-2 payload hash, so a condition arranged after the seal would leave the
+# page and the run computing two different payloads and no approval could ever match — the
+# run would stop on drift rather than on the banner, and the row would be measuring the
+# wrong state. There are two windows: before the run is commissioned at all, and at the
+# assumptions gate, which is the last stop before the draft.
+#
+# Three of them are one scene, and that is the platform's answer rather than a shortcut: a
+# required section that cites nothing is thinly sourced, below its floor *and* unsure of
+# itself, so §2.4's coverage, missing-section and uncertainty conditions all genuinely
+# hold. Each row asserts its own kind is among what fired; what else fired with it is what
+# the run found.
+
+# A skill asking for more per-section tokens than the platform's ceiling (12,000). The
+# additive-only composer grants the ceiling and records the difference as a clamp — which
+# is the §2.4 condition, and is what an operator's own file asking for headroom does.
+_SKILL_ASKING_ABOVE_THE_CEILING: Final = """\
+---
+aer_skill: 1
+key: journey_clamped_probe
+kind: custom_section
+title: "Clamped Probe"
+version: 1
+required: false
+scope: global
+evidence_policy:
+  min_sources: 1
+  requires_primary: true
+  max_tier: 4
+output:
+  summary: string
+token_budget: 16000
+allowed_tools: [search_facts]
+---
+
+## What I want from this section
+
+Anything at all; this section exists to be pinned under a clamped policy.
+"""
+
+# A cap the plan's own estimate is above 80% of, and which the run still fits inside —
+# the state an operator reaches by commissioning at roughly what the platform says the
+# work will cost. The guard refuses on *spend*, which a fake run barely touches, so this
+# stops nothing; what it does is put the banner up before the hard cap ever has to.
+#
+# A constant, and the builder's own assertion is what keeps it honest: when a step's
+# estimate moves far enough that this no longer clears 80%, the row fails with the
+# triggers it did fire rather than quietly measuring a clean run.
+_A_CAP_THE_ESTIMATE_CROWDS: Final = Decimal("10.00")
+
+
+async def _seed_the_starved_section(url: str) -> None:
+    """A required section whose token budget admits no evidence at all.
+
+    The fixture the workflow tests already use for a genuinely fired banner: one token
+    buys no evidence unit, so the section generates, cites nothing and misses the floor
+    it declared. Seeded before the run because a section definition is what the draft
+    step reads, and the draft runs long before the seal.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            await seed_starved_section(session)
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def _enable_a_clamped_skill(url: str) -> None:
+    """Save an operator's skill file the composer has to tighten, and switch it on.
+
+    Enabled here rather than through the settings page because the row is about the
+    *gate*, not about the settings page: a skill nobody enabled is pinned to no run, and
+    the pin is what carries the clamp.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            user = await the_only_user(session)
+            version = await save_skill(session, source=_SKILL_ASKING_ABOVE_THE_CEILING, actor=user)
+            skill = await session.get(Skill, version.skill_id)
+            assert skill is not None
+            skill.enabled = True
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def _flag_a_source(url: str, job_id: uuid.UUID) -> None:
+    """Mark a document this run really acquired as tripping the injection heuristics.
+
+    Written to the row the scanner writes to, because the scanner cannot be provoked from
+    here: it reads the fetched bytes, and every document the fake scene holds is a real
+    filing served from a stored fixture. Planting a pattern in one of those would change
+    what nine other tests read out of the same file to make one banner fire.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            document = await session.scalar(
+                select(SourceDocument)
+                .where(SourceDocument.job_id == job_id)
+                .order_by(SourceDocument.retrieved_at, SourceDocument.id)
+                .limit(1)
+            )
+            assert document is not None, "the run acquired no source document to flag"
+            document.injection_flagged = True
+            # The column's check constraint refuses a flag with no findings behind it.
+            document.injection_findings = [{"signal": "hidden_text", "locator": "p:nth-child(9)"}]
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def _record_a_source_conflict(url: str, job_id: uuid.UUID) -> None:
+    """Two licensed feeds reporting different closes for one day, put on the ladder.
+
+    Through the service the platform itself records conflicts with, so the row is the
+    ladder's own verdict rather than a shape the harness invented. Same tier, same day,
+    nothing to prefer by: the ladder escalates, which is the material, unsettled conflict
+    §2.4's condition is about. A fake-scene run cannot reach this on its own — the only
+    writer of a non-thesis conflict is the price step, and that needs a market-data
+    subscription and a vendor that has restated a bar.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            recorded = await resolve_and_record(
+                session,
+                job_id=job_id,
+                topic="Closing price on 30 June 2022",
+                first=Position(
+                    reference="journey:close:held",
+                    label="Held by this platform",
+                    value=Decimal("256.83"),
+                    unit="USD",
+                    tier=SourceTier.T4_LICENSED_MARKET,
+                    filed_date=AS_OF_DATE,
+                ),
+                second=Position(
+                    reference="journey:close:incoming",
+                    label="Reported now by the vendor",
+                    value=Decimal("271.87"),
+                    unit="USD",
+                    tier=SourceTier.T4_LICENSED_MARKET,
+                    filed_date=AS_OF_DATE,
+                ),
+            )
+            assert recorded is not None, "the ladder settled the conflict rather than escalating"
+            assert recorded.material, "the ladder did not call the difference material"
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+# Arranged before the run is commissioned: everything here is a row the run itself reads.
+_BEFORE_THE_RUN: Final[dict[TriggerKind, Any]] = {
+    TriggerKind.LOW_SOURCE_COVERAGE: _seed_the_starved_section,
+    TriggerKind.HIGH_MODEL_UNCERTAINTY: _seed_the_starved_section,
+    TriggerKind.MATERIAL_MISSING_SECTION: _seed_the_starved_section,
+    TriggerKind.SKILL_POLICY_CLAMP: _enable_a_clamped_skill,
+}
+
+# Arranged at the assumptions gate: rows the run has to have produced first, and which
+# nothing after the draft may touch.
+_AT_THE_LAST_GATE_BEFORE_THE_DRAFT: Final[dict[TriggerKind, Any]] = {
+    TriggerKind.SUSPICIOUS_SOURCE: _flag_a_source,
+    TriggerKind.CREDIBLE_SOURCE_CONFLICT: _record_a_source_conflict,
+}
+
+_TRIGGER_KINDS: Final[dict[str, TriggerKind]] = {kind.value: kind for kind in TriggerKind}
+
+
+async def _fired_triggers(url: str, job_id: uuid.UUID) -> tuple[str, ...]:
+    """Which §2.4 conditions the gate stopped on, read from the paused step's own record."""
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.status == JobStatus.AWAITING_APPROVAL)
+                .order_by(JobStep.sequence.desc(), JobStep.attempt.desc())
+                .limit(1)
+            )
+            context = ((row.error or {}) if row else {}).get("context", {})
+            return tuple(str(name) for name in context.get("triggers", []))
+    finally:
+        await engine.dispose()
+
+
+def _build_final_trigger(state: StoppedState, scene: Scene) -> uuid.UUID:
+    """A run stopped at the final gate with one of §2.4's conditions holding.
+
+    The gate always waits for a person; what a fired trigger changes is what the wait
+    *says*. So every row here reaches the same page by a different route, and what each
+    one measures is the banner that route produces — which is where a trigger's own
+    words, and its evidence lines, reach an operator for the first time.
+    """
+    kind = _TRIGGER_KINDS.get(state.detail or "")
+    if kind is None:
+        message = f"no path constructed: {state.detail!r} is not one of the §2.4 conditions"
+        raise NoPathConstructedError(message)
+
+    url = scene.database_url
+    arrange = _BEFORE_THE_RUN.get(kind)
+    if arrange is not None:
+        run_async(arrange(url))
+
+    cap = (
+        _A_CAP_THE_ESTIMATE_CROWDS
+        if kind is TriggerKind.COST_ABOVE_THRESHOLD
+        else DEFAULT_PER_RUN_BUDGET_GBP
+    )
+    job_id: uuid.UUID = run_async(_commission(url, max_cost_gbp=cap))
+    # A writer that states one figure and cites a calculation holding another: the only
+    # one of the eight whose condition is a *verdict* the platform reaches, so the run
+    # has to earn it rather than be handed it.
+    provider = (
+        make_provider_that_misquotes_its_figures()
+        if kind is TriggerKind.VALIDATION_FAILURE
+        else None
+    )
+    worker = Worker(url, provider=provider)
+
+    plant = _AT_THE_LAST_GATE_BEFORE_THE_DRAFT.get(kind)
+    if plant is not None:
+        status = worker.advance_until(job_id, GateKind.ASSUMPTIONS)
+        if status is not JobStatus.AWAITING_APPROVAL:
+            message = f"the run stopped {status.value} before reaching the assumptions gate"
+            raise NoPathConstructedError(message)
+        run_async(plant(url, job_id))
+
+    status = worker.advance_to_the_final_gate(job_id)
+    reason: str | None = run_async(_pause_reason(url, job_id))
+    expected = PauseReason.FINAL_TRIGGERS_FIRED.value
+    if status is not JobStatus.AWAITING_APPROVAL or reason != expected:
+        detail = f"the run is {status.value}, paused for {reason!r} rather than on a banner"
+        raise NoPathConstructedError(detail)
+
+    fired = run_async(_fired_triggers(url, job_id))
+    if kind.value not in fired:
+        detail = f"the banner names {list(fired)}, and {kind.value} is not among them"
+        raise NoPathConstructedError(detail)
+    return job_id
+
+
 def _build_final(state: StoppedState, scene: Scene) -> uuid.UUID:
     """A run stopped at the final gate for a reason of its own.
 
@@ -762,8 +1028,7 @@ def _build_final(state: StoppedState, scene: Scene) -> uuid.UUID:
     did not verify, and each escalation trigger.
     """
     if state.detail != "unverified_citations":
-        message = f"no path constructed: nothing fires {state.detail} at the final gate yet"
-        raise NoPathConstructedError(message)
+        return _build_final_trigger(state, scene)
 
     url = scene.database_url
     job_id: uuid.UUID = run_async(_commission(url))
@@ -997,6 +1262,13 @@ def _assert_pressing_moves(
                 surface.fill("reason", "Read the filing directly; the figure is stated there.")
                 surface.press_by_id(f"override-{citation_id}", expect_url=GATE_PAGE_URL)
             surface.press_by_id("approve", expect_url=CONSOLE_URL)
+        elif state.family is Family.FINAL_GATE:
+            # A fired trigger changes what the gate *says*, not what it wants: the way past
+            # it is still a decision taken with the banner in view. So the control leads to
+            # the draft and the decision there is what moves the run — and a press that
+            # stopped at the review page would call the row green for arriving somewhere.
+            surface.press(control, expect_url=GATE_PAGE_URL)
+            surface.press_by_id("approve", expect_url=CONSOLE_URL)
         elif state.family is Family.BUDGET:
             surface.fill("max_cost_gbp", f"{DEFAULT_PER_RUN_BUDGET_GBP:.2f}")
             surface.press(control, expect_url=CONSOLE_URL)
@@ -1030,7 +1302,12 @@ def check(state: StoppedState, scene: Scene, job_id: uuid.UUID) -> Verdict:
     pages: list[str | None]
     if state.family is Family.PROBLEM_PAGE:
         pages = [None]  # the page the surface landed on
-    elif state.family is Family.GATE and state.gate is not None:
+    elif state.gate is not None:
+        # Both pages, for a row met at a gate. The console says why the run stopped; the
+        # gate's own page carries the detail behind it — and for a fired trigger that
+        # detail is the §2.4 evidence, which is where a metric's name and a section's key
+        # reach an operator. A row that read only the console would call the banner clean
+        # because the summary was.
         pages = [_console(scene, job_id), _gate_url(scene, job_id, state.gate)]
     else:
         pages = [_console(scene, job_id)]

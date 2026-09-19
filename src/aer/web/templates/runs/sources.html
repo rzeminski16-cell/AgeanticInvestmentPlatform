@@ -111,7 +111,7 @@
               in, so there is nothing here a reader who cannot tell the greens apart loses.
             #}
             <td class="px-4 py-3 align-top">
-              <span class="type-data-sm text-ink" data-field="tier">{{ source.evidence_tier.value }}</span>
+              <span class="type-body-sm text-ink" data-field="tier">{{ source.evidence_tier.value | tier_words }}</span>
               {#
                 Both tiers, and only when they differ. The cap on its own reads as a
                 mis-tiered document; the recorded tier on its own hides the rule that a
@@ -119,7 +119,7 @@
               #}
               {% if source.evidence_tier != source.source_tier %}
                 <span class="mt-1 block type-body-sm text-ink-muted" data-field="tier-capped">
-                  recorded {{ source.source_tier.value }}, capped because it carries no publication date
+                  recorded as {{ source.source_tier.value | tier_words }}, capped because it carries no publication date
                 </span>
               {% endif %}
             </td>

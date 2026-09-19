@@ -45,6 +45,7 @@ from aer.sources.sec.submissions import parse_submissions
 from aer.storage.local import LocalArtefactStore
 from aer.version import git_sha
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.db_cleanup import STARVED_PROBE_KEY
 from tests.request_fixtures import research_request
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
@@ -309,7 +310,20 @@ def planner_response(*, section_keys: list[str] | None = None) -> ResearchPlanDr
     )
 
 
-def make_provider(**kwargs: Any) -> FakeProvider:
+def make_provider_that_misquotes_its_figures(**kwargs: Any) -> FakeProvider:
+    """A writer that states one number and cites a calculation holding another.
+
+    The §2.10 `cited_figure_agreement` row's own founding case, as a provider: the
+    2026-08-24 MSFT note asserted a quick ratio of 0.93 over a recorded 1.567 with every
+    other check green, because no metric read the sentence. Scripted here so a run can
+    reach the gate with a validator genuinely failed — the §2.4 validation trigger fires
+    on the *recorded* evaluation rows, and a planted row would be the harness writing
+    what the validator was supposed to decide.
+    """
+    return make_provider(misquotes_its_figures=True, **kwargs)
+
+
+def make_provider(*, misquotes_its_figures: bool = False, **kwargs: Any) -> FakeProvider:
     """A provider scripted to answer every role a slice run reaches.
 
     The planner and the workers answer from static scripts; the worker reports
@@ -320,7 +334,7 @@ def make_provider(**kwargs: Any) -> FakeProvider:
     off the provider's own call log. The red team raises no challenges: its scripted
     verdict is an honest "nothing found", not an absence.
     """
-    brain = ScriptedSectionBrain()
+    brain = ScriptedSectionBrain(misquotes_its_figures=misquotes_its_figures)
     # The SDK-backed schema check (gap A18). Every call a run makes now goes through the
     # same question the live run asked — on the schema that call actually composed, which
     # is stronger than checking the registered contracts alone, because the section writer
@@ -359,8 +373,9 @@ class ScriptedSectionBrain:
     verifies — the extraction rows are real, so the deterministic verifier passes them.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, misquotes_its_figures: bool = False) -> None:
         self.provider: FakeProvider | None = None
+        self.misquotes_its_figures = misquotes_its_figures
 
     def __call__(self, schema: type[Any]) -> Any:
         name = declared_schema_name(schema)
@@ -370,13 +385,15 @@ class ScriptedSectionBrain:
             return worker_report_turn()
         if name == "SectionDraft":
             assert self.provider is not None, "bind the provider before the first call"
-            return section_draft_for(self.provider.calls[-1])
+            return section_draft_for(self.provider.calls[-1], misquote=self.misquotes_its_figures)
         if name == "CustomSectionDraft":
             # A run with an enabled custom section reaches this; the custom-section agent
             # composes its contract and evidence with the same markers the writer uses,
             # so one builder answers both.
             assert self.provider is not None, "bind the provider before the first call"
-            return custom_section_draft_for(self.provider.calls[-1])
+            return custom_section_draft_for(
+                self.provider.calls[-1], misquote=self.misquotes_its_figures
+            )
         if name == "ChallengeBriefs":
             # One brief per challenge it was shown, keyed by the ids in the prompt. A
             # static answer could not key them, and a briefing keyed to nothing is exactly
@@ -561,7 +578,7 @@ _STATIC_ANSWERS: dict[str, Any] = {
 }
 
 
-def section_draft_for(call: dict[str, Any]) -> Any:
+def section_draft_for(call: dict[str, Any], *, misquote: bool = False) -> Any:
     """A draft satisfying the call's own contract, citing the call's own evidence.
 
     Everything is read from the composed prompt: the contract from the system prompt
@@ -585,22 +602,41 @@ def section_draft_for(call: dict[str, Any]) -> Any:
     # confirm; the figure rows above carry lineage either way, through their named ids.
     claims: list[dict[str, Any]] = []
     if calculation is not None and extraction is not None:
-        claims.append(
-            {
-                "statement": (
-                    f"The recorded {calculation.get('name', 'calculation')} is "
-                    f"{calculation['value']} {calculation.get('unit', '')}.".strip()
-                ),
-                "kind": "numeric",
-                "calculation_id": calculation["calculation_id"],
-                "citations": [{"extraction_id": extraction["extraction_id"]}],
-            }
-        )
+        claims.append(_numeric_claim(calculation, extraction, misquote=misquote))
 
     return SectionDraft(content=content, claims=claims)
 
 
-def custom_section_draft_for(call: dict[str, Any]) -> Any:
+# What a misquoting writer states instead of the figure it cites. A constant, and a
+# gross one: the point is a number the cited calculation cannot round to at any
+# precision, so `cited_figure_agreement` fails on the reading rather than on a
+# borderline that would move with whatever the run happened to compute.
+MISQUOTED_FIGURE: Final = "404.04"
+
+
+def _numeric_claim(
+    calculation: dict[str, Any], extraction: dict[str, Any], *, misquote: bool
+) -> dict[str, Any]:
+    """One numeric claim naming a calculation, quoting its value — or another one.
+
+    The misquoting branch changes the *sentence* and nothing else: the citation still
+    resolves, the excerpt still verifies, the calculation still re-executes. That is
+    exactly the shape `cited_figure_agreement` exists to catch, and the shape every
+    other check passes.
+    """
+    figure = MISQUOTED_FIGURE if misquote else calculation["value"]
+    return {
+        "statement": (
+            f"The recorded {calculation.get('name', 'calculation')} is "
+            f"{figure} {calculation.get('unit', '')}.".strip()
+        ),
+        "kind": "numeric",
+        "calculation_id": calculation["calculation_id"],
+        "citations": [{"extraction_id": extraction["extraction_id"]}],
+    }
+
+
+def custom_section_draft_for(call: dict[str, Any], *, misquote: bool = False) -> Any:
     """The same draft, in the custom-section envelope.
 
     The custom-section agent embeds its contract and its evidence listing with the same
@@ -619,17 +655,7 @@ def custom_section_draft_for(call: dict[str, Any]) -> Any:
 
     claims: list[dict[str, Any]] = []
     if calculation is not None and extraction is not None:
-        claims.append(
-            {
-                "statement": (
-                    f"The recorded {calculation.get('name', 'calculation')} is "
-                    f"{calculation['value']} {calculation.get('unit', '')}.".strip()
-                ),
-                "kind": "numeric",
-                "calculation_id": calculation["calculation_id"],
-                "citations": [{"extraction_id": extraction["extraction_id"]}],
-            }
-        )
+        claims.append(_numeric_claim(calculation, extraction, misquote=misquote))
 
     return CustomSectionDraft(
         content=_content_for(contract, calculation=calculation, fact=fact),
@@ -770,7 +796,7 @@ async def seed_starved_section(session: AsyncSession) -> None:
     """
     session.add(
         SectionDefinition(
-            key="starved_probe",
+            key=STARVED_PROBE_KEY,
             version=1,
             origin="builtin",
             title="Starved Probe",

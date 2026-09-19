@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
+from aer.core.enums import SourceTier
 from aer.storage.local import LocalArtefactStore
 from aer.web.vocabulary import QUARANTINE_REASONS
 from tests.db_fixtures import run_async
@@ -130,7 +131,9 @@ class TestWhatTheReaderIsTold:
         # regulator from an issuer's own page.
         page.goto(f"{live_server}/runs/{evidence.job_id}/sources")
 
-        expect(page.locator('[data-field="tier"]').first).to_have_text("T1_REGULATORY")
+        expect(page.locator('[data-field="tier"]').first).to_have_text(
+            SourceTier.T1_REGULATORY.spoken
+        )
 
 
 class TestFromAFigureToTheBytes:

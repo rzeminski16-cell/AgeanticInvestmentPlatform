@@ -347,7 +347,7 @@ def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
                 published = display.date_text(footnote.publication_date, style=style)
                 parts.append(f"published {published}")
             parts.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
-            parts.append(f"tier {footnote.tier}")
+            parts.append(footnote.tier)
             return f"{', '.join(parts)}. <{footnote.url}>{_passage(footnote, style=style)}"
         case DerivedFootnote():
             named = ", ".join(f"[{title}]({url})" for title, url in footnote.sources)

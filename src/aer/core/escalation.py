@@ -58,6 +58,17 @@ class TriggerKind(StrEnum):
     VALIDATION_FAILURE = "validation_failure"
     SUSPICIOUS_SOURCE = "suspicious_source"
 
+    @property
+    def spoken(self) -> str:
+        """The condition in the operator's words, for a banner: "thin sourcing".
+
+        A pause that says ``low_source_coverage`` is a page speaking in code (roadmap
+        §2.11), and the console prints the fired conditions before anyone opens the
+        review page. The enum's value stays the record's — it is in the sealed payload
+        and in every stored gate — and this is the sentence's.
+        """
+        return _SPOKEN_TRIGGERS[self]
+
     # `THESIS_DISAGREEMENT` was here and is deliberately gone (2026-08-25). It was never one
     # of §2.4's rows; it was appended, and it fired on the red team materially contradicting
     # the draft — which is the red team doing exactly what it is paid to do. A banner that
@@ -73,6 +84,26 @@ class TriggerKind(StrEnum):
     # commissioned, so the row never had anything to fire on. A gate payload sealed under
     # the old build still carries the row's record; the words for it fall back to the
     # stored kind.
+
+
+# A noun phrase each, so a banner can list them: "two conditions raised the banner: thin
+# sourcing and a missing section". Short enough to read in a list and specific enough to
+# tell two of them apart, which the enum's own values are too — in the wrong language.
+#
+# **`aer.web.vocabulary.TRIGGER_KINDS` names the same eight and is not a duplicate of this.**
+# That one is a chip on the review page — *Thinly sourced*, sentence case, with a tone — and
+# this one is a clause inside a sentence the workflow composes, which cannot import the web
+# layer anyway. Two registers of the same eight words; a test holds both complete.
+_SPOKEN_TRIGGERS: Final[dict[TriggerKind, str]] = {
+    TriggerKind.LOW_SOURCE_COVERAGE: "thin sourcing",
+    TriggerKind.CREDIBLE_SOURCE_CONFLICT: "sources that disagree",
+    TriggerKind.HIGH_MODEL_UNCERTAINTY: "the run's own uncertainty",
+    TriggerKind.MATERIAL_MISSING_SECTION: "a missing section",
+    TriggerKind.SKILL_POLICY_CLAMP: "a tightened section policy",
+    TriggerKind.COST_ABOVE_THRESHOLD: "spend near the cap",
+    TriggerKind.VALIDATION_FAILURE: "a failed check",
+    TriggerKind.SUSPICIOUS_SOURCE: "a suspicious source",
+}
 
 
 # §2.4: "any section self-confidence < 0.5". A float because it compares against the
@@ -120,6 +151,17 @@ class MetricScore:
     failures: tuple[str, ...] = ()
     disputes: tuple[str, ...] = ()
 
+    # What to call it in a banner. Carried on the scene rather than looked up, because
+    # this module restates the §2.10 metric names as strings precisely so the correctness
+    # core needs no import of the evaluation package; a label table here would be that
+    # import by another route. Falls back to the stored name, which is what a run from an
+    # older build has.
+    label: str = ""
+
+    @property
+    def called(self) -> str:
+        return self.label or self.metric
+
 
 @dataclass(frozen=True, slots=True)
 class EvidenceTally:
@@ -155,6 +197,10 @@ class SectionScene:
 
     key: str
     status: str
+
+    # The section's own title, for a sentence. Same reasoning as `MetricScore.label`: the
+    # titles live on the section definitions and this module reads no tables.
+    title: str = ""
     required: bool = False
     custom: bool = False
     has_primary: bool = False
@@ -177,6 +223,10 @@ class SectionScene:
     dealt: EvidenceTally | None = None
     attempts: int = 0
     refusal_causes: tuple[str, ...] = ()
+
+    @property
+    def called(self) -> str:
+        return self.title or self.key
 
     @property
     def generated(self) -> bool:
@@ -211,6 +261,13 @@ class PolicyClamp:
     requested: str
     effective: str
     reason: str = ""
+
+    # The skill's own title, as its file declares it. See `MetricScore.label`.
+    skill_title: str = ""
+
+    @property
+    def called(self) -> str:
+        return self.skill_title or self.skill_key
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +347,7 @@ def _low_source_coverage(
     thinner sourcing than the report stands on — it is the declared floor being met.
     """
     evidence = [
-        f"required section '{row.key}' cites no primary source"
+        f"{row.called} cites no primary source, and is a section this report owes one"
         for row in sections
         if row.required and row.generated and row.requires_primary and not row.has_primary
     ]
@@ -351,11 +408,11 @@ def _high_model_uncertainty(
 ) -> FiredTrigger | None:
     """Any section self-confidence below 0.5, or a validator disputing a verdict."""
     evidence = [
-        f"section '{row.key}' reports confidence {row.confidence:.2f}"
+        f"{row.called} rates its own confidence {row.confidence:.2f}"
         for row in sections
         if row.confidence is not None and row.confidence < CONFIDENCE_FLOOR
     ]
-    evidence.extend(f"{score.metric}: {dispute}" for score in metrics for dispute in score.disputes)
+    evidence.extend(f"{score.called}: {dispute}" for score in metrics for dispute in score.disputes)
     if not evidence:
         return None
     return FiredTrigger(
@@ -396,9 +453,9 @@ def _material_missing_section(sections: tuple[SectionScene, ...]) -> FiredTrigge
         if not (row.required or row.custom) or not row.enabled:
             continue
         if not row.generated:
-            evidence.append(f"'{row.key}' was not generated — {_why_missing(row)}")
+            evidence.append(f"{row.called} was not written — {_why_missing(row)}")
         elif not row.covered:
-            evidence.append(f"'{row.key}' is below its evidence floor ({row.shortfall})")
+            evidence.append(f"{row.called} is below its evidence floor ({row.shortfall})")
     if not evidence:
         return None
     return FiredTrigger(
@@ -413,9 +470,12 @@ def _material_missing_section(sections: tuple[SectionScene, ...]) -> FiredTrigge
 
 def _skill_policy_clamp(clamps: tuple[PolicyClamp, ...]) -> FiredTrigger | None:
     """The additive-only composer tightened what a skill file asked for."""
+    # The clamp's own reason names which part of the policy moved, in English and with
+    # the platform's figure in it; the field's identifier said the same thing in the
+    # frontmatter's language and was the only code on the line.
     evidence = [
-        f"{clamp.skill_key}: {clamp.field} requested {clamp.requested}, "
-        f"effective {clamp.effective}" + (f" ({clamp.reason})" if clamp.reason else "")
+        f"{clamp.called} asked for {clamp.requested} and ran with {clamp.effective}"
+        + (f". {clamp.reason}" if clamp.reason else "")
         for clamp in clamps
     ]
     if not evidence:
@@ -477,7 +537,8 @@ def _validation_failure(metrics: tuple[MetricScore, ...]) -> FiredTrigger | None
         if score is None or score.passed is not False:
             continue
         evidence.append(
-            f"{name} scored {_shown(score.value)} against a threshold of {_shown(score.threshold)}"
+            f"{score.called} scored {_shown(score.value)} against a threshold of "
+            f"{_shown(score.threshold)}"
         )
         evidence.extend(score.failures[: _EVIDENCE_CAP - len(evidence)])
     if not evidence:

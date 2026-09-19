@@ -22,9 +22,16 @@ from typing import Any
 import pytest
 
 from aer.core.assumption_scales import ASSUMPTION_WORDS, EXPECTED_UNIT, assumption_words
+from aer.core.disagreement import (
+    DisagreementKind,
+    ResolutionOutcome,
+    ResolutionRule,
+    spoken_rule,
+)
 from aer.core.enums import (
     AnalysisMode,
     Decision,
+    FactBasis,
     GateKind,
     Grade,
     JobStatus,
@@ -34,6 +41,7 @@ from aer.core.enums import (
     RequestStatus,
     ShockKind,
     SkillKind,
+    SourceTier,
     TransactionKind,
 )
 from aer.core.escalation import TriggerKind
@@ -54,6 +62,7 @@ from aer.web.portfolio.pages import GRADE_LABELS
 from aer.web.vocabulary import (
     ANALYSIS_MODES,
     DECISIONS,
+    DISAGREEMENT_KINDS,
     GATES,
     GRADES,
     JOB_STATES,
@@ -61,6 +70,7 @@ from aer.web.vocabulary import (
     PREMISE_VERDICTS,
     PROCESS_QUALITIES,
     REQUEST_STATES,
+    RESOLUTION_OUTCOMES,
     SECTION_STATES,
     SHOCK_KINDS,
     SKILL_KINDS,
@@ -92,6 +102,8 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("shock kind", ShockKind, SHOCK_KINDS),
     ("escalation trigger", TriggerKind, TRIGGER_KINDS),
     ("valuation model", ValuationModel, VALUATION_MODELS),
+    ("disagreement kind", DisagreementKind, DISAGREEMENT_KINDS),
+    ("resolution outcome", ResolutionOutcome, RESOLUTION_OUTCOMES),
 ]
 
 
@@ -396,6 +408,35 @@ class TestTheRatchetsVocabulary:
             assert spoken == spoken.lower()
             assert "_" not in spoken
             assert spoken
+
+    def test_every_escalation_trigger_is_spoken_in_words(self) -> None:
+        """The pause message lists these on the console, before anybody opens the review
+        page — and listed them as `low_source_coverage, material_missing_section` until a
+        journey row could reach the state (19 September 2026)."""
+        for kind in TriggerKind:
+            spoken = kind.spoken
+            assert spoken == spoken.lower(), kind
+            assert "_" not in spoken, kind
+            assert spoken, kind
+
+    def test_every_source_tier_and_basis_is_spoken_in_words(self) -> None:
+        """The conflict ladder's rationales name both, and a rationale is the one part of a
+        stored disagreement a reader of the *report* meets. They said "both are
+        T4_LICENSED_MARKET, both as_reported" there and on the review page."""
+        for tier in SourceTier:
+            assert tier.spoken == tier.spoken.lower(), tier
+            assert "_" not in tier.spoken, tier
+        for basis in FactBasis:
+            assert basis.spoken == basis.spoken.lower(), basis
+            assert "_" not in basis.spoken, basis
+
+    def test_every_ladder_rung_is_spoken_in_words_including_one_this_build_lost(self) -> None:
+        for rule in ResolutionRule:
+            assert "_" not in rule.spoken, rule
+            assert spoken_rule(rule.value) == rule.spoken
+        # A disagreement recorded under a build whose ladder had a rung this one does not
+        # still renders, in its own words, rather than raising on the page.
+        assert spoken_rule("a_rung_no_build_has") == "a rung no build has"
 
     def test_a_provider_is_named_not_keyed(self) -> None:
         for provider in Provider:

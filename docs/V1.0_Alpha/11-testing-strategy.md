@@ -350,7 +350,9 @@ of this must be true before the round is allowed to spend:**
    fixed".
 4. `just lint`, `just typecheck` and `just hooks` leaving the tree unchanged — and the CI job
    that runs them **actually green**, not red-and-ignored.
-5. The journey harness green on every inventory row, with zero remaining xfails.
+5. The journey harness green on every inventory row, with zero remaining xfails. **Met 19
+   September 2026**: 50 rows, 50 green, none unconstructed, `not_as_recorded: []`, in both
+   halves. See [the eight rows nothing could reach](#the-eight-rows-nothing-could-reach--19-september-2026).
 6. Every stored run with an approved report re-rendered, with zero contradictions.
 7. The blinding dry run over September's texts passing, with the identity-guess hit rate at
    chance.
@@ -391,6 +393,53 @@ Both report `reproduces: true` with zero citation failures; `aer verify-artefact
 artefacts intact, none corrupt or missing; `aer verify-audit` walks 30 events and the chain
 holds. Re-run all three before the round rather than trusting this table: that is the point of
 the row.
+
+### The eight rows nothing could reach — 19 September 2026
+
+Row 5 closed with the last eight unconstructed rows in the journey inventory: one per §2.4
+escalation trigger, at the final gate. They had no builder because a clean fake run fires no
+trigger, so **the state had never been rendered by any test** — and the fake run is the only
+run the suite has.
+
+Each is now provoked by arranging its own condition **before the `revise` step seals the
+gate-2 payload**, because the fired triggers ride inside that hash: a condition arranged
+afterwards leaves the page and the run computing two different payloads, and the run stops on
+drift rather than on the banner. Five are arranged before the run is commissioned (a required
+section whose one-token budget admits no evidence, which genuinely satisfies three of the
+eight; an operator's skill file asking for more tokens than the platform's ceiling; a cap the
+plan's own estimate crowds). One is a writer scripted to state a figure its cited calculation
+does not hold — the founding case of the `cited_figure_agreement` metric, so the validator
+reaches its own verdict rather than being handed one. Two are planted at the assumptions gate
+on rows the run really produced, because the fake scene has no injection-bearing document and
+no market-data vendor to restate a bar.
+
+**What the eight rows found, all of it vocabulary, none of it reasoning:**
+
+| Where | What an operator read |
+|---|---|
+| The run console | `low_source_coverage, material_missing_section` — the one message written to say what had gone wrong |
+| The review page's banner evidence | Section keys (`starved_probe`), metric names (`cited_figure_agreement`), the skill's key and the clamped frontmatter field |
+| A failed check's own failure lines | "balance_sheet_liquidity/cagr#4 cites cagr = 0.171…" |
+| The disagreements table | `source_conflict · same_tier_same_date · escalated` |
+| The conflict ladder's rationale — here *and in the report's own appendix* | "both are T4_LICENSED_MARKET, both as_reported" |
+
+`TriggerKind`, `SourceTier` and `FactBasis` gained a `spoken` form, on the pattern
+`GateKind.spoken` and `ResolutionRule.spoken` already set; the trigger scenes now carry the
+section's title, the metric's label and the skill's title, so the pure engine words its
+evidence without importing a registry. The stored values are untouched — they are the record,
+and the sealed payload still carries them.
+
+Two things about the instrument itself were wrong and are fixed, and the first cost more than
+the eight rows did. Its shouted-enum pattern required two leading letters, so
+`T4_LICENSED_MARKET` slipped it — and so had every source tier, on every row, since the harness
+landed. Closing the hole turned **seventeen green rows red on one word**: the plan gate's
+planned-sources table, the review page's draft preview, and both sides of a conflict. The
+version that matters most is not in the interface at all — *"Form 10-K, published 15 June 2022,
+retrieved 1 July 2022, tier T1_REGULATORY"* is a footnote in the **published report**, under a
+figure the reader is being asked to trust. A regex that misses a shape real identifiers have is
+an assertion passing for the wrong reason, which is worse than no assertion because no
+assertion is visible. Second, a row met at a gate now reads the gate's own page as well as the
+console: the trigger summaries were clean while the evidence under them was not.
 
 ---
 

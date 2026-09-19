@@ -289,9 +289,30 @@ class TestEachTriggerFiresAloneAndNamesItself:
         )
         [fired] = fire_triggers(**scene)
         assert fired.kind is TriggerKind.MATERIAL_MISSING_SECTION
-        assert "not generated" in fired.evidence[0]
+        assert "was not written" in fired.evidence[0]
         assert "failed" in fired.evidence[0]
         assert "recorded no reason" in fired.evidence[0]
+
+    def test_a_section_is_named_by_its_title_where_it_has_one(self) -> None:
+        """The banner is read at a gate, so it says *Executive Summary*, not the key.
+
+        The key is the record's and stays in it; nothing reached this line until the
+        journey harness could raise a trigger at the final gate, and what an operator
+        met there was `'starved_probe' was not generated`.
+        """
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="executive_summary",
+                    title="Executive Summary",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+        assert fired.evidence[0].startswith("Executive Summary was not written")
+        assert "executive_summary" not in fired.evidence[0]
 
     def test_a_starved_section_says_it_was_dealt_nothing(self) -> None:
         """The operator's question. "Status: failed" four times over does not answer it.
@@ -426,9 +447,29 @@ class TestEachTriggerFiresAloneAndNamesItself:
         )
         [fired] = fire_triggers(**scene)
         assert fired.kind is TriggerKind.SKILL_POLICY_CLAMP
-        assert "moat_durability" in fired.evidence[0]
-        assert "max_tier" in fired.evidence[0]
-        assert "platform ceiling" in fired.evidence[0]
+        # The skill by the only name this scene gives it, both figures, and the reason —
+        # which is where the field that moved is named, in English. The frontmatter key
+        # itself was the only code on the line and is deliberately gone.
+        assert fired.evidence[0] == "moat_durability asked for 5 and ran with 4. platform ceiling"
+
+    def test_a_clamped_skill_is_named_by_its_title_where_it_has_one(self) -> None:
+        scene = _clean_scene(
+            clamps=(
+                PolicyClamp(
+                    skill_key="moat_durability",
+                    skill_title="Competitive Moat Durability",
+                    field="token_budget",
+                    requested="16000",
+                    effective="12000",
+                    reason="The configured per-section ceiling is 12000 tokens.",
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert fired.evidence[0].startswith("Competitive Moat Durability asked for 16000")
+        assert "moat_durability" not in fired.evidence[0]
+        assert "token_budget" not in fired.evidence[0]
 
     def test_actual_spend_over_eighty_percent_of_the_cap(self) -> None:
         scene = _clean_scene(
@@ -948,7 +989,9 @@ class TestTheServiceReadsTheRecordedRows:
 
         fired = await triggers_for_job(session, job=scene["job"], request=scene["request"])
         assert [trigger.kind for trigger in fired] == [TriggerKind.SKILL_POLICY_CLAMP]
-        assert "moat_durability" in fired[0].evidence[0]
+        # The pinned *version's* title, which is what the service reads off the pin: a skill
+        # renamed after it was pinned is named on this banner as it was when it ran.
+        assert fired[0].evidence[0].startswith("Competitive Moat Durability asked for")
 
 
 # ==========================================================================================
@@ -1009,8 +1052,13 @@ class TestTheGatePausesNamingTheTriggers:
         assert step is not None
         detail = step.error or {}
         message = str(detail.get("message", ""))
-        assert TriggerKind.LOW_SOURCE_COVERAGE.value in message
-        assert TriggerKind.MATERIAL_MISSING_SECTION.value in message
+        # In words on the console, by value in the record. The message said
+        # `low_source_coverage, material_missing_section` until the journey harness could
+        # construct this state (19 September 2026) — the roadmap §2.11 defect, on the one
+        # message written to tell somebody what had gone wrong with their run.
+        assert TriggerKind.LOW_SOURCE_COVERAGE.spoken in message
+        assert TriggerKind.MATERIAL_MISSING_SECTION.spoken in message
+        assert TriggerKind.LOW_SOURCE_COVERAGE.value not in message
         # Three, in the table's order. The starved probe's own confidence drops under the
         # §2.12 insufficiency ladder (task 45's writer marks thin findings low), so the
         # uncertainty condition genuinely holds alongside coverage and missing-section.
@@ -1032,7 +1080,7 @@ class TestTheGatePausesNamingTheTriggers:
         # primary source, but their own policy waives one — a coverage trigger that named
         # them would be ignoring the floor each section actually declared.
         assert payload["triggers"][0]["evidence"] == [
-            "required section 'starved_probe' cites no primary source"
+            "Starved Probe cites no primary source, and is a section this report owes one"
         ]
 
         step = await driven["session"].scalar(

@@ -393,14 +393,16 @@ def inventory() -> tuple[StoppedState, ...]:
 # "no path constructed" rather than skipping, and leaves this list only by gaining a builder
 # or by its branch being shown dead and removed. Kept short on purpose: a row here is
 # harness backlog, not platform backlog.
-UNCONSTRUCTED: Final[dict[str, str]] = {
-    **{
-        f"final.trigger.{kind.value}": (
-            f"no fake-scene fixture fires {kind.value} at the final gate yet"
-        )
-        for kind in TriggerKind
-    },
-}
+#
+# **Empty since 19 September 2026**, and every row it held was worth constructing. The last
+# eight were the §2.4 escalation triggers at the final gate, and the state behind them had
+# never been rendered by any test: the console named the fired conditions as
+# `low_source_coverage, material_missing_section`, the review page's evidence named sections
+# and metrics by key, and the conflict ladder's own rationale — printed there and in the
+# report's appendix — read "both T4_LICENSED_MARKET, both as_reported". Nothing was wrong
+# with the platform's reasoning; the one message written to tell an operator what had gone
+# wrong was written in the wrong language, on the page where they decide whether to publish.
+UNCONSTRUCTED: Final[dict[str, str]] = {}
 
 # Rows that fail today, by which of the three assertions fails and why — measured by running
 # the harness on every row it can construct, never predicted. `tests/e2e/test_journey.py`
@@ -418,8 +420,10 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
 # red on the rejected and stale gates, the two budget ceilings, the failed step with a
 # remedy, the queued run and the problem page. Phase 1.2 (ADR 0123) cleared `control` on the
 # twelve rejected and stale gate rows, and Phase 1.4, the vocabulary ratchet, cleared the
-# rest: 33 rows green on all three assertions, 19 still unconstructed. A regression records
-# itself here keyed by row and then by assertion, with the reason written as a sentence —
-# the queued run's entry once read, under `control`, "nothing leads to the worker's health"
-# — so the next reader knows what was found rather than only that something was.
+# rest: 33 rows green on all three assertions, 19 still unconstructed. The last of those
+# nineteen were constructed on 19 September 2026, and the harness is now 50 rows, 50 green,
+# nothing unconstructed. A regression records itself here keyed by row and then by
+# assertion, with the reason written as a sentence — the queued run's entry once read, under
+# `control`, "nothing leads to the worker's health" — so the next reader knows what was
+# found rather than only that something was.
 STILL_RED: Final[dict[str, dict[str, str]]] = {}

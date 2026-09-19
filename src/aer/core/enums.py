@@ -233,6 +233,17 @@ class SourceTier(StrEnum):
     """Blogs, forums, user-supplied notes. Hypothesis generation only."""
 
     @property
+    def spoken(self) -> str:
+        """The tier as a sentence names it: "a regulatory filing".
+
+        The ladder's rationales are read — on the review page, and in the report's own
+        disagreement appendix — and they said *"both T4_LICENSED_MARKET, both
+        as_reported"* of two figures an operator was being asked to publish. The number
+        is the rule (a lower tier wins) and stays the record's; this is the sentence's.
+        """
+        return _SPOKEN_TIERS[self]
+
+    @property
     def rank(self) -> int:
         """The tier number. Lower is more authoritative."""
         return int(self.value[1])
@@ -268,6 +279,19 @@ class SourceTier(StrEnum):
             return self
         return SourceTier.T5_SECONDARY
 
+
+# A noun phrase each, for a rationale that reads "both are a regulatory filing". Named
+# by what the source *is* rather than by what the tier table calls it: a reader weighing
+# two figures wants to know where each came from, and "tier 4" is the ordering, not the
+# answer.
+_SPOKEN_TIERS: Final[dict[SourceTier, str]] = {
+    SourceTier.T1_REGULATORY: "a regulatory filing",
+    SourceTier.T2_ISSUER: "the issuer's own material",
+    SourceTier.T3_OFFICIAL_STATS: "official statistics",
+    SourceTier.T4_LICENSED_MARKET: "licensed market data",
+    SourceTier.T5_SECONDARY: "secondary reporting",
+    SourceTier.T6_UNVERIFIED: "unverified material",
+}
 
 # Tiers 1 and 2 are primary: the regulator's copy and the issuer's own copy.
 _PRIMARY_TIER_LIMIT = 2
@@ -309,6 +333,22 @@ class FactBasis(StrEnum):
     """A data vendor's recast of the filer's own presentation. Convenient, comparable
     across companies, and traceable to nobody's actual filing — never the sole support
     for a claim."""
+
+    @property
+    def spoken(self) -> str:
+        """The basis as a sentence names it. See :attr:`SourceTier.spoken`."""
+        return _SPOKEN_BASES[self]
+
+
+# Said as the difference between two figures, because that is what a rationale naming a
+# basis is explaining: "one is what the filing said at the time, the other is a later
+# revision of it".
+_SPOKEN_BASES: Final[dict[FactBasis, str]] = {
+    FactBasis.AS_REPORTED: "as first filed",
+    FactBasis.DERIVED: "derived by this platform",
+    FactBasis.RESTATED: "restated in a later filing",
+    FactBasis.VENDOR_STANDARDISED: "recast by a data vendor",
+}
 
 
 class Provider(StrEnum):

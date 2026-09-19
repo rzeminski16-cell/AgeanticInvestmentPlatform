@@ -29,7 +29,7 @@
           {% for source in payload.planned_sources %}
             <tr>
               {{ ui.cell(source.get('provider') | provider_words, header=true) }}
-              {{ ui.cell(source.get('tier', '—')) }}
+              {{ ui.cell(source.get('tier') | tier_words if source.get('tier') else '—') }}
               {{ ui.cell(source.get('what', '—')) }}
               {{ ui.cell(source.get('why', '—')) }}
             </tr>

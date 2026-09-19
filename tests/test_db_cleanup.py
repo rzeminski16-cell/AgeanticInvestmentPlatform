@@ -17,7 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import Provider, SourceTier, UserRole
 from aer.db.models import Artefact, ResearchRequest, SourceDocument, User
-from tests.db_cleanup import delete_all, deletion_order
+from tests.db_cleanup import (
+    PARTLY_SEEDED,
+    STARVED_PROBE_KEY,
+    delete_all,
+    deletion_order,
+)
 from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
@@ -55,9 +60,18 @@ class TestTheOrderIsSafeByConstruction:
         # Deleting them leaves a state no deployment has ever been in, and the next test to
         # resolve a section fails somewhere nowhere near its own code — which is precisely
         # what the first version of this helper did.
-        order = deletion_order()
-        assert "section_definitions" not in order
-        assert "sector_profiles" not in order
+        assert "sector_profiles" not in deletion_order()
+
+    def test_a_table_holding_both_is_visited_and_kept_by_predicate(self) -> None:
+        # `section_definitions` carries the spine *and* a row per enabled custom-section
+        # skill. Skipping it wholesale left the second kind behind, and its RESTRICT
+        # reference made emptying `skills` a foreign-key violation rather than a cleanup.
+        assert "section_definitions" in deletion_order()
+        kept = PARTLY_SEEDED["section_definitions"]
+        assert "origin <> 'builtin'" in kept
+        # And the one fixture row that claims to be spine: a required section every later
+        # run would owe and fail, which no schema column distinguishes from the eighteen.
+        assert STARVED_PROBE_KEY in kept
 
     def test_naming_a_seeded_table_still_empties_it(self) -> None:
         # For the rare test that wants to prove what happens when the spine is absent.

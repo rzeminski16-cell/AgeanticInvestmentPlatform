@@ -46,6 +46,7 @@ from aer.db.models import (
     Job,
     ReportSection,
     ResearchRequest,
+    SectionDefinition,
     SectionStatus,
     SourceDocument,
 )
@@ -551,23 +552,32 @@ async def _cited_figures(session: AsyncSession, *, job: Job) -> tuple[CitedFigur
     """
     rows = (
         await session.execute(
-            select(Claim, Calculation)
+            select(Claim, Calculation, SectionDefinition.title)
             .join(Calculation, Calculation.id == Claim.calculation_id)
             .join(ReportSection, ReportSection.id == Claim.report_section_id)
+            .join(SectionDefinition, SectionDefinition.id == ReportSection.section_definition_id)
             .where(ReportSection.job_id == job.id)
             .order_by(ReportSection.section_key, Claim.created_at, Claim.id)
         )
     ).all()
+    # Named as the review page names things, because this is where the name is read: a
+    # failed check lists its failures on the gate an operator decides at, and
+    # `balance_sheet_liquidity/cagr#4` told them nothing they could act on.
     return tuple(
         CitedFigureObservation(
-            name=f"{claim.section.section_key}/{calculation.name}#{calculation.sequence}",
+            name=f"{title}, {_in_words(calculation.name)} #{calculation.sequence}",
             text=claim.text,
-            calculation=calculation.name,
+            calculation=_in_words(calculation.name),
             value=calculation.output_value,
             unit=calculation.output_unit,
         )
-        for claim, calculation in rows
+        for claim, calculation, title in rows
     )
+
+
+def _in_words(name: str) -> str:
+    """A stored name as a sentence says it — the same rule the appendix reads by."""
+    return name.replace("_", " ").strip()
 
 
 async def _figure_scenes(
