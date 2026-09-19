@@ -201,7 +201,9 @@ class TestTheSourceDrilldown:
         assert 'data-state="verified"' in page.text
         assert "match ratio" in page.text
         # The tier and the licence note.
-        assert "T1_REGULATORY" in page.text
+        # In words since 19 September 2026: the drilldown names the kind of source a
+        # reader met, not the tier table's name for it.
+        assert SourceTier.T1_REGULATORY.spoken in page.text
         assert "US government work" in page.text
 
     async def test_the_failed_excerpt_is_shown_failed(self, served: Any) -> None:

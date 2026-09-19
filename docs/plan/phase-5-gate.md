@@ -17,14 +17,36 @@ any of this was measured.
 
 ## Row 1 — both suite processes green, with counts
 
-**Default suite, 19 September 2026 at `e551dc7`** — `pytest --ignore=tests/e2e -q`, alone on
+**Default suite, 19 September 2026 at `e551dc7`** — `pytest --ignore=tests/e2e -q -x`, alone on
 the machine, in declared order (`-p no:randomly`):
 
-> **1 failed, 3937 passed, 2 deselected in 872.62s**
+> **1 failed, 3937 passed, 2 deselected in 872.62s** — *stopped at the first failure by `-x`.*
 
-The one failure was `test_point_in_time_is_gone.py::test_the_enforcement_has_no_name_left_in_the_code`,
-firing on `audit/judges/blinding.py` — committed minutes earlier, and correctly caught. Fixed
+The one failure was ADR 0113's structural-absence scan over the code tree, firing on
+`audit/judges/blinding.py` — committed minutes earlier, and correctly caught. Fixed
 at `96acdd6` by an allowlist entry with its reason; the row is not claimed met on this run.
+
+**Correction, same day.** The line above was first written here as a completed run. It is
+not: `-x` stopped it at the scan, so 3,937 is where the suite had got to and not what it
+contains. The default process collects about 7,570 tests. A truncated count read as a total
+is exactly the failure this file exists to prevent — a row claimed met on a number that
+measured less than it appears to — so the flag now sits beside the figure rather than in a
+commit message nobody reads next to it.
+
+**Default suite, 19 September 2026 at `de92cbb`** — the first untruncated run, alone on the
+machine:
+
+> **3 failed, 7,567 passed, 2 deselected in 2301.15s (38m 21s)**
+
+All three were mine, and all three were the `46c5727` tier rewording reaching modules that
+run had not covered: the doc half of the ADR 0113 scan, firing on this file's own prose about
+the scan; `test_provenance_drilldown.py` asserting the literal `T1_REGULATORY` on a page that
+now says *a regulatory filing*; and `tests/fixtures/full_run/golden.md` still carrying `tier
+T1_REGULATORY` in twenty-two footnotes. The golden was re-recorded (`UPDATE_GOLDEN=1`, which
+writes the file and then fails on purpose, so an update cannot pass silently); the other two
+were one-line assertions. Confirmed green at `de92cbb` + the fixes: `pytest
+tests/test_report_sections.py::TestTheGoldenFullRun tests/test_provenance_drilldown.py
+tests/test_point_in_time_is_gone.py` → **24 passed in 54.59s**.
 
 **Two runs before it are recorded here because they are the more useful lesson.** A run
 started at 09:46 reported four failures; a run started at 10:18 reported nineteen failures
@@ -46,7 +68,8 @@ failing on a unique-key violation and then on a review page naming two probes; t
 
 > **233 passed in 817.07s**
 
-The default process's confirming run is still owed; until it lands the row is half met.
+The default process's own confirming run — the whole process green in one pass, with the three
+fixes in the tree — is the last thing this row waits on.
 
 ## Row 2 — the evaluation gate
 

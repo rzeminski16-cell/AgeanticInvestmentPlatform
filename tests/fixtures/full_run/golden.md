@@ -340,44 +340,44 @@ The companies below are the comparable set for this research, each proposed with
 
 ## Notes
 
-[^1]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^2]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^1]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^2]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^3]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^4]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^4]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^5]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^6]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^6]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^7]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^8]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^8]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^9]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^10]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^10]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^11]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^12]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^12]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^13]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^14]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^14]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^15]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^16]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^16]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^17]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^18]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^19]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^20]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^21]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^18]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^19]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^20]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^21]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^22]: Calculated: `net margin = net income / revenue` = 0.3118 (rounded; full precision stored) for FY2020 (code version `<code>`).
 [^23]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
-[^24]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^24]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^25]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^26]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^26]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^27]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^28]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^28]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^29]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^30]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^30]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^31]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^32]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^32]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^33]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^34]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^34]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^35]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^36]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^36]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^37]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
-[^38]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
+[^38]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^39]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
 
 
@@ -385,7 +385,7 @@ The companies below are the comparable set for this research, each proposed with
 
 | Source | Publisher | Published | Retrieved | Tier | Artefact |
 |---|---|---|---|---|---|
-| [MICROSOFT CORP XBRL company facts](https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json) | US Securities and Exchange Commission | 28 July 2022 | <today> | T1_REGULATORY | `aad2c68c5514` |
+| [MICROSOFT CORP XBRL company facts](https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json) | US Securities and Exchange Commission | 28 July 2022 | <today> | a regulatory filing | `aad2c68c5514` |
 
 
 ---
