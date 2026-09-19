@@ -232,9 +232,7 @@ def _without_disclaimers(text: str) -> str:
     a line-wise rule would leave whichever half did not carry the phrase.
     """
     kept = [
-        paragraph
-        for paragraph in text.split("\n\n")
-        if not _DISCLAIMER_PHRASES.search(paragraph)
+        paragraph for paragraph in text.split("\n\n") if not _DISCLAIMER_PHRASES.search(paragraph)
     ]
     return "\n\n".join(kept)
 

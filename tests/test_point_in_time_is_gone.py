@@ -71,6 +71,14 @@ CODE_ALLOWED: Final = (
     # enforcement coming back. The copies kept under `docs/plan/readiness-audit-2026-09/`
     # are allowed for the same reason, one list down.
     "audit/out/",
+    # The blinding neutraliser (row 7 of the measurement gate). It names the phrase in
+    # order to *find and remove* it from September's archived texts, which predate ADR
+    # 0113 and still carry the header line — so it is a reader of a record, like
+    # `audit/out/` above, and the exact opposite of the enforcement returning. Deliberate,
+    # by name, which is what this allowlist is for: a module that wanted to dodge the scan
+    # could have spelled the literal in two halves, and defeating the instrument to avoid
+    # an honest entry would be the worse move by a distance.
+    "audit/judges/blinding.py",
 )
 
 DOC_ALLOWED: Final = (
