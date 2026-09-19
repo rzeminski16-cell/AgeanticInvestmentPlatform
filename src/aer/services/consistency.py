@@ -76,10 +76,13 @@ from aer.db.models import (
     Calculation,
     Claim,
     FinancialFact,
+    Job,
     ReportSection,
+    ResearchRequest,
     SectionDefinition,
     SourceDocument,
 )
+from aer.render.glance import glance_content
 from aer.services.disagreements import position_from_fact, record_resolution, resolve_and_record
 
 __all__ = ["ConsistencyReading", "check_report_consistency"]
@@ -153,9 +156,12 @@ async def check_report_consistency(
         )
     )
     definitions = await _definitions_by_key(session, sections)
+    front_page = await _front_page(session, job_id=job_id)
 
-    facts, tiers = await _published_facts(session, sections=sections)
-    calculations = await _published_calculations(session, job_id=job_id, sections=sections)
+    facts, tiers = await _published_facts(session, sections=sections, front_page=front_page)
+    calculations = await _published_calculations(
+        session, job_id=job_id, sections=sections, front_page=front_page
+    )
 
     reading = ConsistencyReading(
         facts=await _compare_facts(session, job_id=job_id, facts=facts, tiers=tiers),
@@ -229,21 +235,47 @@ async def _compare_facts(
     return recorded
 
 
+async def _front_page(session: AsyncSession, *, job_id: uuid.UUID) -> dict[str, Any] | None:
+    """The at-a-glance block's own content, or ``None`` when the run renders none.
+
+    **Asked of the renderer rather than restated here.** `aer.render.glance` curates which
+    calculations reach the front page, and a second copy of that list in this module would
+    be a third statement of one rule — which is how the first two came apart. The cost is a
+    `services` module importing a `render` one; the alternative was this check believing a
+    stale list of what the reader sees.
+
+    A refusal renders no block (the glance withholds itself when the figures offered to it
+    are not all the subject's), and a withheld block publishes nothing, so ``None`` is the
+    honest answer rather than an empty dict pretending to be a front page.
+    """
+    job = await session.get(Job, job_id)
+    if job is None:  # pragma: no cover -- the caller holds the job
+        return None
+    request = await session.get(ResearchRequest, job.work_order_id)
+    if request is None:  # pragma: no cover -- a job without its request
+        return None
+    glance = await glance_content(session, job=job, request=request)
+    return glance.content
+
+
 async def _published_facts(
-    session: AsyncSession, *, sections: Sequence[ReportSection]
+    session: AsyncSession,
+    *,
+    sections: Sequence[ReportSection],
+    front_page: Mapping[str, Any] | None = None,
 ) -> tuple[list[FinancialFact], dict[uuid.UUID, SourceTier]]:
     """The facts this report actually shows a reader, with their documents' tiers.
 
-    Two ways a fact reaches the page, both collected: a numeric claim naming it, and a
-    section figure row carrying its id — the same two channels the numeral rule accepts
-    as lineage, which is what makes this the set of *published* values rather than the
-    whole store.
+    Three ways a fact reaches the page, all collected: a numeric claim naming it, a section
+    figure row carrying its id — the two channels the numeral rule accepts as lineage — and
+    the front page, which is rendered rather than stored. See :func:`_published_ids`.
     """
     wanted = await _published_ids(
         session,
         sections=sections,
         claim_column=Claim.financial_fact_id,
         content_key="financial_fact_id",
+        front_page=front_page,
     )
     if not wanted:
         return [], {}
@@ -318,14 +350,19 @@ async def _compare_calculations(
 
 
 async def _published_calculations(
-    session: AsyncSession, *, job_id: uuid.UUID, sections: Sequence[ReportSection]
+    session: AsyncSession,
+    *,
+    job_id: uuid.UUID,
+    sections: Sequence[ReportSection],
+    front_page: Mapping[str, Any] | None = None,
 ) -> list[Calculation]:
-    """The calculations this report shows a reader, by the same two channels as the facts."""
+    """The calculations this report shows a reader, by the same three channels as the facts."""
     wanted = await _published_ids(
         session,
         sections=sections,
         claim_column=Claim.calculation_id,
         content_key="calculation_id",
+        front_page=front_page,
     )
     if not wanted:
         return []
@@ -531,12 +568,23 @@ async def _published_ids(
     sections: Sequence[ReportSection],
     claim_column: Any,
     content_key: str,
+    front_page: Mapping[str, Any] | None = None,
 ) -> set[uuid.UUID]:
     """Every figure id of one kind that this report publishes.
 
-    Two channels, both collected: a numeric claim naming the figure, and a section figure
-    row carrying its id — the two the numeral rule accepts as lineage, which is what makes
-    this the *published* set rather than the whole store.
+    Three channels, all collected: a numeric claim naming the figure, a section figure row
+    carrying its id — the two the numeral rule accepts as lineage — and **the front page**,
+    which is neither.
+
+    **The front page had to be added, and the Phase 5 round is why.** MSFT's Historical
+    Financial Analysis said *"free cash flow cannot be stated at all"* while the very first
+    table in the document read `Free cash flow | FY2026 | $66,987m`. The denial was detected
+    correctly; it had nothing to contradict, because the at-a-glance block is assembled by
+    :mod:`aer.render.glance` at render time from stored rows and is never a
+    ``report_sections`` row. A check that reads only sections cannot see the first thing a
+    reader sees. The judge who read that document wrote that it *"cannot be trusted on its
+    own numbers"*, and the disagreement the platform should have raised itself was instead
+    raised about it, by somebody else, after the fact.
     """
     wanted: set[uuid.UUID] = set()
     section_ids = [section.id for section in sections]
@@ -549,6 +597,9 @@ async def _published_ids(
     for section in sections:
         if isinstance(section.content, dict):
             wanted.update(_ids_under_key(section.content, key=content_key))
+
+    if front_page is not None:
+        wanted.update(_ids_under_key(front_page, key=content_key))
     return wanted
 
 

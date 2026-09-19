@@ -632,6 +632,59 @@ class TestNegativeAssertions:
         assert position_figure(row.position_a) == "no figure"
         assert position_figure(row.position_b).startswith("485.29")
 
+    async def test_a_figure_only_the_front_page_prints_is_still_printed(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The Phase 5 round's MSFT document, and what it cost.
+
+        Historical Financial Analysis said "free cash flow cannot be stated at all" while
+        the first table in the report read `Free cash flow | FY2026 | $66,987m`. The denial
+        was detected correctly and had nothing to contradict: the at-a-glance block is
+        assembled by `aer.render.glance` at render time and is never a `report_sections`
+        row, so a check reading only sections could not see the first thing a reader sees.
+
+        The judge who compared that document wrote that it "cannot be trusted on its own
+        numbers" — a disagreement the platform should have raised about itself, raised
+        instead about it, by somebody else, after the money was spent.
+
+        Note what is **not** done here: the calculation is never published through a claim
+        or a figure row. The front page is its only route to the page, which is the whole
+        point.
+        """
+        await _calculation(db_session, scene, name="free_cash_flow", value="66987000000")
+        await _second_section(
+            db_session,
+            scene,
+            content={"body": "No cash flow line is present, so free cash flow cannot be stated."},
+        )
+
+        recorded = await check_report_consistency(db_session, job_id=scene["job"].id)
+
+        assert recorded.denials == 1, (
+            "the front page prints free cash flow and a section denies it; a check that "
+            "reads only sections calls that document consistent"
+        )
+        [row] = await disagreements_for_job(db_session, scene["job"].id)
+        assert row.topic == "free cash flow is denied and printed"
+
+    async def test_a_calculation_the_front_page_does_not_curate_stays_unpublished(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The widening is the front page, not the whole store.
+
+        `aer.render.glance` curates seven names onto the headline table precisely because
+        forty rows of intermediate arithmetic is a working paper. A figure nobody printed
+        cannot contradict a reader, and this check must keep saying so.
+        """
+        await _calculation(db_session, scene, name="interest_cover", value="41.2")
+        await _second_section(
+            db_session, scene, content={"body": "No interest cover is available here."}
+        )
+
+        recorded = await check_report_consistency(db_session, job_id=scene["job"].id)
+
+        assert recorded.denials == 0
+
     async def test_a_section_denying_what_it_prints_itself(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:

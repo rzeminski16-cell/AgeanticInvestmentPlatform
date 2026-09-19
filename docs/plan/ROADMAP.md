@@ -1588,6 +1588,43 @@ found rather than as scope that was always there.
     count, a capitalisation multiplies by the shares that exist — but neither may now be empty
     where the other is full, and `tests/test_price_acquisition.py` holds that.
 
+37. **The consistency check could not see the first thing a reader sees, 19 September 2026.**
+    The round's second defect, and the sharper one, because the check that should have
+    caught it was built for this exact case and shipped three days earlier.
+
+    MSFT's Historical Financial Analysis said *"no cash flow line — neither operating cash
+    flow nor capital expenditure — is present, so free cash flow cannot be stated at all"*,
+    while **line 61**, the first table in the document, read `Free cash flow | FY2026 |
+    $66,987m`. The judge reading it wrote that the document *"cannot be trusted on its own
+    numbers"* and handed the comparison to the console.
+
+    *Why ADR 0125's third pass missed it, traced rather than guessed.* The denial was
+    detected perfectly — `denies=True`, names `free_cash_flow`, periods overlap, no numeral
+    escape, the section is not platform-filled. It had **nothing to contradict**: the
+    check's *published* set is built from `report_sections` rows — a claim naming a figure,
+    or a section figure row carrying its id — and the at-a-glance block is assembled by
+    `aer.render.glance` at render time from stored rows. It is never a section. So the
+    document's front page publishes seven curated figures that the validate-step check
+    cannot see, and a section may freely deny any of them.
+
+    *Measured on the round's own run, read-only so the finished record stayed finished*:
+    sections only, 1 denial; with the front page, 2 — the second being `free_cash_flow`
+    denied in Historical Financial Analysis. The platform would have raised, at its own
+    validate step and for £0, the defect a judge raised about it after £7.06.
+
+    *The fix asks the renderer instead of restating it.* `_published_ids` gains the front
+    page as a third channel, via `glance_content` — a `services` module importing a
+    `render` one, which is the wrong direction and still the right call: a second copy of
+    the curated seven in `consistency.py` would be **the fifth instance in one day** of one
+    rule written twice with one copy rotting.
+
+    *Not fixed, and recorded so it is not mistaken for done.* The same run produced a
+    **false positive**: *"Absent that comparison, the capital allocation posture … with
+    capital expenditure roughly five times the combined shareholder distribution"* was
+    logged as denying capital expenditure, in a sentence that uses it. Recall was the
+    urgent half — a missed contradiction ships, a spurious one is a line in an appendix —
+    but the precision half is real and open.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
