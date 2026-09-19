@@ -44,9 +44,9 @@ the scan; `test_provenance_drilldown.py` asserting the literal `T1_REGULATORY` o
 now says *a regulatory filing*; and `tests/fixtures/full_run/golden.md` still carrying `tier
 T1_REGULATORY` in twenty-two footnotes. The golden was re-recorded (`UPDATE_GOLDEN=1`, which
 writes the file and then fails on purpose, so an update cannot pass silently); the other two
-were one-line assertions. Confirmed green at `de92cbb` + the fixes: `pytest
-tests/test_report_sections.py::TestTheGoldenFullRun tests/test_provenance_drilldown.py
-tests/test_point_in_time_is_gone.py` → **24 passed in 54.59s**.
+were one-line assertions. Confirmed green at `de92cbb` plus the fixes, running the golden
+full run, the provenance drilldown and ADR 0113's structural-absence scan together:
+**24 passed in 54.59s**.
 
 **Two runs before it are recorded here because they are the more useful lesson.** A run
 started at 09:46 reported four failures; a run started at 10:18 reported nineteen failures
@@ -144,8 +144,64 @@ writing."* — and two run it straight into the title with no newline. **ISSUE 2
 number carries that caveat whatever this round finds.**
 
 After `audit.judges.blinding.neutralise`, no tell fires on any of the six documents, and none
-loses a fifth of its length. The identity guess itself is billable, stays `live_llm`, and is
-owed; so is the redaction round for F13.
+loses a fifth of its length.
+
+### The live half, 19 September 2026 — **the rate is 1.0, and it stays 1.0**
+
+`audit/judges/panel.py`, `claude-opus-5` at medium effort, the three lenses over the blinded
+pairs, assignment seed 20260919 from the pre-registration. **Fifteen reads across three
+rounds, every one correct, every one stated as *certain*. £4.27 on the audit ledger.**
+
+| round | asked | right | what the judges named first |
+|---|---|---|---|
+| 1 — AZN only | 3 | 3 | `aer.calc.ratios:gross_margin`, code version `6d9c…`, the validator's metrics table, `0E-8` |
+| 2 — all three, machinery closed | 9 | 9 | the validator's metrics table everywhere; `proposed by aer.services.assumption_proposals` led on MSFT and M&T |
+| 3 — MSFT, module paths closed too | 3 | 3 | the validator's metrics table, the calculation footnotes, the red-team log, `beta quoted as 1.064553313698` |
+
+**The first round is the lesson about the instrument.** The tell list had been written by
+reading the two documents' *surface* — markers, headings, the header block, the disclaimer —
+and had never looked inside the prose, where the renderer prints the machinery that made each
+figure. Three judges out of three named `aer.calc.ratios:gross_margin` before anything else.
+Counted afterwards: 367 code identifiers across the three reports and **none** in any console
+note; 248 dotted module paths against none; 135 shouted enum codes against none. Six new tells
+went in, each counted on both sides first, and the neutraliser closed every one.
+
+**The rate did not move, and round 3 is why.** With the module paths gone the judges named the
+next thing down, and the next thing down is not letterhead:
+
+> *"a 'Validation & Disagreements' section with named validator metrics and thresholds"*, *"an
+> internal red-team disagreement log escalated 'for human decision at approval'"*, *"beta
+> quoted as 1.064553313698"*, and — in every one of the fifteen reads, as the second reason —
+> the evidence base: one XBRL feed and a handful of filings against thirty heterogeneous web
+> sources.
+
+**So the finding is not that the blinding is weak. It is that these two documents cannot be
+blinded to authorship, because what distinguishes them is what they are.** A validator's
+scoreboard, an approval trail and a single structured evidence base are the product, not its
+wrapping; a neutraliser that removed them would be blinding the thing being judged, and the
+round would then compare two documents that do not exist. They stay, with the reason written
+next to each in `TELLS`.
+
+**What the pre-registration already decided about exactly this**, committed and hashed before
+any of it was measured: *"A hit rate materially above chance does not void the comparison; it
+attaches a caveat to it, and the caveat is never omitted."* 1.0 is above the 0.7 threshold, so
+the round's six comparisons carry that caveat — **every judge knew which document was the
+platform's** — and it is never reported without it.
+
+**Row 7 as §5 words it — *"with the identity-guess hit rate at chance"* — therefore cannot be
+met**, at this price or any other, and the row is not claimed. It is the same shape as row 6:
+a condition written before anyone had measured the thing it was about. The operator's call,
+as it was for row 6.
+
+**One thing the blinding refuses to do, recorded as `LEFT_STANDING`.** Two of the six
+documents still fire one tell after neutralising — full stored precision, `1.064553313698`
+where a reader wants 1.06. Removing it means rewriting a digit, and this module will not: a
+marker renumbered wrongly points at the wrong source, which a reader can see, while a figure
+rounded wrongly is simply false, which nobody can see. The remedy is in the renderer, which
+should not print a stored Decimal to a reader at all — and **today's renderer still does**,
+which is ROADMAP §3.19 item 34 and reaches the round's own documents.
+
+The redaction round for F13 is still owed.
 
 ## Row 8 — the pre-registration committed and hashed
 

@@ -28,6 +28,7 @@ import pytest
 
 from audit.judges.blinding import (
     BASELINE,
+    LEFT_STANDING,
     PLATFORM,
     TELLS,
     assign,
@@ -96,13 +97,50 @@ class TestTheTellsAreReal:
 
 
 class TestNeutralisingLeavesNothingToGoOn:
-    def test_no_tell_survives_on_either_side_of_any_pair(
+    def test_what_survives_on_each_side_is_exactly_what_is_recorded(
         self, pairs: dict[str, dict[str, str]]
     ) -> None:
+        """Pinned to :data:`LEFT_STANDING`, which is stronger than asserting none.
+
+        This read `assert not left` until the first live guess, where three judges out of
+        three named the machinery under the figures and the list had never heard of it. Two
+        reports are still separable afterwards, on full stored precision, and the module
+        will not close that by rewriting a digit — so the honest assertion is the *set*,
+        not its emptiness: a new residue fails, and so does one of these quietly clearing
+        without the record moving.
+        """
         for subject, texts in pairs.items():
             for side, text in texts.items():
-                left = [tell.name for tell in tells_in(neutralise(text))]
-                assert not left, f"{subject}/{side} still says who wrote it: {left}"
+                left = frozenset(tell.name for tell in tells_in(neutralise(text)))
+                recorded = (
+                    LEFT_STANDING.get(subject, frozenset()) if side == PLATFORM else frozenset()
+                )
+                assert left == recorded, f"{subject}/{side} residue is {sorted(left)}"
+
+    def test_the_residue_is_only_ever_the_one_the_neutraliser_refuses(self) -> None:
+        """A guard on the record itself, not on the documents.
+
+        `LEFT_STANDING` is an exception list, and an exception list nobody bounds grows
+        until it is the rule. The one entry it may hold is the one whose removal would mean
+        rewriting a figure; anything else has a remedy and must use it.
+        """
+        for names in LEFT_STANDING.values():
+            assert names == frozenset({"a Decimal printed as it is stored"})
+
+    def test_a_source_address_is_not_a_code_identifier(self) -> None:
+        """`api_token` in a vendor's query string cost two citations before this existed.
+
+        The identifier rule is about the author's prose. A URL was copied from a source by
+        whichever author copied it, and rewriting one breaks the link a sceptic follows.
+        """
+        url = "https://eodhd.com/api/eod/AZN.US?api_token=REDACTED&fmt=json&period=d"
+        text = f"# T\n\nPrices came from [the vendor]({url}), keyed by citation_accuracy.\n"
+
+        blinded = neutralise(text)
+
+        assert url in blinded
+        assert "citation accuracy" in blinded
+        assert not tells_in(blinded)
 
     def test_the_console_narration_goes_even_when_it_runs_into_the_title(self) -> None:
         """Two of the three notes have no newline between the working and the heading.

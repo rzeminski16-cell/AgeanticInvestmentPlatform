@@ -331,6 +331,38 @@ habit.
 Every one of these tests runs offline. The judge reads themselves are marked `live_llm` and
 are excluded from the default suite, as every billable call already is.
 
+#### What asking the judges found — 19 September 2026
+
+`audit/judges/panel.py` is the billable half, and the first time it ran it overturned the
+paragraph above it. **Fifteen reads, fifteen correct, every one *certain*, £4.27.**
+
+*The tells had been written by eye.* Each of the eight was measured on both sides before it
+was admitted, which is why the list looked sound — but all eight were about the documents'
+*surface*, and not one looked inside the prose, where the renderer prints the machinery that
+produced each figure. Three judges out of three named `aer.calc.ratios:gross_margin` first.
+Counted afterwards: **367 code identifiers across the three reports and none in any console
+note**, 248 dotted module paths against none, 135 shouted enum codes against none. Six tells
+went in, each counted on both sides, and the neutraliser closed all six.
+
+*And the rate did not move.* Asked again with the machinery gone, the judges named the next
+thing down: the validator's metrics table with its thresholds and verdicts, the red-team
+disagreement log *"escalated for human decision at approval"*, `beta quoted as
+1.064553313698`, and — in every one of the fifteen reads, as the second reason — the evidence
+base, one XBRL feed against thirty heterogeneous web sources.
+
+**Which is the finding, and it is about the measurement rather than the instrument: these two
+documents cannot be blinded to authorship, because what distinguishes them is what they are.**
+A blinding that removed the scoreboard, the approval trail and the structured evidence base
+would be blinding the thing being judged, and the round would compare two documents that do
+not exist. So they stay, the rate is reported at 1.0, and the pre-registration's caveat — *"a
+hit rate materially above chance does not void the comparison; it attaches a caveat to it, and
+the caveat is never omitted"* — is what the round's six comparisons carry.
+
+The honest corollary, which belongs here rather than in a footnote: **a panel that knows which
+document is the platform's is a panel whose preference may follow identity**, and ISSUE 2's
+number has to be read knowing that. It was already true of September, unmeasured. It is now
+measured.
+
 **Pre-registration is part of the harness.** The readings in Phase 5's kill-gate table are
 written to a file, committed, and hashed **before** the round runs; the scorer reads that file
 rather than an argument. A gate whose thresholds can be edited after the result is not a gate.
@@ -386,7 +418,14 @@ of this must be true before the round is allowed to spend:**
    [the eight rows nothing could reach](#the-eight-rows-nothing-could-reach--19-september-2026).
 6. Every stored run with an approved report re-rendered, with zero contradictions.
 7. The blinding dry run over September's texts passing, with the identity-guess hit rate at
-   chance.
+   chance. **Measured 19 September 2026, and the second half of this row cannot be met**:
+   fifteen judge reads over the blinded pairs came back fifteen correct, every one *certain*.
+   Not because the blinding is weak — six tells the list had never heard of went in and closed
+   — but because what is left distinguishing the two documents is the validator's scoreboard,
+   the approval trail and the evidence base, which are the product rather than its wrapping.
+   The reading is [`phase-5-gate.md` row 7](../plan/phase-5-gate.md); the consequence is the
+   caveat the pre-registration fixed in advance, and a decision for the operator on the row's
+   wording, as row 6 needed.
 8. The pre-registration file committed and hashed. **Landed 19 September 2026**:
    [`docs/plan/phase-5-pre-registration.json`](../plan/phase-5-pre-registration.json), hashing
    to `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047`, with the readings

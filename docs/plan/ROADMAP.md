@@ -1503,6 +1503,43 @@ found rather than as scope that was always there.
     is a guess wearing the record's authority, and the cheap defence is to diff against the
     record rather than to read it carefully.
 
+34. **The two documents cannot be blinded to each other, and the reason is not presentation,
+    19 September 2026.** The live half of §5's row 7: fifteen judge reads over the blinded
+    pairs, across three rounds, **fifteen correct and every one stated as *certain*.** £4.27.
+    The measurement is in [`phase-5-gate.md`](phase-5-gate.md); what it found splits in two.
+
+    *The instrument had been built by eye.* The tell list read the documents' surface —
+    markers, headings, the header block, the disclaimer — and never looked inside the prose,
+    where the renderer prints the machinery that made each figure. Three judges out of three
+    named `aer.calc.ratios:gross_margin` before anything else, and counting afterwards found
+    367 code identifiers across the three reports against none in any console note, 248 dotted
+    module paths against none, 135 shouted enum codes against none. Six tells went in. **The
+    class is item 30's, one layer further in**: an instrument written from the examples its
+    author was already looking at closes those examples. What broke it open was asking a
+    reader rather than re-reading the list.
+
+    *And then the rate did not move.* With every machine artefact gone the judges named the
+    next thing down — the validator's scoreboard, the red-team log escalated for human
+    decision, and, in every one of the fifteen reads as the second reason, the evidence base:
+    one XBRL feed against thirty heterogeneous web sources. Those are the product, not its
+    wrapping. **So row 7's "hit rate at chance" is a condition written before anyone had
+    measured the thing it was about, and it cannot be met at any price** — the same shape as
+    row 6, and the operator's call in the same way. The pre-registration, hashed before any of
+    this ran, already decided what a high rate means: a caveat on the six comparisons, never
+    omitted, rather than a void. What it now also means is that **ISSUE 2's own question needs
+    reading with care**: a panel that knows which document is the platform's is a panel whose
+    preference may follow identity.
+
+35. **The renderer prints a stored Decimal to a reader, 19 September 2026.** Found as the one
+    thing the blinding refuses to fix: `beta quoted as 1.064553313698`, which a judge named
+    unprompted, and `0E-8` in the validator's table where a reader expects zero. Removing it in
+    the blinder would mean rewriting a digit, and a figure rounded wrongly is invisible in a way
+    a mis-numbered marker is not — so the remedy is in the renderer, and **today's renderer
+    still does it**: `tests/fixtures/full_run/golden.md` carries five `0E-8` and twenty numbers
+    at seven or more decimal places. The same class as the `tier T1_REGULATORY` footnote in item
+    30 — a machine artefact reaching the page under a figure a reader is being asked to trust —
+    and it reaches the measurement round's own documents.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
