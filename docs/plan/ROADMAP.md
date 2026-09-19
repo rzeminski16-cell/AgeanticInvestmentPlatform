@@ -1781,6 +1781,33 @@ found rather than as scope that was always there.
     which is why that item now reads as finished.
 
 
+41. **The journey harness is fragile at full-suite scale, 19 September 2026.** Not a
+    product defect, and worth a number because the harness is ISSUE 1's measuring
+    instrument and an instrument that fails for its own reasons reports noise.
+
+    A full `tests/e2e` run failed one row —
+    `test_every_stopped_state_offers_a_way_forward[chromium-gate.UNMAPPED_CONCEPTS.rejected]`
+    — with `CancelledError: Task cancelled, timeout graceful shutdown exceeded` inside
+    uvicorn's `listen_for_disconnect`, which is the console's event stream still open when
+    the per-row server was torn down. It passes alone in nine seconds and passes with its
+    whole module, 50 of 50, in five minutes; the failure did not reproduce at either scale.
+
+    The design note that predicted it is the plan's own: *"each row starts its own live
+    server, so the browser job grows by several minutes (a module-scoped server with the
+    existing per-test `_reset` is the fallback)"*. The cost has arrived as flakiness rather
+    than as minutes. The fallback is the fix and it is not urgent — but a row that fails for
+    a reason unrelated to what it asserts is exactly what teaches an operator to read red as
+    noise, which is the failure mode §2.4's own trigger note describes.
+
+    *And a second finding, which is mine rather than the harness's.* The same suite first
+    reported 10 failures and 15 errors, including a Postgres deadlock, because I left it
+    running and started other suites against the same `AER_TEST_DATABASE_URL`. CLAUDE.md
+    says one pytest process per database and this is what ignoring it looks like: 24 of 25
+    results were fabricated by the contention, and the only way to tell was to run it again
+    alone. A test run that shares a database is not a slower test run, it is a different and
+    untrue one.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
