@@ -80,7 +80,7 @@ editing documentation while it runs invalidates every test that reads documentat
 defect in `51b43d3`, and not a green run either: **the lesson is that a long suite needs a
 still tree**, and the confirming run below was taken on one.
 
-**Default suite, 19 September 2026 at `bdd0e07`** — *owed*: the confirming run on a still
+**Default suite, 19 September 2026 at `c804383`** — *owed*: the confirming run on a still
 tree, after the renderer fixes. Until it lands this row is measured but not met.
 
 ## Row 2 — the evaluation gate
