@@ -77,9 +77,13 @@ from tests.journey_inventory import (
     failed_step_codes,
 )
 from tests.request_fixtures import research_request
+from tests.sec_fixtures import fixture_bytes
 from tests.workflow_fixtures import (
     AS_OF_DATE,
+    BANK_FACTS_FIXTURE,
+    BANK_SUBMISSIONS_FIXTURE,
     DEFAULT_PER_RUN_BUDGET_GBP,
+    UNMAPPED_FACTS_FIXTURE,
     make_provider,
     owner_of,
     the_only_user,
@@ -318,7 +322,66 @@ async def reset_scene(url: str) -> None:
         await engine.dispose()
 
 
-async def _commission(url: str, *, max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGET_GBP) -> uuid.UUID:
+@dataclass(frozen=True, slots=True)
+class Subject:
+    """A company to commission, and the filer the stub answers as while it runs.
+
+    Three of them, because two gates only fire for a filer the default scene is not: the
+    unmapped-concepts gate needs a filing that extends the taxonomy, and the sector gate
+    needs an index whose SIC reaches a profile that blocks a valuation model. Both are
+    properties of the *subject*, so the harness changes the subject rather than writing the
+    gate's own state in afterwards — a gate exercised against a state no acquisition
+    produces is a gate nobody has tested.
+    """
+
+    company_name: str
+    ticker: str
+    exchange: str
+    facts: bytes | None = None
+    submissions: bytes | None = None
+
+
+MICROSOFT: Final = Subject(company_name="Microsoft Corporation", ticker="MSFT", exchange="NASDAQ")
+
+
+def _bank() -> Subject:
+    return Subject(
+        company_name="M&T Bank Corporation",
+        ticker="MTB",
+        exchange="NYSE",
+        facts=fixture_bytes(BANK_FACTS_FIXTURE),
+        submissions=fixture_bytes(BANK_SUBMISSIONS_FIXTURE),
+    )
+
+
+def _extension_filer() -> Subject:
+    return Subject(
+        company_name="Example Industries Inc",
+        ticker="EXMPL",
+        exchange="NYSE",
+        facts=fixture_bytes(UNMAPPED_FACTS_FIXTURE),
+    )
+
+
+# Which subject each gate needs to be raised at all. Everything not named here fires for the
+# ordinary one, which is most of them.
+_SUBJECT_FOR: Final[dict[GateKind, Any]] = {
+    GateKind.SECTOR_SPECIALIST: _bank,
+    GateKind.UNMAPPED_CONCEPTS: _extension_filer,
+}
+
+
+def subject_for(gate: GateKind | None) -> Subject:
+    build = _SUBJECT_FOR.get(gate) if gate is not None else None
+    return build() if build is not None else MICROSOFT
+
+
+async def _commission(
+    url: str,
+    *,
+    max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGET_GBP,
+    subject: Subject = MICROSOFT,
+) -> uuid.UUID:
     engine = _engine(url)
     try:
         factory = async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -326,9 +389,9 @@ async def _commission(url: str, *, max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGE
             user = await the_only_user(session)
             request = research_request(
                 user_id=user.id,
-                company_name="Microsoft Corporation",
-                ticker="MSFT",
-                exchange="NASDAQ",
+                company_name=subject.company_name,
+                ticker=subject.ticker,
+                exchange=subject.exchange,
                 as_of_date=AS_OF_DATE,
                 base_currency="USD",
                 reporting_currency="USD",
@@ -597,8 +660,14 @@ def _build_gate(state: StoppedState, scene: Scene) -> uuid.UUID:
     gate = state.gate
     assert gate is not None
     url = scene.database_url
-    job_id: uuid.UUID = run_async(_commission(url))
-    worker = Worker(url, subscribed=gate is GateKind.PEER_SET)
+    subject = subject_for(gate)
+    job_id: uuid.UUID = run_async(_commission(url, subject=subject))
+    worker = Worker(
+        url,
+        subscribed=gate is GateKind.PEER_SET,
+        facts=subject.facts,
+        submissions=subject.submissions,
+    )
     status = _stop_at(worker, job_id, gate)
     pending: GateKind | None = run_async(_pending_gate(url, job_id))
     if status is not JobStatus.AWAITING_APPROVAL or pending is not gate:
@@ -834,6 +903,19 @@ def _page_name(surface: Surface) -> str:
     return "the console" if UUID.fullmatch(last) else f"the {last} page"
 
 
+# The one gate whose subject *is* a taxonomy tag. The unmapped-concepts gate asks "does this
+# gap matter?" about elements a filing used and this platform could not place, and the element
+# name is what the operator is deciding about — it is in the filing, it is what they would
+# search the taxonomy for, and a page that hid it would be asking the question without showing
+# the thing. So the tag pattern is not applied there, and only the tag pattern: a UUID, a shell
+# command, a module path or a step key on that page is the same defect it is anywhere else.
+#
+# An exemption rather than a change to the page, and narrow enough to state in one sentence.
+# The alternative — inventing prose for an element nobody has mapped — would be the platform
+# guessing at exactly the point it is asking somebody else not to.
+_TAGS_ARE_THE_SUBJECT: Final = frozenset({GateKind.UNMAPPED_CONCEPTS})
+
+
 def assert_clean_vocabulary(surface: Surface, state: StoppedState) -> None:
     """Assertion 2. Nothing on the page is a UUID, a shell command or an identifier."""
     text = surface.text()
@@ -844,7 +926,9 @@ def assert_clean_vocabulary(surface: Surface, state: StoppedState) -> None:
     if shell:
         offences.append(f"a shell command ({shell.group(0).strip()!r})")
     leaked = set(SNAKE_CASE.findall(text)) | set(SHOUTED_ENUM.findall(text))
-    leaked |= set(XBRL_TAG.findall(text)) | set(MODULE_PATH.findall(text))
+    leaked |= set(MODULE_PATH.findall(text))
+    if state.gate not in _TAGS_ARE_THE_SUBJECT:
+        leaked |= set(XBRL_TAG.findall(text))
     leaked |= {name for name in CODE_IDENTIFIERS if re.search(rf"\b{re.escape(name)}\b", text)}
     if leaked:
         offences.append(f"code identifiers {sorted(leaked)[:8]}")

@@ -27,7 +27,15 @@ from aer.web.csrf import (
 )
 from aer.web.figures import assumption_figure, concept_name, trimmed
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
-from aer.web.vocabulary import ROLE_WORDS, in_words, metric_words, proposer_words, provider_words
+from aer.web.vocabulary import (
+    ROLE_WORDS,
+    in_words,
+    metric_words,
+    model_words,
+    proposer_words,
+    provider_words,
+    sector_words,
+)
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
 
@@ -81,6 +89,8 @@ templates.env.filters["concept_name"] = concept_name
 templates.env.filters["metric_words"] = metric_words
 templates.env.filters["provider_words"] = provider_words
 templates.env.filters["proposer_words"] = proposer_words
+templates.env.filters["model_words"] = model_words
+templates.env.filters["sector_words"] = sector_words
 templates.env.filters["trimmed"] = trimmed
 # The disagreement rule (gap A68), so four surfaces read one answer rather than four
 # copies of a conditional living in Jinja.

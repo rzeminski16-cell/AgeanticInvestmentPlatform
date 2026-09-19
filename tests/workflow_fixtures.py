@@ -21,7 +21,7 @@ import re
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from pydantic import SecretStr
@@ -55,6 +55,27 @@ DEFAULT_PER_RUN_BUDGET_GBP: Decimal = Settings.model_fields["per_run_budget_gbp"
 
 COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
 SUBMISSIONS_FIXTURE = "submissions_msft.json"
+BANK_FACTS_FIXTURE = "companyfacts_bank.json"
+BANK_SUBMISSIONS_FIXTURE = "submissions_bank.json"
+UNMAPPED_FACTS_FIXTURE = "companyfacts_unmapped.json"
+
+# The filers the stub answers for by name, as the fixtures identify them. Anything else
+# resolves to a distinct made-up registrant, which is what a peer is: resolvable, and not
+# the subject under another listing.
+#
+# **The identifier has to be the fixture's own.** A company row carrying one CIK whose facts
+# and index carry another is a scene that cannot happen, and the segment sweep refuses a
+# fact whose context names a different registrant — so the mismatch would show up as missing
+# segment facts several steps away from its cause.
+# **Zero-padded to ten digits**, because `companies.cik` is: EDGAR's own JSON carries the
+# bare number and the ticker file carries the padded one, and the column takes the padded
+# form under a check constraint. A stub answering with the bare number fails the insert
+# inside `acquire`, which is where this was found.
+KNOWN_FILERS: Final[dict[str, tuple[str, str]]] = {
+    "MSFT": (MSFT_CIK, "MICROSOFT CORP"),
+    "MTB": ("0000036270", "M&T BANK CORPORATION"),
+    "EXMPL": ("0001000045", "EXAMPLE INDUSTRIES INC"),
+}
 # Recorded from EDGAR, not constructed: Microsoft's 0001193125-26-380280, the accession
 # whose Exhibit 99.1 the console's note was built from and this platform never opened.
 ACCESSION_HEADERS_FIXTURE = "accession_headers_msft_8k.html"
@@ -103,9 +124,27 @@ SPINE_KEYS = (
 class StubSecClient:
     """The SEC client's surface, served from a fixture through the real artefact store."""
 
-    def __init__(self, store: LocalArtefactStore, *, payload: bytes | None = None) -> None:
+    def __init__(
+        self,
+        store: LocalArtefactStore,
+        *,
+        payload: bytes | None = None,
+        submissions: bytes | None = None,
+    ) -> None:
+        """
+        Args:
+            payload: The companyfacts document to serve, defaulting to Microsoft's.
+            submissions: The filing index to serve, defaulting to Microsoft's. **A seam, not
+                an option**: the index is the only place a run learns what kind of business
+                the filer is, so a scene that needs the sector gate to fire needs a filer
+                whose index says it is a bank. Writing the classification in afterwards would
+                test the gate against a state no acquisition produces.
+        """
         self._store = store
         self._payload = payload if payload is not None else fixture_bytes(COMPANY_FACTS_FIXTURE)
+        self._submissions = (
+            submissions if submissions is not None else fixture_bytes(SUBMISSIONS_FIXTURE)
+        )
         self.entity_calls: list[str] = []
         self.facts_calls: list[str] = []
         self.submissions_calls: list[str] = []
@@ -123,13 +162,16 @@ class StubSecClient:
         the answer now (ADR 0059, amended): nothing is fetched for a peer.
         """
         self.entity_calls.append(ticker)
-        known = ticker.upper() == "MSFT"
-        return ResolvedEntity(
-            identifier=MSFT_CIK if known else _peer_cik(ticker),
-            name="MICROSOFT CORP" if known else f"{ticker.upper()} CORP",
-            ticker=ticker,
-            exchange=exchange,
-        )
+        known = KNOWN_FILERS.get(ticker.upper())
+        if known is None:
+            return ResolvedEntity(
+                identifier=_peer_cik(ticker),
+                name=f"{ticker.upper()} CORP",
+                ticker=ticker,
+                exchange=exchange,
+            )
+        cik, name = known
+        return ResolvedEntity(identifier=cik, name=name, ticker=ticker, exchange=exchange)
 
     async def fetch_company_facts(self, cik: str) -> SecResponse[Any]:
         """Store the bytes, then describe them exactly as a real fetch would.
@@ -164,7 +206,7 @@ class StubSecClient:
     async def fetch_submissions(self, cik: str) -> SecResponse[Any]:
         """The filing index, from the same fixture the submissions parser is tested on."""
         self.submissions_calls.append(cik)
-        payload = fixture_bytes(SUBMISSIONS_FIXTURE)
+        payload = self._submissions
         stored = await self._store.put_bytes(payload)
         url = f"https://data.sec.gov/submissions/CIK{cik}.json"
         return SecResponse(

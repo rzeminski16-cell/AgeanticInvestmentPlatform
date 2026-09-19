@@ -12,7 +12,7 @@
 {% block gate_verdict %}
   {{ ui.verdict(
     "WHAT THIS ASKS",
-    "This company has been proposed as " ~ payload.sector_key ~ ", and that classification decides which valuation models the run may use.",
+    "This company has been proposed as " ~ (payload.sector_key | sector_words) ~ ", and that classification decides which valuation models the run may use.",
     detail="A model proposed it; nothing acts on it until you agree.",
     tone="warning" if not decided else "muted",
   ) }}
@@ -29,10 +29,14 @@
         ) }}
         <dl class="mt-4 flex flex-col gap-2">
           {% for model in payload.blocked_models %}
+            {% set words = model | model_words %}
             <div class="flex items-baseline gap-3">
-              <dt class="type-data text-ink">{{ model }}</dt>
+              <dt class="type-body text-ink">{{ words.label }}</dt>
               <dd class="type-body-sm text-refusal-ink">Refused for this sector</dd>
             </div>
+            {% if words.detail %}
+              <p class="max-w-prose type-body-sm text-ink-muted">{{ words.detail }}</p>
+            {% endif %}
           {% endfor %}
         </dl>
       </div>
@@ -42,7 +46,7 @@
   {% call ui.sheet("Why this classification") %}
     <p class="max-w-prose type-body text-ink" id="rationale">{{ payload.rationale }}</p>
     <p class="mt-2 type-body-sm text-ink-muted">
-      Proposed by <span class="type-data-sm">{{ payload.proposed_by }}</span>.
+      Proposed by {{ payload.proposed_by | proposer_words }}.
     </p>
   {% endcall %}
 
@@ -60,7 +64,7 @@
         <dl class="flex flex-col gap-2">
           {% for model in payload.allowed_models %}
             <div class="flex items-baseline gap-3">
-              <dt class="type-data text-ink">{{ model }}</dt>
+              <dt class="type-body text-ink">{{ (model | model_words).label }}</dt>
               <dd class="type-body-sm text-success-ink">Available</dd>
             </div>
           {% endfor %}

@@ -395,15 +395,6 @@ def inventory() -> tuple[StoppedState, ...]:
 # harness backlog, not platform backlog.
 UNCONSTRUCTED: Final[dict[str, str]] = {
     **{
-        f"gate.{gate.value}.{disposition.value}": (
-            f"the default fake scene never raises the {gate.value} gate; it needs the "
-            "unmapped-concepts scene or a bank"
-        )
-        for gate in (GateKind.UNMAPPED_CONCEPTS, GateKind.SECTOR_SPECIALIST)
-        for disposition in Disposition
-        if not (disposition is Disposition.STALE_SEAL_DRIFT and gate in LIVE_PAYLOAD_GATES)
-    },
-    **{
         f"final.trigger.{kind.value}": (
             f"no fake-scene fixture fires {kind.value} at the final gate yet"
         )

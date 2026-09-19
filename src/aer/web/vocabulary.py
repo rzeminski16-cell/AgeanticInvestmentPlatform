@@ -50,6 +50,7 @@ from aer.core.enums import (
     TransactionKind,
 )
 from aer.core.escalation import TriggerKind
+from aer.core.sectors import SECTOR_PROFILES, ValuationModel
 from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
 
@@ -81,10 +82,12 @@ __all__ = [
     "in_words",
     "job_state",
     "metric_words",
+    "model_words",
     "proposer_words",
     "provider_words",
     "request_state",
     "section_state",
+    "sector_words",
     "step_label",
     "trigger_words",
 ]
@@ -422,6 +425,91 @@ TRIGGER_KINDS: Final[dict[TriggerKind, HumanState]] = {
 }
 
 
+# -- Valuation models ----------------------------------------------------------------------
+
+# What each way of arriving at a value is called on the gate that decides whether it may run.
+#
+# **The sector gate is where these are read, and nothing reached it until the journey harness
+# could raise it (19 September 2026).** The page printed `dcf_fcff` and `comps_multiples` at
+# an operator being asked to grant a mandate — the one gate whose approval decides which
+# models the rest of the run may use, argued over the words it never showed.
+#
+# Named as a reader would say them rather than as the literature abbreviates them: an
+# operator confirming that a bank may not be valued on a discounted cash flow should not have
+# to know which cash flow `fcff` is.
+VALUATION_MODELS: Final[dict[ValuationModel, HumanState]] = {
+    ValuationModel.DCF_FCFF: HumanState(
+        "Discounted cash flow to the firm",
+        Tone.INFO,
+        detail="The standard model: the whole business's cash flows, discounted at its "
+        "blended cost of capital.",
+    ),
+    ValuationModel.DCF_FCFE: HumanState(
+        "Discounted cash flow to equity",
+        Tone.INFO,
+        detail="The shareholders' cash flows alone, discounted at the cost of equity. "
+        "Survives some cases the firm-level model does not.",
+    ),
+    ValuationModel.DIVIDEND_DISCOUNT: HumanState(
+        "Dividend discount",
+        Tone.INFO,
+        detail="The value of what is actually paid out, for a business that pays reliably.",
+    ),
+    ValuationModel.RESIDUAL_INCOME: HumanState(
+        "Residual income",
+        Tone.INFO,
+        detail="Book value plus what the business earns above its cost of equity — the "
+        "model for a bank, whose balance sheet is the reliable part of its accounts.",
+    ),
+    ValuationModel.COMPS_MULTIPLES: HumanState(
+        "Comparable multiples",
+        Tone.INFO,
+        detail="What the market pays for similar companies. A relative judgement rather "
+        "than a model of this business.",
+    ),
+    ValuationModel.NET_ASSET_VALUE: HumanState(
+        "Net asset value",
+        Tone.INFO,
+        detail="What the assets are worth less what is owed, for a business that is its "
+        "balance sheet.",
+    ),
+    ValuationModel.RISK_ADJUSTED_NPV: HumanState(
+        "Risk-adjusted net present value",
+        Tone.INFO,
+        detail="Each programme's value weighted by its chance of reaching the market, for "
+        "a business whose revenue is still ahead of it.",
+    ),
+    ValuationModel.SUM_OF_THE_PARTS: HumanState(
+        "Sum of the parts",
+        Tone.INFO,
+        detail="Each division valued on its own terms and added up.",
+    ),
+}
+
+
+# What each sector is called, read from the profiles rather than restated. A profile added
+# without a label is impossible — `SectorProfile` requires one — so this cannot fall behind.
+SECTOR_LABELS: Final[dict[str, str]] = {profile.key: profile.label for profile in SECTOR_PROFILES}
+
+
+def model_words(model: ValuationModel | str) -> HumanState:
+    """What a valuation model is called, or its own key where nothing maps it.
+
+    Falling back rather than raising, for the reason `trigger_words` does: a gate payload
+    sealed under a build that named a model this one does not must still render.
+    """
+    try:
+        return VALUATION_MODELS[ValuationModel(model)]
+    except ValueError:
+        return HumanState(str(model), Tone.INFO)
+
+
+def sector_words(key: object) -> str:
+    """What a sector is called on a page, or the key itself where no profile claims it."""
+    text = str(key or "").strip()
+    return SECTOR_LABELS.get(text, text.replace("_", " ") if text else "")
+
+
 # -- Gates ---------------------------------------------------------------------------------
 
 # `asks` is the phrase `web/overview/research.py` has always used, moved here rather than
@@ -584,13 +672,21 @@ def proposer_words(value: object) -> str:
         return f"the {role} model"
     if lowered.startswith("aer."):
         return _PLATFORM_PROPOSERS.get(lowered, "the platform's own rules")
-    return raw.replace("_", " ")
+    return _MARKERS.get(lowered) or raw.replace("_", " ")
 
 
 # The platform modules whose proposals are not its own rules. The risk-free rate arrives from
 # a published series fetched at the run's as-of vintage (Phase 1.6): neither a rule nor an
 # opinion, and the row's justification names the instrument, the date and the publisher.
 _PLATFORM_PROPOSERS: Final[dict[str, str]] = {"aer.services.macro": "a published series"}
+
+# Proposals the platform records under a name rather than a module. One so far, and it is on
+# the gate whose approval grants the valuation mandate: "sic_lookup" told an operator being
+# asked to confirm that a bank may not take a discounted cash flow that the proposal came
+# from something spelled in snake case.
+_MARKERS: Final[dict[str, str]] = {
+    "sic_lookup": "the classification code the filer reports to its own registry",
+}
 
 
 def composes_into_phrase(roles: Iterable[str]) -> str:
@@ -779,6 +875,7 @@ _BY_VALUE: Final[dict[str, str]] = {
         member.value: state.label
         for mapping in (
             SKILL_KINDS,
+            VALUATION_MODELS,
             SHOCK_KINDS,
             TRANSACTION_KINDS,
             GRADES,

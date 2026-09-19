@@ -84,7 +84,18 @@ class Worker:
         *,
         subscribed: bool = False,
         provider: FakeProvider | None = None,
+        facts: bytes | None = None,
+        submissions: bytes | None = None,
     ) -> None:
+        """
+        Args:
+            facts: The companyfacts document the stub serves, for a scene that needs a
+                filer whose figures the default one does not have — a filer extension the
+                unmapped-concepts gate stops on, or a bank's interest lines.
+            submissions: The filing index the stub serves. The index is where a run learns
+                what kind of business the filer is, so a scene that needs the sector gate to
+                fire supplies one whose SIC says bank.
+        """
         self._database_url = database_url
         # Subscribed: the peer step asks the model for a slate only when a price feed is
         # configured (ADR 0059, second amendment); a scenario that expects the model's
@@ -96,7 +107,7 @@ class Worker:
         # A scripted provider of the caller's own — the journey harness hands in one wired to
         # fail, to put a run into the state a dead model call leaves behind.
         self._provider = provider or make_provider()
-        self._sec_client = StubSecClient(self._store)
+        self._sec_client = StubSecClient(self._store, payload=facts, submissions=submissions)
 
     def advance(self, job_id: uuid.UUID) -> JobStatus:
         """Run from the first incomplete step until it stops."""

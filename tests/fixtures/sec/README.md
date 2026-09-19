@@ -27,6 +27,7 @@ constructed, and re-recording them is still worth doing.
 | `submissions_ragged.json` | Parallel arrays of differing lengths — must be refused |
 | `companyfacts_msft.json` | **The restatement fixture.** FY2020 revenue reported twice, two years apart, with different values |
 | `companyfacts_unmapped.json` | A filer extension concept and an unmapped `us-gaap` tag |
+| `submissions_bank.json` | **The classification the sector gate reads.** A bank's index — SIC 6022 — so a run on it meets the gate ADR 0029 exists for, rather than having its classification written in by a test |
 | `companyfacts_bank.json` | **The missing top line.** A filer whose only ASC 606 tag is fee income, and whose revenue must be assembled from the spread and non-interest income (ADR 0114) |
 | `accession_headers_msft_8k.html` | **Recorded from EDGAR.** Microsoft's `0001193125-26-380280`, the 8-K whose Exhibit 99.1 the console's note was built from: 35 documents, one EX-99.1, the rest XBRL (ADR 0126) |
 | `accession_headers_no_exhibit.html` | **Recorded from EDGAR.** M&T's `0001193125-26-310413`, a bond offering: EX-1.1, EX-3.1 and EX-4.1 and no EX-99 at all, so the type filter earns its keep |

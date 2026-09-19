@@ -37,6 +37,7 @@ from aer.core.enums import (
     TransactionKind,
 )
 from aer.core.escalation import TriggerKind
+from aer.core.sectors import ValuationModel
 from aer.db.models.report_section import SectionStatus
 from aer.eval.metrics import Metric, spoken_metric
 from aer.sections.valuation_method import (
@@ -65,6 +66,7 @@ from aer.web.vocabulary import (
     SKILL_KINDS,
     TRANSACTION_KINDS,
     TRIGGER_KINDS,
+    VALUATION_MODELS,
     GateCertainty,
     HumanState,
     Tone,
@@ -89,6 +91,7 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("process quality", ProcessQuality, PROCESS_QUALITIES),
     ("shock kind", ShockKind, SHOCK_KINDS),
     ("escalation trigger", TriggerKind, TRIGGER_KINDS),
+    ("valuation model", ValuationModel, VALUATION_MODELS),
 ]
 
 

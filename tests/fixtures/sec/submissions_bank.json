@@ -1,0 +1,61 @@
+{
+ "cik": "36270",
+ "entityType": "operating",
+ "sic": "6022",
+ "sicDescription": "State Commercial Banks",
+ "name": "M&T BANK CORPORATION",
+ "tickers": [
+  "MTB"
+ ],
+ "exchanges": [
+  "NYSE"
+ ],
+ "fiscalYearEnd": "1231",
+ "filings": {
+  "recent": {
+   "accessionNumber": [
+    "0000036270-26-000015",
+    "0000036270-25-000112",
+    "0000036270-25-000041"
+   ],
+   "filingDate": [
+    "2026-02-20",
+    "2025-10-24",
+    "2025-02-21"
+   ],
+   "reportDate": [
+    "2025-12-31",
+    "2025-09-30",
+    "2024-12-31"
+   ],
+   "form": [
+    "10-K",
+    "10-Q",
+    "10-K"
+   ],
+   "primaryDocument": [
+    "mtb-20251231.htm",
+    "mtb-20250930.htm",
+    "mtb-20241231.htm"
+   ],
+   "primaryDocDescription": [
+    "10-K",
+    "10-Q",
+    "10-K"
+   ],
+   "isXBRL": [
+    1,
+    1,
+    1
+   ]
+  },
+  "files": [
+   {
+    "name": "CIK0000036270-submissions-001.json",
+    "filingCount": 812,
+    "filingFrom": "1994-03-30",
+    "filingTo": "2025-02-20"
+   }
+  ]
+ }
+}
