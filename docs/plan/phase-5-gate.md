@@ -80,8 +80,19 @@ editing documentation while it runs invalidates every test that reads documentat
 defect in `51b43d3`, and not a green run either: **the lesson is that a long suite needs a
 still tree**, and the confirming run below was taken on one.
 
-**Default suite, 19 September 2026 at `c804383`** — *owed*: the confirming run on a still
-tree, after the renderer fixes. Until it lands this row is measured but not met.
+**Met, 19 September 2026 at `36fa4e3`.** Both processes, on a still tree, nothing else on the
+machine, run back to back by a script so no edit could land between them:
+
+| process | measured |
+|---|---|
+| default (`pytest --ignore=tests/e2e -q -p no:randomly`) | **7,604 passed, 2 deselected in 2401.62s (40m 01s)** |
+| browser (`pytest tests/e2e -q`) | **233 passed in 863.57s (14m 23s)** |
+
+7,604 against the 7,569 of the run before it: thirty-five tests added the same day, for the
+panel, the blinding residue, the display formatter and the footnote's scale-blind rounding.
+
+CI run 512 reached the same verdict independently on the same commit — all three jobs green,
+including the browser suite and the journey harness's shape half.
 
 ## Row 2 — the evaluation gate
 
@@ -96,16 +107,37 @@ the rule they measured, leaving ten.
 
 ## Row 3 — three shuffled seeds, one of them fresh
 
-Seed 937541 is recorded from 16 September, at an older commit — and the shuffle is over *file
-order*, so a seed only reproduces an ordering at the commit it was recorded on. Two further
-seeds are owed, on the current head.
+**Met, 19 September 2026 at `36fa4e3`.** `python -m tests.shuffled`, which shuffles *file*
+order and leaves `pytest-randomly` shuffling within each file:
+
+| seed | commit | measured |
+|---|---|---|
+| 937541 | 16 September, `4a6f0e1`-era | 6,982 passed |
+| **784552** | `36fa4e3` | **7,604 passed, 2 deselected in 2463.45s** |
+| **385699** | `36fa4e3` | **7,604 passed, 2 deselected in 2399.01s** |
+
+Two fresh, which is what the row asks for and what the older seed cannot supply: the shuffle
+is over file order, so a seed only reproduces an ordering at the commit it was taken on, and
+937541 names a different order today than it did on 16 September. Both fresh seeds reached the
+same 7,604 as the declared-order run, so nothing in this tree depends on the order it runs in.
 
 ## Row 4 — lint, types, hooks, and CI actually green
 
-`ruff check`, `ruff format --check` and `mypy` are clean at every commit in this session's
-sequence, across 464 source files. CI's own verdict on the head commit is still owed: runs
-504 and after were cancelled by subsequent pushes, and run 503 (`0a771c1`) is the last
-completed green one.
+**Met, 19 September 2026 at `36fa4e3`** — CI run 512, all three jobs green:
+
+| job | measured |
+|---|---|
+| Lint and types | `ruff check`, `ruff format --check`, `mypy` — clean across 466 source files |
+| Tests and the evaluation gate | the default suite, then `just eval`, then the journey harness's shape half — 46 minutes, all green |
+| Browser tests | `pytest tests/e2e` — 17 minutes, green |
+
+Runs 504 to 511 were each cancelled by the next push, which is why this took until 512: a
+green CI verdict needs a commit nobody pushes past while it runs. Run 503 (`0a771c1`) was the
+last completed green one before it.
+
+This row also re-confirms rows 2 and 5 independently, on this head rather than on the commit
+each was first measured at — the evaluation gate and the journey harness are both steps of
+the same job.
 
 ## Row 5 — the journey harness green on every inventory row
 
@@ -251,6 +283,38 @@ asserted by `tests/test_pre_registration.py`.
 correct until a run needs one; `pytest -m live_llm` passed, 2 tests, 7750 deselected. The
 corpus database needed `alembic upgrade head` first — it was at 0080 and missing three of
 this session's columns, which preflight named.
+
+---
+
+## Where the nine stand — 19 September 2026, at `36fa4e3`
+
+| # | Row | State |
+|---|---|---|
+| 1 | Both suite processes green, with counts | **Met** — 7,604 and 233 |
+| 2 | The evaluation gate | **Met** — 226, and green again in CI 512 |
+| 3 | Three shuffled seeds, one fresh | **Met** — 784552 and 385699, both 7,604 |
+| 4 | Lint, types, hooks, CI actually green | **Met** — CI 512, three jobs |
+| 5 | The journey harness on every inventory row | **Met** — 50/50, both halves |
+| 6 | Every stored run with an approved report re-rendered | **Met as restated**, and the three commands re-run at the round's setup rather than trusted from the table |
+| 7 | The blinding dry run, rate measured and recorded | **Met as restated** — 1.0 over fifteen reads |
+| 8 | The pre-registration committed and hashed | **Met** |
+| 9 | `aer preflight` ready, `test-live` passing | **Met** |
+
+**Two of the nine were restated rather than met as written, both by the operator, both on the
+measurement rather than in advance of it.** Row 6 asked for five stored runs the corpus does
+not have; row 7 asked for an identity-guess rate at chance that no honest blinding can reach.
+Neither restatement lowered a bar to fit a result: row 6 holds the same proof at two subjects
+instead of five, and row 7 replaces an unreachable *condition* with a *measurement* plus the
+caveat the pre-registration had already fixed for exactly this case. The distinction matters,
+because a gate whose rows are edited to fit what happened is not a gate — so the original
+wording of each stays in §5 beside its restatement, struck through and readable.
+
+**What the gate cost to pass, and what it bought.** Nothing in the nine was free: row 5 found
+a vocabulary leak on every surface a stopped run touches, including the published report's own
+footnotes; row 7 found that September's panel was not blind, that the blinding instrument had
+been written from the documents' surface, and two renderer defects behind that. Every one of
+those would have reached the round's documents. The rows that merely came back green — 1, 2,
+3, 4 — are the ones that took the longest and found nothing, which is what they are for.
 
 ---
 

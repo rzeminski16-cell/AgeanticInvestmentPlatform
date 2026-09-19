@@ -406,12 +406,18 @@ operator's attention, and its output is a verdict that decides whether the plan 
 is therefore the most expensive thing in V1.0 to get wrong, and the cheapest to protect. **All
 of this must be true before the round is allowed to spend:**
 
-1. Both suite processes green, with counts recorded in the round's own notes.
-2. `just eval` green, at the post-F1 blocking count.
+1. Both suite processes green, with counts recorded in the round's own notes. **Met 19
+   September 2026** at `36fa4e3`: **7,604 passed** on the default process and **233 passed**
+   on the browser one, alone on the machine and on a still tree.
+2. `just eval` green, at the post-F1 blocking count. **Met**: 226 passed, and green again as
+   a step of CI run 512 on the same head.
 3. `just test-shuffled` green on three seeds, one of them fresh. Not "green on the seed we
-   fixed".
+   fixed". **Met**: seeds 784552 and 385699, both fresh on `36fa4e3`, both **7,604 passed** —
+   the same count the declared-order run reached, beside 937541 from 16 September.
 4. `just lint`, `just typecheck` and `just hooks` leaving the tree unchanged — and the CI job
-   that runs them **actually green**, not red-and-ignored.
+   that runs them **actually green**, not red-and-ignored. **Met**: CI run 512 on `36fa4e3`,
+   all three jobs green. It took until 512 because runs 504–511 were each cancelled by the
+   next push: a green verdict needs a commit nobody pushes past while it runs.
 5. The journey harness green on every inventory row, with zero remaining xfails. **Met 19
    September 2026**: the shape half reports 50 rows, 50 green, none unconstructed,
    `not_as_recorded: []`; the browser half's 50 rows pass inside `pytest tests/e2e`. See
