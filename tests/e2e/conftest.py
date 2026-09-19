@@ -43,6 +43,7 @@ from aer.config import load_settings
 from aer.core.enums import UserRole
 from aer.db.models import User
 from tests.api_fixtures import admitting_registers
+from tests.db_cleanup import PARTLY_SEEDED
 from tests.db_fixtures import run_async
 
 STARTUP_TIMEOUT_SECONDS = 20.0
@@ -241,11 +242,25 @@ async def _reset(database_url: str) -> None:
                     "companies RESTART IDENTITY CASCADE"
                 )
             )
-            # Skills are the one thing a test can create that the truncate above cannot
-            # reach: they own `section_definitions` rows, which stay for the reason given
-            # there. A skill left behind gives the next test a library that is not empty
-            # — and "the library is empty" is exactly what the editor's first test says.
-            await connection.execute(text("DELETE FROM section_definitions WHERE origin = 'skill'"))
+            # What a *test* put in `section_definitions`, which the truncate above cannot
+            # reach because the table stays for the reason given there. Two kinds: a row a
+            # run wrote from an enabled custom-section skill, and the starved probe that
+            # declares itself built in. A skill left behind gives the next test a library
+            # that is not empty — and "the library is empty" is exactly what the editor's
+            # first test says; a probe left behind is a nineteenth required section every
+            # later run owes and fails.
+            #
+            # **The predicate is `db_cleanup`'s, not a copy of it.** This reset restated
+            # the skill half and was silently missing the probe half the day one was
+            # seeded, so the browser half of the journey harness met a unique-key
+            # violation on the second row that seeds one (19 September 2026). One rule,
+            # one place, whichever reset reads it.
+            await connection.execute(
+                text(
+                    "DELETE FROM section_definitions WHERE "  # noqa: S608 -- the constant
+                    + PARTLY_SEEDED["section_definitions"]
+                )
+            )
             await connection.execute(text("DELETE FROM skill_versions"))
             await connection.execute(text("DELETE FROM skills"))
         factory = async_sessionmaker(bind=engine, expire_on_commit=False)

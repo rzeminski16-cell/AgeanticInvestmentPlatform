@@ -351,8 +351,9 @@ of this must be true before the round is allowed to spend:**
 4. `just lint`, `just typecheck` and `just hooks` leaving the tree unchanged — and the CI job
    that runs them **actually green**, not red-and-ignored.
 5. The journey harness green on every inventory row, with zero remaining xfails. **Met 19
-   September 2026**: 50 rows, 50 green, none unconstructed, `not_as_recorded: []`, in both
-   halves. See [the eight rows nothing could reach](#the-eight-rows-nothing-could-reach--19-september-2026).
+   September 2026**: the shape half reports 50 rows, 50 green, none unconstructed,
+   `not_as_recorded: []`; the browser half's 50 rows pass inside `pytest tests/e2e`. See
+   [the eight rows nothing could reach](#the-eight-rows-nothing-could-reach--19-september-2026).
 6. Every stored run with an approved report re-rendered, with zero contradictions.
 7. The blinding dry run over September's texts passing, with the identity-guess hit rate at
    chance.
@@ -440,6 +441,15 @@ figure the reader is being asked to trust. A regex that misses a shape real iden
 an assertion passing for the wrong reason, which is worse than no assertion because no
 assertion is visible. Second, a row met at a gate now reads the gate's own page as well as the
 console: the trigger summaries were clean while the evidence under them was not.
+
+**And the two halves had drifted where they do not share code.** The builders and the three
+assertions are written once precisely so the halves cannot hold two ideas of what a way
+forward is — but the *scene reset* is each half's own, and `tests/e2e/conftest.py` keeps a
+hand-maintained `TRUNCATE` list that restated one clause of `db_cleanup`'s predicate. So the
+shape half was green while the browser half met a unique-key violation on the second row to
+seed the starved probe, and by the third rendered a page naming two of them. The e2e reset now
+reads the predicate rather than repeating it; replacing that reset with `delete_all` outright
+is Phase 1.1c, and its own comment has been arguing for it since the harness landed.
 
 ---
 

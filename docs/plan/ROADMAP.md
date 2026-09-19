@@ -1450,6 +1450,19 @@ found rather than as scope that was always there.
     not `origin = 'builtin'`, which is what a fresh database has. **The class**: "reference
     data" was a property of *rows*, recorded against a table.
 
+    **And the rule lived in two places, one of them now wrong.** `tests/e2e/conftest.py` has
+    a reset of its own — a hand-maintained `TRUNCATE` list plus three deletes, the one reset
+    in the suite that still truncates — and it restated the skill half of the same predicate.
+    So it was missing the probe half the moment a row seeded one: the *browser* half of the
+    journey harness, which had been green on the shape half, met a unique-key violation on
+    the second row to seed the probe and, by the third, a review page naming both. It now
+    reads `PARTLY_SEEDED` rather than repeating it. That reset is the remaining instance of
+    the hand-maintained-`TRUNCATE` backlog (Phase 1.1c), and its own comment already argued
+    for replacing it with `delete_all`; this is the second time the duplication has cost
+    something. **And the wider class**: the two halves of the harness share their builders
+    on purpose, so that they cannot drift into two ideas of what a way forward is — but they
+    do not share their *scene reset*, and that is where they drifted.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
