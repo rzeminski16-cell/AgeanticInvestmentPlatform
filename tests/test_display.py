@@ -159,3 +159,114 @@ class TestAStoredFigureAsAReaderReadsIt:
         """One rule, two doors. Two statements of it is how one of them stays wrong."""
         for value in ("0E-8", "1.00000000", "0.98000000", "100.00", "1.064553313698"):
             assert trimmed(Decimal(value)) == display.stored(Decimal(value))
+
+
+class TestAFigureInProseCarriesItsUnit:
+    """`display.figure`, and the footnote that said `66987000000 USD` under a `$66,987m`
+    cell — roadmap §3.19 item 40."""
+
+    def test_money_is_said_in_the_house_style(self) -> None:
+        assert display.figure(Decimal("66987000000"), unit="USD", label="", style=STYLE) == (
+            "$67.0bn"
+        )
+
+    def test_a_unit_the_formatter_cannot_restate_is_kept(self) -> None:
+        """In a table the column heading says what the number is. In a sentence nothing does.
+
+        `days` is such a unit: the ratio suite strikes days sales, days inventory and days
+        payable outstanding, and none of them is a currency, a percentage or a multiple.
+        """
+        assert (
+            display.figure(
+                Decimal("115.2"), unit="days", label="days_sales_outstanding", style=STYLE
+            )
+            == "115.2 days"
+        )
+        # The same figure in a column, where the heading carries the word instead.
+        assert display.scalar("115.2", style=STYLE, unit="days") == "115.2"
+
+    def test_a_unit_the_formatter_does_restate_is_not_said_twice(self) -> None:
+        """`shares` is read as a grouped count, so the word would be the second saying."""
+        assert display.figure(Decimal("1562000000"), unit="shares", label="", style=STYLE) == (
+            "1,562,000,000"
+        )
+
+    def test_pure_is_the_unit_algebra_s_word_and_never_a_reader_s(self) -> None:
+        assert display.figure(Decimal("1.0682"), unit="pure", label="beta", style=STYLE) == "1.0682"
+
+    def test_a_calculation_s_own_name_reads_the_figure(self) -> None:
+        assert (
+            display.figure(Decimal("0.174"), unit="pure", label="net_margin", style=STYLE)
+            == "17.4%"
+        )
+
+
+class TestADimensionlessNumberNobodyExplained:
+    """Roadmap §3.19 item 35's remaining half: the fallback's precision policy.
+
+    Passing the stored value through whole was the right refusal — guessing a unit is
+    worse — and twelve decimal places was never the only alternative to it. A judge
+    reading the September round named `beta quoted as 1.064553313698` unprompted.
+    """
+
+    def test_four_decimal_places_where_that_says_enough(self) -> None:
+        assert display.scalar("1.064553313698", style=STYLE, unit="pure") == "1.0646"
+        assert display.scalar("0.834130153416", style=STYLE, unit="pure") == "0.8341"
+
+    def test_four_significant_figures_where_four_places_would_say_almost_nothing(self) -> None:
+        """A covariance at four places is `0.0005`, which is one figure and a shrug."""
+        assert display.scalar("0.000542746561", style=STYLE, unit="pure") == "0.0005427"
+        assert display.scalar("0.009881343784", style=STYLE, unit="pure") == "0.009881"
+
+    def test_four_places_win_where_they_say_more(self) -> None:
+        """Four figures alone would make an interest cover of 40.4183 read `40.42`."""
+        assert display.scalar("40.418322830829", style=STYLE, unit="pure") == "40.4183"
+
+    def test_a_negative_figure_is_shortened_the_same_way(self) -> None:
+        assert display.scalar("-0.079011148812", style=STYLE, unit="pure") == "-0.07901"
+
+    def test_a_whole_number_keeps_every_digit_and_gains_separators(self) -> None:
+        """Shortening is about decimal places; a count has none to lose."""
+        assert display.scalar("15408095000", style=STYLE, unit="pure") == "15,408,095,000"
+
+    def test_a_stored_zero_reads_as_zero(self) -> None:
+        """`0E-8` in the validator's table, which is the other half of the same finding."""
+        assert display.scalar(Decimal("0E-8"), style=STYLE, unit="pure") == "0"
+
+    def test_the_stored_value_is_untouched(self) -> None:
+        """Formatting is a projection applied at render, never a rewrite (ADR 0056)."""
+        value = Decimal("0.834130153416")
+        display.scalar(value, style=STYLE, unit="pure")
+        assert value == Decimal("0.834130153416")
+        assert display.stored(value) == "0.834130153416"
+
+
+class TestACalculationNameReadsLikeALabel:
+    """Underscores are spaces to the word lists, or a name matches none of them.
+
+    The table cell beside a `terminal_value_share` said `79.0%` off its heading while the
+    figure's own footnote said `0.789627518146` — one figure, two notations. On the stored
+    corpus that is 310 rows of one name.
+    """
+
+    def test_a_snake_case_name_reads_as_its_phrase_does(self) -> None:
+        assert (
+            display.scalar("0.789627518146", style=STYLE, unit="pure", label="terminal_value_share")
+            == "79%"
+        )
+        assert (
+            display.scalar("0.298909584369", style=STYLE, unit="pure", label="debt_to_equity")
+            == f"0.3{TIMES}"
+        )
+
+    def test_the_spaced_heading_still_reads_the_same_way(self) -> None:
+        spaced = display.scalar(
+            "0.789627518146", style=STYLE, unit="pure", label="Terminal value share"
+        )
+        assert spaced == "79%"
+
+    def test_a_name_matching_nothing_is_still_nobody_s_to_reinterpret(self) -> None:
+        assert (
+            display.scalar("0.834130153416", style=STYLE, unit="pure", label="discount_factor")
+            == "0.8341"
+        )

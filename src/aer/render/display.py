@@ -29,7 +29,7 @@ from typing import Any, Final
 from aer.config import HouseStyle
 from aer.core.dates import format_date
 
-__all__ = ["cell", "date_text", "money", "multiple", "prose", "scalar", "stored"]
+__all__ = ["cell", "date_text", "figure", "money", "multiple", "prose", "scalar", "stored"]
 
 _SYMBOLS: Final[dict[str, str]] = {"USD": "$", "GBP": "£", "EUR": "€"}
 
@@ -155,7 +155,7 @@ def scalar(
     )
     if read is not None:
         return read
-    plain = _grouped(number) if number == number.to_integral_value() else _trimmed(number)
+    plain = _unexplained(number)
     # A stated unit naming a currency or a scale is shown, not dropped. The MTB report's
     # balance-sheet table read "Total assets 219.3" beside a cash-flow table reading
     # "2,280" — both rows carried units like "USD billions", both vanished here, and the
@@ -202,6 +202,34 @@ def _unit_reading(
     elif unit.lower() in {"pure", "ratio", ""}:
         reading = _pure_reading(number, label=label)
     return reading
+
+
+def figure(value: Decimal, *, unit: str, label: str, style: HouseStyle) -> str:
+    """A stored figure and its unit as one phrase, for prose rather than a column.
+
+    The difference from :func:`scalar` is what happens to a unit the formatter cannot
+    restate. In a table that unit is usually noise — the column says what the numbers are,
+    and only a currency or a scale word earns the suffix. In a sentence there is no column,
+    so the unit is the only thing that says what the number is, and it is kept.
+
+    **Written for the footnote that said `66987000000 USD`.** That is MSFT's free cash flow
+    in the September measurement round, in the note under a table cell reading `$66,987m` —
+    the same figure, four rows apart, in two notations with only one of them chosen. It
+    failed `presentation_integrity` twice on that run and the check was right. The footnote
+    had a formatter for *precision* (twelve stored decimal places are not prose) and none
+    for *magnitude*, because it kept the unit in a field of its own and never handed the two
+    to anything that could put them together.
+
+    ``pure`` is the unit algebra's word for a dimensionless ratio and is never printed: to a
+    reader it is noise beside the number, and :func:`_pure_reading` has usually already read
+    the label and turned it into a percentage or a multiple.
+    """
+    read = _unit_reading(value, unit=unit.strip(), label=label, style=style, in_table=False)
+    if read is not None:
+        return read
+    plain = _unexplained(value)
+    stated = unit.strip()
+    return f"{plain} {stated}" if stated and stated.lower() != "pure" else plain
 
 
 def cell(item: dict[str, Any], column: str, *, style: HouseStyle) -> str:
@@ -272,6 +300,36 @@ def prose(text: str, *, style: HouseStyle) -> str:
 
 # -- Internals -----------------------------------------------------------------------------
 
+# The precision a number nobody explained is shown at: four significant figures or four
+# decimal places, whichever says more.
+_UNEXPLAINED_FIGURES: Final = 4
+_UNEXPLAINED_PLACES: Final = -4
+
+
+def _unexplained(value: Decimal) -> str:
+    """A dimensionless number whose meaning nothing states, at a readable precision.
+
+    The fallback used to pass the stored value through whole, deliberately — guessing a
+    unit is worse than printing digits — but twelve decimal places was never the only
+    alternative to guessing. A judge reading the September round's documents named
+    ``beta quoted as 1.064553313698`` unprompted; on the stored corpus 499 recorded
+    figures reach here, 275 of them discount factors, every one at twelve places
+    (roadmap §3.19 item 35).
+
+    **Significant figures and decimal places, whichever says more**, because one alone is
+    wrong at one end of the range: four places turns a covariance of 0.000542746561 into
+    ``0.0005``, and four figures turns an interest cover of 40.418322830829 into ``40.42``
+    where the extra places cost nothing. Taking the more generous of the two keeps both
+    honest.
+
+    This is presentation, not a rewrite: the stored row is untouched and the drill-down
+    behind every figure shows it in full (ADR 0056).
+    """
+    if value == value.to_integral_value():
+        return _grouped(value)
+    places = min(value.adjusted() - (_UNEXPLAINED_FIGURES - 1), _UNEXPLAINED_PLACES)
+    return _trimmed(value.quantize(Decimal(1).scaleb(places), rounding=ROUND_HALF_UP))
+
 
 def _pure_reading(value: Decimal, *, label: str) -> str | None:
     """How a label's author would say a dimensionless number aloud, or ``None``.
@@ -279,8 +337,16 @@ def _pure_reading(value: Decimal, *, label: str) -> str | None:
     ``0.462`` labelled "operating margin" is "46.2%"; labelled "current ratio" it reads
     "times" and takes the multiplication sign; labelled nothing recognisable it is
     nobody's to reinterpret.
+
+    **Underscores read as spaces**, so a calculation's own name answers as well as a
+    table's heading. The word lists are phrases a person writes — "value share", "share
+    of" — and a caller handing over ``terminal_value_share`` matched none of them: the
+    table cell beside it said ``79.0%`` off its heading while the figure's own footnote
+    said ``0.789627518146``, the same figure in two notations with one of them storage.
+    On the stored corpus this is 310 rows of ``terminal_value_share`` and 275 of
+    ``discount_factor`` alone.
     """
-    lowered = f" {label.lower()} "
+    lowered = f" {label.lower().replace('_', ' ')} "
     if any(word in lowered for word in _PERCENT_WORDS):
         scaled = (value * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
         return f"{_trimmed(scaled)}%"

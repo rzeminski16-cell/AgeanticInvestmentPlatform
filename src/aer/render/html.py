@@ -307,10 +307,9 @@ def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
     """One footnote as the plain sentence its markers show on hover — no markup, no JS."""
     match footnote:
         case CalculationFootnote():
-            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             period = f" for {footnote.period_label}" if footnote.period_label else ""
             return (
-                f"Calculated: {footnote.formula} = {shown}{period}. "
+                f"Calculated: {footnote.formula} = {footnote.value}{period}. "
                 "Follow the note to walk it back to its inputs."
             )
         case SourceFootnote():
@@ -369,15 +368,14 @@ def _footnote(
     """
     match footnote:
         case CalculationFootnote():
-            # The unit is blank for a dimensionless ratio; joining the present pieces
-            # keeps "= 0.4376 (…)" from carrying a stray double space. The period, when
-            # the row carries one, dates the figure where the reader resolves it (A54).
-            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
+            # `value` carries its unit already, said once by the display formatter. The
+            # period, when the row carries one, dates the figure where the reader
+            # resolves it (A54).
             period = f" for {escape(footnote.period_label)}" if footnote.period_label else ""
             # The function reference is the drill-down's to show, as the Markdown note says.
             text = Markup(
                 f"Calculated: <code>{escape(footnote.formula)}</code> = "
-                f"{escape(shown)}{period} "
+                f"{escape(footnote.value)}{period} "
                 f"(code version <code>{escape(footnote.code_version_prefix)}</code>)."
             )
         case SourceFootnote():

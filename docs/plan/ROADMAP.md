@@ -1551,11 +1551,23 @@ found rather than as scope that was always there.
     same duplication `568ed6d` removed from the test cleanup this morning, one layer up, and
     the second time in one day that a rule stated twice had one statement rot.**
 
-    *What remains:* `display.scalar`'s fallback for a dimensionless number whose label states
-    no meaning passes the value through at full stored precision — deliberately, because
-    guessing a unit is worse, but twelve decimal places is not the only alternative to
-    guessing. That is a precision policy for the shared formatter, with every surface
-    downstream of it, and it wants its own change rather than a ride on this one.
+    *What remained, and what it turned out to be.* `display.scalar`'s fallback for a
+    dimensionless number whose label states no meaning passed the value through at full
+    stored precision — deliberately, because guessing a unit is worse, but twelve decimal
+    places is not the only alternative to guessing. **Closed on 19 September, and scanning
+    the stored corpus first changed what the work was.** 909 of 5,128 recorded calculations
+    reached that fallback, and 410 of them should never have got there: `_pure_reading`
+    matches phrases a person writes — *value share*, *to* — against a label, and the caller
+    was handing it a calculation *name*, so `terminal_value_share` matched none of them
+    while the table cell beside it read `79.0%` off its heading. Underscores read as spaces
+    now, which is one line and 410 rows.
+
+    The 499 that genuinely state no meaning take a precision policy: **four significant
+    figures or four decimal places, whichever says more.** One alone is wrong at each end of
+    the range — four places make a covariance of `0.000542746561` read `0.0005`, four figures
+    make an interest cover of `40.418322830829` read `40.42` — so the more generous of the
+    two is taken. `beta quoted as 1.064553313698`, the figure a judge named unprompted, now
+    reads `1.0646`.
 
 36. **One question, two functions, and a discount rate the document had to apologise for,
     19 September 2026.** The first thing the Phase 5 round bought, and it was bought with
@@ -1710,6 +1722,47 @@ found rather than as scope that was always there.
     code gained the capability it was guarding against. Distinct from §3.19's recurring
     duplicate-rule class, and worth watching for separately: every refusal in this tree is a
     claim about what the platform cannot do, and each one ages.
+
+40. **The figure and its unit travelled in separate fields, and three renderers joined
+    them, 19 September 2026.** MSFT's only failing validator in the measurement round, and
+    the check named it exactly: *unformatted integer `66987000000`* and *unformatted integer
+    `19359000000`*, where a reader should have seen `$66,987m` and `$19,359m`.
+
+    *Where they were.* Not in a section's prose — in the **calculation provenance
+    footnotes**. Line 710 of that document read ``Calculated: `free cash flow = operating
+    cash flow - capital expenditure` = 66987000000 USD for FY2026``, four rows under a table
+    cell reading `$66,987m`. The same figure, twice, in two notations, with only one of them
+    chosen.
+
+    *Why.* `CalculationFootnote` carried `value` and `unit` as separate fields, and the
+    footnote's formatter governed **precision only** — it trimmed twelve stored decimal
+    places to four and had nothing to say about magnitude or currency, so an eleven-digit
+    integer went through untouched. The two fields were then joined by
+    ``" ".join(piece for piece in (footnote.value, footnote.unit) if piece)`` in *three*
+    places — the Markdown note, the HTML note and the HTML hover text — none of which could
+    apply the house style, because none of them had it. **The recurring §3.19 class again**,
+    this time in triplicate.
+
+    *Fixed by giving prose the door tables already had.* `aer.render.display.figure` puts a
+    figure and its unit together for a sentence, reusing the same `_unit_reading` dispatch a
+    table cell uses and differing from it in one decision: a unit the formatter cannot
+    restate is **kept**, because a sentence has no column heading to say what the number is.
+    The footnote now carries one formatted phrase and the three renderers print it.
+    Verified read-only against the round's own MSFT ledger: `66987000000 USD` → `$67.0bn`,
+    `19359000000 USD` → `$19.4bn`. Billions in prose and millions in a table are two
+    registers of one house style (ADR 0056), and a footnote is prose.
+
+    *The golden fixture had been recording the defect since it was recorded.*
+    `tests/fixtures/fx_report/golden.md` carried ``= 0.18 ratio`` in a footnote whose own
+    table cell said `18%`, byte-identical-asserted on every run. A fixture that pins output
+    pins whatever the output was, and nobody had read that line as a contradiction.
+
+    *Two things it was not.* The rounding marker — *(rounded; full precision stored)* — does
+    not fire on `$67.0bn`, which has dropped eight significant figures, and that is correct:
+    it answers the narrower question a decimal raises, *does this look more precise than it
+    is?*, and a scaled billion does not. And the same change closed §3.19.35's open half,
+    which is why that item now reads as finished.
+
 
 ### Before this leaves one machine
 

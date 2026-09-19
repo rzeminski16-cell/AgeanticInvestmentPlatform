@@ -338,8 +338,16 @@ class CoverageNote:
 class CalculationFootnote:
     number: int
     formula: str
+
+    # The figure as a reader meets it, **with its unit already in it** — `$66,987m`, not
+    # `66987000000` beside a `unit` field. It carried the two apart until roadmap §3.19
+    # item 40, and all three renderers then joined them the same way in three copies, none
+    # of which could apply the house style: the note under a cell reading `$66,987m` said
+    # `66987000000 USD`, and `presentation_integrity` counted it twice on the September
+    # round's MSFT run. `aer.render.display.figure` is the one place that puts a figure and
+    # its unit together for prose.
     value: str
-    unit: str
+
     function_ref: str
     code_version_prefix: str
 
@@ -1106,11 +1114,15 @@ async def _footnotes(
                 CalculationFootnote(
                     number=number,
                     formula=calculation.formula,
-                    value=_display_value(calculation.output_value),
-                    # "pure" is the unit algebra's own vocabulary for a dimensionless
-                    # ratio; to a reader it is noise beside the number. The stored row
-                    # keeps it — this is display, and the drill-down shows everything.
-                    unit=("" if calculation.output_unit == "pure" else calculation.output_unit),
+                    value=_display_value(
+                        calculation.output_value,
+                        unit=calculation.output_unit,
+                        # The calculation's own name reads the dimensionless figures: a
+                        # `net_margin` of 0.174 is 17.4% and a `current_ratio` of 1.8 is
+                        # 1.8x, and the label is what tells the formatter which.
+                        label=calculation.name,
+                        style=style or HouseStyle(),
+                    ),
                     function_ref=calculation.function_ref,
                     code_version_prefix=calculation.code_version[:_CODE_PREFIX],
                     period_label=calculation.period_label,
@@ -1322,8 +1334,8 @@ async def _load_calculations(
     return {str(row.id): row for row in rows}
 
 
-def _display_value(value: Decimal) -> str:
-    """A calculation's value as a reader meets it: four decimal places, marked when cut.
+def _display_value(value: Decimal, *, unit: str, label: str, style: HouseStyle) -> str:
+    """A calculation's value as a reader meets it, with its unit, marked when cut.
 
     The live report printed ``0.437565271053`` in a footnote — twelve decimal places of
     asset turnover, which is storage precision leaking into prose. The stored value is
@@ -1334,16 +1346,30 @@ def _display_value(value: Decimal) -> str:
     ``Decimal("0.1800") == Decimal("0.180000000000")`` is ``True`` — equality compares
     value, not scale — so every calculation whose stored digits happened to end in zeros
     took the untouched branch and printed all twelve places anyway. `fx_report`'s golden
-    carried ``0.180000000000`` under that rule for as long as the rule has existed. Both
-    branches now go through :func:`~aer.render.display.stored`, which says the number at
-    whatever scale it is handed and never at the column's.
+    carried ``0.180000000000`` under that rule for as long as the rule has existed.
+
+    **And it only ever governed precision, which is half of what a figure needs.** It
+    trimmed decimal places and had nothing to say about magnitude or currency, so
+    ``66987000000`` went through untouched — eleven digits, no separators, no symbol —
+    under a table cell reading ``$66,987m``. The rounding decision below is still made on
+    the stored value, because that is what "did I lose anything?" is a question about; the
+    figure is then said by :func:`~aer.render.display.figure`, which is the same door every
+    other published number goes through (ADR 0056). Roadmap §3.19 item 40.
+
+    **The marker is not a claim that every printed figure equals the stored one**, and was
+    never in a position to be: ``$67.0bn`` has dropped eight significant figures and carries
+    no marker, because the house style's scaling is visible in the answer and nobody reads a
+    rounded billion as exact. What the marker answers is the narrower question a decimal
+    raises — *does this look more precise than it is?* — which is why it is decided on the
+    stored value's own scale and not on what the style did with it afterwards.
     """
     exponent = value.as_tuple().exponent
     needs_rounding = isinstance(exponent, int) and exponent < _DISPLAY_EXPONENT
     quantised = value.quantize(_DISPLAY_QUANTUM) if needs_rounding else value
+    shown = display.figure(quantised, unit=unit, label=label, style=style)
     if quantised == value:
-        return display.stored(quantised)
-    return f"{display.stored(quantised)} (rounded; full precision stored)"
+        return shown
+    return f"{shown} (rounded; full precision stored)"
 
 
 def _uuids(citations: list[CitationRef], *, kind: str) -> list[uuid.UUID]:

@@ -325,18 +325,19 @@ def _footnotes(footnotes: tuple[Footnote, ...], *, style: HouseStyle) -> list[st
 def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
     match footnote:
         case CalculationFootnote():
-            # The unit is blank for a dimensionless ratio; joining the present pieces
-            # keeps "= 0.4376 (…)" from carrying a stray double space. The period, when
-            # the row carries one, is part of what the figure *is* (gap A54): the live
-            # report set FY2021 ratios beside FY2025 ones and no note dated either. The
-            # function reference stays on the calculation row and its drill-down: printed,
-            # `aer.calc.ratios:net_margin` is a module path in a reader's footnote (§2.11),
-            # and the formula and the code version are what make the figure checkable.
-            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
+            # `value` already carries its unit, said once by the display formatter — this
+            # used to join a bare number to a `unit` field, in one of three copies of the
+            # same line, and none of the three could apply the house style. The period,
+            # when the row carries one, is part of what the figure *is* (gap A54): the
+            # live report set FY2021 ratios beside FY2025 ones and no note dated either.
+            # The function reference stays on the calculation row and its drill-down:
+            # printed, `aer.calc.ratios:net_margin` is a module path in a reader's
+            # footnote (§2.11), and the formula and the code version are what make the
+            # figure checkable.
             period = f" for {footnote.period_label}" if footnote.period_label else ""
             return (
                 f"Calculated: `{footnote.formula}` "
-                f"= {shown}{period} "
+                f"= {footnote.value}{period} "
                 f"(code version `{footnote.code_version_prefix}`)."
             )
         case SourceFootnote():

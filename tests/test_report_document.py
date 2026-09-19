@@ -116,6 +116,12 @@ EXCERPT_TWO_ID = uuid.UUID(int=0x4002)
 GENERATED_AT = datetime(2022, 7, 2, 9, 30, tzinfo=UTC)
 RETRIEVED_AT = datetime(2022, 7, 1, 12, 0, tzinfo=UTC)
 
+
+def _shown(value: Decimal, *, unit: str = "", label: str = "") -> str:
+    """A calculation footnote's figure, as the document builder says it."""
+    return _display_value(value, unit=unit, label=label, style=HouseStyle())
+
+
 _OVERVIEW_CONTRACT: dict[str, Any] = {
     "type": "object",
     "title": "Golden Overview",
@@ -586,11 +592,33 @@ class TestTheReportFacesTheReader:
         assert CoverageNote(sections_failed=(), sections_total=18, checks_failed=()).sentence == ""
 
     def test_display_values_read_like_prose_not_storage(self) -> None:
-        assert _display_value(Decimal("0.437565271053")) == (
-            "0.4376 (rounded; full precision stored)"
+        assert _shown(Decimal("0.437565271053")) == "0.4376 (rounded; full precision stored)"
+        assert _shown(Decimal("15")) == "15"
+        assert _shown(Decimal("0.025")) == "0.025"
+
+    def test_a_footnote_figure_carries_its_unit_in_the_house_style(self) -> None:
+        """Roadmap §3.19 item 40: the note under a `$66,987m` cell said `66987000000 USD`.
+
+        The footnote had a formatter for precision and none for magnitude, and kept the
+        unit in a field of its own that nothing could hand to the house style. MSFT's
+        September run failed `presentation_integrity` on this figure and on net debt.
+        """
+        # Billions in prose, millions in a table: two registers of one house style
+        # (ADR 0056), and a footnote is prose.
+        assert _shown(Decimal("66987000000"), unit="USD") == "$67.0bn"
+        assert _shown(Decimal("19359000000"), unit="USD") == "$19.4bn"
+        # A dimensionless figure is read by its own name, and "pure" never prints.
+        assert _shown(Decimal("0.174075145985"), unit="pure", label="net_margin") == (
+            "17.4% (rounded; full precision stored)"
         )
-        assert _display_value(Decimal("15")) == "15"
-        assert _display_value(Decimal("0.025")) == "0.025"
+        # A per-share figure keeps the cents its unit implies, and still says it was
+        # cut — the stored row has twelve decimal places and `$158.58` looks exact.
+        assert _shown(Decimal("158.575333033958"), unit="USD/shares") == (
+            "$158.58 (rounded; full precision stored)"
+        )
+        # A unit the formatter cannot restate is kept, because in a sentence there is no
+        # column heading to say what the number is.
+        assert _shown(Decimal("1562000000"), unit="shares") == "1,562,000,000"
 
     def test_a_stored_scale_of_zeros_is_not_a_reason_to_print_twelve_places(self) -> None:
         """The case the scale-blind equality let through for as long as the rule existed.
@@ -600,9 +628,9 @@ class TestTheReportFacesTheReader:
         `fx_report`'s golden carried `0.180000000000` in a footnote because of it. Nothing
         was lost, and the shorter rendering is the same number.
         """
-        assert _display_value(Decimal("0.180000000000")) == "0.18"
-        assert _display_value(Decimal("2.00")) == "2"
-        assert "rounded" not in _display_value(Decimal("0.180000000000"))
+        assert _shown(Decimal("0.180000000000")) == "0.18"
+        assert _shown(Decimal("2.00")) == "2"
+        assert "rounded" not in _shown(Decimal("0.180000000000"))
 
     async def test_a_section_resting_on_an_undated_source_carries_the_marker(
         self, scene: dict[str, Any]
@@ -1906,7 +1934,6 @@ class TestACalculationFootnoteDatesItsFigure:
             number=1,
             formula="net_margin = net_income / revenue",
             value="0.4376",
-            unit="",
             function_ref="aer.calc.ratios:net_margin",
             code_version_prefix="abc123",
             period_label=period_label,
