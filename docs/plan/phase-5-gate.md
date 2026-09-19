@@ -162,7 +162,22 @@ reproduces at 888 calculations / 59 citations / 16 artefacts / 61 model calls; M
 holding. The renderer changed after that measurement (`46c5727` reworded the tier in every
 footnote), and `replay_run` re-derives calculations and re-reads artefacts by hash rather
 than re-rendering, so the proof stands — but the row's own instruction is to re-run all three
-commands before the round rather than trust a table, and that still applies.
+commands before the round rather than trust a table.
+
+**Re-run, 19 September 2026 at `3bad9e1`**, after two further renderer changes on top of that
+one — `stored` on the validator's table, and the scale-blind rounding in every calculation
+footnote. All three commands, as the row asks, rather than the table above:
+
+| command | measured |
+|---|---|
+| `aer verify-artefacts` | **496 checked, 496 intact**, 0 corrupt, 0 missing |
+| `aer verify-audit` | **30 events checked, the chain is intact** |
+| `aer replay-run` (M&T) | reproduces: **888 calculations, 59 citations, 16 artefacts, 61 model calls**; 59 citations verified, 0 failed |
+| `aer replay-run` (Microsoft) | reproduces: **850 calculations, 75 citations, 12 artefacts, 59 model calls**; 75 citations verified, 0 failed |
+
+Every figure identical to the table above, which is the point: a renderer change that had
+quietly moved an old run's numbers would show here, and the round would have attributed the
+difference to itself.
 
 ## Row 7 — the blinding dry run, with the identity-guess rate measured and recorded
 
@@ -295,7 +310,7 @@ this session's columns, which preflight named.
 | 3 | Three shuffled seeds, one fresh | **Met** — 784552 and 385699, both 7,604 |
 | 4 | Lint, types, hooks, CI actually green | **Met** — CI 512, three jobs |
 | 5 | The journey harness on every inventory row | **Met** — 50/50, both halves |
-| 6 | Every stored run with an approved report re-rendered | **Met as restated**, and the three commands re-run at the round's setup rather than trusted from the table |
+| 6 | Every stored run with an approved report re-rendered | **Met as restated**, and all three commands re-run at `3bad9e1` rather than trusted from the table — every figure identical |
 | 7 | The blinding dry run, rate measured and recorded | **Met as restated** — 1.0 over fifteen reads |
 | 8 | The pre-registration committed and hashed | **Met** |
 | 9 | `aer preflight` ready, `test-live` passing | **Met** |
@@ -318,6 +333,24 @@ those would have reached the round's documents. The rows that merely came back g
 
 ---
 
+## What the round needs before it is commissioned
+
+Row 9 re-run at `3bad9e1`: every preflight check green but the worker, which is correct until
+a run needs one. `£27.92 of the month's £100.00 is spent; £72.08 remains`, so the £21 fits
+with room for a retry — and the identity guess's £4.27 is correctly absent from that figure,
+because a judge read is not a platform call and writes no cost row (it is on the audit
+ledger, which the ephemeral `audit/out/` holds and this file therefore records).
+
+So what is left is mechanical: start a worker, run `just test-live` for the fraction of a
+penny that proves the wire before £21 depends on it, and commission the two runs on the
+pre-registration's assumptions — with both hand-typed betas corrected to derived, which is
+the correction the pre-registration names.
+
 ## Spend
 
-£27.92 of the £100 monthly cap at `0a771c1`. Everything in this file since was £0.
+£27.92 of the £100 monthly cap at `0a771c1`, and **still £27.92 at `3bad9e1`**: nothing in
+this session since has been a platform call.
+
+Beside it, on the audit ledger rather than the platform's: **£4.27** for the identity
+guess, fifteen Opus reads across three rounds. Recorded here because `audit/out/ledger.json`
+is git-ignored and lives only as long as this container does.
