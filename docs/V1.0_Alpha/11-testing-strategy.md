@@ -351,15 +351,46 @@ of this must be true before the round is allowed to spend:**
 4. `just lint`, `just typecheck` and `just hooks` leaving the tree unchanged — and the CI job
    that runs them **actually green**, not red-and-ignored.
 5. The journey harness green on every inventory row, with zero remaining xfails.
-6. All five stored runs re-rendered, with zero contradictions.
+6. Every stored run with an approved report re-rendered, with zero contradictions.
 7. The blinding dry run over September's texts passing, with the identity-guess hit rate at
    chance.
-8. The pre-registration file committed and hashed.
+8. The pre-registration file committed and hashed. **Landed 19 September 2026**:
+   [`docs/plan/phase-5-pre-registration.json`](../plan/phase-5-pre-registration.json), hashing
+   to `70c532bfd67c640f72ceff8895341e8eaded4921ae89a3b54d8ea45685c8c047`, with the readings
+   verbatim from the delivery plan's kill-gate table on the operator's decision. The hash is
+   recorded here rather than only in git so that editing the readings after the round is a
+   two-file change a reader can see; `tests/test_pre_registration.py` fails if the two ever
+   disagree.
 9. `aer preflight` reading *Ready to run*, and `just test-live` passing — the fraction of a
    penny that proves the key, the router and the ledger work before £21 depends on them.
 
 A round that starts with any row unmet produces a number nobody can defend, and the number is
 the only reason to run it.
+
+### Row 6 said "all five stored runs" — corrected 19 September 2026
+
+The audit's own corpus held five, and it did not survive the container it was measured in
+(ROADMAP §3.19 item 2). What replaced it was re-seeded from the same commissions and holds
+**four runs, two of them carried to an approved report** — and re-rendering needs an approved
+report, so the row as written could not be met at any price short of buying two more subjects.
+
+The operator's decision, taken on the numbers: hold the row to what the corpus has. The proof
+it gives is the same proof at two subjects rather than five — *a stored run still reproduces
+under today's code* — and that proof is what stops a code change quietly moving an old run's
+figures and the round attributing the difference to itself.
+
+**Measured on `84b8fa5`**, after a session that changed the acquisition dispatch, the extract
+step, the review page and the gate vocabulary:
+
+| | Calculations | Citations | Artefacts | Model calls |
+|---|---|---|---|---|
+| M&T Bank | 888 | 59 | 16 | 61 |
+| Microsoft | 850 | 75 | 12 | 59 |
+
+Both report `reproduces: true` with zero citation failures; `aer verify-artefacts` finds 496
+artefacts intact, none corrupt or missing; `aer verify-audit` walks 30 events and the chain
+holds. Re-run all three before the round rather than trusting this table: that is the point of
+the row.
 
 ---
 

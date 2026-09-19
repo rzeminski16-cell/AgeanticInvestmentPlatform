@@ -1,0 +1,110 @@
+{
+  "$comment": [
+    "The Phase 5 measurement round's readings, written before the round runs so the result",
+    "cannot be read generously after the fact. The scorer reads this file; a round whose",
+    "verdict disagrees with it is a verdict this file overrules.",
+    "",
+    "Committed and hashed on 19 September 2026, at 84b8fa5. The hash is recorded in",
+    "docs/V1.0_Alpha/11-testing-strategy.md section 5 and asserted by",
+    "tests/test_pre_registration.py, so editing this file after the round without also",
+    "moving the recorded hash fails the suite. That is the whole mechanism: git history",
+    "already records an edit, and a test makes the edit visible without reading history."
+  ],
+  "phase": 5,
+  "committed_on": "2026-09-19",
+  "committed_at_commit": "84b8fa5",
+  "budget_gbp": "21.00",
+  "signed_off_by_operator": true,
+
+  "round": {
+    "runs": [
+      { "subject": "azn", "count": 1 },
+      { "subject": "msft", "count": 1 }
+    ],
+    "comparator": [
+      "The three console notes recorded in September 2026, under docs/plan/readiness-audit-2026-09/baseline/.",
+      "One fresh baseline on the current best route, because a comparator that improves for free while this plan runs makes September's console the wrong thing to measure against."
+    ],
+    "panel": "audit/judges/, as code, over the rubric lifted verbatim from docs/plan/readiness-audit-2026-09/judges/reads.json"
+  },
+
+  "readings": [
+    {
+      "id": "thesis_holds",
+      "when": "At least 2 of 6 comparisons no longer choose the console, OR any judge's stated reason changes category.",
+      "means": "The thesis holds.",
+      "then": "Continue to Phase 6."
+    },
+    {
+      "id": "necessary_not_sufficient",
+      "when": "Dimensions move but no verdict does.",
+      "means": "Necessary, not sufficient — as AZN #2 already showed once.",
+      "then": "Continue, but re-scope the view work to the composed half only."
+    },
+    {
+      "id": "abandon",
+      "when": "Nothing moves and no stated reason changes category.",
+      "means": "The document is not where the gap is.",
+      "then": "Stop. Narrow the product's claim to what the readiness audit section 4.3 already scores yes — an evidence base and a checking instrument — and spend the remaining sessions on ISSUE 1 alone."
+    }
+  ],
+
+  "blinding": {
+    "assignment_seed": 20260919,
+    "identity_guess_at_chance": "0.5",
+    "identity_guess_reported_with_caveat_above": "0.7",
+    "$comment": "A hit rate materially above chance does not void the comparison; it attaches a caveat to it, and the caveat is never omitted."
+  },
+
+  "assumptions": {
+    "$comment": [
+      "What is fixed here is the *operator's* typing, not the platform's work. An assumption the",
+      "platform derives — a beta from prices, a risk-free rate from the published series at the",
+      "run's vintage, a growth or margin intensity from the filings — must be allowed to derive,",
+      "because that derivation is the product being measured. Freezing it would measure a",
+      "constant.",
+      "",
+      "What must not vary is a number somebody typed, because two runs that differ only in the",
+      "operator's typing produce two valuations and no information.",
+      "",
+      "Read off the re-seeded corpus on 19 September 2026, which showed why this row exists:",
+      "MSFT's approved run carried a hand-typed beta of 0.900 where the platform had derived",
+      "1.068 from prices, and AZN's carried a hand-typed 0.300 — implausibly low for a",
+      "pharmaceutical company and, on the evidence, a placeholder nobody revisited. Either",
+      "number would have made this round's valuation a measurement of the typing."
+    ],
+    "rule": "Prefer the platform's own derived value wherever it can derive one. Where it cannot, the operator supplies the value named below, identically in every run of the round.",
+    "derived_and_not_fixed": [
+      "beta",
+      "risk_free_rate",
+      "equity_risk_premium",
+      "revenue_growth",
+      "ebit_margin",
+      "capex_intensity",
+      "depreciation_intensity",
+      "working_capital_intensity"
+    ],
+    "operator_supplied_and_fixed": {
+      "azn": { "exit_multiple": "12.0", "tax_rate": "0.20", "terminal_growth": "0.025" },
+      "msft": { "exit_multiple": "13.0", "tax_rate": "0.21", "terminal_growth": "0.030" }
+    },
+    "corrections_from_the_corpus": [
+      {
+        "subject": "msft",
+        "assumption": "beta",
+        "corpus_value": "0.900",
+        "corpus_source": "operator:audit",
+        "round_value": "derived from prices",
+        "why": "The platform derived 1.068 for the same subject in the other run. A typed 0.900 overrides the product with a guess, at the single most leveraged input to the discount rate."
+      },
+      {
+        "subject": "azn",
+        "assumption": "beta",
+        "corpus_value": "0.300",
+        "corpus_source": "operator:audit",
+        "round_value": "derived from prices",
+        "why": "0.300 is far below any plausible pharmaceutical beta and no justification in the record defends it. Left in, the round's AZN valuation would be indefensible for a reason that has nothing to do with what the round is measuring."
+      }
+    ]
+  }
+}
