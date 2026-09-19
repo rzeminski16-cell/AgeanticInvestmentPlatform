@@ -40,13 +40,24 @@ part it does not say, and the cost of missing it was reading nineteen bogus fail
 **Browser suite, 19 September 2026 at `4d0c276`** — `pytest tests/e2e -q`: **3 failed, 230
 passed in 817.22s**. All three were journey rows that seed a section definition or a skill,
 failing on a unique-key violation and then on a review page naming two probes; the cause was
-`tests/e2e/conftest.py` restating half of `db_cleanup`'s predicate, fixed at `568ed6d`. The
-thirteen final-gate rows were then re-run in declared order: **13 passed in 160.16s**. A full
-confirming run of both processes is still owed before the row is met.
+`tests/e2e/conftest.py` restating half of `db_cleanup`'s predicate, fixed at `568ed6d`.
+
+**Browser suite, 19 September 2026 at `f123ad5`** — the confirming run, alone on the machine:
+
+> **233 passed in 817.07s**
+
+The default process's confirming run is still owed; until it lands the row is half met.
 
 ## Row 2 — the evaluation gate
 
-Not yet measured on this branch's head.
+**Met, 19 September 2026 at `f123ad5`.** `pytest tests/test_evaluation_gate.py
+tests/test_eval_metrics.py tests/test_eval_replay.py tests/test_calc_golden.py`, which is what
+`just eval` runs:
+
+> **226 passed in 62.72s**
+
+At the post-F1 blocking count: ADR 0113 took the two temporal metrics out of `BLOCKING` with
+the rule they measured, leaving ten.
 
 ## Row 3 — three shuffled seeds, one of them fresh
 
