@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from decimal import Decimal, localcontext
 from typing import Final
 
-from aer.calc.engine import CalculationContext, traced
+from aer.calc.engine import CalculationContext, PeriodStamp, traced
 from aer.calc.statements import StatementSet
 from aer.calc.units import CALC_CONTEXT, CalculationError, Quantity
 
@@ -242,6 +242,7 @@ def margin_bridge(
     *,
     opening: StatementSet,
     closing: StatementSet,
+    opening_period: PeriodStamp | None = None,
 ) -> MarginBridge | None:
     """Decompose one margin's movement between two periods.
 
@@ -249,10 +250,21 @@ def margin_bridge(
     movement to explain, and inventing one from whichever period is available would be worse
     than saying nothing.
 
+    Args:
+        opening_period: The stamp belonging to ``opening``. Every share of the opening year
+            is a figure *of that year*, struck during the closing year's pass, and without
+            the stamp it lands under the closing year's label — the prior year's number
+            under this year's heading (gap R14, and the reason
+            :func:`aer.calc.quality.assess_quality` takes the same argument). It also makes
+            the ledger's deduplication work: two bridges over one period share
+            ``cost_of_revenue`` as a driver, and identically-stamped identical inputs
+            collapse to one row where differently-stamped ones cannot.
+
     Raises:
         CalculationError: If either period's revenue is not positive.
     """
-    opening_margin = _share(context, opening, spec.numerator)
+    with context.stamped(opening_period):
+        opening_margin = _share(context, opening, spec.numerator)
     closing_margin = _share(context, closing, spec.numerator)
     if opening_margin is None or closing_margin is None:
         return None
@@ -262,7 +274,8 @@ def margin_bridge(
     components: list[BridgeComponent] = []
     unattributed: list[str] = []
     for driver in spec.drivers:
-        opening_share = _share(context, opening, driver)
+        with context.stamped(opening_period):
+            opening_share = _share(context, opening, driver)
         closing_share = _share(context, closing, driver)
         if opening_share is None or closing_share is None:
             unattributed.append(driver)

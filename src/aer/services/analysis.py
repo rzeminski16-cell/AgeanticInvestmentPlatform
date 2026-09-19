@@ -33,6 +33,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.bridge import BRIDGE_SPECS, MarginBridge, margin_bridge
 from aer.calc.cash_uses import CashUseFigure, assess_cash_uses
 from aer.calc.engine import CalculationContext, PeriodStamp
 from aer.calc.quality import QualitySignal, assess_quality
@@ -106,6 +107,18 @@ class PeriodAnalysis:
     # The capital-allocation figures (roadmap §2.1): what the Capital Allocation writer
     # kept computing for itself, struck here instead so it has figures to name.
     cash_uses: tuple[CashUseFigure, ...] = ()
+
+    # Why each margin moved, decomposed into the lines that caused it. Empty for the oldest
+    # assembled period, which has no year to move from, and for a filer whose statements do
+    # not carry the margin in both years.
+    #
+    # `aer.calc.bridge` was built, unit- and mutation-tested, and had no production caller
+    # at all. The delivery plan names the consequence exactly: decomposition is the one
+    # thing the console won on, and the section writers are *correctly* forbidden to derive
+    # it themselves, so the absence of a deterministic producer was the absence of the
+    # analysis. Struck here for the same reason `cash_uses` is — the writer that needs it
+    # cannot do arithmetic, so the platform has to hand it the figures.
+    bridges: tuple[MarginBridge, ...] = ()
 
     @property
     def computed_ratios(self) -> tuple[RatioResult, ...]:
@@ -186,6 +199,11 @@ class AnalysisOutcome:
                     "cash_uses": sum(
                         1 for figure in period.cash_uses if figure.quantity is not None
                     ),
+                    # How much of each margin's movement the filed expense lines account
+                    # for, which is the bridge's own result and not a quality score: a
+                    # filer reporting one aggregate operating-expense line produces a
+                    # bridge that is nearly all residual, and that is the honest answer.
+                    "bridges": {bridge.key: str(bridge.explained) for bridge in period.bridges},
                     "failed_identities": [
                         check.name for check in period.statements.failed_identities
                     ],
@@ -283,6 +301,9 @@ async def analyse_company(
                         context, statements, prior=previous, prior_period=previous_stamp
                     ),
                     cash_uses=assess_cash_uses(context, statements, prior=previous),
+                    bridges=_bridges(
+                        context, statements, prior=previous, prior_stamp=previous_stamp
+                    ),
                 )
             )
         previous = statements
@@ -403,6 +424,41 @@ async def annual_facts(
     for (period_end, _), row in winners.items():
         grouped.setdefault(period_end, []).append(row)
     return grouped
+
+
+def _bridges(
+    context: CalculationContext,
+    statements: StatementSet,
+    *,
+    prior: StatementSet | None,
+    prior_stamp: PeriodStamp | None,
+) -> tuple[MarginBridge, ...]:
+    """Each margin's movement decomposed, for a period with a year to move from.
+
+    Empty rather than partial where there is nothing to decompose: the oldest assembled
+    period has no prior year, and :func:`~aer.calc.bridge.margin_bridge` already answers
+    ``None`` for a margin one of the two years does not carry.
+
+    **A period with no revenue is asked about rather than caught.** The bridge raises when
+    either year's revenue is not positive, because every share of it would be meaningless —
+    and `UnitMismatchError` is a `CalculationError`, so a `suppress` here would silently
+    decline the one comparison invariant 5 says must raise. A filer with no revenue line is
+    an ordinary state and gets no bridge; two years in different currencies is a defect and
+    still stops the run.
+    """
+    if prior is None or not _has_revenue(statements) or not _has_revenue(prior):
+        return ()
+    found = (
+        margin_bridge(context, spec, opening=prior, closing=statements, opening_period=prior_stamp)
+        for spec in BRIDGE_SPECS
+    )
+    return tuple(bridge for bridge in found if bridge is not None)
+
+
+def _has_revenue(statements: StatementSet) -> bool:
+    """Whether this period has a revenue line to be a share of."""
+    revenue = statements.get("revenue")
+    return revenue is not None and revenue.value > 0
 
 
 def _spans_a_year(row: FinancialFact) -> bool:

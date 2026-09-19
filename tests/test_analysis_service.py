@@ -1086,3 +1086,128 @@ class TestWhatTheCompanyDidWithItsCash:
             "dividends_paid",
         }
         assert len(figures) == 6
+
+
+class TestWhyTheMarginMoved:
+    """Phase 6.1: `aer.calc.bridge` was built, tested, and had no production caller.
+
+    The delivery plan names the cost exactly — decomposition is the one thing the console
+    won on, and the section writers are *correctly* forbidden to derive it themselves, so
+    the absence of a deterministic producer was the absence of the analysis.
+    """
+
+    @staticmethod
+    async def _two_years(scene: dict[str, Any], *, closing: dict[str, str]) -> None:
+        await _seed(scene, _facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1)))
+        await _seed(
+            scene,
+            _facts(
+                scene,
+                period_end=date(2023, 12, 31),
+                filed=date(2024, 2, 1),
+                values=closing,
+            ),
+        )
+
+    async def test_a_margin_that_moved_is_decomposed_into_the_lines_that_moved_it(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Cost of revenue rises 400 to 500 on flat revenue, so gross margin falls ten
+        points and the one driver accounts for all of it."""
+        await self._two_years(
+            scene,
+            closing={**_YEAR, "cost_of_revenue": "500", "gross_profit": "500"},
+        )
+        context = new_context()
+
+        outcome = await analyse_company(scene["session"], context, company_id=scene["company"].id)
+
+        assert outcome.latest is not None
+        bridges = {bridge.key: bridge for bridge in outcome.latest.bridges}
+        gross = bridges["gross_margin"]
+        assert gross.movement.value == Decimal("-0.1")
+        (component,) = gross.components
+        assert component.concept == "cost_of_revenue"
+        assert component.value == Decimal("-0.1")
+        assert gross.residual.value == 0
+        assert gross.explained == 1
+
+    async def test_the_oldest_period_has_no_year_to_move_from(self, scene: dict[str, Any]) -> None:
+        await self._two_years(scene, closing=_YEAR)
+        context = new_context()
+
+        outcome = await analyse_company(scene["session"], context, company_id=scene["company"].id)
+
+        assert outcome.periods[-1].bridges == ()
+
+    async def test_the_opening_year_s_shares_are_stamped_with_the_opening_year(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Gap R14's rule, and the defect this wiring had on its first pass: a share of the
+        prior year struck during this year's pass lands under this year's label unless the
+        stamp travels with it — the previous year's number under this year's heading, and
+        an apparent duplicate the ledger could not collapse.
+        """
+        await self._two_years(
+            scene,
+            closing={**_YEAR, "cost_of_revenue": "500", "gross_profit": "500"},
+        )
+        context = new_context()
+
+        await analyse_company(scene["session"], context, company_id=scene["company"].id)
+
+        shares = context.named("margin_of")
+        struck = {
+            (record.period.label if record.period else "", record.output_value) for record in shares
+        }
+        # 400/1000 belongs to FY2022 and 500/1000 to FY2023; neither may appear under both.
+        assert ("FY2022", Decimal("0.4")) in struck
+        assert ("FY2023", Decimal("0.5")) in struck
+        assert ("FY2023", Decimal("0.4")) not in struck
+
+    async def test_a_filer_with_no_revenue_line_gets_no_bridge_rather_than_an_error(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Every share of nil revenue is meaningless, which the bridge raises about. That
+        is an ordinary state for a filer, not a reason to lose the analysis step."""
+        without_revenue = {key: value for key, value in _YEAR.items() if key != "revenue"}
+        await _seed(
+            scene,
+            _facts(
+                scene,
+                period_end=date(2022, 12, 31),
+                filed=date(2023, 2, 1),
+                values=without_revenue,
+            ),
+        )
+        await _seed(
+            scene,
+            _facts(
+                scene,
+                period_end=date(2023, 12, 31),
+                filed=date(2024, 2, 1),
+                values=without_revenue,
+            ),
+        )
+        context = new_context()
+
+        outcome = await analyse_company(scene["session"], context, company_id=scene["company"].id)
+
+        assert outcome.latest is not None
+        assert outcome.latest.bridges == ()
+
+    async def test_the_step_records_how_much_each_bridge_explained(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A count, not the figures: those are calculation rows, and a second copy in the
+        step's JSON would be a number with no formula behind it."""
+        await self._two_years(
+            scene,
+            closing={**_YEAR, "cost_of_revenue": "500", "gross_profit": "500"},
+        )
+        context = new_context()
+
+        outcome = await analyse_company(scene["session"], context, company_id=scene["company"].id)
+
+        latest = outcome.as_dict()["periods"][0]
+        assert latest["bridges"]["gross_margin"] == "1"
