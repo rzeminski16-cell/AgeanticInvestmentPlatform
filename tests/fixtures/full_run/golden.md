@@ -48,7 +48,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^4][^5] |
+| Scripted label with no figure in it. | 0.1713[^4][^5] |
 
 ## Investment Thesis
 
@@ -76,7 +76,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^6][^7] |
+| Scripted label with no figure in it. | 0.1713[^6][^7] |
 
 ### Operating Footprint
 
@@ -92,7 +92,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^8][^9] |
+| Scripted label with no figure in it. | 0.1713[^8][^9] |
 
 ## Industry & Competitive Positioning
 
@@ -112,7 +112,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^10][^11] |
+| Scripted label with no figure in it. | 0.1713[^10][^11] |
 
 ## Management & Governance
 
@@ -128,7 +128,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^12][^13] |
+| Scripted label with no figure in it. | 0.1713[^12][^13] |
 
 ## Historical Financial Analysis
 
@@ -140,13 +140,13 @@ Scripted analysis from the recorded evidence; see the figures.
 
 |  | Scripted period with no figure in it. |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^14][^15] |
+| Scripted label with no figure in it. | 0.1713[^14][^15] |
 
 ### Figures
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^16][^17] |
+| Scripted label with no figure in it. | 0.1713[^16][^17] |
 
 ### Revenue and margin history
 
@@ -175,7 +175,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^24][^25] |
+| Scripted label with no figure in it. | 0.1713[^24][^25] |
 
 ## Balance Sheet & Liquidity
 
@@ -187,13 +187,13 @@ Scripted analysis from the recorded evidence; see the figures.
 
 |  | Scripted period with no figure in it. |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^26][^27] |
+| Scripted label with no figure in it. | 0.1713[^26][^27] |
 
 ### Figures
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^28][^29] |
+| Scripted label with no figure in it. | 0.1713[^28][^29] |
 
 ### Observations
 
@@ -209,13 +209,13 @@ Scripted analysis from the recorded evidence; see the figures.
 
 |  | Scripted period with no figure in it. |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^30][^31] |
+| Scripted label with no figure in it. | 0.1713[^30][^31] |
 
 ### Figures
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^32][^33] |
+| Scripted label with no figure in it. | 0.1713[^32][^33] |
 
 ## Capital Allocation
 
@@ -231,7 +231,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^34][^35] |
+| Scripted label with no figure in it. | 0.1713[^34][^35] |
 
 ## Growth Outlook
 
@@ -247,7 +247,7 @@ Scripted text with no figure in it.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^36][^37] |
+| Scripted label with no figure in it. | 0.1713[^36][^37] |
 
 ## Valuation — Discounted Cash Flow
 
@@ -267,7 +267,7 @@ Scripted text with no figure in it.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.171254217656[^38][^39] |
+| Scripted label with no figure in it. | 0.1713[^38][^39] |
 
 ### Sensitivity Commentary
 
@@ -342,43 +342,43 @@ The companies below are the comparable set for this research, each proposed with
 
 [^1]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^2]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^3]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^3]: Calculated: `net margin = net income / revenue` = 36.5% (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^4]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^5]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^5]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^6]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^7]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^7]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^8]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^9]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^9]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^10]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^11]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^11]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^12]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^13]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^13]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^14]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^15]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^15]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^16]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^17]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^17]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^18]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^19]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^20]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^21]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^22]: Calculated: `net margin = net income / revenue` = 0.3118 (rounded; full precision stored) for FY2020 (code version `<code>`).
-[^23]: Calculated: `net margin = net income / revenue` = 0.3645 (rounded; full precision stored) for FY2021 (code version `<code>`).
+[^22]: Calculated: `net margin = net income / revenue` = 31.2% (rounded; full precision stored) for FY2020 (code version `<code>`).
+[^23]: Calculated: `net margin = net income / revenue` = 36.5% (rounded; full precision stored) for FY2021 (code version `<code>`).
 [^24]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^25]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^25]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^26]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^27]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^27]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^28]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^29]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^29]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^30]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^31]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^31]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^32]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^33]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^33]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^34]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^35]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^35]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^36]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^37]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^37]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 [^38]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, a regulatory filing. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^39]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 0.1713 (rounded; full precision stored) (code version `<code>`).
+[^39]: Calculated: `cagr = (end / start) ^ (1 / years) - 1` = 17.1% (rounded; full precision stored) (code version `<code>`).
 
 
 ## Sources
