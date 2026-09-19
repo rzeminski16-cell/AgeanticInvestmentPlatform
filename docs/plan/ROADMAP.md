@@ -1808,6 +1808,42 @@ found rather than as scope that was always there.
     untrue one.
 
 
+42. **A decomposition whose rows share one name is invisible to the writer's index, 19
+    September 2026.** Found by measuring Phase 6.1's own wiring rather than assuming it
+    landed: the producer is live and the consumer still cannot read it.
+
+    `aer.services.calculations.indexed_calculations` keeps **one row per `(name, case)`**,
+    newest period — the right rule for the ratio suite, where `gross_margin` is one figure
+    a run strikes once per year. A margin bridge is the opposite shape: every component is
+    a `bridge_contribution`, they share one name by construction, and *the set of them is
+    the finding*. "Operating margin fell 240bp, of which 180 was gross margin and 90 was
+    R&D" is the sentence the console won on, and it needs every row.
+
+    *Measured on a two-year scene:* 11 bridge rows struck, **3 survive the index** — one
+    `bridge_contribution` at `-0.1`, one `bridge_residual`, one `margin_of` — each with
+    **empty parameters**, so a writer cannot tell which expense line the contribution
+    belongs to, which of the two margins it decomposes, or that there were others.
+
+    *The cause is the one `enterprise_value` documents against itself.* That calculation
+    records `method` and `case` precisely so "the ledger holds two rows with the same name
+    and different answers and nothing saying why" cannot happen; `contribution_of`,
+    `residual_of` and `margin_of` record nothing of the kind. It is the same defect fixed
+    for `implied_terminal_growth` in §3.19.38 earlier the same day, one module along.
+
+    *What it needs, and why it is its own change.* Parameters on the four bridge
+    calculations — the driver concept and the margin key — and then an index that keys on
+    them rather than on the name alone. The second half touches a shared index whose cap
+    and ordering carry their own argument (the adversary escalated six false challenges
+    when that ordering was wrong), and widening the key admits more rows into a pool that
+    §3.19's next item is about narrowing. The two decisions belong together and neither
+    belongs bolted onto the producer.
+
+    *Also measured, and not a defect:* four of the operating-margin bridge's five drivers
+    went `unattributed` because the opening year's statements did not carry them, and the
+    two bridges' shared `cost_of_revenue` contribution collapsed to one ledger row because
+    the inputs and the stamp were identical. Both are the machinery working.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
