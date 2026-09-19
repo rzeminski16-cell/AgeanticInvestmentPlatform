@@ -25,6 +25,9 @@ from hypothesis import strategies as st
 from aer.calc.dcf import (
     HIGH_TERMINAL_SHARE_CAVEAT,
     MAX_FORECAST_YEARS,
+    METHOD_CONTRADICTION,
+    METHOD_CONTRADICTION_CAVEAT,
+    METHOD_DISAGREEMENT,
     METHOD_DISAGREEMENT_CAVEAT,
     NARROW_SPREAD_CAVEAT,
     NEGATIVE_EQUITY_CAVEAT,
@@ -40,6 +43,7 @@ from aer.calc.dcf import (
     enterprise_value,
     exit_multiple_terminal_value,
     gordon_terminal_value,
+    method_disagreement,
     project,
     projected_capex,
     projected_ebit,
@@ -349,6 +353,133 @@ class TestCaveats:
         )
 
         assert result.caveats == ()
+
+
+# -- The distance between the two methods ----------------------------------------------------
+
+
+def _contradicting() -> DcfInputs:
+    """Inputs whose two terminal methods finish more than twice apart.
+
+    The perpetuity's denominator does the work, which is the shape AZN's September run had:
+    a 5.62% discount rate against 2.5% growth left a 3.1-point spread and a terminal value
+    that swamped the exit multiple's. Here a 2-point spread takes Gordon growth to 56.71 a
+    share against the exit multiple's untouched 21.95 — a gap of 1.58, where AZN's was 1.26.
+    """
+    return base_inputs(terminal_growth=rate("0.08"))
+
+
+class TestTheDistanceBetweenTheMethods:
+    """It is a recorded figure now, and the sentence about it is banded (§3.19 item 38).
+
+    The September measurement round published a pair 2.25x apart under a caveat reading
+    "disagree by more than a quarter … the distance between them is the honest width of the
+    answer". Both halves were the defect: the threshold was the only thing the sentence
+    knew, and the reassurance was attached to every gap above it.
+    """
+
+    def test_the_distance_is_recorded_rather_than_left_to_a_reader(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        assert result.method_disagreement is not None
+        assert len(context.named("method_disagreement")) == 1
+
+    def test_it_measures_the_higher_against_the_lower(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+        low = min(result.gordon.value_per_share.value, result.exit_multiple.value_per_share.value)
+        high = max(result.gordon.value_per_share.value, result.exit_multiple.value_per_share.value)
+
+        # Struck in the module's own precision context, so this is the same division
+        # rather than one that agrees to a tolerance.
+        with localcontext(CALC_CONTEXT):
+            assert result.method_disagreement.value == (high - low) / low
+        # The worked example: 12.09 under Gordon growth against 21.95 under the exit
+        # multiple, which is 81.6% — wide, and still a width.
+        assert Decimal("0.81") < result.method_disagreement.value < Decimal("0.82")
+
+    def test_it_is_a_pure_ratio_carrying_its_own_source(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        assert result.method_disagreement.unit.symbol == "pure"
+        assert result.method_disagreement.source.kind is SourceKind.CALCULATION
+
+    def test_the_ledger_says_which_case_struck_it(self, context):
+        """A grid strikes this once per cell; without the stamp the base case is an ordering."""
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE, case=SENSITIVITY_CASE)
+
+        (record,) = context.named("method_disagreement")
+        assert record.parameters["case"] == SENSITIVITY_CASE
+
+    def test_a_width_is_called_a_width(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        assert METHOD_DISAGREEMENT_CAVEAT in result.caveats
+        assert METHOD_CONTRADICTION_CAVEAT not in result.caveats
+        assert result.methods_contradict is False
+
+    def test_a_contradiction_is_not_called_a_width(self, context):
+        """The correction the round forced: past twice the lower, the reassurance stops."""
+        result = discounted_cash_flow(context, _contradicting(), mandate=MANDATE)
+
+        assert result.method_disagreement.value > METHOD_CONTRADICTION
+        assert METHOD_CONTRADICTION_CAVEAT in result.caveats
+        assert METHOD_DISAGREEMENT_CAVEAT not in result.caveats
+        assert result.methods_contradict is True
+
+    def test_the_contradiction_caveat_does_not_call_the_gap_information(self, context):
+        """The exact words that made the September documents indefensible."""
+        result = discounted_cash_flow(context, _contradicting(), mandate=MANDATE)
+        spoken = " ".join(result.caveats)
+
+        assert "honest width" not in spoken
+        assert "information, not an error" not in spoken
+
+    def test_the_two_bands_are_never_stated_together(self, context):
+        """One gap, one sentence. Both would be the platform hedging about itself."""
+        for inputs in (base_inputs(), _contradicting(), base_inputs(terminal_growth=rate("0.05"))):
+            result = discounted_cash_flow(context, inputs, mandate=MANDATE)
+            both = {METHOD_DISAGREEMENT_CAVEAT, METHOD_CONTRADICTION_CAVEAT}
+
+            assert len(both & set(result.caveats)) <= 1
+
+    def test_methods_that_agree_are_not_remarked_on(self, context):
+        """5.8x is the multiple the worked example's 2% perpetual growth implies."""
+        result = discounted_cash_flow(
+            context, base_inputs(exit_multiple=rate("5.8")), mandate=MANDATE
+        )
+
+        assert result.method_disagreement.value < METHOD_DISAGREEMENT
+        assert METHOD_DISAGREEMENT_CAVEAT not in result.caveats
+        assert METHOD_CONTRADICTION_CAVEAT not in result.caveats
+
+    def test_a_per_share_figure_at_or_below_zero_leaves_no_ratio(self, context):
+        """Negative equity has its own caveat; a fraction of it would be arithmetic theatre."""
+        result = discounted_cash_flow(context, base_inputs(net_debt=usd("9000")), mandate=MANDATE)
+
+        assert result.method_disagreement is None
+        assert result.methods_contradict is False
+        assert context.named("method_disagreement") == ()
+        assert NEGATIVE_EQUITY_CAVEAT in result.caveats
+
+    def test_two_units_raise_rather_than_declining_the_comparison(self, context):
+        """Invariant 5. A `suppress` around the call site would have swallowed this."""
+        with pytest.raises(UnitMismatchError):
+            method_disagreement(
+                context,
+                gordon_per_share=usd("20"),
+                exit_multiple_per_share=shares("10"),
+            )
+
+    def test_a_blank_case_is_refused(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        with pytest.raises(CalculationError, match="case label is blank"):
+            method_disagreement(
+                context,
+                gordon_per_share=result.gordon.value_per_share,
+                exit_multiple_per_share=result.exit_multiple.value_per_share,
+                case="  ",
+            )
 
 
 # -- Refusals --------------------------------------------------------------------------------

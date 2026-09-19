@@ -192,3 +192,23 @@ column has none of those.
 takes its reading from words in its label, so the two upside rows — "perpetuity growth" and
 "exit multiple" — rendered as `0.7%` and `-0.01x`, the same kind of figure in two notations
 with neither chosen. "Upside" is now a percentage word and the rows are labelled with it.
+
+## A correction, 2026-09-19 — the two-methods rule is not ADR 0038's
+
+The section above says *"ADR 0038 carries the two terminal assumptions separately and says
+their disagreement is itself the finding"*. **ADR 0038 says nothing of the kind.** It is
+*Validator assists advise; deterministic verdicts cannot be overruled* — the `validator`
+role's ADR, about citation and date advisories. The number is simply wrong.
+
+The rule is real and its home is the specification: `docs/archive/PLAN.md`, Phase 3's
+deliverables — *"driver-based FCFF DCF, terminal value (Gordon + exit multiple, both
+shown)"*. No ADR was ever written for it, because it was never a decision anyone had to
+argue; it is in `aer.calc.dcf`'s module docstring as the module's own rule and is enforced
+there.
+
+Recorded rather than edited, on this repository's standing rule that a decision record keeps
+its words. The citation had already been copied into `aer.services.valuation_run`, and was
+about to be copied a third time into `aer.render.glance`; both now cite the specification and
+point here. Found while fixing roadmap §3.19 item 38, which is the same rule being undone one
+layer further along — the front page printed one of the two methods as though it were the
+answer.

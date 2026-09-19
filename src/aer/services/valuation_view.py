@@ -369,9 +369,10 @@ _LABELS: Final[dict[str, str]] = {
     "value_per_share": "Value per share",
 }
 
+# The method's own words, from the enum. Kept as a lookup rather than inlined at the call
+# site so the dataclass's `label` field still reads from one place.
 _METHOD_LABELS: Final[dict[TerminalMethod, str]] = {
-    TerminalMethod.GORDON_GROWTH: "Gordon growth",
-    TerminalMethod.EXIT_MULTIPLE: "Exit multiple",
+    method: method.spoken for method in TerminalMethod
 }
 
 

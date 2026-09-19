@@ -1625,6 +1625,56 @@ found rather than as scope that was always there.
     urgent half — a missed contradiction ships, a spurious one is a line in an appendix —
     but the precision half is real and open.
 
+38. **The two terminal methods contradicted each other and the document called it a width,
+    19 September 2026.** The measurement round's largest finding, and the one all three AZN
+    judges led with: *"its two terminal methods produce $357.62 versus $158.58"*. MSFT's pair
+    was 2.9x apart and its reader wrote that they *"do not bracket a range; they disagree"*.
+
+    *Three defects, one cause — the platform had no figure for the distance.*
+
+    **The caveat knew a threshold and nothing else.** `METHOD_DISAGREEMENT` is 0.25, and past
+    it the run said *"The two terminal methods disagree by more than a quarter. That is
+    information, not an error … the distance between them is the honest width of the answer."*
+    AZN's pair was 125% apart. The sentence was true, useless and reassuring, in that order,
+    and a caveat that reassures a reader about a contradiction is the platform arguing for its
+    own output. Banded: `METHOD_CONTRADICTION` at 1.00 — where the lower figure is less than
+    half the higher and no single view holds both — takes a different sentence, which says
+    they contradict and points at the parameter that separates them.
+
+    **The distance was not a figure, on a rule that was right.** `_terminal_rows` had left it
+    out because *"a figure needs a recorded calculation, and the comparison already exists as
+    words"*. So every reader of that document did the division themselves, which is exactly
+    what the judges did. The answer was to satisfy the rule rather than stay silent:
+    `aer.calc.dcf.method_disagreement` is a traced calculation now, and it and the exit
+    multiple's already-recorded implied perpetual growth are both rows in the method table
+    with their own lineage. An unexplained 2.25x is something a reader can only distrust; the
+    same gap beside *the exit multiple implies -1.97% perpetual growth, the perpetuity was
+    given 2.5%* is something they can argue with.
+
+    **And the front page printed one of the two as though it were the answer** — the sharpest
+    form of it, found while tracing the first two. `aer.render.glance` curates
+    `value_per_share` and took the *last* base-case row of each curated name. A discounted
+    cash flow strikes it twice, both stamped `case="base"` because both are the base case, so
+    a `reversed()` decided which of two contradictory numbers led the document. AZN's line 61
+    read `Value per share (base) | — | $158.58` over the $357.62 on line 457, with nothing
+    naming the method. The picker now takes the last row *per terminal method* and labels each
+    where there is more than one; a name struck once is unlabelled, because a discriminator on
+    a single row invites a reader to look for the row beside it.
+
+    *Nothing asserted the front page's per-share row*, which is why this shipped. Three tests
+    do now, one of them checked against the unfixed picker.
+
+    *Two smaller things found inside it.* `implied_terminal_growth` and
+    `implied_exit_multiple` carried no `case` stamp, so a grid's fifty and the base case's one
+    were told apart by ledger order — tolerable while nobody printed them, not once one is a
+    row a reader meets. And `TerminalMethod`'s two words were written out in three places;
+    they are `TerminalMethod.spoken` now, on the pattern of `TriggerKind.spoken`. **The class
+    is §3.19's recurring one**, for the sixth and seventh time in two days.
+
+    *What this did not do.* ADR 0125's second pass still does not compare the two, and should
+    not: it groups by function *and inputs*, and two terminal methods genuinely are two
+    questions. A contradiction between them is not one figure published twice.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

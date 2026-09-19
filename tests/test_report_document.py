@@ -1577,6 +1577,108 @@ class TestTheFrontPageNumbers:
         assert "| Free cash flow | FY2022 | $65,149m" in markdown
         assert "139,225" not in markdown.split("## Golden Overview")[0]
 
+    async def _valued_both_ways(
+        self, scene: dict[str, Any], *, gordon: str, exit_multiple: str
+    ) -> dict[str, Any]:
+        """The two base-case per-share figures a discounted cash flow always records."""
+        session: AsyncSession = scene["session"]
+        for sequence, (method, value) in enumerate(
+            (("gordon_growth", gordon), ("exit_multiple", exit_multiple)), start=8
+        ):
+            session.add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    name="value_per_share",
+                    formula="value per share = equity value / shares outstanding",
+                    function_ref="aer.calc.dcf:value_per_share",
+                    code_version="goldencode123456",
+                    inputs=[],
+                    output_value=Decimal(value),
+                    output_unit="USD/shares",
+                    parameters={"case": "base", "method": method},
+                    sequence=sequence,
+                )
+            )
+        await session.flush()
+        return await self._with_figures(scene)
+
+    async def test_both_terminal_methods_reach_the_front_page_named(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Roadmap §3.19 item 38, and the sharpest form of it.
+
+        A discounted cash flow strikes ``value_per_share`` twice, both stamped
+        ``case="base"`` because both are the base case. The headline picker took the last
+        row of each curated name, so it printed whichever the ledger happened to hold
+        second under the bare label *Value per share (base)*, with nothing saying which
+        method produced it. On the September round's AZN document that was $158.58 on the
+        front page over $357.62 in the valuation section — ADR 0038's rule undone at the
+        last step by a `reversed()`.
+        """
+        document = await _document(
+            await self._valued_both_ways(scene, gordon="357.62", exit_multiple="158.58")
+        )
+
+        markdown = serialise_markdown(document)
+        front = markdown.split("## Golden Overview")[0]
+        assert "| Value per share (base) — Gordon growth | \N{EM DASH} | $357.62" in front
+        assert "| Value per share (base) — Exit multiple | \N{EM DASH} | $158.58" in front
+        # The old label printed one of the two as though it were the answer.
+        assert "| Value per share (base) | " not in front
+
+    async def test_a_single_terminal_method_is_not_labelled_with_one(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A discriminator on one row invites a reader to look for the row beside it."""
+        session: AsyncSession = scene["session"]
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares outstanding",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("41.90"),
+                output_unit="USD/shares",
+                parameters={"case": "base", "method": "gordon_growth"},
+                sequence=8,
+            )
+        )
+        await session.flush()
+        document = await _document(await self._with_figures(scene))
+
+        front = serialise_markdown(document).split("## Golden Overview")[0]
+        assert "| Value per share (base) | \N{EM DASH} | $41.90" in front
+        assert "Gordon growth" not in front
+
+    async def test_a_sensitivity_cell_still_never_reaches_the_front_page(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The per-method split must not become a way in for a grid corner."""
+        session: AsyncSession = scene["session"]
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares outstanding",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("999.99"),
+                output_unit="USD/shares",
+                parameters={"case": "sensitivity", "method": "gordon_growth"},
+                sequence=10,
+            )
+        )
+        await session.flush()
+        document = await _document(
+            await self._valued_both_ways(scene, gordon="357.62", exit_multiple="158.58")
+        )
+
+        front = serialise_markdown(document).split("## Golden Overview")[0]
+        assert "999.99" not in front
+
     async def test_a_run_with_nothing_to_show_shows_nothing(self, scene: dict[str, Any]) -> None:
         """The golden scene holds no facts and no curated calculation: no block, no
         apology — the coverage notice owns the honest account."""

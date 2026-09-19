@@ -24,6 +24,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.dcf import TerminalMethod
 from aer.calc.plausibility import FigureScene, impossible_relations
 from aer.db.models import Calculation, FinancialFact, Job, ResearchRequest
 from aer.services.facts import visible_facts
@@ -326,6 +327,21 @@ def _annual_series(facts: list[FinancialFact]) -> list[dict[str, Any]]:
 
 
 async def _headline_rows(session: AsyncSession, *, job: Job) -> list[dict[str, str]]:
+    """The curated figures, one row per distinct answer rather than per name.
+
+    **A name the run strikes once per terminal method gets a row for each, each named.**
+    Taking the last row of a name was right for every figure until the discounted cash flow
+    arrived, which strikes ``value_per_share`` twice — once under a growing perpetuity, once
+    under an exit multiple — both stamped ``case="base"`` because both are the base case.
+    The picker then printed whichever the ledger happened to hold second, under the label
+    *Value per share (base)*, with nothing saying which method produced it.
+
+    On the September round's AZN document that was $158.58 on the front page over $357.62
+    in the valuation section, with the specification's rule — *terminal value (Gordon + exit
+    multiple, both shown)*, `docs/archive/PLAN.md` Phase 3 — undone at the last step by a
+    `reversed()`. ADR 0117 attributes that rule to ADR 0038, which is about validator
+    assists and says nothing of the kind; the ADR carries a dated correction.
+    """
     calculations = list(
         await session.scalars(
             select(Calculation).where(Calculation.job_id == job.id).order_by(Calculation.sequence)
@@ -333,22 +349,50 @@ async def _headline_rows(session: AsyncSession, *, job: Job) -> list[dict[str, s
     )
     rows: list[dict[str, str]] = []
     for name, label in _HEADLINE_CALCULATIONS:
-        latest = next(
-            (calc for calc in reversed(calculations) if calc.name == name and _headline(calc)),
-            None,
-        )
-        if latest is None:
-            continue
-        rows.append(
-            {
-                "label": label,
-                "period": latest.period_label or "\N{EM DASH}",
-                "value": str(latest.output_value),
-                "unit": latest.output_unit,
-                "calculation_id": str(latest.id),
-            }
-        )
+        found = _latest_per_method(calculations, name=name)
+        for method, latest in found:
+            rows.append(
+                {
+                    # Named only where there is something to tell apart: a single answer
+                    # labelled with its method would invite a reader to look for the other.
+                    "label": f"{label} — {method}" if len(found) > 1 and method else label,
+                    "period": latest.period_label or "\N{EM DASH}",
+                    "value": str(latest.output_value),
+                    "unit": latest.output_unit,
+                    "calculation_id": str(latest.id),
+                }
+            )
     return rows
+
+
+def _latest_per_method(
+    calculations: list[Calculation], *, name: str
+) -> list[tuple[str, Calculation]]:
+    """The last base-case row of this name for each terminal method it was struck under.
+
+    Returns ``(spoken method, row)`` pairs in the methods' own order, with an empty method
+    for a figure struck once. A name with no ``method`` parameter yields exactly one pair,
+    which is every curated figure but the per-share one.
+    """
+    base = [calc for calc in calculations if calc.name == name and _headline(calc)]
+    if not base:
+        return []
+
+    by_method: dict[str, Calculation] = {}
+    for calc in base:
+        by_method[str((calc.parameters or {}).get("method", ""))] = calc
+    if len(by_method) == 1:
+        # Either a figure with no method at all, or one struck under a single method. Both
+        # read as one answer, so neither is labelled with a discriminator it does not need.
+        return [("", next(iter(by_method.values())))]
+
+    ordered = [
+        (method.spoken, by_method[method.value])
+        for method in TerminalMethod
+        if method.value in by_method
+    ]
+    unknown = sorted(key for key in by_method if key not in set(TerminalMethod))
+    return [*ordered, *((key, by_method[key]) for key in unknown)]
 
 
 def _headline(calc: Calculation) -> bool:

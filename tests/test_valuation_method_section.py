@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.dcf import METHOD_DISAGREEMENT_CAVEAT
+from aer.calc.dcf import METHOD_CONTRADICTION, METHOD_DISAGREEMENT, METHOD_DISAGREEMENT_CAVEAT
 from aer.calc.wacc import CapitalStructure, EquityBasis, cost_of_capital
 from aer.core.enums import JobStatus, UserRole
 from aer.db.models import JobStep, User
@@ -297,12 +297,71 @@ class TestTheSpreadReachesTheReader:
         result = scene["result"]
         low = min(result.gordon.value_per_share.value, result.exit_multiple.value_per_share.value)
         high = max(result.gordon.value_per_share.value, result.exit_multiple.value_per_share.value)
-        diverged = low > 0 and (high - low) / low > Decimal("0.25")
+        diverged = low > 0 and METHOD_DISAGREEMENT < (high - low) / low <= METHOD_CONTRADICTION
 
         block = await block_for(db_session, scene)
         shown = METHOD_DISAGREEMENT_CAVEAT in block.get("valuation_caveats", [])
 
         assert shown == diverged
+
+    async def test_the_distance_between_the_methods_is_a_row_with_its_calculation(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Roadmap §3.19 item 38.
+
+        The table used to state the two per-share figures and leave the reader to divide
+        them, on the rule that a figure needs a recorded calculation and there was none.
+        There is one now, so the rule is satisfied rather than dodged.
+        """
+        block = await block_for(db_session, scene)
+        gap = rows_by_label(block, "terminal_valuations")["Distance between the two methods"]
+
+        places = Decimal("0.000000000001")
+        assert Decimal(gap["value"]) == scene["result"].method_disagreement.value.quantize(places)
+        assert gap["unit"] == "pure"
+        assert gap["calculation_id"]
+
+    async def test_the_rate_the_exit_multiple_implies_is_stated_beside_it(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The parameter the two methods actually disagree about, named.
+
+        An unexplained 2.25x gap is something a reader can only distrust. The same gap
+        alongside "the exit multiple implies 5.19% perpetual growth, the perpetuity was
+        given 2%" is something they can argue with, and the platform has had that number
+        recorded all along.
+        """
+        block = await block_for(db_session, scene)
+        implied = rows_by_label(block, "terminal_valuations")[
+            "Perpetual growth the exit multiple implies"
+        ]
+
+        places = Decimal("0.000000000001")
+        recorded = scene["result"].exit_multiple.implied_terminal_growth
+        assert Decimal(implied["value"]) == recorded.value.quantize(places)
+        assert implied["calculation_id"]
+
+    async def test_a_grid_corner_does_not_shadow_either_new_row(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Both rows are read by the same `_base_case` rule as the per-share figures.
+
+        The implied growth rate carried no case stamp before this change, so a grid's
+        fifty of them and the base case's one were told apart by ledger order alone.
+        """
+        from tests.test_valuation_surface import add_grid  # noqa: PLC0415
+
+        await add_grid(db_session, scene)
+
+        rows = rows_by_label(await block_for(db_session, scene), "terminal_valuations")
+        places = Decimal("0.000000000001")
+        result = scene["result"]
+        assert Decimal(rows["Distance between the two methods"]["value"]) == (
+            result.method_disagreement.value.quantize(places)
+        )
+        assert Decimal(rows["Perpetual growth the exit multiple implies"]["value"]) == (
+            result.exit_multiple.implied_terminal_growth.value.quantize(places)
+        )
 
 
 class TestTheCommentaryEdge:

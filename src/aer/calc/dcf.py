@@ -21,6 +21,13 @@ version of the other's parameter, which is the cross-check an analyst actually r
 terminal value implying a 19x exit multiple on a business that trades at 8x is a statement
 about the assumptions, and it is invisible unless somebody divides.
 
+**And the distance between them is a figure, banded.** :func:`method_disagreement` records it
+rather than leaving a reader to divide, because a distance the platform will not name is one
+it is hoping nobody measures. Past :data:`METHOD_DISAGREEMENT` the result says the two are a
+width; past :data:`METHOD_CONTRADICTION` it stops saying that, because a higher figure more
+than twice the lower is not a range with an answer inside it. The September measurement round
+published a pair 2.25x apart under the first sentence, and every judge who read it said so.
+
 **The terminal share is an output, not a diagnostic.** A valuation whose terminal value is
 85% of enterprise value is a forecast of the forecast period's irrelevance. It appears on
 every result.
@@ -73,6 +80,8 @@ __all__ = [
     "HIGH_TERMINAL_SHARE",
     "MAX_AXIS_POINTS",
     "MAX_FORECAST_YEARS",
+    "METHOD_CONTRADICTION",
+    "METHOD_DISAGREEMENT",
     "MIN_AXIS_POINTS",
     "MIN_TERMINAL_SPREAD",
     "SENSITIVITY_CASE",
@@ -98,6 +107,7 @@ __all__ = [
     "gordon_terminal_value",
     "implied_exit_multiple",
     "implied_terminal_growth",
+    "method_disagreement",
     "nopat_from_ebit",
     "present_value",
     "project",
@@ -120,6 +130,24 @@ class TerminalMethod(StrEnum):
 
     EXIT_MULTIPLE = "exit_multiple"
     """A multiple of terminal EBITDA. Imports today's market mood into a decade's time."""
+
+    @property
+    def spoken(self) -> str:
+        """The method as a reader meets it, never ``gordon_growth``.
+
+        Three surfaces had their own copy of this pair — the valuation page, the report's
+        method table, and nearly a fourth on the front page — which is one rule written
+        three times waiting for one copy to rot (roadmap §3.19, the recurring class). It
+        belongs on the enum for the same reason :attr:`aer.core.escalation.TriggerKind.spoken`
+        does: the value is the record's and this is the sentence's.
+        """
+        return _SPOKEN_METHODS[self]
+
+
+_SPOKEN_METHODS: Final[dict[TerminalMethod, str]] = {
+    TerminalMethod.GORDON_GROWTH: "Gordon growth",
+    TerminalMethod.EXIT_MULTIPLE: "Exit multiple",
+}
 
 
 class GridMeasure(StrEnum):
@@ -172,6 +200,17 @@ reader should have to work out for themselves.
 METHOD_DISAGREEMENT: Final = Decimal("0.25")
 """How far the two terminal methods may diverge before the result says so."""
 
+METHOD_CONTRADICTION: Final = Decimal("1.00")
+"""How far they may diverge before the result stops calling the distance a width.
+
+At a gap of one the lower figure is less than half the higher: no single view of the
+business holds both, so the pair is not a range with an answer somewhere inside it. Below
+this the two are a width and are described as one. Above it they are two answers, and a
+caveat that reassures a reader about two answers is the platform arguing for its own
+output — which is exactly what the September round's panel objected to, in the same words,
+on both subjects (roadmap §3.19 item 38).
+"""
+
 MIN_AXIS_POINTS: Final = 2
 """Fewer values than this is a list, not a sensitivity."""
 
@@ -217,6 +256,16 @@ METHOD_DISAGREEMENT_CAVEAT: Final = (
     "The two terminal methods disagree by more than a quarter. That is information, not an "
     "error: they are two different guesses about the same unknowable quantity, and the "
     "distance between them is the honest width of the answer."
+)
+
+METHOD_CONTRADICTION_CAVEAT: Final = (
+    "The two terminal methods do not bracket a range — they contradict each other. The "
+    "higher figure is more than twice the lower, so no single view of this business holds "
+    "both, and what is stated below is two answers rather than one answer with a width. "
+    "The distance between them is recorded as a figure of its own, as is the perpetual "
+    "growth rate the exit multiple implies; that rate set against the one the perpetuity "
+    "was given is what separates the two, and it is the thing to argue about before either "
+    "figure is used."
 )
 
 NEGATIVE_EQUITY_CAVEAT: Final = (
@@ -392,6 +441,26 @@ class DcfResult:
     gordon: TerminalOutcome
     exit_multiple: TerminalOutcome
     caveats: tuple[str, ...]
+
+    # How far the two methods finished apart, as a fraction of the lower. `None` only where
+    # the ratio is not defined — a per-share figure at or below zero, which carries its own
+    # caveat. Recorded rather than derived at the page, so the report can state the distance
+    # with a calculation behind it.
+    method_disagreement: Quantity | None = None
+
+    @property
+    def methods_contradict(self) -> bool:
+        """Whether the pair is two answers rather than one answer with a width.
+
+        The predicate the caveat branches on, exposed so a caller deciding what to *do*
+        about it — record a disagreement, refuse to compose a view — reads the same
+        threshold rather than restating it. One rule stated twice is one rule with a copy
+        that rots (roadmap §3.19, five instances in one day).
+        """
+        return (
+            self.method_disagreement is not None
+            and self.method_disagreement.value > METHOD_CONTRADICTION
+        )
 
     @property
     def outcomes(self) -> tuple[TerminalOutcome, TerminalOutcome]:
@@ -787,7 +856,11 @@ def exit_multiple_terminal_value(
     formula="implied EV/EBITDA = terminal value / terminal EBITDA",
 )
 def implied_exit_multiple(
-    _context: CalculationContext, *, terminal_value: Quantity, terminal_ebitda: Quantity
+    _context: CalculationContext,
+    *,
+    terminal_value: Quantity,
+    terminal_ebitda: Quantity,
+    case: str = "base",
 ) -> Quantity:
     """What multiple of final-year EBITDA a terminal value amounts to.
 
@@ -795,6 +868,7 @@ def implied_exit_multiple(
     nobody has an intuition for it; the multiple it implies is a number the same reader
     compares against the sector every day.
     """
+    _require_case(case)
     if terminal_ebitda.value <= 0:
         message = (
             f"Terminal EBITDA is {terminal_ebitda.value}, so the implied multiple is not a "
@@ -818,12 +892,14 @@ def implied_terminal_growth(
     terminal_value: Quantity,
     final_cash_flow: Quantity,
     wacc: Quantity,
+    case: str = "base",
 ) -> Quantity:
     """The perpetual growth rate an exit multiple amounts to.
 
     The cross-check on the exit multiple. A multiple of 12x sounds ordinary; the 4.5% real
     perpetual growth it implies does not, and one of the two is easier to disagree with.
     """
+    _require_case(case)
     _require_money(terminal_value, name="terminal_value")
     _require_money(final_cash_flow, name="final_cash_flow")
     _require_rate(wacc, name="wacc", floor=MIN_RATE)
@@ -837,6 +913,68 @@ def implied_terminal_growth(
         raise CalculationError(message, context={"terminal_value": str(terminal_value.value)})
 
     return (terminal_value * wacc - final_cash_flow) / denominator
+
+
+@traced(
+    name="method_disagreement",
+    formula="disagreement = (higher value per share - lower value per share) / lower",
+    assumptions=(
+        "Measured against the lower of the two, so the figure reads as how much more the "
+        "higher method says the business is worth.",
+    ),
+)
+def method_disagreement(
+    _context: CalculationContext,
+    *,
+    gordon_per_share: Quantity,
+    exit_multiple_per_share: Quantity,
+    case: str = "base",
+) -> Quantity:
+    """How far apart the two terminal methods finish, as a fraction of the lower.
+
+    **Recorded rather than left for a reader to divide.** The September measurement round
+    produced a pair 2.25x apart and said of it only that the methods *"disagree by more than
+    a quarter"* — which was true, and was the threshold the caveat had been written against
+    rather than the distance the run had reached. All three judges reading that document
+    worked the ratio out for themselves and held it against it. A distance the platform will
+    not name is a distance it is hoping nobody measures, and naming it needs a record like
+    any other figure (invariant 3).
+
+    ``case`` is recorded for the reason :func:`enterprise_value` records it: a sensitivity
+    grid strikes this once per cell, and without it the ledger holds many rows of one name
+    with nothing saying which is the valuation the report describes.
+
+    Raises:
+        CalculationError: If the lower figure is not positive. Equity below zero has its own
+            caveat, and a ratio struck against it would be arithmetic dressed as a
+            comparison.
+    """
+    _require_case(case)
+    if gordon_per_share.unit != exit_multiple_per_share.unit:
+        message = (
+            f"The two terminal methods produced {gordon_per_share.unit.symbol} and "
+            f"{exit_multiple_per_share.unit.symbol}, which is not a disagreement about one "
+            "number."
+        )
+        raise UnitMismatchError(
+            message,
+            context={
+                "gordon": gordon_per_share.unit.symbol,
+                "exit_multiple": exit_multiple_per_share.unit.symbol,
+            },
+        )
+
+    lower, higher = sorted(
+        (gordon_per_share, exit_multiple_per_share), key=lambda figure: figure.value
+    )
+    if lower.value <= 0:
+        message = (
+            f"The lower of the two per-share figures is {lower.value}, so the distance "
+            "between the methods is not a fraction of anything."
+        )
+        raise CalculationError(message, context={"lower": str(lower.value)})
+
+    return (higher - lower) / lower
 
 
 # -- Enterprise and equity value -------------------------------------------------------------
@@ -1130,11 +1268,30 @@ def discounted_cash_flow(
         case=case,
     )
 
+    # Struck before the caveats because they branch on it, and struck through the ledger
+    # because the report states it. A per-share figure at or below zero leaves the pair with
+    # no ratio — that case carries the negative-equity caveat and nothing from here — and it
+    # is skipped by asking rather than by catching: `UnitMismatchError` is a
+    # `CalculationError`, so a `suppress` around this call would silently decline the one
+    # comparison invariant 5 says must raise.
+    lower = min(gordon.value_per_share.value, exit_outcome.value_per_share.value)
+    gap = (
+        method_disagreement(
+            context,
+            gordon_per_share=gordon.value_per_share,
+            exit_multiple_per_share=exit_outcome.value_per_share,
+            case=case,
+        )
+        if lower > 0
+        else None
+    )
+
     return DcfResult(
         years=years,
         gordon=gordon,
         exit_multiple=exit_outcome,
-        caveats=_caveats(inputs, gordon=gordon, exit_outcome=exit_outcome),
+        caveats=_caveats(inputs, gordon=gordon, exit_outcome=exit_outcome, gap=gap),
+        method_disagreement=gap,
     )
 
 
@@ -1178,8 +1335,14 @@ def _outcome(
 
     # Each method reports the *other* one's parameter. Reporting its own would restate an
     # input as though it were a finding.
+    #
+    # Both carry `case` for the reason `enterprise_value` does: a grid strikes them once per
+    # cell, and until the implied growth rate became a row a reader sees it was only the
+    # ledger's order that said which of fifty was the base case.
     multiple = (
-        implied_exit_multiple(context, terminal_value=terminal, terminal_ebitda=final.ebitda)
+        implied_exit_multiple(
+            context, terminal_value=terminal, terminal_ebitda=final.ebitda, case=case
+        )
         if method is TerminalMethod.GORDON_GROWTH
         else None
     )
@@ -1189,6 +1352,7 @@ def _outcome(
             terminal_value=terminal,
             final_cash_flow=final.free_cash_flow,
             wacc=inputs.wacc,
+            case=case,
         )
         if method is TerminalMethod.EXIT_MULTIPLE
         else None
@@ -1208,9 +1372,21 @@ def _outcome(
 
 
 def _caveats(
-    inputs: DcfInputs, *, gordon: TerminalOutcome, exit_outcome: TerminalOutcome
+    inputs: DcfInputs,
+    *,
+    gordon: TerminalOutcome,
+    exit_outcome: TerminalOutcome,
+    gap: Quantity | None,
 ) -> tuple[str, ...]:
-    """What a reader has to be told about this particular valuation."""
+    """What a reader has to be told about this particular valuation.
+
+    **The method gap is banded rather than thresholded**, and that is the correction the
+    September round forced. One threshold meant a pair 26% apart and a pair 226% apart were
+    told to the reader in the same sentence — a sentence which says the distance between
+    them is "the honest width of the answer". At 26% that is true and worth saying. At 226%
+    it is the platform reassuring a reader about a contradiction, which is the one thing a
+    caveat must never do.
+    """
     caveats: list[str] = []
 
     if inputs.wacc.value - inputs.terminal_growth.value < MIN_TERMINAL_SPREAD:
@@ -1221,9 +1397,9 @@ def _caveats(
     ):
         caveats.append(HIGH_TERMINAL_SHARE_CAVEAT)
 
-    low = min(gordon.value_per_share.value, exit_outcome.value_per_share.value)
-    high = max(gordon.value_per_share.value, exit_outcome.value_per_share.value)
-    if low > 0 and (high - low) / low > METHOD_DISAGREEMENT:
+    if gap is not None and gap.value > METHOD_CONTRADICTION:
+        caveats.append(METHOD_CONTRADICTION_CAVEAT)
+    elif gap is not None and gap.value > METHOD_DISAGREEMENT:
         caveats.append(METHOD_DISAGREEMENT_CAVEAT)
 
     if any(outcome.equity_value.value < 0 for outcome in (gordon, exit_outcome)):

@@ -29,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from aer.calc.dcf import TerminalMethod
 from aer.db.models import Assumption, Calculation, JobStep, ResearchRequest
 
 __all__ = ["commentary_problems", "component_note", "method_only", "valuation_method_block"]
@@ -71,9 +72,12 @@ _FORECAST_ASSUMPTIONS: Final[tuple[tuple[str, str], ...]] = (
     ("exit_multiple", "Exit multiple"),
 )
 
-_METHOD_LABELS: Final[tuple[tuple[str, str], ...]] = (
-    ("gordon_growth", "Gordon growth"),
-    ("exit_multiple", "Exit multiple"),
+# The two terminal methods as the ledger records them, with the words a reader meets, in
+# presentation order. Read off the enum rather than typed again here: the same pair used to
+# be written out in three places, which is the class of defect §3.19 keeps recording.
+# `aer.calc.dcf` is a pure leaf, so unlike `_VALUE_STEP` below there is no cycle to dodge.
+_METHOD_LABELS: Final[tuple[tuple[str, str], ...]] = tuple(
+    (method.value, method.spoken) for method in TerminalMethod
 )
 
 # The value the value step records for a bank's model. Written out rather than imported
@@ -276,9 +280,19 @@ def _rows_for(
 def _terminal_rows(calculations: list[Calculation]) -> list[dict[str, Any]]:
     """Both terminal methods, each carried to its per-share figure, plus the share count.
 
-    The distance between the two methods is not restated as a new number — a figure needs
-    a recorded calculation, and the comparison already exists as words in the valuation's
-    recorded caveats, which render below this table.
+    **The distance between the two methods is a row here now, and used not to be.** It was
+    left out on the rule that a figure needs a recorded calculation, and there was none —
+    so the comparison existed only as words in the recorded caveats, which said the methods
+    differed "by more than a quarter" whether they differed by a quarter or by more than
+    twice. The September measurement round published a pair 2.25x apart under that sentence
+    and all three judges reading it did the division themselves. `method_disagreement` is a
+    recorded calculation as of roadmap §3.19 item 38; the rule was right and the answer was
+    to satisfy it rather than to stay silent.
+
+    The exit multiple's **implied perpetual growth rate** joins it for the same reason: it
+    is the parameter the two methods actually disagree about, it has been a recorded
+    calculation all along, and printing it beside the distance turns an unexplained gap into
+    one a reader can argue with.
     """
     rows: list[dict[str, Any]] = []
     for method, method_label in _METHOD_LABELS:
@@ -300,6 +314,26 @@ def _terminal_rows(calculations: list[Calculation]) -> list[dict[str, Any]]:
                     provenance=f"computed: {share.formula}",
                 )
             )
+
+    gap = _base_case(calculations, name="method_disagreement")
+    if gap is not None:
+        rows.append(
+            _calculation_row(
+                gap,
+                label="Distance between the two methods",
+                provenance=f"computed: {gap.formula}",
+            )
+        )
+
+    implied = _base_case(calculations, name="implied_terminal_growth")
+    if implied is not None:
+        rows.append(
+            _calculation_row(
+                implied,
+                label="Perpetual growth the exit multiple implies",
+                provenance=f"computed: {implied.formula}",
+            )
+        )
 
     shares = _shares_input(calculations)
     if shares is not None:

@@ -17,6 +17,9 @@ from audit.driver.policy import (
 from audit.subjects import subject_for
 
 MSFT = subject_for("msft1")
+# The round's commissions carry no typed beta and no typed risk-free rate; `msft2` is the
+# same company with both stated, which is what a test about supplying stated values needs.
+MSFT_TYPED = subject_for("msft2")
 MTB = subject_for("mtb")
 
 
@@ -118,9 +121,30 @@ class TestTheAssumptionsGate:
             "refused": [],
             "skipped": [],
         }
-        verdict = decide_assumptions(payload, MSFT)
+        verdict = decide_assumptions(payload, MSFT_TYPED)
         assert verdict.approve
         assert {row.name for row in verdict.supply} == {"risk_free_rate", "equity_risk_premium"}
+
+    def test_a_subject_with_no_stated_rate_stops_rather_than_falling_back(self) -> None:
+        """The measurement round's commissions, and why they were stripped (`bbfc827`).
+
+        `msft1` and `azn` carry no typed beta and no typed risk-free rate, because the
+        policy supplies a stated value for anything the gate lists outstanding — so a
+        derivation that silently produced nothing was silently replaced by a guess, and
+        September's approved MSFT run valued on a hand-typed beta of 0.900 where the
+        platform's own regression said 1.068. With nothing to fall back on the run stops
+        and names the input, which is a finding rather than a number.
+        """
+        payload = {
+            "assumptions": [],
+            "outstanding": [{"name": "risk_free_rate", "reason": "no series"}],
+            "refused": [],
+            "skipped": [],
+        }
+        verdict = decide_assumptions(payload, MSFT)
+
+        assert not verdict.approve
+        assert "risk_free_rate" in (verdict.stop_reason or "")
 
     def test_an_outstanding_name_nobody_stated_stops(self) -> None:
         payload = {"assumptions": [], "outstanding": [{"name": "payout_ratio", "reason": "?"}]}

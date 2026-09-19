@@ -305,9 +305,12 @@ def _implied_upside(
     market-data subscription: a valuation with no distance from a market is still a
     valuation, and the composed half simply says less about it.
 
-    **Both methods, not their average.** ADR 0038 carries the two terminal assumptions
-    through separately and says their disagreement is itself the finding; collapsing them
-    here to give the reader one tidy percentage would throw that away at the last step.
+    **Both methods, not their average.** The specification carries the two terminal
+    assumptions through separately — *terminal value (Gordon + exit multiple, both shown)*,
+    `docs/archive/PLAN.md` Phase 3 — and their disagreement is itself the finding;
+    collapsing them here to give the reader one tidy percentage would throw that away at
+    the last step. (ADR 0117 attributes this to ADR 0038, which is about validator assists;
+    the ADR carries a dated correction.)
 
     A refusal is caught rather than raised. A nil price is a data fault and a currency
     mismatch is a conversion nobody performed — neither is a reason to lose the whole
