@@ -46,7 +46,17 @@ from sqlalchemy.pool import NullPool
 from aer import errors
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.escalation import TriggerKind
-from aer.db.models import Approval, Job, JobStep, User, WorkOrder
+from aer.db.models import (
+    Approval,
+    Citation,
+    Claim,
+    Extraction,
+    Job,
+    JobStep,
+    ReportSection,
+    User,
+    WorkOrder,
+)
 from aer.eval.metrics import Metric
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
@@ -200,6 +210,11 @@ class Scene:
     live_server: str
     database_url: str
 
+    # The citations a builder made unverifiable, so the assertion that presses the way
+    # forward knows which forms on the review page an operator would fill in. Set by the
+    # builder that needs it and read by nothing else; a row that drifts none leaves it empty.
+    unverified_citations: tuple[str, ...] = ()
+
 
 def environment_for(state: StoppedState) -> dict[str, str]:
     """The ceilings a budget row needs, set before the server and the worker read them.
@@ -219,6 +234,13 @@ def environment_for(state: StoppedState) -> dict[str, str]:
 
 
 # --- the vocabulary ------------------------------------------------------------------------
+
+# What a drifted excerpt is rewritten to: a sentence in the platform's own register that
+# no filing contains, so the verifier's failure is "does not match" rather than a near
+# miss whose similarity score would vary with whatever the document happened to say.
+_DRIFTED_EXCERPT: Final = (
+    "This passage was never in the filing and is here so a citation has something to fail against."
+)
 
 UUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 ROOT: Final = Path(__file__).resolve().parents[1]
@@ -603,6 +625,102 @@ def _build_gate(state: StoppedState, scene: Scene) -> uuid.UUID:
     return job_id
 
 
+async def _drift_a_cited_excerpt(url: str, job_id: uuid.UUID) -> None:
+    """Move one cited excerpt away from what its document says.
+
+    The state a citation verifier exists to catch: the excerpt recorded against a locator is
+    no longer the text at that locator, so the figure in the draft is quoting something the
+    artefact does not say. Reached by surgery on the extraction row rather than by a model
+    that lies, because the verifier compares the *recorded* excerpt with the document and a
+    fabricated citation never gets that far — a claim naming an id no run produced is refused
+    where the claim is recorded, several steps earlier.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            citation = await session.scalar(
+                select(Citation)
+                .join(Claim, Claim.id == Citation.claim_id)
+                .join(ReportSection, ReportSection.id == Claim.report_section_id)
+                .where(ReportSection.job_id == job_id, Citation.extraction_id.isnot(None))
+                .order_by(Citation.created_at, Citation.id)
+                .limit(1)
+            )
+            assert citation is not None, "the draft recorded no citation naming an extraction"
+            extraction = await session.get(Extraction, citation.extraction_id)
+            assert extraction is not None, "the cited extraction row is gone"
+            extraction.excerpt = _DRIFTED_EXCERPT
+            citation.excerpt_verified = False
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def _unverified_citations(url: str, job_id: uuid.UUID) -> tuple[str, ...]:
+    """Which citations the verifier refused, read after it has run.
+
+    Read rather than predicted: one extraction can be cited by many sections, so how many
+    citations a single drifted excerpt takes down is a property of what the draft happened to
+    quote. The forward path is the same for one as for twelve — each accepted individually —
+    and a builder that assumed one would leave the run stuck behind the other eleven.
+    """
+    engine = _engine(url)
+    try:
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            rows = await session.scalars(
+                select(Citation)
+                .join(Claim, Claim.id == Citation.claim_id)
+                .join(ReportSection, ReportSection.id == Claim.report_section_id)
+                .where(
+                    ReportSection.job_id == job_id,
+                    Citation.excerpt_verified.is_(False),
+                    Citation.override_reason.is_(None),
+                )
+                .order_by(Citation.created_at, Citation.id)
+            )
+            return tuple(str(row.id) for row in rows)
+    finally:
+        await engine.dispose()
+
+
+def _build_final(state: StoppedState, scene: Scene) -> uuid.UUID:
+    """A run stopped at the final gate for a reason of its own.
+
+    Not the pending final gate — that is a `gate.FINAL.pending` row and is already green.
+    These are the states where the gate step itself refuses to hand over: a citation that
+    did not verify, and each escalation trigger.
+    """
+    if state.detail != "unverified_citations":
+        message = f"no path constructed: nothing fires {state.detail} at the final gate yet"
+        raise NoPathConstructedError(message)
+
+    url = scene.database_url
+    job_id: uuid.UUID = run_async(_commission(url))
+    worker = Worker(url)
+    if worker.advance_to_the_final_gate(job_id) is not JobStatus.AWAITING_APPROVAL:
+        raise NoPathConstructedError("the run did not reach the final gate")
+
+    run_async(_drift_a_cited_excerpt(url, job_id))
+    # Advanced with no approval on purpose. The gate step is incomplete, so advancing re-runs
+    # it and it re-reads the evidence — and the verification is inside the step, *before* the
+    # approval is consulted, so it stops there whether or not anybody has approved. Recording
+    # an approval here to make it re-run would leave the row measuring a press against a
+    # decision the builder had already taken, which is the state no operator is ever in.
+    status = worker.advance(job_id)
+    reason: str | None = run_async(_pause_reason(url, job_id))
+    expected = PauseReason.FINAL_UNVERIFIED_CITATIONS.value
+    if status is not JobStatus.AWAITING_APPROVAL or reason != expected:
+        detail = f"after the drifted excerpt the run is {status.value}, paused for {reason!r}"
+        raise NoPathConstructedError(detail)
+
+    scene.unverified_citations = run_async(_unverified_citations(url, job_id))
+    if not scene.unverified_citations:
+        raise NoPathConstructedError("the run paused for unverified citations and named none")
+    return job_id
+
+
 def _build_budget(state: StoppedState, scene: Scene) -> uuid.UUID:
     scope, _, cap_state = (state.detail or "").partition(":")
     url = scene.database_url
@@ -684,6 +802,7 @@ _BUILDERS: Final[dict[Family, Any]] = {
     Family.GATE: _build_gate,
     Family.BUDGET: _build_budget,
     Family.FAILED_STEP: _build_failed,
+    Family.FINAL_GATE: _build_final,
     Family.PROBLEM_PAGE: _build_problem,
 }
 
@@ -759,7 +878,9 @@ def _assert_pressing_moves(
         try:
             surface.press(control)
         except Exception as stuck:
-            message = f"{state.key}: pressing {label!r} did not lead on: {type(stuck).__name__}"
+            message = (
+                f"{state.key}: pressing {label!r} did not lead on: {type(stuck).__name__}: {stuck}"
+            )
             raise DeadEndError(message) from stuck
         assert state.navigates_to is not None
         if not re.search(state.navigates_to, surface.url):
@@ -777,6 +898,21 @@ def _assert_pressing_moves(
             # run — a first decision, or one that supersedes a stale one (ADR 0123).
             surface.press(control, expect_url=GATE_PAGE_URL)
             surface.press_by_id("approve", expect_url=CONSOLE_URL)
+        elif state.family is Family.FINAL_GATE and scene.unverified_citations:
+            # The whole path an operator walks, because half of it moves nothing: the control
+            # leads to the draft, every citation that failed is accepted there with a written
+            # reason, and only then does approving get the run past the gate. A press that
+            # stopped at the review page would call the row green while the run was still
+            # stuck — which is the dead end the harness exists to find.
+            #
+            # One press each, and that is the point rather than an inefficiency: the gate's
+            # message promises there is no way to accept them all at once, and a harness that
+            # found a bulk path would be reporting that the promise is false.
+            surface.press(control, expect_url=GATE_PAGE_URL)
+            for citation_id in scene.unverified_citations:
+                surface.fill("reason", "Read the filing directly; the figure is stated there.")
+                surface.press_by_id(f"override-{citation_id}", expect_url=GATE_PAGE_URL)
+            surface.press_by_id("approve", expect_url=CONSOLE_URL)
         elif state.family is Family.BUDGET:
             surface.fill("max_cost_gbp", f"{DEFAULT_PER_RUN_BUDGET_GBP:.2f}")
             surface.press(control, expect_url=CONSOLE_URL)
@@ -784,7 +920,12 @@ def _assert_pressing_moves(
         else:
             surface.press(control)
     except Exception as stuck:
-        message = f"{state.key}: pressing {label!r} did not lead on: {type(stuck).__name__}"
+        # The message, not only the class. A surface that says "no control #override-… on
+        # /runs/…/review" names the defect; `SurfaceError` names nothing, and the record this
+        # harness keeps is read by whoever comes next rather than by whoever wrote it.
+        message = (
+            f"{state.key}: pressing {label!r} did not lead on: {type(stuck).__name__}: {stuck}"
+        )
         raise DeadEndError(message) from stuck
     after = run_async(_fingerprint(scene.database_url, job_id))
     if before == after:

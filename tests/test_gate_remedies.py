@@ -19,7 +19,18 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
-from aer.db.models import Approval, AuditEvent, Evaluation, Job, JobStep, User
+from aer.db.models import (
+    Approval,
+    AuditEvent,
+    Citation,
+    Claim,
+    Evaluation,
+    Extraction,
+    Job,
+    JobStep,
+    ReportSection,
+    User,
+)
 from aer.errors import ConflictError, ValidationError
 from aer.services import approvals as approval_service
 from aer.services.cancellation import cancellation_for
@@ -553,3 +564,175 @@ class TestRemeasureIsAControl:
             user = await owner_of(session, job)
             with pytest.raises(ConflictError, match="already succeeded"):
                 await remeasure_checks(session, job=job, actor=user, reason="too late")
+
+
+class TestAnUnverifiedCitationIsAcceptedOnTheRecord:
+    """Readiness audit F-21. The gate stops a run saying each unverified citation "can be
+    overridden individually with a written reason, which is recorded; there is no way to wave
+    all of them through at once" — and until 19 September 2026 that route was on no surface.
+    The run said what to do and offered no way to do it, which is the dead end §2.11 names
+    with instructions attached.
+    """
+
+    async def _stopped_on_a_failed_citation(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> tuple[uuid.UUID, list[uuid.UUID]]:
+        """A run at the final gate whose evidence no longer says what a citation claims.
+
+        Surgery on the extraction rather than a model that lies: the verifier compares the
+        *recorded* excerpt with the document, and a claim naming an id no run produced is
+        refused where the claim is recorded, several steps earlier.
+        """
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            citation = await session.scalar(
+                select(Citation)
+                .join(Claim, Claim.id == Citation.claim_id)
+                .join(ReportSection, ReportSection.id == Claim.report_section_id)
+                .where(ReportSection.job_id == job_id, Citation.extraction_id.isnot(None))
+                .order_by(Citation.created_at, Citation.id)
+                .limit(1)
+            )
+            assert citation is not None, "the draft recorded no citation naming an extraction"
+            extraction = await session.get(Extraction, citation.extraction_id)
+            assert extraction is not None
+            extraction.excerpt = "A sentence this filing does not contain."
+            await session.commit()
+
+        assert await driver.advance(job_id) is JobStatus.AWAITING_APPROVAL
+        assert await _pause_reason(db_engine, job_id) == (
+            PauseReason.FINAL_UNVERIFIED_CITATIONS.value
+        )
+        async with factory() as session:
+            failed = list(
+                await session.scalars(
+                    select(Citation.id)
+                    .join(Claim, Claim.id == Citation.claim_id)
+                    .join(ReportSection, ReportSection.id == Claim.report_section_id)
+                    .where(
+                        ReportSection.job_id == job_id,
+                        Citation.excerpt_verified.is_(False),
+                        Citation.override_reason.is_(None),
+                    )
+                )
+            )
+        assert failed, "the gate refused the draft and named no citation"
+        return job_id, failed
+
+    async def test_the_review_page_offers_a_form_for_each_one(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        """One per citation, which is what makes the gate's own sentence true."""
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert page.status_code == 200, page.text
+        for citation_id in failed:
+            assert f'id="override-{citation_id}"' in page.text
+        assert "did not verify" in page.text
+
+    async def test_accepting_one_records_the_person_and_the_reason(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+        page = await api.get(f"/runs/{job_id}/review")
+
+        pressed = await api.post(
+            f"/runs/{job_id}/citations/{failed[0]}/override",
+            data={
+                CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME),
+                "reason": "Read the filing directly; the figure is stated on page 41.",
+            },
+            follow_redirects=False,
+        )
+
+        assert pressed.status_code == 303, pressed.text
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.get(Citation, failed[0])
+            assert row is not None
+            assert row.override_reason == (
+                "Read the filing directly; the figure is stated on page 41."
+            )
+            assert row.overridden_by_user_id == committed["user"].id
+            assert row.overridden_at is not None
+            # **Not verified**, and that is the whole design: the report goes on saying the
+            # check failed and who accepted it. An override that set this would let a
+            # decision read as a verification everywhere downstream.
+            assert row.excerpt_verified is False
+            assert row.is_admissible is True
+
+    async def test_accepting_every_one_lets_the_gate_open(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        """The forward path, end to end. Until each is accepted the gate refuses again."""
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+        for citation_id in failed:
+            page = await api.get(f"/runs/{job_id}/review")
+            accepted = await api.post(
+                f"/runs/{job_id}/citations/{citation_id}/override",
+                data={
+                    CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME),
+                    "reason": "Checked against the filing by hand.",
+                },
+                follow_redirects=False,
+            )
+            assert accepted.status_code == 303, accepted.text
+
+        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        assert await driver.advance(job_id) is JobStatus.SUCCEEDED
+
+    async def test_an_empty_reason_records_a_click_and_is_refused(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+        page = await api.get(f"/runs/{job_id}/review")
+
+        refused = await api.post(
+            f"/runs/{job_id}/citations/{failed[0]}/override",
+            data={CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME), "reason": "   "},
+            follow_redirects=False,
+        )
+
+        assert refused.status_code == 422
+        assert "written reason" in refused.text
+        assert f'href="/runs/{job_id}/review"' in refused.text, "the refusal is a dead end"
+
+    async def test_a_citation_from_another_run_is_not_this_operators_to_accept(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        """Scoped to the run, not looked up by id alone: a citation belongs to a section of
+        one run, and an id from elsewhere is somebody else's evidence."""
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+        page = await api.get(f"/runs/{job_id}/review")
+
+        refused = await api.post(
+            f"/runs/{uuid.uuid4()}/citations/{failed[0]}/override",
+            data={
+                CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME),
+                "reason": "Checked by hand.",
+            },
+            follow_redirects=False,
+        )
+
+        assert refused.status_code == 404
+
+    async def test_a_form_with_no_token_changes_nothing(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        job_id, failed = await self._stopped_on_a_failed_citation(api, committed, driver, db_engine)
+
+        refused = await api.post(
+            f"/runs/{job_id}/citations/{failed[0]}/override",
+            data={"reason": "Checked by hand."},
+            follow_redirects=False,
+        )
+
+        assert refused.status_code == 403
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.get(Citation, failed[0])
+            assert row is not None
+            assert row.override_reason is None

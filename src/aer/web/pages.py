@@ -61,6 +61,7 @@ from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
+    Citation,
     Claim,
     Company,
     Disagreement,
@@ -89,6 +90,7 @@ from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
+from aer.services import citations as citation_service
 from aer.services import configuration, provenance
 from aer.services import gates as gates_service
 from aer.services import history as history_service
@@ -699,6 +701,141 @@ async def remeasure_run_page(
     await session.commit()
     await enqueue_run(redis, job.id)
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post(
+    "/runs/{job_id}/citations/{citation_id}/override",
+    summary="Accept one citation the verifier could not confirm",
+)
+async def override_citation_page(
+    request: Request,
+    job_id: uuid.UUID,
+    citation_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Record that a person read an unverified citation and accepted it anyway.
+
+    **The control the gate's own message promises** (readiness audit F-21). When a citation
+    does not verify, the final gate stops the run saying *each can be overridden individually
+    with a written reason, which is recorded; there is no way to wave all of them through at
+    once* — and until now that sentence described a route that existed on no surface, which
+    left the operator a dead end with instructions in it.
+
+    One citation per request, so the message stays true: a form that took a list would be the
+    bulk path it says does not exist, and an operator who has read one failure has not read
+    six. The reason is required by the service, which refuses an empty one because an
+    override with no justification records a click rather than a decision.
+
+    This does **not** make the citation verified, and the report goes on saying the check
+    failed and who accepted it (ADR 0119's printed excerpt reads the same row). What changes
+    is that the gate can now open, because an override is admissible where an unverified
+    citation is not.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was overridden.",
+            back=f"/runs/{job_id}/review",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    citation = await _citation_of_run(session, job_id=job_id, citation_id=citation_id)
+    if citation is None:
+        # Scoped to the run rather than looked up by id alone: a citation belongs to a
+        # section of one run, and an id from another run is not this operator's to accept.
+        return problem_page(
+            request,
+            "That citation is not part of this run.",
+            back=f"/runs/{job_id}/review",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        await citation_service.override_citation(
+            session, citation=citation, actor=user, reason=submitted.get("reason", "")
+        )
+    except ConflictError as exc:
+        return problem_page(
+            request, exc.message, back=f"/runs/{job_id}/review", status=HTTP_409_CONFLICT
+        )
+    except ValidationError as exc:
+        return problem_page(
+            request,
+            exc.message,
+            back=f"/runs/{job_id}/review",
+            status=HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/review", status_code=HTTP_303_SEE_OTHER)
+
+
+async def _unverified_rows(session: DbSession, *, job_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Every citation in this run's draft that the verifier could not confirm.
+
+    Read through the same review the gate reads, so the page cannot disagree with the reason
+    the run stopped. The similarity is shown because 0.94 and 0.02 are the difference between
+    a reflowed paragraph and a fabrication, and that is the whole of what the operator is
+    deciding between.
+    """
+    review = await citation_service.review_evidence(session, job_id=job_id)
+    if not review.unverified:
+        return []
+
+    # The claim and the document by id, in two reads. **Not through the citation's own
+    # relationships**: the review loads the citations and nothing hanging off them, so
+    # touching `citation.claim` here is a lazy load inside an async session — which raises
+    # rather than querying, and takes the whole page to a 500. Widening the service to load
+    # them would put two extra queries on every caller, and the gate check that calls it on
+    # every run needs neither.
+    claims = {
+        row.id: row.text
+        for row in await session.scalars(
+            select(Claim).where(Claim.id.in_({c.claim_id for c in review.unverified}))
+        )
+    }
+    documents = {
+        row.id: row.title
+        for row in await session.scalars(
+            select(SourceDocument).where(
+                SourceDocument.id.in_({c.source_document_id for c in review.unverified})
+            )
+        )
+    }
+    return [
+        {
+            "id": str(citation.id),
+            "claim": claims.get(citation.claim_id, ""),
+            "document": documents.get(citation.source_document_id, ""),
+            "reason": citation.verification_error or "",
+            # A percentage the page prints; empty where nothing was measured, which is a
+            # state worth showing rather than papering over with a zero.
+            "similarity": f"{citation.match_ratio:.1%}" if citation.match_ratio is not None else "",
+        }
+        for citation in review.unverified
+    ]
+
+
+async def _citation_of_run(
+    session: DbSession, *, job_id: uuid.UUID, citation_id: uuid.UUID
+) -> Citation | None:
+    """One citation, only if it belongs to a section of this run."""
+    found: Citation | None = await session.scalar(
+        select(Citation)
+        .join(Claim, Claim.id == Citation.claim_id)
+        .join(ReportSection, ReportSection.id == Claim.report_section_id)
+        .where(ReportSection.job_id == job_id, Citation.id == citation_id)
+    )
+    return found
 
 
 @router.post("/runs/{job_id}/cap", summary="Raise what this run may spend")
@@ -1390,6 +1527,12 @@ async def draft_review(
             "outcomes": [outcomes.get(section["key"], {}) for section in payload["sections"]],
             "cost": cost,
             "cost_alert_gbp": cost.cap_gbp * COST_ALERT_RATIO,
+            # The citations the verifier could not confirm, each with its own reason and its
+            # own form (F-21). Here rather than on the claims page because this is where the
+            # operator is deciding whether to approve, and the gate's own message sends them
+            # here: a run stopped for an unverified citation named a remedy that existed
+            # nowhere. Empty on every run whose evidence checked out, which is most of them.
+            "unverified_citations": await _unverified_rows(session, job_id=job_id),
             "markdown": preview.markdown,
             "footnote_count": preview.footnote_count,
             "payload_hash": payload_hash_for(payload),

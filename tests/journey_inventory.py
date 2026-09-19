@@ -409,10 +409,6 @@ UNCONSTRUCTED: Final[dict[str, str]] = {
         )
         for kind in TriggerKind
     },
-    "final.unverified_citations": (
-        "the scripted section brain cites only real excerpts; a brain that plants an "
-        "unverifiable one is not written yet"
-    ),
 }
 
 # Rows that fail today, by which of the three assertions fails and why — measured by running
