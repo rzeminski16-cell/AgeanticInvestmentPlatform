@@ -366,6 +366,19 @@ That last row is the abandonment criterion, and it is the line that makes every 
 
 **ISSUE 2, tranche C · 14–18 sessions · £0 live · 3 ADRs · conditional on Phase 5**
 
+**Closed 20 September 2026.** All four bullets below are done, and two of them are done by
+having been measured rather than built. The composed half landed in Phase 4.4; **the authored
+half is out of scope twice over** — Phase 0.1 found `states_a_view` was not named once across
+nine judge reads and re-scoped this phase's view work to the composed half, and the round's own
+pre-registered reading (`necessary_not_sufficient`) says the same in the same words. ADR 0115's
+remaining decisions and F2 wait on the authored view, and therefore on F9, which is Phase 6a.
+Two of the round's four judge criticisms were still open at the close and are now recorded as
+roadmap §3.19 items 46 (33 of 33 challenges froze `escalated`, which ADR 0115 says is not a
+state) and 47 (a restated segment structure reads as self-contradiction, and the consistency
+check has no channel for a claim carrying no figure). Neither is fixed here: 46 is a new
+blocking check and goes advisory-first with F2, and 47 is new deterministic work in Phase 3's
+territory.
+
 - **The composed half of the view first, judged alone**: the base-case range, the method, the
   implied upside, and `what_would_change_the_view` as a required field. Only then the operator's
   own stated view, stored as an ADR 0102 judgement — never a model's rating. Shipping both at

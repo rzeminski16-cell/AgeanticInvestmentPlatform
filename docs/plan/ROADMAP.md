@@ -1987,6 +1987,90 @@ found rather than as scope that was always there.
     diagnosis, the ADR correction, and three named traps for whoever builds the door.
 
 
+46. **Every challenge in the corpus froze in the state an ADR says does not exist, 20
+    September 2026.** Found while closing Phase 6 by checking which of the measurement
+    round's four judge criticisms were still open. Two were: this is the first.
+
+    ADR 0115's decision 4 is unambiguous: *"A challenge reaches a published report in
+    exactly one of three states"* — accepted, rejected, or carried — and *"there is no
+    fourth state. 'Escalated for human decision' is not a resolution; it is a note that the
+    document was frozen in the middle of a conversation."*
+
+    *Measured across the whole corpus:* **33 of 33 disagreements in four published,
+    immutable reports are `escalated`, and `resolved_by` is `rule` on every one.** Not a
+    single `chose_a`, `chose_b` or human settle exists anywhere. The state the ADR says
+    does not exist is the only state any published report has ever used.
+
+    *And it is what a judge marked the platform down for.* AZN's beta objection — the red
+    team's own severity 4/5 finding that a beta of 0.274 gives a 5.62% WACC for a business
+    the draft calls exposed to binary trial outcomes — is printed under **"Resolution: Open
+    at approval: no rule settled this and nobody preferred either side, so both are
+    published here and the reader decides."** The panel cited *"a beta of 0.27 that its own
+    red team calls implausible"* against the platform.
+
+    *The control is not missing and it is not hidden.* `settle_by_hand` exists, refuses an
+    empty rationale, and the review page renders a Settle form per unresolved challenge
+    *"in reach rather than behind a disclosure"* with the brief's lean marked. It was
+    offered 33 times and used 0. Both round runs were then published by operator override.
+
+    *So what is missing is the precondition, not the button.* Nothing refuses to freeze.
+    ADR 0115's status line says decision 4 *"has landed"*, and what landed is its appendix
+    half — the appendix is assembled after the settle and honestly reports the non-answer.
+    The rule itself, *the document does not freeze until somebody has settled*, is enforced
+    nowhere.
+
+    *Deliberately not fixed here, and the reason is ADR 0018's.* A freeze that refuses on
+    an open challenge is a **new blocking check**, and this repository's rule is that every
+    one lands advisory at gate 2 before it blocks, with a written override. It would also
+    have stopped both of the round's runs from publishing at all — so it is a product
+    decision with a measured cost, not a refactor. It belongs with F2 in Phase 6a, where
+    ADR 0115's remaining decisions (1, 2 and 5, which wait on the authored view) sit
+    already. What lands today is the measurement, which is what the decision needs.
+
+    *Distinct from the deleted `THESIS_DISAGREEMENT` trigger*, and the distinction matters:
+    that was removed because alarming on the red team doing its job taught an operator to
+    read red as noise. This is not a banner. It is whether a document may freeze mid-
+    argument, which is a different question and the one ADR 0115 answered.
+
+
+47. **A restated segment structure reads as the document contradicting itself, and the
+    consistency check cannot see it, 20 September 2026.** The round's second still-open
+    judge criticism: *"describes two reportable segments in one section and three in
+    another"*. Traced to the blinded document rather than taken on trust, and the judge is
+    right, though not for the reason the sentence gives.
+
+    *No section states three reportable segments as a present fact.* Segment Analysis is
+    careful and correct: Microsoft's FY2026 10-K restated to **two** reportable segments,
+    Agents and Infra and Devices and Consumer, *"replacing the prior three-segment
+    framework"*, with the comparative table labelled *"Segment History as Restated"* and
+    both presentations tying to the same $331,839m of revenue.
+
+    *Business Overview, written by a different section call, describes the old structure as
+    current.* It says the evidence *"covers two of the company's reporting segments in
+    detail"* — a partitive, so there are more — and then narrates **"The More Personal
+    Computing segment"** in the present tense, which is a *legacy* name, alongside the
+    Dynamics line and a cloud-and-enterprise activity it has no detail for. Three, present
+    tense, under the old framework. A reader meets it six sections before the restatement
+    is explained.
+
+    *Why ADR 0125's check passed it, and this is the finding.* The cross-section
+    consistency check compares **figures**: a claim's number against the record, a
+    section's figure against another section's. This contradiction contains no disagreeing
+    figure at all — every number in both sections is right, and $331,839m is stated once
+    and reconciles under both structures. What disagrees is a **structure and a set of
+    names**. The check is not blind here by an oversight; it has no channel for it.
+
+    *The class, and it is §3.19.37's one layer further out.* Item 37 found the check could
+    not see the front page, because the front page is not a section; this finds it cannot
+    see a claim that carries no figure. Both are the same shape: *the instrument measures
+    the document it can address, and a reader reads all of it.*
+
+    *Not fixed here.* A check over names and counts is new deterministic work in Phase 3's
+    territory, wants its own measurement against the corpus before it is allowed to fail a
+    run, and would be ADR 0125's second extension. Recorded with the location so whoever
+    builds it has a real case to measure against, rather than a rule argued from prose.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
