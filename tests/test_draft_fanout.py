@@ -22,7 +22,7 @@ import asyncio
 import uuid
 from collections.abc import Callable
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from sqlalchemy import func, select, text
@@ -60,6 +60,13 @@ pytestmark = pytest.mark.integration
 _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
 
 
+# How long a gauged section call stays in flight. Wide enough that four tasks whose
+# gathers finished at slightly different moments are still inside it together, on a runner
+# with other work to do. The cost is bounded by the fan-out: eighteen sections four at a
+# time is roughly four windows per test that drafts them all.
+_GAUGE_WINDOW: Final = 0.25
+
+
 class MeteredSectionProvider(FakeProvider):
     """The scripted provider, with a concurrency gauge on the section-writer calls.
 
@@ -69,6 +76,16 @@ class MeteredSectionProvider(FakeProvider):
     order cannot equal declared order — and one call can be wired to fail, for the
     drain-never-abandon test. Only section schemas are gauged: the planner and the
     workers are not this step's fan-out.
+
+    **The window is the instrument's resolution, and 50ms was too fine.** The fan-out's
+    semaphore is held across the *whole* section — `async with bound, factory() as
+    session` — so each task gathers its evidence before it ever reaches the provider, and
+    four calls overlap only if the spread of their gather times fits inside this sleep.
+    Roadmap §3.19 item 42 added rows to the evidence index and choices to every unit,
+    which lengthened the gather by a little and left a 50ms window too narrow on a loaded
+    runner: CI observed a peak of 3 where the local machine saw 4. Widening the window
+    restores the measurement without weakening what is asserted — the claim is still that
+    the bound is reached exactly, not merely approached.
     """
 
     def __init__(
@@ -82,7 +99,7 @@ class MeteredSectionProvider(FakeProvider):
         self.in_flight = 0
         self.peak = 0
         self.section_calls = 0
-        self._delay_for = delay_for or (lambda _index: 0.05)
+        self._delay_for = delay_for or (lambda _index: _GAUGE_WINDOW)
         self._fail_on_call = fail_on_call
 
     def stop_failing(self) -> None:
