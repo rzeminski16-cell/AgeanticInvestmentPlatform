@@ -977,7 +977,9 @@
           }
         }
       ],
-      "parameters": {},
+      "parameters": {
+        "concept": "cost_of_revenue"
+      },
       "expected": {
         "value": "0.25",
         "unit": "pure"
