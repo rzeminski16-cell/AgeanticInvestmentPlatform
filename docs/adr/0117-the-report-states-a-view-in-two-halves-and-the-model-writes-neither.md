@@ -212,3 +212,49 @@ about to be copied a third time into `aer.render.glance`; both now cite the spec
 point here. Found while fixing roadmap §3.19 item 38, which is the same rule being undone one
 layer further along — the front page printed one of the two methods as though it were the
 answer.
+
+## A correction, 2026-09-20 — a falsifier is an observable, and the levers are not
+
+Under *Consequences*, this ADR says: **"The monitor gets its first premise for free. A view's
+falsifier is a premise, and a premise is what the monitor watches."** Read as written, that
+says the levers the composed half prints can become the premise the monitor then watches.
+**They cannot, and on the stored corpus they almost never can.**
+
+Measured on the four approved reports, before writing any of the wiring (roadmap §3.19 item
+45). The composed half's *"what would change the view"* is the sensitivity grid's swing, and
+the five axes the stored grids vary are `wacc`, `terminal_growth`, `exit_multiple`,
+`cost_of_equity` and `return_on_equity`. `aer.services.thesis_monitor.resolve_metric` reads
+**one of the five**. Seven of the eight stored grids vary two axes it cannot read at all; the
+eighth gets one of two.
+
+**Neither side is wrong.** A lever is an *assumption* — a figure the operator confirmed at a
+gate, which no filing reports and no later filing can contradict. The monitor reads
+`financial_facts` and nothing else, on purpose: ADR 0079 decided that, and ADR 0113 did not
+disturb it. An assumption moving is not news about the company; it is the operator changing
+their mind, which is a new run, not a finding.
+
+So the sentence is corrected rather than the design:
+
+> **A falsifier is an observable — something a later filing can report and therefore
+> contradict.** The levers say what the *answer* is sensitive to; the falsifier says what the
+> *world* would have to do. They are different objects and the report states both.
+
+What the view does hand the monitor for free is narrower and still worth having: the
+**direction** of the falsifier. A view whose answer turns on terminal growth is a view about
+durable growth, and the observable behind it is `revenue_growth` or `operating_margin` — a
+metric the monitor reads, measured on the real corpus at 17.8% and 46.8% for Microsoft, 8.6%
+and 23.4% for AstraZeneca. Proposing that translation is legitimate model work under the one
+rule (it is interpretation, not arithmetic); *choosing* it is the operator's, and measuring
+it is code's, unchanged.
+
+**Three traps whoever builds the form must close**, all measured and all silent until a pass
+has already run: a metric the resolver does not know reads `unobservable` on every future
+pass rather than once; a level carries a currency, so `free_cash_flow` against a threshold
+typed as a bare ratio is a unit mismatch and reads unobservable for the unit box alone; and a
+bank reports no `operating_income`, `gross_profit` or `capital_expenditure`, so three of the
+most obvious falsifiers are permanently unobservable on M&T while working on Microsoft.
+
+**Nothing in the decision changes.** The composed half is unaffected; the authored half still
+requires at least one falsifier tied to a stored identifier; the model still writes neither.
+What changes is that the falsifier's *shape* is now stated, and the form that collects it has
+to check what the monitor can read rather than trusting that the view already said it.

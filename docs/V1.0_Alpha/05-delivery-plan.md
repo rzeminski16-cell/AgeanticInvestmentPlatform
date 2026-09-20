@@ -383,8 +383,21 @@ That last row is the abandonment criterion, and it is the line that makes every 
   doubling). What landed instead is the measurement that makes that decision checkable: the
   pack counts the units the budget refused, because a flag true on all 98 could never say
   whether a change helped.
-- **Read `thesis_monitor.py` before wiring the view into it** — one session. Half the product
-  downstream of a stated view is undiagnosed.
+- ~~**Read `thesis_monitor.py` before wiring the view into it** — one session. Half the product
+  downstream of a stated view is undiagnosed.~~ **Done 20 September 2026** (roadmap §3.19 item
+  45), and it found the opposite of what the sentence expected. The monitor is not the
+  undiagnosed half: the whole loop is built and tested — a pass per thesis, code measures and
+  the model interprets inside the crossing code made, findings never decisions, a contradicted
+  premise opens the thesis gate, every act appended and chained. **The seam is the undiagnosed
+  half.** The five axes the stored sensitivity grids vary are `wacc`, `terminal_growth`,
+  `exit_multiple`, `cost_of_equity` and `return_on_equity`, and the monitor can read one of
+  them; seven of eight grids vary two it cannot read at all. A lever is an assumption and a
+  falsifier must be an **observable** — corrected in a dated section on ADR 0117, whose
+  "the monitor gets its first premise for free" read as though the levers carried over. The
+  report is also not one of the four entrances to writing a thesis, and the final gate's page
+  does not contain the word. The judgement layer has never held a row outside tests: 4 approved
+  reports and 12 grids against 0 theses, 0 premises, 0 findings. Three traps for whoever builds
+  the form are named in the roadmap item.
 
 ## 10a. Phase 6b — The knowledge map learns what you decided
 

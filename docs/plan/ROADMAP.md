@@ -1898,6 +1898,95 @@ found rather than as scope that was always there.
     for that and it is a different question from this one.
 
 
+44. **A measurement whose resolution an unrelated change consumed, 20 September 2026.** The
+    second instance of §3.19.41's class in two days, and worth its own number because the
+    cause is different: 41 was an instrument failing for its own reasons, this is an
+    instrument whose *resolution* another change quietly spent.
+
+    `tests/test_draft_fanout.py` asserts `peak == DRAFT_FAN_OUT` — the section fan-out
+    reaches four in flight, exactly. It measures that with a gauged provider that sleeps
+    while a call is in flight, and four calls overlap only if the spread of their arrival
+    times fits inside the sleep. The sleep was 50ms.
+
+    Item 42 put seven to nine more rows in the evidence index and a `choices` key on every
+    unit. The fan-out's semaphore is held across the **whole** section —
+    `async with bound, factory() as session` at `vertical_slice_v1.py:3605` — so each task
+    gathers its evidence *inside* the bound, before it ever reaches the provider. A longer
+    gather widens the spread. On CI's loaded runner the peak read 3; on an idle machine it
+    read 4, three times out of three.
+
+    *Diagnosed rather than dismissed.* "Flaky on CI" was available and would have been
+    wrong: there is a causal path from the change to the reading, and the reading was
+    right — four calls no longer overlapped. The window is the instrument's resolution and
+    the claim is `peak == DRAFT_FAN_OUT`, so the window widened to 250ms rather than the
+    assertion weakening to `>= 3`. Verified at 38s idle and 52s with four CPU burners
+    saturating the box, against 31s before.
+
+    **The class, for the next person.** A test that measures a race by sleeping has a
+    resolution, and nothing tells you when a change elsewhere has spent it — it reports as
+    a flake, on the machine with the least slack. Where the sleep is the instrument, say so
+    in the test and give the number a name.
+
+
+45. **The monitor cannot watch what the view says would change it, 20 September 2026.**
+    The delivery plan's Phase 6 asks to *"read `thesis_monitor.py` before wiring the view
+    into it — one session. Half the product downstream of a stated view is undiagnosed."*
+    Read, and measured against the real corpus rather than the prose.
+
+    *The monitor is not the undiagnosed half.* 1,303 lines, 48 tests across twelve classes,
+    and the whole loop is there: a pass per thesis, a step per premise, code measures and
+    the model interprets inside the crossing code made (ADR 0103), findings never
+    decisions, a contradicted premise opens the thesis gate, the gate withdraws or
+    dismisses with a reason, every act appended and chained. A commit per premise so a
+    pass that dies has still metered what it spent. A premise whose metric code cannot
+    resolve costs **no model call** — `_measure` raises before the agent runs.
+
+    *What is undiagnosed is the seam, and the measurement is stark.* **The five axes the
+    stored sensitivity grids vary are `wacc`, `terminal_growth`, `exit_multiple`,
+    `cost_of_equity` and `return_on_equity`. The monitor can read one of the five.** Across
+    the eight stored grids: seven vary two axes it cannot read at all, and the eighth —
+    M&T's `return_on_equity` against `cost_of_equity` — gets one of two. So *"what would
+    change the view"*, which is the composed half's own phrase for its levers, names
+    almost nothing the monitor can watch.
+
+    That is not a defect in either piece. A lever is an **assumption**; the monitor reads
+    **filed facts** and nothing else, because ADR 0079 says so. The defect is in ADR 0117's
+    sentence *"The monitor gets its first premise for free"*, which reads as though the
+    levers carry over and they do not. **A falsifier must be an observable.** Corrected in
+    a dated section on the ADR.
+
+    *And the seam has no door.* `Thesis.report_id` exists, `write_thesis` takes it, the
+    form offers every approved report — and there are four entrances to writing a thesis
+    (the theses page, the monitor's empty state, the decisions page, the tools menu) and
+    **the report is not one of them**. The final gate's template does not contain the word.
+    So the ADR's *"the seam closes at the moment the operator states a view, rather than in
+    a separate sitting they may never have"* describes a sitting that is, today, separate.
+
+    *Three traps a falsifier can fall into, all measured on the corpus and all silent until
+    a pass has run:*
+    - **A metric the resolver does not know** (`wacc`) reads `unobservable` on every pass,
+      for ever. The form's hint says so honestly; nothing refuses it at write time, and
+      `_last_reading` deliberately ignores unobservable readings, so the finding re-issues
+      on every pass that sees a new filing. §3.19.43's class in a new place: a signal that
+      is always on.
+    - **A level carries a currency.** `free_cash_flow` resolves and measures — $11.8bn for
+      AZN, $67.0bn for MSFT — and a threshold typed as a bare ratio raises a unit mismatch,
+      so a perfectly sound falsifier reads unobservable because of the unit box.
+    - **A bank cannot be asked most of them.** On M&T, `operating_margin`, `gross_margin`
+      and `free_cash_flow` are all unmeasurable — the filing reports no `operating_income`,
+      no `gross_profit`, no `capital_expenditure`. A falsifier that works on Microsoft is
+      permanently unobservable on the bank, which is Phase 2's shape one layer along.
+
+    *And the layer has never held a row.* Across the whole restored corpus: 4 approved
+    reports, 12 sensitivity grids, 300 cells — and **0 theses, 0 premises, 0 judgements, 0
+    findings**. Everything above is true of a subsystem that has only ever run in tests.
+    Which is what the delivery plan's sentence was for, and why it asked for the read first.
+
+    *What this does not do.* No wiring, no form, no door — those are F9's and Phase 6a's,
+    and folding them in here is what the roadmap's own rule forbids. What lands is the
+    diagnosis, the ADR correction, and three named traps for whoever builds the door.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
