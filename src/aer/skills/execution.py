@@ -151,6 +151,7 @@ async def execute_custom_section(
                 attempts=attempt,
                 problems=failed_problems,
                 truncated=evidence.truncated,
+                dropped=evidence.dropped,
                 dealt=evidence.dealt,
                 causes=_counted(causes, failed_problems),
             )
@@ -180,6 +181,7 @@ async def execute_custom_section(
             attempts=attempts,
             problems=problems,
             truncated=evidence.truncated,
+            dropped=evidence.dropped,
             dealt=evidence.dealt,
             causes=causes,
         )
@@ -207,6 +209,7 @@ async def execute_custom_section(
         claims=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        evidence_dropped=evidence.dropped,
         evidence_dealt=evidence.dealt.as_dict(),
     )
     return SectionExecution(
@@ -216,6 +219,7 @@ async def execute_custom_section(
         claims_recorded=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        evidence_dropped=evidence.dropped,
         dealt=evidence.dealt,
         problems=shortfalls,
         refusal_causes=causes,
@@ -235,6 +239,7 @@ def _failed(
     attempts: int,
     problems: list[str],
     truncated: bool = False,
+    dropped: int = 0,
     dealt: EvidenceDealt | None = None,
     causes: dict[str, int] | None = None,
 ) -> SectionExecution:
@@ -254,6 +259,7 @@ def _failed(
         attempts=attempts,
         problems=problems,
         evidence_truncated=truncated,
+        evidence_dropped=dropped,
         evidence_dealt=dealt.as_dict() if dealt is not None else None,
     )
     return SectionExecution(
@@ -261,6 +267,7 @@ def _failed(
         status=SectionStatus.FAILED,
         attempts=attempts,
         evidence_truncated=truncated,
+        evidence_dropped=dropped,
         dealt=dealt,
         problems=problems,
         refusal_causes=causes if causes is not None else classify_refusals(problems),

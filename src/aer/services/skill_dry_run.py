@@ -107,6 +107,7 @@ class DryRunOutcome:
     claims_recorded: int
     insufficient_evidence: bool
     evidence_truncated: bool
+    evidence_dropped: int
     problems: list[str]
     cost_gbp: Decimal
     estimated_cost_gbp: Decimal
@@ -125,6 +126,7 @@ class DryRunOutcome:
             "claims": self.claims_recorded,
             "insufficient_evidence": self.insufficient_evidence,
             "evidence_truncated": self.evidence_truncated,
+            "evidence_dropped": self.evidence_dropped,
             "problems": list(self.problems),
             "cost_gbp": str(self.cost_gbp),
             "estimated_cost_gbp": str(self.estimated_cost_gbp),
@@ -296,6 +298,7 @@ async def dry_run_skill(
         claims_recorded=execution.claims_recorded,
         insufficient_evidence=execution.insufficient_evidence,
         evidence_truncated=execution.evidence_truncated,
+        evidence_dropped=execution.evidence_dropped,
         problems=list(execution.problems),
         cost_gbp=context.spend_gbp,
         estimated_cost_gbp=estimate,

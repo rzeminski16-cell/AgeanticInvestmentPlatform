@@ -130,6 +130,7 @@ class RehearsalOutcome:
     confidence: float | None
     insufficient_evidence: bool
     evidence_truncated: bool
+    evidence_dropped: int
     evidence_dealt: dict[str, int] | None
     markdown: str
     footnote_count: int
@@ -154,6 +155,7 @@ class RehearsalOutcome:
             "confidence": str(self.confidence) if self.confidence is not None else None,
             "insufficient_evidence": self.insufficient_evidence,
             "evidence_truncated": self.evidence_truncated,
+            "evidence_dropped": self.evidence_dropped,
             "evidence_dealt": self.evidence_dealt,
             "footnote_count": self.footnote_count,
             "cost_gbp": str(self.cost_gbp),
@@ -286,6 +288,7 @@ async def rehearse_section(
         confidence=section.confidence,
         insufficient_evidence=execution.insufficient_evidence,
         evidence_truncated=execution.evidence_truncated,
+        evidence_dropped=execution.evidence_dropped,
         evidence_dealt=execution.dealt.as_dict() if execution.dealt is not None else None,
         markdown=markdown,
         footnote_count=footnotes,

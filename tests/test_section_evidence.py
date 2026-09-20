@@ -391,6 +391,63 @@ class TestTheBudgetKeepsExcerptsASeat:
         assert listed == set(evidence.extraction_sources)
 
 
+class TestHowMuchTheBudgetRefused:
+    """Roadmap §3.19 item 43. `truncated` is a boolean that was true on 98 of 98 section
+    executions across the eight committed runs, so it ranked nothing: a section that lost
+    one low-ranked excerpt from the tail recorded exactly what a starved one did.
+
+    A signal that is always on is one its reader learns to skip — the argument
+    `aer.core.escalation` makes about the trigger it deleted, and the reason that trigger
+    is gone.
+    """
+
+    async def test_a_tight_budget_says_how_many_units_it_refused(
+        self, scene: dict[str, Any]
+    ) -> None:
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(token_budget=200, excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_facts", "search_sources"}),
+        )
+
+        assert evidence.truncated
+        assert evidence.dropped > 0
+
+    async def test_a_budget_that_fits_everything_refused_nothing(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The other half, and the one that makes the count worth recording: `dropped` is
+        zero exactly when nothing was lost, which `truncated` also says — and above zero
+        it says something `truncated` cannot."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(token_budget=4_000, excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_facts", "search_sources"}),
+        )
+
+        assert not evidence.truncated
+        assert evidence.dropped == 0
+
+    async def test_a_tighter_budget_refuses_more(self, scene: dict[str, Any]) -> None:
+        """What the boolean could never express, and the whole point of counting."""
+
+        async def dropped_at(budget: int) -> int:
+            evidence = await gather_evidence(
+                scene["session"],
+                request=scene["request"],
+                evidence_job_id=scene["job"].id,
+                policy=_policy(token_budget=budget, excerpt_keywords=_LIQUIDITY_KEYWORDS),
+                categories=frozenset({"search_facts", "search_sources"}),
+            )
+            return evidence.dropped
+
+        assert await dropped_at(100) > await dropped_at(200) > 0
+
+
 class TestTheFactBasisFilter:
     """The section's declared basis decides which facts it is even offered.
 

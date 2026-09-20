@@ -1860,6 +1860,44 @@ found rather than as scope that was always there.
     the inputs and the stamp were identical. Both are the machinery working.
 
 
+43. **The 40-row keyhole is not the keyhole, and the flag that said so ranks nothing, 20
+    September 2026.** The delivery plan's Phase 6 asks to *"widen the 40-row keyhole per
+    section"* on the evidence that *"all 48 section executions across three logged runs
+    reported `evidence_truncated: true`"*. Measured against the committed run records
+    before changing anything, and **both halves of that are wrong**.
+
+    *It is 98 of 98, not 48 of 48* — eight runs, not three. And **not one section execution
+    ever reached the 40-row cap in any category**: facts run 7 to 31 with a median of 24,
+    calculations 5 to 20, excerpts 0 to 7. `EVIDENCE_ITEM_CAP` bounds the *query*; what
+    binds is the section's **token budget**, which is consulted afterwards. Raising the cap
+    from 40 would have changed precisely nothing, and would have looked like progress.
+
+    *What the budgets actually are.* The built-in sections carry 2,000 to 4,000 evidence
+    tokens — `executive_summary`, the section a reader meets first, has the lowest at
+    2,000 — against a configured per-section ceiling of 12,000. So the built-ins run at a
+    sixth of what the platform already permits. **Raising them is a spend decision and is
+    the operator's**, not a refactor: it is roughly £0.20 to £0.50 a run for a doubling, on
+    a £7.50 run, derived from the round's own 1.32M tokens at £7.56.
+
+    *What was £0 and is done.* `evidence_truncated` is a boolean, and it is `True` on all
+    98 — so it separates nothing. A section that lost one low-ranked excerpt from the tail
+    recorded exactly what a starved one did, and the readout printed the same sentence
+    eighteen times a run. **A signal that is always on is one its reader learns to skip**,
+    which is the argument `aer.core.escalation` makes about the trigger it deleted for
+    precisely this reason. The pack now counts the units the budget refused, the count
+    travels to the step record, the rehearsal, the dry run and the console, and the readout
+    says *"3 more did not fit"* or *"everything gathered fitted"*.
+
+    *Why that had to come first.* Without it, nobody can tell whether raising a budget
+    helped: the before and after both read `truncated: true`. The measurement is the
+    prerequisite for the spend decision, not a consolation for not having made it.
+
+    *Also seen, and left alone:* at a small enough budget a section is dealt nothing at all
+    — 0 facts, 0 calculations, 0 excerpts — and the run continues. One of the 98, a QUICK
+    run's `executive_summary`, was dealt zero excerpts. `insufficient_evidence` is the flag
+    for that and it is a different question from this one.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

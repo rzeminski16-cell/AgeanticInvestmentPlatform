@@ -1591,10 +1591,19 @@ def _print_rehearsal(outcome: RehearsalOutcome) -> None:
         typer.echo(f"  {outcome.words} words; this section has no word budget")
     if outcome.evidence_dealt is not None:
         dealt = outcome.evidence_dealt
+        # **The count, not the flag.** `evidence_truncated` is true on 98 of 98 section
+        # executions in the committed run records, so printing it told a reader the same
+        # thing eighteen times a run and separated nothing — a section that lost one
+        # low-ranked excerpt from the tail read identically to one starved of twenty.
+        dropped = outcome.evidence_dropped
         typer.echo(
             f"  evidence dealt: {dealt.get('facts', 0)} fact(s), "
             f"{dealt.get('calculations', 0)} calculation(s), {dealt.get('excerpts', 0)} excerpt(s)"
-            + (" — truncated to the token budget" if outcome.evidence_truncated else "")
+            + (
+                f" — {dropped} more did not fit the token budget"
+                if dropped
+                else " — everything gathered fitted the token budget"
+            )
         )
     if outcome.refusal_causes:
         causes = ", ".join(

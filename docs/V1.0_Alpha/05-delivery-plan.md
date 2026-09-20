@@ -373,8 +373,16 @@ That last row is the abandonment criterion, and it is the line that makes every 
 - **Wire `calc/bridge.py`** for contribution-to-growth and margin decomposition. This is the one
   thing the console won on that the platform is currently forbidden to do — not by rule, but by
   the absence of a deterministic producer.
-- **Widen the 40-row keyhole per section.** All 48 section executions across three logged runs
-  reported `evidence_truncated: true`.
+- ~~**Widen the 40-row keyhole per section.** All 48 section executions across three logged runs
+  reported `evidence_truncated: true`.~~ **Measured 20 September 2026 and the diagnosis was
+  wrong** (roadmap §3.19 item 43): it is 98 of 98 executions across eight runs, and not one
+  ever reached the 40-row cap in any category — facts peak at 31, excerpts at 7. The cap
+  bounds the *query*; the section's **token budget** is what binds, and the built-ins run at
+  2,000–4,000 against a ceiling of 12,000. Raising the cap would have changed nothing.
+  Raising the budgets is a spend decision for the operator (~£0.20–0.50 a run for a
+  doubling). What landed instead is the measurement that makes that decision checkable: the
+  pack counts the units the budget refused, because a flag true on all 98 could never say
+  whether a change helped.
 - **Read `thesis_monitor.py` before wiring the view into it** — one session. Half the product
   downstream of a stated view is undiagnosed.
 

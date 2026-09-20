@@ -306,6 +306,10 @@ class SectionExecution:
     claims_recorded: int = 0
     insufficient_evidence: bool = False
     evidence_truncated: bool = False
+    # How many gathered units the budget refused. `evidence_truncated` is `True` on 98 of
+    # 98 executions in the committed run records, so on its own it ranks nothing; this is
+    # what says whether a section lost one unit from the tail or twenty.
+    evidence_dropped: int = 0
     # What the section was handed, by kind (gap A63). Beside `evidence_truncated`, which
     # answers a different question: a pack can be untruncated and still hold nothing a
     # section could cite. ``None`` only where execution ended before a pack was built.
@@ -324,6 +328,7 @@ class SectionExecution:
             "claims": self.claims_recorded,
             "insufficient_evidence": self.insufficient_evidence,
             "evidence_truncated": self.evidence_truncated,
+            "evidence_dropped": self.evidence_dropped,
             "problems": list(self.problems),
         }
         if self.dealt is not None:
@@ -447,6 +452,17 @@ class Evidence:
     internal: list[dict[str, Any]] = field(default_factory=list)
     untrusted: list[dict[str, str]] = field(default_factory=list)
     truncated: bool = False
+
+    # How many gathered units the budget refused. **`truncated` alone could not be acted
+    # on**, and the committed run records are why: it is `True` on 98 of 98 section
+    # executions across eight runs, so it separates nothing — a section that lost one
+    # low-ranked excerpt from the tail reads identically to one that lost twenty. A signal
+    # that is always on is a signal its reader learns to skip, which is the argument
+    # `aer.core.escalation` makes about the trigger it deleted.
+    #
+    # Counted rather than inferred from `dealt`, which says what arrived and can never say
+    # what was available: a section dealt 24 facts might have had 25 offered or 200.
+    dropped: int = 0
 
     fact_sources: dict[str, str] = field(default_factory=dict)
     calculation_ids: set[str] = field(default_factory=set)
@@ -940,6 +956,7 @@ def _within_budget(units: list[EvidenceUnit], *, budget: int) -> Evidence:
         cost = unit.cost
         if spent + cost > budget:
             evidence.truncated = True
+            evidence.dropped += 1
             continue
         spent += cost
         evidence.admit(unit)
