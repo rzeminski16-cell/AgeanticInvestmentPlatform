@@ -301,15 +301,30 @@ class TestItAllTracesToFacts:
 
 class TestMarginOf:
     def test_it_is_a_share_of_revenue(self, context):
-        assert margin_of(context, line=usd("400"), revenue=usd("1000")).value == Decimal("0.4")
+        share = margin_of(context, line=usd("400"), revenue=usd("1000"), concept="cost_of_revenue")
+        assert share.value == Decimal("0.4")
 
     def test_it_is_dimensionless(self, context):
-        assert margin_of(context, line=usd("400"), revenue=usd("1000")).unit.is_dimensionless
+        share = margin_of(context, line=usd("400"), revenue=usd("1000"), concept="cost_of_revenue")
+        assert share.unit.is_dimensionless
+
+    def test_the_line_it_is_a_share_of_is_on_the_row(self, context):
+        """A bridge strikes this once per driver and once per numerator, so without the
+        concept the ledger holds half a dozen rows of one name and nothing saying which
+        line each is a share of (roadmap §3.19 item 42)."""
+        margin_of(context, line=usd("400"), revenue=usd("1000"), concept="cost_of_revenue")
+
+        (record,) = context.named("margin_of")
+        assert record.parameters["concept"] == "cost_of_revenue"
+
+    def test_a_blank_concept_is_refused(self, context):
+        with pytest.raises(CalculationError, match="label is blank"):
+            margin_of(context, line=usd("400"), revenue=usd("1000"), concept="  ")
 
     @pytest.mark.parametrize("revenue", ["0", "-1000"])
     def test_it_refuses_a_base_that_makes_a_share_meaningless(self, context, revenue):
         with pytest.raises(CalculationError):
-            margin_of(context, line=usd("400"), revenue=usd(revenue))
+            margin_of(context, line=usd("400"), revenue=usd(revenue), concept="cost_of_revenue")
 
 
 class TestASpecIsData:

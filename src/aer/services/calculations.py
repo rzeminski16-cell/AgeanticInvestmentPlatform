@@ -23,6 +23,7 @@ migration, a script, or a future service.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -92,8 +93,18 @@ async def indexed_calculations(
     81.9% (FY2025, and recorded), and escalated every headline figure as contradicting the
     run's own record — six challenges, all false, all published.
 
-    So the deduplication happens before the bound: one row per ``(name, case)``, keeping
+    So the deduplication happens before the bound: one row per *distinct figure*, keeping
     the newest period, and only then the cap.
+
+    **A figure is distinguished by its name and everything recorded beside it**, not by its
+    name alone. A calculation's parameters are exactly the structural choices that make two
+    rows of one name two different answers — `enterprise_value` records `method` and `case`
+    for that reason, and says so — so keying on the name alone answers "which terminal
+    method?" with whichever the ledger held first. A margin bridge is the case that makes
+    this unarguable: every component is a `bridge_contribution` by construction, and a set
+    of rows reading only `-0.1` with nothing saying which expense line each belongs to is a
+    decomposition a writer cannot use (roadmap §3.19 item 42). Rows carrying no parameters
+    at all — the ratio suite's, where one name is one figure — collapse exactly as before.
 
     A **sensitivity cell is excluded**, because it is a grid point rather than an answer.
     The case the valuation reports is the one offered.
@@ -119,10 +130,10 @@ async def indexed_calculations(
 
     kept: dict[tuple[str, str], Calculation] = {}
     for calc in rows:
-        case = str((calc.parameters or {}).get("case", ""))
-        if case == SENSITIVITY_CASE:
+        parameters = calc.parameters or {}
+        if str(parameters.get("case", "")) == SENSITIVITY_CASE:
             continue
-        kept.setdefault((calc.name, case), calc)
+        kept.setdefault((calc.name, _distinguisher(parameters)), calc)
 
     ordered = list(kept.values())
     if run_level_first:
@@ -133,6 +144,16 @@ async def indexed_calculations(
         dated.sort(key=lambda pair: pair[0], reverse=True)
         ordered = [c for c in ordered if c.period_end is None] + [c for _, c in dated]
     return ordered[:limit]
+
+
+def _distinguisher(parameters: Mapping[str, Any]) -> str:
+    """The recorded choices that make two rows of one name two different figures.
+
+    Serialised rather than hashed as a tuple because a parameter value may be a list —
+    `equity_value` records its bridge adjustments — and a list is not hashable. Sorted, so
+    two rows that recorded the same choices in a different insertion order are one figure.
+    """
+    return json.dumps(parameters, sort_keys=True, default=str)
 
 
 def new_context() -> CalculationContext:

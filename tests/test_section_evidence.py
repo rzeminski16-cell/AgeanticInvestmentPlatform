@@ -1026,3 +1026,131 @@ class TestAnUndatedDocumentIsNeverPrimary:
 
         dated = Evidence(source_tiers={"a-source": SourceTier.T1_REGULATORY})
         assert policy_shortfalls({"a-source"}, evidence=dated, policy=policy) == []
+
+
+class TestTwoRowsOfOneNameAreTwoFigures:
+    """Roadmap §3.19 item 42. A calculation's recorded choices are what make two rows of
+    one name two different answers — `enterprise_value` says so about its own `method` —
+    and both the index and the evidence unit used to throw them away.
+
+    The index kept one row per `(name, case)`, so a writer shown a run's figures saw one
+    `value_per_share` and could not know a second existed. The unit carried name, value,
+    unit and period and not the choices, so even two surviving rows arrived identical.
+    """
+
+    @staticmethod
+    async def _two_methods(scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        for sequence, (method, value) in enumerate(
+            (("gordon_growth", "357.62"), ("exit_multiple", "158.58")), start=1
+        ):
+            session.add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    sequence=sequence,
+                    name="value_per_share",
+                    formula="value per share = equity value / shares outstanding",
+                    function_ref="aer.calc.dcf:value_per_share",
+                    code_version="testsha",
+                    inputs=[],
+                    parameters={"case": "base", "method": method},
+                    assumptions=[],
+                    output_value=Decimal(value),
+                    output_unit="USD/shares",
+                )
+            )
+        await session.flush()
+
+    @staticmethod
+    def _calculations(evidence: Any) -> list[dict[str, Any]]:
+        return [item for item in evidence.internal if "calculation_id" in item]
+
+    async def _gathered(self, scene: dict[str, Any]) -> Any:
+        return await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+    async def test_both_terminal_methods_survive_the_index(self, scene: dict[str, Any]) -> None:
+        """The same defect the front page had, one layer along: one of two contradictory
+        numbers chosen by ledger order, with nothing saying which."""
+        await self._two_methods(scene)
+
+        shown = self._calculations(await self._gathered(scene))
+        per_share = [item for item in shown if item["name"] == "value_per_share"]
+
+        assert len(per_share) == 2, f"a terminal method was cut: {per_share}"
+        assert {Decimal(item["value"]) for item in per_share} == {
+            Decimal("357.62"),
+            Decimal("158.58"),
+        }
+
+    async def test_the_choices_that_tell_them_apart_travel_with_them(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._two_methods(scene)
+
+        shown = self._calculations(await self._gathered(scene))
+        methods = {item["choices"]["method"] for item in shown if item["name"] == "value_per_share"}
+
+        assert methods == {"gordon_growth", "exit_multiple"}
+
+    async def test_a_figure_with_no_choices_carries_no_empty_field(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Most rows are the ratio suite's, where one name is one figure. An empty object
+        on each of them is tokens spent saying nothing."""
+        await self._two_methods(scene)
+        scene["session"].add(
+            Calculation(
+                job_id=scene["job"].id,
+                sequence=9,
+                name="net_margin",
+                formula="net_margin = net_income / revenue",
+                function_ref="aer.calc.ratios:net_margin",
+                code_version="testsha",
+                inputs=[],
+                parameters={},
+                assumptions=[],
+                output_value=Decimal("0.174"),
+                output_unit="pure",
+                period_label="FY2025",
+            )
+        )
+        await scene["session"].flush()
+
+        shown = self._calculations(await self._gathered(scene))
+        margin = next(item for item in shown if item["name"] == "net_margin")
+
+        assert "choices" not in margin
+
+    async def test_rows_recording_the_same_choices_still_collapse(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The deduplication is not abandoned, only keyed on more. A figure struck twice
+        with the same choices is still one figure — that is gap R14's whole finding."""
+        session: AsyncSession = scene["session"]
+        for sequence in (1, 2):
+            session.add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    sequence=sequence,
+                    name="wacc",
+                    formula="wacc = ...",
+                    function_ref="aer.calc.wacc:wacc",
+                    code_version="testsha",
+                    inputs=[],
+                    parameters={"case": "base"},
+                    assumptions=[],
+                    output_value=Decimal("0.0611"),
+                    output_unit="pure",
+                )
+            )
+        await session.flush()
+
+        shown = self._calculations(await self._gathered(scene))
+
+        assert len([item for item in shown if item["name"] == "wacc"]) == 1

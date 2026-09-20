@@ -1830,13 +1830,29 @@ found rather than as scope that was always there.
     `residual_of` and `margin_of` record nothing of the kind. It is the same defect fixed
     for `implied_terminal_growth` in §3.19.38 earlier the same day, one module along.
 
-    *What it needs, and why it is its own change.* Parameters on the four bridge
-    calculations — the driver concept and the margin key — and then an index that keys on
-    them rather than on the name alone. The second half touches a shared index whose cap
-    and ordering carry their own argument (the adversary escalated six false challenges
-    when that ordering was wrong), and widening the key admits more rows into a pool that
-    §3.19's next item is about narrowing. The two decisions belong together and neither
-    belongs bolted onto the producer.
+    *Fixed, 20 September, and it was three changes rather than two.* Parameters on the four
+    bridge calculations — the driver concept and the margin key; an index keyed on a row's
+    recorded choices rather than on its name alone; and **the evidence unit carrying those
+    choices**, which measuring turned up as mandatory rather than optional. The unit had
+    held name, value, unit and period and nothing else, so widening the index alone would
+    have handed a writer two `bridge_contribution` rows reading `-0.1` with nothing
+    whatever to tell them apart — strictly worse than showing one.
+
+    *What the widening costs, measured on all six stored runs:* 7 to 9 extra rows each
+    (65→73, 70→78, 68→77, 37→44, 67→75, 71→80) against a cap of 120. Nothing is pushed
+    out, and the extra rows are **the second terminal method's** — `enterprise_value`,
+    `equity_value`, `value_per_share`, `implied_upside`. A writer had been shown one of
+    two contradictory per-share figures with nothing saying which, which is §3.19.38's
+    front-page defect one layer along, found because this item made it visible.
+
+    *Gap R14's guard was narrowed, not relaxed, and the distinction is the point.* It keys
+    on `(name, value, period)` and so forbade two `bridge_contribution` rows of equal value
+    — but what R14 found was rows with *"nothing to say which of the two a citation
+    meant"*, and cost of revenue's contribution to the gross margin and to the operating
+    margin are two claims that happen to be equal, each saying which it is. The key gains
+    the parameters. Checked on all three cases: R14's own defect still fails, the bridge's
+    rows are allowed, and a bridge row repeating another down to its parameters still
+    fails.
 
     *Also measured, and not a defect:* four of the operating-margin bridge's five drivers
     went `unattributed` because the opening year's statements did not carry them, and the

@@ -12,6 +12,7 @@ what comes out is a persisted, traceable ledger rather than numbers in memory.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -307,9 +308,23 @@ class TestTheLedgerRecordsEachDerivationOnce:
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
-        struck: dict[tuple[str, str, str], int] = {}
+        struck: dict[tuple[str, str, str, str], int] = {}
         for row in rows:
-            key = (row.name, str(row.output_value), row.period_label or "")
+            # **The recorded choices are part of what a figure is**, and leaving them out
+            # of this key would make the guard forbid something it was never about. What
+            # R14 was about is quoted above: two rows "with nothing to say which of the two
+            # a citation meant". A margin bridge strikes one `bridge_contribution` per
+            # expense line *per margin*, and cost of revenue's contribution to the gross
+            # margin and to the operating margin are equal by construction and are two
+            # different claims — each saying so on its own row. A row that repeats another
+            # down to its parameters still has nothing to say which is which, and still
+            # fails here.
+            key = (
+                row.name,
+                str(row.output_value),
+                row.period_label or "",
+                json.dumps(row.parameters or {}, sort_keys=True),
+            )
             struck[key] = struck.get(key, 0) + 1
         repeated = {key: count for key, count in struck.items() if count > 1}
 

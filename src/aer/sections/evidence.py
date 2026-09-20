@@ -619,6 +619,16 @@ async def gather_evidence(
                     # writer put an annual ratio and a quarterly fact in one sentence
                     # without presenting them as the same basis.
                     "period": calc.period_label,
+                    # **What makes two rows of one name two figures**, and omitted
+                    # entirely where there are none, which is most rows. A run strikes
+                    # `value_per_share` once per terminal method and
+                    # `bridge_contribution` once per expense line per margin; the name,
+                    # the value and the period are identical across them and the
+                    # recorded choices are the only thing that is not. Without this a
+                    # writer handed the set sees a column of unlabelled numbers — which
+                    # is what it saw, and why the decomposition could not be written
+                    # (roadmap §3.19 item 42).
+                    **({"choices": calc.parameters} if calc.parameters else {}),
                 },
                 calculation_id=identifier,
                 figure_value=(identifier, calc.output_value),

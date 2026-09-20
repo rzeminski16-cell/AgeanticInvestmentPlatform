@@ -162,13 +162,22 @@ class MarginBridge:
     formula="margin = line / revenue",
     assumptions=("Both figures are from the same period and the same statement.",),
 )
-def margin_of(_context: CalculationContext, *, line: Quantity, revenue: Quantity) -> Quantity:
+def margin_of(
+    _context: CalculationContext, *, line: Quantity, revenue: Quantity, concept: str
+) -> Quantity:
     """A line as a fraction of the period's revenue.
+
+    ``concept`` names the line and does not enter the arithmetic. It is recorded for the
+    reason :func:`aer.calc.dcf.enterprise_value` records ``method``: a bridge strikes this
+    once per driver and once per numerator, so without it the ledger holds half a dozen
+    rows of one name with different answers and nothing saying which line each is a share
+    of.
 
     Raises:
         CalculationError: If revenue is not positive, which makes every share of it
             meaningless rather than merely large.
     """
+    _require_label(concept, name="concept")
     if revenue.value <= 0:
         message = (
             f"Revenue is {revenue.value}, so no line's share of it is defined. A bridge "
@@ -187,9 +196,13 @@ def margin_of(_context: CalculationContext, *, line: Quantity, revenue: Quantity
     ),
 )
 def movement_from(
-    _context: CalculationContext, *, opening: Quantity, closing: Quantity
+    _context: CalculationContext, *, opening: Quantity, closing: Quantity, margin: str
 ) -> Quantity:
-    """The change in a share between two periods."""
+    """The change in a share between two periods.
+
+    ``margin`` names the bridge this movement belongs to, recorded and never computed with.
+    """
+    _require_label(margin, name="margin")
     return closing - opening
 
 
@@ -202,7 +215,12 @@ def movement_from(
     ),
 )
 def contribution_of(
-    _context: CalculationContext, *, opening_share: Quantity, closing_share: Quantity
+    _context: CalculationContext,
+    *,
+    opening_share: Quantity,
+    closing_share: Quantity,
+    margin: str,
+    line: str,
 ) -> Quantity:
     """One line's contribution to the margin's movement.
 
@@ -210,7 +228,14 @@ def contribution_of(
     provenance — plain quantity arithmetic has no calculation to point at — and the sign is
     the single easiest thing to get wrong here: a bridge with every sign flipped still sums
     to the movement and tells a completely different story.
+
+    ``margin`` and ``line`` are recorded and never computed with. **They are what makes the
+    decomposition readable at all**: every component of every bridge carries this one name
+    by construction, so a set of rows saying only ``bridge_contribution = -0.1`` is a set a
+    reader cannot use. The evidence index keys on them (roadmap §3.19 item 42).
     """
+    _require_label(margin, name="margin")
+    _require_label(line, name="line")
     return opening_share - closing_share
 
 
@@ -223,13 +248,19 @@ def contribution_of(
     ),
 )
 def residual_of(
-    _context: CalculationContext, *, movement: Quantity, contributions: Sequence[Quantity]
+    _context: CalculationContext,
+    *,
+    movement: Quantity,
+    contributions: Sequence[Quantity],
+    margin: str,
 ) -> Quantity:
     """The part of the movement the components leave over.
 
     Every contribution is a recorded input, so a reader can see what the residual is a
-    residual *of* rather than being handed a number with no denominator.
+    residual *of* rather than being handed a number with no denominator. ``margin`` says
+    which bridge it is the residual of, since a run strikes one per spec.
     """
+    _require_label(margin, name="margin")
     remaining = movement
     for contribution in contributions:
         remaining = remaining - contribution
@@ -269,7 +300,9 @@ def margin_bridge(
     if opening_margin is None or closing_margin is None:
         return None
 
-    movement = movement_from(context, opening=opening_margin, closing=closing_margin)
+    movement = movement_from(
+        context, opening=opening_margin, closing=closing_margin, margin=spec.key
+    )
 
     components: list[BridgeComponent] = []
     unattributed: list[str] = []
@@ -285,7 +318,11 @@ def margin_bridge(
             BridgeComponent(
                 concept=driver,
                 contribution=contribution_of(
-                    context, opening_share=opening_share, closing_share=closing_share
+                    context,
+                    opening_share=opening_share,
+                    closing_share=closing_share,
+                    margin=spec.key,
+                    line=driver,
                 ),
                 opening_share=opening_share,
                 closing_share=closing_share,
@@ -296,6 +333,7 @@ def margin_bridge(
         context,
         movement=movement,
         contributions=[component.contribution for component in components],
+        margin=spec.key,
     )
 
     return MarginBridge(
@@ -316,4 +354,20 @@ def _share(context: CalculationContext, statements: StatementSet, concept: str) 
     revenue = statements.get("revenue")
     if line is None or revenue is None:
         return None
-    return margin_of(context, line=line, revenue=revenue)
+    return margin_of(context, line=line, revenue=revenue, concept=concept)
+
+
+def _require_label(value: str, *, name: str) -> None:
+    """Refuse a blank discriminator.
+
+    A row whose ``margin`` or ``line`` is empty is a row nobody can attribute, which is the
+    exact gap these parameters exist to close — so a caller that forgets one is an error
+    rather than a silently unlabelled figure. The same rule and the same reasoning as
+    :func:`aer.calc.dcf._require_case`.
+    """
+    if not value.strip():
+        message = (
+            f"The {name} label is blank; a bridge row that does not say which margin or "
+            "which line it belongs to cannot be read back."
+        )
+        raise CalculationError(message, context={name: value})
