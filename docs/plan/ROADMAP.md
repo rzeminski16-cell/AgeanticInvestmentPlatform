@@ -2071,6 +2071,46 @@ found rather than as scope that was always there.
     builds it has a real case to measure against, rather than a rule argued from prose.
 
 
+48. **Phase 6a is estimated as eleven features to build, and five of them are built, 20
+    September 2026.** Measured from the code before starting the phase, because §3.19.43
+    and §3.19.45 both found the plan describing something nobody had re-read, and the
+    handover's §7 says every error so far has been exactly that.
+
+    | Feature | Measured state |
+    |---|---|
+    | F9 thesis editor | **Built.** `services/theses.py`, `/theses` and `/theses/{id}`, `tests/test_theses.py`, a browser screen test |
+    | F10 decisions | **Built.** `services/decisions.py`, six routes including withdraw, carry-out and revise, a browser screen test |
+    | F11 the monitor | **Built**, and diagnosed in item 45. Needs F15 to run unattended, and its price-move alert kind is the open half |
+    | F13 the view | **Composed half built** (Phase 4.4); the authored half is out of scope twice over |
+    | F14 review and analytics | **Built.** `services/post_trade.py`, a `reviews` table, `/review`, `/review/{id}`, `/analytics`, a browser screen test |
+    | F12 risk | **Half.** `calc/risk.py`, `services/risk.py` and `calc/portfolio.py` are 2,109 lines with `/risk` and a browser screen test — and `web/decisions/pages.py` imports `portfolio` and `theses` and **not `risk`**. Its "done when" is *the same shock produces the same figure on both surfaces*, and the second surface does not exist |
+    | F3 the closing section | **Absent.** No section definition, and `research_requests` carries none of the three fields |
+    | F4 the refresh | **Absent.** One workflow in `workflow/workflows/` |
+    | F6 Ask | **Absent.** No `services/ask.py`, no route |
+    | F15 scheduling | **Absent.** No cron anywhere in `worker.py` or `queue.py` |
+
+    *And the nineteen surfaces are fifteen.* Of `03-page-specifications.md`'s nineteen,
+    routes exist for fourteen or fifteen; **Position detail, Companies, Company and Ask have
+    no route at all**. Methods is `/skills` and Today is `/`, which is ADR 0112's tools menu
+    rather than the spec's three bands — so those two are *present but not met*, and the
+    distinction matters: **a route existing is not the specification satisfied**, and
+    nothing here claims otherwise. What it claims is that five features and fifteen surfaces
+    do not need building from nothing, which is a different phase from the one estimated.
+
+    *What the remaining order actually is*, in the dependency order
+    `04-feature-specifications.md` gives: **F12's second surface** (the pre-trade check on
+    the decision form) → **F15 the scheduler**, which F11 needs → **F11's price-move alert**
+    → **F3 the closing section**, which needs F12 → **F6 Ask** → **F4 the refresh** → the
+    four absent surfaces. The five built features become verification against their own
+    "done when" rather than construction.
+
+    *The 25–35 session estimate is not corrected here*, deliberately. Verifying a built
+    feature against a specification it was not written from is not free — §3.19.45 took a
+    session to establish that a 1,303-line subsystem was complete and its seam was not — and
+    four features and four surfaces remain to build outright. What is recorded is the
+    measurement; re-estimating is the operator's, with it in hand.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
