@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from markupsafe import escape
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -38,6 +39,7 @@ from aer.db.models import (
     AuditEvent,
     Company,
     Portfolio,
+    PriceBar,
     Security,
     Thesis,
     Transaction,
@@ -45,6 +47,7 @@ from aer.db.models import (
 )
 from aer.errors import ConflictError, ValidationError
 from aer.services import decisions as decision_service
+from aer.services import risk as risk_service
 from aer.services import theses as thesis_service
 from aer.web.overview import decisions as decision_feed
 from aer.web.overview.attention import Severity
@@ -832,3 +835,120 @@ class TestThePages:
         assert 'aria-label="Commitments"' in opened.text
         assert 'data-field="exit-plan">Sell below a 20% margin.' in opened.text
         assert "Decided by owner@example.invalid on 01 August 2026" in opened.text
+
+
+class TestTheCheckBeforeItIsRecorded:
+    """F12's second surface: the exposure arithmetic beside the form that records a decision.
+
+    The figures themselves, and their agreement with the risk page, are pinned in
+    `tests/test_pre_trade_check.py`. What is asserted here is that the check reaches the page
+    at all, that it is honest about the one thing it cannot say, and that nothing it adds can
+    refuse a decision — F12's *"the check never blocks"*, which is a property of the controls
+    rather than of the numbers.
+    """
+
+    async def test_the_check_renders_before_the_form(self, api: Any, committed: Any) -> None:
+        page = await api.get("/decisions")
+
+        assert page.status_code == 200
+        assert 'id="pre-trade-check"' in page.text
+        assert page.text.index('id="pre-trade-check"') < page.text.index('id="record-decision"')
+
+    async def test_it_says_it_cannot_say_what_the_book_becomes(
+        self, api: Any, committed: Any
+    ) -> None:
+        """The page quotes the service's own sentence rather than writing a second one, so
+        the reason a figure is absent cannot drift from the rule that makes it absent."""
+        page = await api.get("/decisions")
+
+        # Escaped as the template escapes it, so this compares the rendered sentence with
+        # the constant rather than with a paraphrase that happens to contain no apostrophe.
+        assert str(escape(risk_service.NO_INTENDED_SIZE)) in page.text
+
+    async def test_naming_a_listing_prefills_both_boxes(self, api: Any, committed: Any) -> None:
+        """One string, typed once. With scripting off this is a navigation, so the record
+        form must come back carrying the listing the check was asked about."""
+        page = await api.get("/decisions?security=CTSO.LSE")
+
+        assert page.status_code == 200
+        assert page.text.count('value="CTSO.LSE"') >= 2
+
+    async def test_a_listing_nobody_holds_does_not_break_the_page(
+        self, api: Any, committed: Any
+    ) -> None:
+        """A typo in a link, or a listing the platform has never priced. The book-wide half
+        of the check still reads and the form still records."""
+        page = await api.get("/decisions?security=NOSUCH.XX")
+
+        assert page.status_code == 200
+        assert 'id="record-decision"' in page.text
+
+    async def test_the_check_offers_no_control_that_could_refuse_a_decision(
+        self, api: Any, committed: Any
+    ) -> None:
+        """No ceiling exists in this platform, so there is nothing to breach and no
+        *"Record it anyway"* to fall back to: the submit control reads what it always read,
+        and the only other control the check adds asks a question."""
+        page = await api.get("/decisions")
+
+        check = page.text[
+            page.text.index('id="pre-trade-check"') : page.text.index("Record a decision")
+        ]
+        assert "Show what the book holds" in check
+        for word in ("anyway", "ceiling", "breach", "exceeds", "too large", "blocked"):
+            assert word not in check.lower(), f"the check must not speak of {word}"
+        assert ">\n            Record it\n          </button>" in page.text
+
+    async def test_a_book_with_holdings_shows_its_figures(self, api: Any, committed: Any) -> None:
+        """The empty-book path says why there is no figure; this is the other branch, and
+        without it a template bug in the figures themselves would ship green."""
+        session = committed["session"]
+        security = committed["security"]
+        for kind, quantity, price, currency in (
+            (TransactionKind.DEPOSIT, "100000", None, "GBP"),
+            (TransactionKind.BUY, "1000", "250", "GBX"),
+        ):
+            attestation = Attestation(
+                kind=AttestationKind.TRANSACTION,
+                grade=Grade.ATTESTED,
+                effective_at=datetime(2026, 6, 1, 10, tzinfo=UTC),
+                recorded_by="owner@example.invalid",
+            )
+            session.add(attestation)
+            await session.flush()
+            session.add(
+                Transaction(
+                    attestation_id=attestation.id,
+                    portfolio_id=committed["book"].id,
+                    kind=kind,
+                    security_id=security.id if price is not None else None,
+                    trade_date=date(2026, 6, 1),
+                    quantity=Decimal(quantity),
+                    price=Decimal(price) if price is not None else None,
+                    fees=Decimal(0),
+                    currency=currency,
+                )
+            )
+        session.add(
+            PriceBar(
+                security_id=security.id,
+                bar_date=date(2026, 6, 30),
+                open=Decimal("248"),
+                high=Decimal("262"),
+                low=Decimal("247"),
+                close=Decimal("260"),
+            )
+        )
+        await session.commit()
+
+        page = await api.get("/decisions?security=CTSO.LSE")
+
+        assert page.status_code == 200
+        assert 'id="check-figures"' in page.text
+        assert "The book" in page.text
+        assert "Already held in CTSO" in page.text
+        assert "Largest five holdings" in page.text
+        # Every figure points at the page that shows the same numbers in full, because a
+        # number with no way to read where it came from is what this platform exists to
+        # prevent — and here it is literally the same recorded calculation.
+        assert 'href="/risk"' in page.text

@@ -2111,6 +2111,58 @@ found rather than as scope that was always there.
     measurement; re-estimating is the operator's, with it in hand.
 
 
+49. **Every book surface answered 500 for a listing that had been through the research tool,
+    20 September 2026.** Found by writing the test that exercises the branch rather than the
+    empty one, while building F12's second surface. It is the worst defect this phase has
+    turned up and it had been there all along.
+
+    `aer.services.performance._sector_of` reads the filer's own classification off
+    `security.company` to build the exposure bands. `Security.company` is a default
+    relationship, which is a **lazy load**, and a lazy load in an async session does not read
+    — it raises `MissingGreenlet`. `transactions_in_force` loaded
+    `selectinload(Transaction.security)` and stopped there.
+
+    *So `/portfolio`, `/risk` and the new check all answered 500* for any book holding a
+    security with a company attached — which is every security the research tool creates,
+    since resolving a ticker to a company is what the research tool does first.
+
+    *Why it stayed green.* **No fixture had ever attached a company to a held listing.** The
+    book fixture's securities are bare rows, and the sector band on them resolves to "not
+    known" — but a lazy load resolving to `None` still has to go to the database to find that
+    out, so the whole path was exercised hundreds of times against a case that could not
+    fail. Confirmed by probing `/portfolio` directly on a scene with a classified holding
+    before touching the loader: 500, on code nothing in this change had altered.
+
+    *The fix is one loader option*, `selectinload(Transaction.security).selectinload(
+    Security.company)`, and two regression tests that pin it where it lives: one asserting
+    `inspect(security).unloaded` does not contain `company` — so dropping the option fails
+    rather than the page — and one asserting the sector band comes back with the sector in
+    it rather than one "not known" group.
+
+    **The class is a new one and worth naming: a fixture that cannot reach the failing
+    state.** Distinct from §3.19.39's *a guard written against one state of the code*, and
+    from the recurring *one rule written twice*: here the code was wrong from the first
+    commit and the test suite was structurally incapable of noticing, because the scene it
+    builds is one where the bug has no effect. The cheap counter is the one that caught it —
+    when a branch exists for a state, build a test that is actually in that state, even when
+    the empty case already passes.
+
+
+50. **`latest_close` was written twice, and this change would have made it three, 20
+    September 2026.** The recurring class, for the eighth time in three days, and the first
+    time it was caught *before* the third copy rather than after.
+
+    The portfolio page and the risk page each carried their own `_latest_close` — the same
+    query, the same fallback, docstrings that already said *"as the portfolio page defaults
+    to, and for its reason"*, which is the sentence a copy writes about the thing it copied.
+    The decision form's check needs the same date for the same reason.
+
+    Moved to `aer.services.portfolio.latest_close`, where the book lives, and both pages now
+    read it. Recorded separately from item 49 because the lesson is different: that one is
+    about tests that cannot reach a state, this one is about noticing the pattern at the
+    moment you are about to extend it.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

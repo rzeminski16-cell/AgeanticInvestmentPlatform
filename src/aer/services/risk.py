@@ -72,6 +72,7 @@ from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
 from aer.services.calculations import new_context, persist_context
 from aer.services.performance import (
+    ExposureSlice,
     ExposureView,
     country_of,
     currency_of,
@@ -79,25 +80,35 @@ from aer.services.performance import (
     major_currency,
     sector_of,
 )
-from aer.services.portfolio import CLOSED, Figure, PortfolioView, book_as_at, graded_figure
+from aer.services.portfolio import (
+    CLOSED,
+    Figure,
+    HoldingRow,
+    PortfolioView,
+    book_as_at,
+    graded_figure,
+)
 from aer.services.prices import adjusted_series_for
 from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 
 __all__ = [
     "FREQUENCY",
+    "NO_INTENDED_SIZE",
     "STEP_KEY",
     "SUBJECT_BOOK",
     "TOOL",
     "WINDOW_DAYS",
     "WORKFLOW_VERSION",
     "HoldingRisk",
+    "PreTradeCheck",
     "Reading",
     "RiskView",
     "ScenarioOutcome",
     "Shock",
     "ShockedPosition",
     "block_of",
+    "check_before_recording",
     "last_trade_recorded_at",
     "latest_reading",
     "money",
@@ -603,6 +614,153 @@ async def scenarios_for(
     if not include_withdrawn:
         statement = statement.where(RiskScenario.withdrawn_at.is_(None))
     return list(await session.scalars(statement))
+
+
+# -- The check before a decision is recorded ---------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class PreTradeCheck:
+    """What the book already says about one security, beside a decision about to be recorded.
+
+    F12's rule is that the exposure arithmetic has **one implementation, surfaced twice** —
+    as the risk page, and as this. So nothing here computes: it selects from the same
+    :func:`book_as_at`, :func:`exposure_as_at` and :func:`_scenario_outcome` the page reads,
+    in one ledger, and a figure on this check is the same recorded calculation the page
+    footnotes. Two surfaces disagreeing is made unrepresentable rather than tested for.
+    """
+
+    as_of: date
+    net_assets: Figure | None
+    """The denominator, so a weight is a weight *of* something the reader can see."""
+
+    held: HoldingRow | None
+    """This security's place in the book today, or ``None`` when the book does not hold it."""
+
+    top_holdings: Figure | None
+    """The five largest holdings' combined share (``CONCENTRATION_COUNT``)."""
+
+    sector: ExposureSlice | None
+    """The share of the book already in this security's sector, or ``None`` if unclassified."""
+
+    scenarios: tuple[ScenarioOutcome, ...]
+    """The operator's stated shocks that reach this security, with the book-wide impact."""
+
+    problem: str = ""
+
+    @property
+    def says_nothing(self) -> bool:
+        """Whether there is no figure to show, so a surface prints the reason instead."""
+        return self.net_assets is None
+
+
+# Why this check cannot say what the book becomes. Stated once, here, so the page and any
+# other reader quote the same sentence rather than each inventing one.
+NO_INTENDED_SIZE: Final = (
+    "This says what the book is now, not what it becomes. A decision's size is a sentence "
+    "rather than a number, so nothing here can be multiplied by it."
+)
+
+
+async def check_before_recording(
+    session: AsyncSession,
+    context: CalculationContext,
+    *,
+    portfolio: Portfolio,
+    security: Security | None,
+    as_of: date,
+) -> PreTradeCheck:
+    """The book as it stands, cut to what a decision about ``security`` needs.
+
+    **It states the book now and never what the book becomes**, and that is ADR 0104's
+    decision rather than a gap here. `decisions.size_statement` is text — *"about two per
+    cent of the book"* — precisely so that no calculation can read an intended weight and
+    multiply it by a net asset value, because a position sized that way is a position sized
+    by a view. The page specification's §11.1 asks for *"top-five concentration before and
+    after"*; there is no *after* to compute, and an ADR outranks a page specification.
+
+    **It never blocks and has no ceiling to breach.** F12 says a breached ceiling turns the
+    submit control into *"Record it anyway"*; no ceiling is stored anywhere in the platform,
+    and inventing one would be the platform stating the operator's risk policy for them.
+    What this returns is what the book says; the decision remains the operator's.
+
+    Args:
+        security: The decision's subject, or ``None`` — a decision may name none, because
+            the listing may not exist yet (ADR 0104). The concentration and the scenarios
+            still read, and ``held`` and ``sector`` are ``None``.
+    """
+    book = await book_as_at(session, context, portfolio=portfolio, as_of=as_of)
+    exposure = await exposure_as_at(session, context, portfolio=portfolio, as_of=as_of, view=book)
+    if book.net_assets is None or book.net_assets.value <= 0:
+        problem = f"No exposure: {book.problem}" if book.problem else _NO_DENOMINATOR
+        return PreTradeCheck(
+            as_of=as_of,
+            net_assets=None,
+            held=None,
+            top_holdings=None,
+            sector=None,
+            scenarios=(),
+            problem=problem,
+        )
+
+    held = (
+        next(
+            (
+                row
+                for row in book.holdings
+                if row.security.id == security.id and row.problem != CLOSED
+            ),
+            None,
+        )
+        if security is not None
+        else None
+    )
+    stated = await scenarios_for(session, portfolio=portfolio)
+    outcomes = tuple(_scenario_outcome(context, book, scenario) for scenario in stated)
+    reaching = (
+        tuple(
+            outcome
+            for outcome in outcomes
+            if security is not None and security.ticker in outcome.reached
+        )
+        if security is not None
+        else outcomes
+    )
+    _log.info(
+        "risk.pre_trade_check",
+        portfolio=str(portfolio.id),
+        as_of=as_of.isoformat(),
+        ticker=security.ticker if security is not None else None,
+        held=held is not None,
+        scenarios=len(reaching),
+    )
+    return PreTradeCheck(
+        as_of=as_of,
+        net_assets=book.net_assets,
+        held=held,
+        top_holdings=exposure.top_holdings,
+        sector=_sector_slice(exposure, security),
+        scenarios=reaching,
+        problem="",
+    )
+
+
+def _sector_slice(exposure: ExposureView, security: Security | None) -> ExposureSlice | None:
+    """The sector band's slice this security falls in, or ``None``.
+
+    ``None`` covers three states a surface renders the same way — no security named, a
+    security whose filer states no classification, and a sector the book is not yet in —
+    because all three answer *"nothing here tells you what you already hold alongside it"*.
+    """
+    if security is None:
+        return None
+    sector = sector_of(security)
+    if sector is None:
+        return None
+    band = next((row for row in exposure.bands if row.kind == "sector"), None)
+    if band is None:
+        return None
+    return next((row for row in band.slices if row.label == sector), None)
 
 
 async def state_scenario(

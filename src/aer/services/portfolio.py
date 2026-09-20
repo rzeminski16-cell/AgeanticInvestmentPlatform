@@ -34,12 +34,12 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from aer.calc import portfolio as calc
@@ -68,6 +68,7 @@ __all__ = [
     "book_as_at",
     "graded_figure",
     "in_base",
+    "latest_close",
     "movement_of",
     "source_of",
     "transactions_in_force",
@@ -369,6 +370,26 @@ def _weighted_cash(context: CalculationContext, row: CashRow, *, total: Quantity
 # -- Reading the book ------------------------------------------------------------------------
 
 
+async def latest_close(session: AsyncSession, *, portfolio: Portfolio) -> date:
+    """The last day the platform has a price for anything in this book.
+
+    **The date every book surface defaults to**, because a book shown at today's date is a
+    book with no prices for today — markets close, and a screen defaulting to now would show
+    every holding unpriced every evening and all weekend.
+
+    Here rather than on a page, because three of them want it. It was written twice before
+    this — once on the portfolio page and once on the risk page, identically — and the
+    decision form's pre-trade check would have made it three, which is roadmap §3.19's
+    recurring defect: one rule written twice with one copy left to rot.
+    """
+    latest = await session.scalar(
+        select(func.max(PriceBar.bar_date))
+        .join(Transaction, Transaction.security_id == PriceBar.security_id)
+        .where(Transaction.portfolio_id == portfolio.id)
+    )
+    return latest or datetime.now(UTC).date()
+
+
 async def transactions_in_force(
     session: AsyncSession, *, portfolio: Portfolio, as_of: date
 ) -> list[Transaction]:
@@ -410,7 +431,16 @@ async def transactions_in_force(
             Attestation.recorded_at,
             Transaction.attestation_id,
         )
-        .options(selectinload(Transaction.attestation), selectinload(Transaction.security))
+        .options(
+            selectinload(Transaction.attestation),
+            # The listing's issuer travels with it, because the exposure bands read the
+            # filer's own classification off it (`performance._sector_of`). A default
+            # relationship is a lazy load, and a lazy load in an async session raises
+            # rather than reading — so leaving it off made every book surface 500 for a
+            # security that had been through the research tool, and stayed green because
+            # no fixture had ever attached a company to a held listing.
+            selectinload(Transaction.security).selectinload(Security.company),
+        )
     )
     return list(rows)
 

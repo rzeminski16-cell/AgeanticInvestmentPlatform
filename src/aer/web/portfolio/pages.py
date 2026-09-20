@@ -28,14 +28,14 @@ from typing import Final
 
 import structlog
 from fastapi import APIRouter, Request
-from sqlalchemy import func, select
+from sqlalchemy import select
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
 from aer.core.enums import AttestationKind, Grade, TransactionKind
-from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction, User
+from aer.db.models import Attestation, Portfolio, Security, Transaction, User
 from aer.errors import AerError
 from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
@@ -121,7 +121,9 @@ async def portfolio_page(
         set_csrf_cookie(response, token)
         return response
 
-    as_of = _requested_date(request) or await _latest_close(session, portfolio=book)
+    as_of = _requested_date(request) or await portfolio_service.latest_close(
+        session, portfolio=book
+    )
     context = calculation_service.new_context()
 
     try:
@@ -360,21 +362,6 @@ def _requested_date(request: Request) -> date | None:
         # date input; anything else in the query string is a hand-typed URL, and the useful
         # answer to one is the page.
         return None
-
-
-async def _latest_close(session: DbSession, *, portfolio: Portfolio) -> date:
-    """The last day the platform has a price for anything in this book.
-
-    The default, because a book shown at today's date is a book with no prices for today —
-    markets close, and a screen that defaulted to now would show every holding unpriced
-    every evening and all weekend.
-    """
-    latest = await session.scalar(
-        select(func.max(PriceBar.bar_date))
-        .join(Transaction, Transaction.security_id == PriceBar.security_id)
-        .where(Transaction.portfolio_id == portfolio.id)
-    )
-    return latest or datetime.now(UTC).date()
 
 
 async def _dealable(session: DbSession) -> list[Security]:

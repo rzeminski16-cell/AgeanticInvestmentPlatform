@@ -19,19 +19,19 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any, Final
 
 import structlog
 from fastapi import APIRouter, Request
-from sqlalchemy import func, select
+from sqlalchemy import select
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, SettingsDep, StoreDep
 from aer.core.enums import ShockKind
-from aer.db.models import Portfolio, PriceBar, RiskScenario, Transaction
+from aer.db.models import Portfolio, RiskScenario
 from aer.errors import AerError
 from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
@@ -91,7 +91,9 @@ async def risk_page(
         set_csrf_cookie(empty, token)
         return empty
 
-    as_of = _requested_date(request) or await _latest_close(session, portfolio=book)
+    as_of = _requested_date(request) or await portfolio_service.latest_close(
+        session, portfolio=book
+    )
     context = new_context()
     try:
         view = await risk_service.risk_as_at(session, context, portfolio=book, as_of=as_of)
@@ -278,41 +280,50 @@ def _width(share: Decimal | None) -> int:
     return int(max(Decimal(0), min(Decimal(1), share)) * 100)
 
 
+def scenario_row(row: risk_service.ScenarioOutcome, currency: str) -> dict[str, Any]:
+    """One stated scenario as a surface renders it.
+
+    **Public, and imported by the decision form's pre-trade check**, which shows the shocks
+    that reach the listing it is about. F12's rule is one implementation of the exposure
+    arithmetic surfaced twice, and the formatting is half of what "the same figure" means: a
+    second copy here would let the two pages round the same impact differently and still
+    both be right about the number underneath.
+    """
+    return {
+        "id": row.scenario.id,
+        "name": row.scenario.name,
+        "shocks": [
+            {
+                "kind": vocabulary.SHOCK_KINDS[shock.kind].label,
+                "target": shock.target,
+                "shock": risk_service.percent(shock.shock),
+            }
+            for shock in row.scenario.shocks
+        ],
+        "reached": ", ".join(row.reached),
+        "count": len(row.reached),
+        "pnl": risk_service.money(row.pnl.value, currency) if row.pnl else "",
+        "impact": risk_service.percent(row.impact.value) if row.impact else "",
+        "is_loss": bool(row.pnl and row.pnl.value < 0),
+        "problem": row.problem,
+        "href": "",
+        # The scenario as a diff of the book: each reached position with what it is
+        # worth, what it takes and what that costs, each its own recorded calculation.
+        "positions": [
+            {
+                "label": position.label,
+                "value": risk_service.money(position.value.value, currency),
+                "shock": risk_service.percent(position.shock),
+                "pnl": risk_service.money(position.pnl.value, currency),
+                "is_loss": position.pnl.value < 0,
+            }
+            for position in row.positions
+        ],
+    }
+
+
 def _scenario_rows(view: risk_service.RiskView, currency: str) -> list[dict[str, Any]]:
-    return [
-        {
-            "id": row.scenario.id,
-            "name": row.scenario.name,
-            "shocks": [
-                {
-                    "kind": vocabulary.SHOCK_KINDS[shock.kind].label,
-                    "target": shock.target,
-                    "shock": risk_service.percent(shock.shock),
-                }
-                for shock in row.scenario.shocks
-            ],
-            "reached": ", ".join(row.reached),
-            "count": len(row.reached),
-            "pnl": risk_service.money(row.pnl.value, currency) if row.pnl else "",
-            "impact": risk_service.percent(row.impact.value) if row.impact else "",
-            "is_loss": bool(row.pnl and row.pnl.value < 0),
-            "problem": row.problem,
-            "href": "",
-            # The scenario as a diff of the book: each reached position with what it is
-            # worth, what it takes and what that costs, each its own recorded calculation.
-            "positions": [
-                {
-                    "label": position.label,
-                    "value": risk_service.money(position.value.value, currency),
-                    "shock": risk_service.percent(position.shock),
-                    "pnl": risk_service.money(position.pnl.value, currency),
-                    "is_loss": position.pnl.value < 0,
-                }
-                for position in row.positions
-            ],
-        }
-        for row in view.scenarios
-    ]
+    return [scenario_row(row, currency) for row in view.scenarios]
 
 
 def _reading_context(reading: risk_service.Reading | None) -> dict[str, Any] | None:
@@ -356,7 +367,7 @@ async def read_book(  # noqa: PLR0917 -- the service bundle, spelt out
     try:
         as_of = date.fromisoformat(submitted.get("as_of", ""))
     except ValueError:
-        as_of = await _latest_close(session, portfolio=book)
+        as_of = await portfolio_service.latest_close(session, portfolio=book)
 
     try:
         job = await risk_service.run_reading(
@@ -462,18 +473,6 @@ def _requested_date(request: Request) -> date | None:
         return date.fromisoformat(raw) if raw else None
     except ValueError:
         return None
-
-
-async def _latest_close(session: Any, *, portfolio: Portfolio) -> date:
-    """The last day the platform has a price for anything in this book, as the portfolio
-    page defaults to, and for its reason: a book shown at today's date is unpriced every
-    evening and all weekend."""
-    latest = await session.scalar(
-        select(func.max(PriceBar.bar_date))
-        .join(Transaction, Transaction.security_id == PriceBar.security_id)
-        .where(Transaction.portfolio_id == portfolio.id)
-    )
-    return latest or datetime.now(UTC).date()
 
 
 async def _submitted(request: Request) -> dict[str, str]:

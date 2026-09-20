@@ -6,10 +6,18 @@ decision in full — what was decided, on what basis, the premises of the thesis
 on, the trades that followed — with the forms to withdraw it or to revise it as a new entry
 that supersedes it.
 
-**Nothing on either page is a figure.** A decision's size is a sentence, its horizon a
+**No figure here is *about the decision*.** A decision's size is a sentence, its horizon a
 number of months a reviewer compares with a date, and neither enters arithmetic anywhere
 (ADR 0074, ADR 0104). The trades listed are attestations, rendered by the portfolio's own
 rules; this page adds the link and nothing else.
+
+**The pre-trade check is the one place figures appear, and they are about the book** (F12).
+It states what the operator already holds — net assets, this listing's weight, the largest
+five, the sector's share, and their own stated shocks — from
+:func:`aer.services.risk.check_before_recording` and the risk page's own row formatter, so
+the two surfaces cannot disagree. It **states the book now and never what the book becomes**,
+because there is no stored intended weight for anything to multiply, and it **never blocks**,
+because no ceiling exists in this platform to be breached.
 
 **Nothing here decides anything.** The action is a word the operator chose from six; the
 platform's contribution is to have the entry written before the trade rather than after.
@@ -34,11 +42,14 @@ from aer.db.models import Decision, Portfolio, Security, Thesis, Transaction
 from aer.errors import AerError
 from aer.services import decisions as decision_service
 from aer.services import portfolio as portfolio_service
+from aer.services import risk as risk_service
 from aer.services import theses as thesis_service
+from aer.services.calculations import new_context
 from aer.services.decisions import ACTION_WORDS
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.risk.pages import scenario_row
 from aer.web.templating import render
 from aer.web.theses.pages import PremiseRow, premise_rows
 
@@ -247,7 +258,7 @@ def _journal_verdict(rows: list[DecisionRow], *, theses: int) -> verdicts.Verdic
 async def decisions_page(
     request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
-    """Every held decision, and the form to write one."""
+    """Every held decision, the form to write one, and the check that runs before it."""
     withdrawn = request.query_params.get("withdrawn") == "1"
     rows = [
         _row(decision)
@@ -256,6 +267,8 @@ async def decisions_page(
         )
     ]
     theses = await thesis_service.theses_for(session, user_id=user.id)
+    named = request.query_params.get("security", "").strip()
+    check = await _pre_trade(session, named, user_id=user.id)
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -270,6 +283,8 @@ async def decisions_page(
                 for action in ACTION_CHOICES
             ],
             "securities": await _dealable(session),
+            "named_security": named,
+            "check": check,
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -531,6 +546,98 @@ async def _security(session: Any, typed: str) -> Security | None:
         message = f"{cleaned!r} is listed more than once ({choices}); say which"
         raise ValueError(message)
     return found[0]
+
+
+# -- The check before it is recorded -------------------------------------------------------
+
+
+async def _pre_trade(session: Any, named: str, *, user_id: uuid.UUID) -> dict[str, Any] | None:
+    """What the book already says, for the form to show before it is submitted.
+
+    ``None`` when this person keeps no book: a concentration figure with no denominator is
+    not a warning, it is a blank the operator has to interpret.
+
+    **Every figure here comes from `risk_service.check_before_recording`**, and every
+    scenario is rendered by the risk page's own :func:`~aer.web.risk.pages.scenario_row`.
+    F12 asks for one implementation of the exposure arithmetic surfaced twice; importing
+    both halves is how the two surfaces are stopped from disagreeing rather than tested for
+    agreeing.
+    """
+    book = await portfolio_service.default_book(session, user_id=user_id)
+    if book is None:
+        return None
+    try:
+        security = await _security(session, named)
+    except ValueError:
+        # A listing nobody holds, typed or linked in. The book-wide half of the check still
+        # reads, and the record form says its own piece about the name when it is submitted.
+        security = None
+
+    as_of = await portfolio_service.latest_close(session, portfolio=book)
+    context = new_context()
+    try:
+        check = await risk_service.check_before_recording(
+            session, context, portfolio=book, security=security, as_of=as_of
+        )
+    except AerError as problem:
+        _log.warning("decisions.check_failed", portfolio=str(book.id), error=str(problem))
+        return {
+            "problem": str(problem),
+            "as_of": f"{as_of:%d %B %Y}",
+            "figures": [],
+            "scenarios": [],
+        }
+
+    currency = book.base_currency
+    figures: list[dict[str, str]] = []
+    if check.net_assets is not None:
+        figures.append(
+            {
+                "label": "The book",
+                "value": risk_service.money(check.net_assets.value, currency),
+                "note": f"Net assets as at {as_of:%d %B %Y}.",
+            }
+        )
+    if check.held is not None and check.held.weight is not None:
+        figures.append(
+            {
+                "label": f"Already held in {check.held.security.ticker}",
+                "value": risk_service.percent(check.held.weight.value).lstrip("+"),
+                "note": "Of net assets, before anything this decision leads to.",
+            }
+        )
+    elif security is not None:
+        figures.append(
+            {
+                "label": f"Already held in {security.ticker}",
+                "value": "nothing",
+                "note": "The book holds none of this listing as at this date.",
+            }
+        )
+    if check.top_holdings is not None:
+        figures.append(
+            {
+                "label": "Largest five holdings",
+                "value": risk_service.percent(check.top_holdings.value).lstrip("+"),
+                "note": "Their combined share of net assets.",
+            }
+        )
+    if check.sector is not None:
+        figures.append(
+            {
+                "label": f"Already in {check.sector.label}",
+                "value": risk_service.percent(check.sector.share.value).lstrip("+"),
+                "note": f"{len(check.sector.members)} of the book's holdings sit in this sector.",
+            }
+        )
+    return {
+        "problem": check.problem,
+        "as_of": f"{as_of:%d %B %Y}",
+        "ticker": security.ticker if security is not None else "",
+        "figures": figures,
+        "scenarios": [scenario_row(row, currency) for row in check.scenarios],
+        "caveat": risk_service.NO_INTENDED_SIZE,
+    }
 
 
 async def _dealable(session: Any) -> list[dict[str, str]]:

@@ -475,15 +475,40 @@ last_measured, last_measured_at, review_date, history[]), `measurable_metrics[]`
 
 ### 11.1 The pre-trade check
 
-Renders **before** the form can be submitted, computed from the intended size:
+Renders **before** the form can be submitted.
 
-- Weight after the trade, against the ceiling.
-- Top-five concentration before and after.
-- Sector exposure before and after.
-- The stated horizon against the model's payback.
+~~Computed from the intended size:~~ ~~Weight after the trade, against the ceiling. Top-five
+concentration before and after. Sector exposure before and after.~~ ~~If a ceiling would be
+breached, a `warning` band says so and the submit control reads *"Record it anyway"*.~~
 
-If a ceiling would be breached, a `warning` band says so and the submit control reads *"Record it
-anyway"*. **It never blocks.** The operator's book is their own.
+**Corrected 20 September 2026, against ADR 0104, which outranks this document.** There is no
+*after* to compute and no ceiling to breach, and neither is a gap:
+
+- **`decisions.size_statement` is text, and that is a decision.** ADR 0104 rejected a numeric
+  intended size in as many words — *"a stored intended weight would be a judgement wearing a
+  `Quantity`'s clothes, and the day something multiplied it by a net asset value the position
+  would be sized by a view"*. Nothing can compute a weight after the trade because nothing
+  may store the weight the trade intends.
+- **No ceiling exists anywhere in the platform** — not on `portfolios`, not in settings, not
+  in the risk service. A ceiling the platform invented would be the platform stating the
+  operator's risk policy for them, which is the thing ADR 0080 refuses one layer along.
+
+So the check states **the book as it stands**, cut to what this decision is about, and says in
+words that it cannot state what the book becomes:
+
+- What the book is worth, so a weight is a weight *of* something the reader can see.
+- What is already held in this listing, or that none is.
+- Top-five concentration.
+- The share already in this listing's sector.
+- The operator's own stated shocks that reach this listing, with what each does to the book.
+
+Every figure is the same recorded calculation the risk page footnotes, from
+`aer.services.risk.check_before_recording` and that page's own row formatter — F12's *one
+implementation, surfaced twice*, made structural rather than tested for.
+
+**It never blocks**, and now there is nothing it could block with. The operator's book is
+their own. The stated horizon against the model's payback is not built and needs F13's
+composed view on the same page; it is listed here as the check's open half.
 
 **States.** No thesis: the form cannot be submitted, and offers the thesis editor inline. No
 report: allowed, with a `warning` noting the decision rests on nothing recorded.

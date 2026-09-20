@@ -15,9 +15,10 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 
 from aer.calc.attestation import Attested, Graded
 from aer.calc.engine import CalculationContext
@@ -28,8 +29,10 @@ from aer.core.enums import (
 )
 from aer.db.models import (
     Calculation,
+    Company,
     Security,
 )
+from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.web.portfolio import pages as pages_module
 from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security, _Unheld
@@ -45,6 +48,7 @@ BOUGHT_ON = portfolio_fixtures.BOUGHT_ON
 funded = portfolio_fixtures.funded
 trade = portfolio_fixtures.trade
 view_of = portfolio_fixtures.view_of
+book = portfolio_fixtures.book
 
 
 @pytest.fixture
@@ -526,3 +530,76 @@ class TestTheBookLeadsWithAVerdict:
 
         assert lead.tone is Tone.MUTED
         assert "Nothing is recorded yet" in lead.composed
+
+
+class TestTheListingArrivesWithItsIssuer:
+    """A holding's security must come back with its company already loaded.
+
+    Not a preference. `performance._sector_of` reads the filer's own classification off
+    `security.company` to build the exposure bands, and a default relationship is a lazy
+    load — which in an async session raises rather than reading. Without the loader option
+    every surface that cuts the book by sector (the portfolio page, the risk page, the
+    decision form's pre-trade check) answers 500 for any listing that has been through the
+    research tool, which is every listing that has.
+
+    It stayed green for as long as it did because no fixture had ever attached a company to
+    a *held* listing: the book's securities were bare rows, and a lazy load that resolves to
+    `None` still has to go to the database to find that out.
+    """
+
+    async def test_a_holdings_company_is_loaded_rather_than_lazy(
+        self, db_session: Any, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        company = Company(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            exchange="NASDAQ",
+            cik="0000789019",
+            sic="7372",
+            sic_description="Prepackaged software",
+        )
+        db_session.add(company)
+        await db_session.flush()
+        book["msft"].company_id = company.id
+        await funded(db_session, book)
+        await trade(db_session, book, security=book["msft"], quantity="10", price="400")
+
+        view = await portfolio_service.book_as_at(
+            db_session, context, portfolio=book["portfolio"], as_of=AS_OF
+        )
+
+        assert view.holdings
+        for row in view.holdings:
+            assert "company" not in inspect(row.security).unloaded, (
+                f"{row.security.ticker} arrived without its issuer, so reading its sector "
+                "would be a lazy load, and a lazy load here raises"
+            )
+
+    async def test_the_exposure_bands_read_that_issuer(
+        self, db_session: Any, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        """The end the loader exists for: with the issuer loaded, the sector band is real
+        rather than a single "not known" group."""
+        company = Company(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            exchange="NASDAQ",
+            cik="0000789019",
+            sic="7372",
+            sic_description="Prepackaged software",
+        )
+        db_session.add(company)
+        await db_session.flush()
+        book["msft"].company_id = company.id
+        await funded(db_session, book)
+        await trade(db_session, book, security=book["msft"], quantity="10", price="400")
+
+        view = await portfolio_service.book_as_at(
+            db_session, context, portfolio=book["portfolio"], as_of=AS_OF
+        )
+        exposure = await performance_service.exposure_as_at(
+            db_session, context, portfolio=book["portfolio"], as_of=AS_OF, view=view
+        )
+
+        sectors = next(row for row in exposure.bands if row.kind == "sector")
+        assert [slice_.label for slice_ in sectors.slices] == ["Prepackaged software"]

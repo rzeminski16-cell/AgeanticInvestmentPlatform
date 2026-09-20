@@ -59,6 +59,74 @@
     </p>
   {% endcall %}
 
+  {#
+    The pre-trade check (F12). It renders **before** the form and it never blocks: there is
+    no ceiling in this platform and no control here that could refuse a decision. What it
+    does is make sure the operator knew — the book they already have, what of it is already
+    in this listing and in its sector, and what their own stated shocks would do to it.
+
+    It is a separate `get` form rather than a control inside the record form, because two
+    nested forms are not valid HTML and because this must work with scripting off: naming a
+    listing here reloads the page with the check filled and the record form's own listing
+    box prefilled with the same string.
+  #}
+  {% if check %}
+    {% call ui.sheet("Before you record it", subtitle="What the book already says, as at the last close the platform has a price for. It cannot say what the book becomes: nothing here refuses a decision, and nothing here is a limit.", id="pre-trade-check") %}
+      <form method="get" action="/decisions" class="grid max-w-2xl gap-4" id="check-listing">
+        <div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+          {{ ui.field("security", "Which listing", value=named_security, datalist="check-listings", hint="TICKER.EXCHANGE. Leave it empty for the book as a whole.") }}
+          <div>
+            <button
+              id="show-check"
+              type="submit"
+              class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 py-2 type-label text-ink hover:bg-surface-selected"
+            >
+              Show what the book holds
+            </button>
+          </div>
+        </div>
+        <datalist id="check-listings">
+          {% for security in securities %}
+            <option value="{{ security.value }}">{{ security.label }}</option>
+          {% endfor %}
+        </datalist>
+      </form>
+
+      {% if check.problem %}
+        <p class="mt-4 type-body text-ink-muted">{{ check.problem }}</p>
+      {% elif check.figures %}
+        <div class="mt-4 grid gap-6 sm:grid-cols-2" id="check-figures">
+          {% for row in check.figures %}
+            {{ ui.figure(row.label, row.value, note=row.note, provenance_href="/risk", provenance_label="The same figures, in full, on the risk page") }}
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if check.scenarios %}
+        {#
+          The same rows the risk page prints, built by its own `scenario_row`: one shock
+          rendered twice must be one number twice, and importing the formatter is what makes
+          that structural rather than something a test has to keep watching.
+        #}
+        {% call ui.table("Your stated shocks that reach this", [{"label": "Scenario"}, {"label": "Shocks"}, {"label": "Reaches"}, {"label": "Profit and loss", "numeric": true}, {"label": "Of the book", "numeric": true}]) %}
+          {% for row in check.scenarios %}
+            <tr data-scenario="{{ row.id }}" data-loss="{{ 'yes' if row.is_loss else 'no' }}">
+              {{ ui.cell(row.name, header=true) }}
+              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% for shock in row.shocks %}{{ shock.kind | in_words }}{% if shock.target %} {{ shock.target }}{% endif %} {{ shock.shock }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% if row.problem %}<span class="text-ink-muted">{{ row.problem }}</span>{% else %}{{ row.count }}: {{ row.reached }}{% endif %}</td>
+              {{ ui.cell(row.pnl, numeric=true) }}
+              {{ ui.cell(row.impact, numeric=true) }}
+            </tr>
+          {% endfor %}
+        {% endcall %}
+      {% elif check.ticker %}
+        <p class="mt-4 type-body text-ink-muted">None of your stated shocks reaches {{ check.ticker }}. A shock is yours to state, on the risk page; the platform proposes none.</p>
+      {% endif %}
+
+      <p class="mt-4 type-body text-ink-muted" id="check-caveat">{{ check.caveat }}</p>
+    {% endcall %}
+  {% endif %}
+
   {% call ui.sheet("Record a decision", subtitle="What you are going to do about a thesis, and why, before you do it. The trade that carries it out points back here from the portfolio form.") %}
     {% if theses %}
       <form method="post" action="/decisions" class="grid max-w-2xl gap-4" id="record-decision">
@@ -68,7 +136,7 @@
         {{ ui.field("statement", "In a line", required=true, rows=2, hint="\"Open an initial position, about two per cent of the book.\"") }}
         {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What you read, saw or reasoned. A decision with no grounds is the entry a review cannot score.") }}
         <div class="grid gap-4 sm:grid-cols-2">
-          {{ ui.field("security", "Listing", datalist="dealable-listings", hint="TICKER.EXCHANGE, from the listings the platform holds. Leave empty if it has not been priced yet: the trade form's third door creates the listing when the trade is recorded, and the trade can be attributed to this decision afterwards from its page.") }}
+          {{ ui.field("security", "Listing", value=named_security, datalist="dealable-listings", hint="TICKER.EXCHANGE, from the listings the platform holds. Leave empty if it has not been priced yet: the trade form's third door creates the listing when the trade is recorded, and the trade can be attributed to this decision afterwards from its page.") }}
           {{ ui.field("decided_on", "Decided on", type="date", value=today, maximum=today, hint="Defaults to today. Backdate it if you are writing up a decision already taken.") }}
           {{ ui.field("size_statement", "How much, in words", hint="\"About 2% of the book\", \"half the position\". A sentence, never a number the platform could multiply.") }}
           {{ ui.field("horizon_months", "Intended holding period, in months", type="number", hint="What a later review compares the actual holding period with.") }}
