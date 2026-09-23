@@ -887,7 +887,7 @@ authority on sequencing within this item.
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
-| F4 | The refresh | ADR 0116, F7 |
+| F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession |
 | F5 | The model workbook | — |
 | F6 | Ask, in three tiers | F7 for tier 3 — **tiers 1 and 2 landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, tier 3 resolved and priced; its acquisition follows F4 |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
@@ -2085,7 +2085,7 @@ found rather than as scope that was always there.
     | F14 review and analytics | **Built.** `services/post_trade.py`, a `reviews` table, `/review`, `/review/{id}`, `/analytics`, a browser screen test |
     | F12 risk | **Half.** `calc/risk.py`, `services/risk.py` and `calc/portfolio.py` are 2,109 lines with `/risk` and a browser screen test — and `web/decisions/pages.py` imports `portfolio` and `theses` and **not `risk`**. Its "done when" is *the same shock produces the same figure on both surfaces*, and the second surface does not exist |
     | F3 the closing section | **Absent.** No section definition, and `research_requests` carries none of the three fields |
-    | F4 the refresh | **Absent.** One workflow in `workflow/workflows/` |
+    | F4 the refresh | **Absent.** One workflow in `workflow/workflows/` — *landed 23 September 2026 as `refresh_v1`, item 57* |
     | F6 Ask | **Absent.** No `services/ask.py`, no route |
     | F15 scheduling | **Absent.** No cron anywhere in `worker.py` or `queue.py` |
 
@@ -2378,6 +2378,30 @@ found rather than as scope that was always there.
     headline to the base case's own row on a run with grids. The class is §3.19.49's:
     a fixture that could not reach the failing state, because the surface's own tests
     valued a business without grids.
+
+57. **F4's refresh, and the four things the mechanism left to the code, 23 September 2026.**
+    ADR 0131 and migration 0086. A refresh is a second job on the report's own request
+    (`workflow_version = refresh_v1`, `refresh_kind`, `refreshes_report_id`), commissioned
+    from the report page by a control that states its price, and the click is the plan gate:
+    the carried plan and the estimate are hashed into a plan approval on the new job, and the
+    classification, peer set and theme set the prior run confirmed are re-asserted on it with
+    their prior hashes — so ADR 0123's per-job rule holds and the final gate finds its plan.
+    The workflow runs the slice's own free steps under the slice's keys, carries four model
+    steps' frozen outputs, and adds `carry_forward`, `diff` and a draft that re-drafts only the
+    sections whose recorded claims name a moved figure. `aer.calc.changes` is the mechanism's
+    table, pure; `report_changes` is the diff as rows, written by code; `change_summary` is a
+    seeded section at the head of the refreshed document, filled from those rows, whose
+    commentary is the one model call it costs and which is the whole result on a quiet
+    quarter — at £0, with no model call, the validators skipped, no document rendered and the
+    prior report still current. The ceiling is `refresh_budget_gbp` (£2), checked before every
+    paid section; a section it will not carry is carried stale and the summary says which.
+    Found on the way: the acquisition never filtered the submissions index against accessions
+    already held (`acquire_filings` now takes them and lists them as held); `Report.job`
+    needed its foreign key named once a job could point at a report twice; and the carry step
+    must copy the operator's peer and theme additions, because the re-asserted approvals hash
+    the whole slate and the slate is read per job. Open, by design: the Today band's "review
+    a completed refresh" row (`jobs.changes_read_at`) comes with the absent surfaces, and the
+    UK path still re-fetches accounts by digest rather than by accession.
 
 ### Before this leaves one machine
 

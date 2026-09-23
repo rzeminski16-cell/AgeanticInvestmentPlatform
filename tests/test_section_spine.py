@@ -47,6 +47,7 @@ from aer.skills.resolution import pinned_skills_for_work_order
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
 from tests.workflow_fixtures import (
+    CHANGE_SUMMARY_KEY,
     CLOSING_KEY,
     SPINE_KEYS,
     gate_for,
@@ -157,10 +158,36 @@ class TestTheSeed:
             latest[row.key] = row
         ordered = sorted(latest.values(), key=lambda r: (r.position, r.key))
 
-        # The spine, then the closing section (migration 0084): a builtin definition like
-        # the eighteen, at the foot, and the one whose applicability is conditional.
-        assert [row.key for row in ordered] == [*SPINE_KEYS, CLOSING_KEY]
-        assert len(ordered) == 19
+        # The change summary at the head (migration 0086, position 50: a refresh leads with
+        # what moved), the spine, then the closing section (migration 0084) at the foot —
+        # two builtin definitions like the eighteen, each with a conditional applicability.
+        assert [row.key for row in ordered] == [CHANGE_SUMMARY_KEY, *SPINE_KEYS, CLOSING_KEY]
+        assert len(ordered) == 20
+
+    async def test_the_change_summary_applies_to_no_request_and_is_filled_from_rows(
+        self, db_session: AsyncSession
+    ) -> None:
+        """F4's section is the refresh's alone (ADR 0131 §7): its predicate names a property
+        every request answers false, so no full run resolves it and the carry step creates it
+        by name; every field but the commentary is the platform's."""
+        row = await db_session.scalar(
+            select(SectionDefinition).where(SectionDefinition.key == CHANGE_SUMMARY_KEY)
+        )
+        assert row is not None
+        assert row.applicability == {"is_refresh": [True]}
+        assert row.required is False
+        assert row.token_budget > 0
+        assert row.position < min(
+            definition.position
+            for definition in await db_session.scalars(
+                select(SectionDefinition).where(SectionDefinition.key.in_(SPINE_KEYS))
+            )
+        )
+        properties = row.output_contract["properties"]
+        assert row.output_contract["required"] == ["commentary"]
+        assert "platform_filled" not in properties["commentary"]
+        for field in ("basis", "broke", "moved", "new_documents", "unchanged", "sections"):
+            assert properties[field]["platform_filled"] is True, field
 
     async def test_the_closing_section_applies_only_to_a_planned_weight(
         self, db_session: AsyncSession

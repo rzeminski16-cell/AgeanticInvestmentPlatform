@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -244,6 +245,9 @@ class AcquiredFilings:
     filings: tuple[AcquiredFiling, ...] = ()
     excerpts: int = 0
     skipped: tuple[str, ...] = field(default=())
+    # Accessions the sweep left alone because the request already held them (F4,
+    # ADR 0131 §4): a refresh reads them from the record rather than fetching them again.
+    held: tuple[str, ...] = field(default=())
 
     @property
     def documents(self) -> tuple[SourceDocument, ...]:
@@ -270,6 +274,7 @@ class AcquiredFilings:
             ],
             "filing_excerpts": self.excerpts,
             "filings_skipped": list(self.skipped),
+            "filings_held": list(self.held),
         }
 
 
@@ -284,9 +289,14 @@ async def acquire_filings(
     settings: Settings,
     job_id: uuid.UUID | None = None,
     max_current: int = MAX_CURRENT_REPORTS,
+    already_held: frozenset[str] = frozenset(),
 ) -> AcquiredFilings:
     """Fetch this entity's latest annual report, the quarterlies since it, and its
     recent current reports.
+
+    ``already_held`` names the accessions the request's record already carries (F4,
+    ADR 0131 §4): a wanted filing among them is neither fetched nor recorded again, and
+    is listed as held in the outcome, so a refresh spends nothing on what a run read.
 
     Args:
         client: The SEC client. Typed loosely so a test can substitute a stub without
@@ -321,8 +331,11 @@ async def acquire_filings(
     acquired: list[AcquiredFiling] = []
     excerpts = 0
     skipped = list(missing)
+    held = [filing.accession for filing in wanted if filing.accession in already_held]
 
     for filing in wanted:
+        if filing.accession in already_held:
+            continue
         outcome = await _acquire_one(
             session,
             store,
@@ -368,7 +381,33 @@ async def acquire_filings(
         excerpts=excerpts,
         skipped=len(skipped),
     )
-    return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
+    return AcquiredFilings(
+        filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped), held=tuple(held)
+    )
+
+
+# An EDGAR archive path: the accession folder is the eighteen digits after the CIK.
+_ACCESSION_FOLDER: Final = re.compile(r"/Archives/edgar/data/\d+/(?P<folder>\d{18})/")
+
+
+async def held_accessions(session: AsyncSession, *, work_order_id: uuid.UUID) -> frozenset[str]:
+    """The accessions this request's record already holds, read from its documents' URLs.
+
+    A ``SourceDocument`` carries no accession column; the archive path it was fetched from
+    does, as the eighteen-digit folder EDGAR files every accession under. Dashed back into
+    the form the submissions index lists, so a refresh can skip what a run read.
+    """
+    rows = await session.scalars(
+        select(SourceDocument.url).where(SourceDocument.work_order_id == work_order_id)
+    )
+    found: set[str] = set()
+    for url in rows:
+        match = _ACCESSION_FOLDER.search(url or "")
+        if match is None:
+            continue
+        folder = match["folder"]
+        found.add(f"{folder[:10]}-{folder[10:12]}-{folder[12:]}")
+    return frozenset(found)
 
 
 async def acquire_accounts(

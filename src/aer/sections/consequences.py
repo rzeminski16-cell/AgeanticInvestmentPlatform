@@ -66,6 +66,7 @@ __all__ = [
     "consequences_note",
     "consequences_only",
     "consequences_problems",
+    "instructions_found",
 ]
 
 _log = structlog.get_logger("aer.sections.consequences")
@@ -594,6 +595,15 @@ def consequences_for_audience(content: dict[str, Any], audience: Audience) -> di
 
 
 # -- The commentary's deterministic edge ------------------------------------------------------
+
+
+def instructions_found(text: str) -> list[str]:
+    """Every phrase in ``text`` that reads as an instruction, in the order the rules list them.
+
+    Shared with the change summary (F4): a commentary over figures the platform computed
+    may interpret them and may not tell the operator what to do about them.
+    """
+    return [found for pattern in _INSTRUCTIONS if (found := _found(text, pattern))]
 
 
 def consequences_problems(content: dict[str, Any], block: dict[str, Any]) -> list[str]:

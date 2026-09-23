@@ -100,6 +100,15 @@ class ResearchRequest(Base):
         """
         return (self.portfolio_context or {}).get("planned_weight") is not None
 
+    @property
+    def is_refresh(self) -> bool:
+        """Always false: a request is never a refresh, a job is (F4, ADR 0131 §7).
+
+        The change summary's applicability predicate names this so that no full run ever
+        resolves the section, and the refresh's carry step creates it explicitly.
+        """
+        return False
+
     # -- Operator preferences ----------------------------------------------------------
     risk_tolerance: Mapped[str | None] = mapped_column(Text)
     liquidity_constraint_gbp: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))

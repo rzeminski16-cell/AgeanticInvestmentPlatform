@@ -203,6 +203,27 @@ library's grouping.
 produces a change summary naming every material move, and leaves the prior report readable at
 its own address.
 
+**Corrected 23 September 2026, on building it** (ADR 0131, migration 0086). Four lines above
+did not survive the code. *Touches* named `aer.services.run_replay` for the recompute and a
+`superseded_by` column: the recompute is the slice's own free steps run again under the slice's
+keys (`refresh_v1` declares `acquire`, `extract`, `calculate`, `comps`, `value` and the rest
+as the same functions), and `superseded_by` had already landed with ADR 0116, so the refresh
+supersedes through `reports_service.supersede` with a reason that leads with *Refreshed*.
+*Needs an ADR* was answered by ADR 0131, not by a supersession ADR. Two decisions the
+specification left open are now fixed: a refresh is a **second job on the same request** —
+the record's documents and the confirmed assumptions are the request's, so a new request
+could not see them — and **the priced go-ahead is the plan gate**, recorded on the new job
+with the carried plan and the estimate hashed, with the classification, peer set and theme
+set re-asserted on the new job from the prior run's decisions. The price on the control is
+six sections at the draft step's per-section figure plus the validators, rounded up to the
+penny (£1.69 on the shipped estimates); the ceiling is `AER_REFRESH_BUDGET_GBP`, £2 by
+default, checked before every section the draft would pay for. Step 3's "inputs" are the
+figures a section's **recorded claims** name — the evidence pack is never persisted — and a
+carried section keeps its prose word for word with only the calculation ids inside its figure
+rows re-pointed at the new ledger. When nothing is new the run finishes at £0 with no model
+call, no document, and the prior report current: the change summary, filled from its rows, is
+the whole result.
+
 ---
 
 ## F5 · The model workbook

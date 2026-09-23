@@ -578,6 +578,13 @@ class TestOwnershipComesFromTheForeignKeys:
         for name in owned:
             for key in Base.metadata.tables[name].foreign_keys:
                 parent = key.column.table.name
+                if key.ondelete == "SET NULL":
+                    # The row outlives its referent, as the class docstring says: emptying
+                    # the parent first nulls the edge rather than refusing. A refresh job
+                    # names the report it refreshes this way (ADR 0131), and reports name
+                    # their job by cascade, so the two tables reference each other and no
+                    # order could put each before the other.
+                    continue
                 if parent in position and parent != name:
                     assert position[name] < position[parent], (
                         f"{name} references {parent} and must be emptied before it"

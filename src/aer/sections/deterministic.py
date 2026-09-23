@@ -56,12 +56,19 @@ from aer.sections.valuation_method import (
     method_only,
     valuation_method_block,
 )
+from aer.sections.what_changed import (
+    what_changed_block,
+    what_changed_note,
+    what_changed_only,
+    what_changed_problems,
+)
 from aer.services.evaluations import NUMERIC_CEILING
 from aer.services.history import prior_comparison_content
 
 __all__ = [
     "AUGMENTERS",
     "BUILDERS",
+    "CHANGE_SUMMARY_KEY",
     "CONSEQUENCES_KEY",
     "SectionAugmenter",
     "SectionStage",
@@ -495,6 +502,10 @@ class SectionAugmenter:
 # renderer imports the name rather than spelling it.
 CONSEQUENCES_KEY: Final = "portfolio_consequences"
 
+# The refresh's change summary (F4, ADR 0131 §7), on the same terms: seeded by migration
+# 0086, created by the refresh's carry step alone, filled from `report_changes` here.
+CHANGE_SUMMARY_KEY: Final = "change_summary"
+
 AUGMENTERS: dict[str, SectionAugmenter] = {
     "valuation_dcf": SectionAugmenter(
         build=valuation_method_block,
@@ -507,6 +518,12 @@ AUGMENTERS: dict[str, SectionAugmenter] = {
         check=consequences_problems,
         standalone=consequences_only,
         note=consequences_note,
+    ),
+    CHANGE_SUMMARY_KEY: SectionAugmenter(
+        build=what_changed_block,
+        check=what_changed_problems,
+        standalone=what_changed_only,
+        note=what_changed_note,
     ),
 }
 

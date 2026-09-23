@@ -94,6 +94,7 @@ from aer.services import citations as citation_service
 from aer.services import configuration, daily_pass, provenance
 from aer.services import gates as gates_service
 from aer.services import history as history_service
+from aer.services import refresh as refresh_service
 from aer.services import reports as reports_service
 from aer.services import requests as requests_service
 from aer.services import resume as resume_service
@@ -3433,6 +3434,17 @@ async def report_detail(
     # What happened to the report after approval (ADR 0116): the successor to link to, or
     # the withdrawal to name. A superseded report stays readable here for ever.
     successor = await session.get(Report, report.superseded_by) if report.superseded_by else None
+    # The refresh's control, priced (F4, ADR 0131 §9), or the sentence saying why not.
+    refresh_refusal = await refresh_service.refusal_to_refresh(session, report=report, user=user)
+    refresh_estimate = refresh_service.estimate_refresh(settings)
+    # A refresh this report has already had: the run to look at, or the one in flight.
+    refreshes = list(
+        await session.scalars(
+            select(Job)
+            .where(Job.refreshes_report_id == report.id)
+            .order_by(Job.started_at.desc().nullslast())
+        )
+    )
 
     token = new_csrf_token(settings)
     detail: Response = render(
@@ -3447,12 +3459,60 @@ async def report_detail(
             "section_keys": list(content.get("sections", [])),
             "exports": exports,
             "vault_configured": settings.obsidian_vault_root is not None,
+            "refresh_refusal": refresh_refusal,
+            "refresh_label": refresh_estimate.label,
+            "refresh_sections": refresh_estimate.sections_expected,
+            "refresh_ceiling": settings.refresh_budget_gbp,
+            "refreshes": refreshes,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
     )
     set_csrf_cookie(detail, token)
     return detail
+
+
+@router.post("/reports/{report_id}/refresh", summary="Refresh a report at the stated price")
+async def refresh_report_page(  # noqa: PLR0917 -- every one is an injected dependency
+    request: Request,
+    report_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Commission a refresh of the company's current report (F4, ADR 0131).
+
+    The click is the priced go-ahead: it records the plan approval on the new run and
+    carries the prior run's confirmed decisions, then queues the run and lands on its
+    console. Refused, with the reason on the page, when the report is not current, when
+    the request already has a run going, or when the report is not this account's.
+    """
+    report = await session.scalar(
+        select(Report)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
+    )
+    if report is None:
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was started.",
+            status=HTTP_403_FORBIDDEN,
+        )
+    try:
+        job = await refresh_service.start_refresh(
+            session, report=report, actor=user, settings=settings
+        )
+    except ConflictError as exc:
+        return problem_page(request, exc.message, status=HTTP_409_CONFLICT)
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job.id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/reports/{report_id}/withdraw", summary="Withdraw a report, with a reason")

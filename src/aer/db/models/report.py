@@ -141,7 +141,10 @@ class Report(Base):
     def is_superseded(self) -> bool:
         return self.superseded_by is not None
 
-    job: Mapped[Job] = relationship()
+    # Named, since ADR 0131: a refresh job also points at the report it refreshes, and two
+    # foreign-key paths between the tables leave the join for "the run that made this"
+    # ambiguous unless it is said.
+    job: Mapped[Job] = relationship(foreign_keys=[job_id])
     request: Mapped[ResearchRequest] = relationship()
 
     __table_args__ = (

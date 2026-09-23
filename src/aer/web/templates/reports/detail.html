@@ -113,6 +113,46 @@
     {% endif %}
   </nav>
 
+  {#
+    The refresh (F4, ADR 0131): a priced re-run that acquires what is new, recomputes,
+    re-drafts only the sections that moved, and supersedes this report with "refreshed".
+    The price on the control is an estimate said as one; the ceiling bounds the spend.
+    Shown only where a refresh can start; otherwise the sentence says why not.
+  #}
+  <section class="rounded-md border border-line bg-surface p-5" id="refresh" aria-labelledby="refresh-heading">
+    <h2 id="refresh-heading" class="type-label text-ink">Refresh</h2>
+    {% if refresh_refusal %}
+      <p class="mt-2 type-body-sm text-ink-muted" id="refresh-refused">{{ refresh_refusal }}</p>
+    {% else %}
+      <form method="post" action="/reports/{{ report.id }}/refresh" id="refresh-form" class="mt-3 flex flex-col gap-3">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <p class="type-body-sm text-ink-muted">
+          Reads only what has been filed since, recomputes every figure, and re-drafts only the
+          sections whose figures moved &mdash; about {{ refresh_sections }} on an ordinary quarter.
+          Nothing is spent when nothing is new. The spend stops at
+          &pound;{{ "%.2f" | format(refresh_ceiling) }} however much moved; this report stays
+          readable at its own address either way.
+        </p>
+        <div>
+          <button type="submit" id="refresh-report"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong">{{ refresh_label }}</button>
+        </div>
+      </form>
+    {% endif %}
+    {% if refreshes %}
+      <ul class="mt-3 flex flex-col gap-1" id="refresh-history">
+        {% for run in refreshes %}
+          <li class="type-body-sm text-ink-muted">
+            <a href="/runs/{{ run.id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">
+              {% if run.started_at %}Refresh started {{ run.started_at.strftime("%d %B %Y") }}{% else %}A queued refresh{% endif %}
+            </a>
+            &mdash; {{ run.status.value | lower | replace("_", " ") }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
   {% if report_state == "current" %}
     {#
       Withdrawal: the operator's way to stop a wrong report being current with nothing to

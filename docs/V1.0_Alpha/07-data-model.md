@@ -190,6 +190,21 @@ CREATE TABLE report_changes (
 stored rows, not written by a model. The model writes prose *from* these rows, never instead of
 them.
 
+**Corrected 23 September 2026, on building it** (ADR 0131, migration 0086). The shape above
+changed in five places. `jobs.refresh_kind` is `varchar(16) NOT NULL DEFAULT 'full'` with a
+check on its two values, and `jobs.refreshes_report_id` is `ON DELETE SET NULL` under a
+one-way check (`refresh_kind = 'refresh' OR refreshes_report_id IS NULL`): a refresh whose
+report is later deleted keeps its kind rather than failing the delete. `jobs.changes_read_at`
+joins them — the read mark the work list's row will use. `report_changes` gains `job_id`
+(`NOT NULL`, cascade), because the rows are written by the diff step before any report exists
+and a quiet refresh never renders one; `report_id` is therefore nullable and set by the render
+step; `prior_report_id` cascades. The row also carries `case`, `movement` (why it is material,
+in the mechanism's own words) and the two row references the summary's footnotes resolve; its
+`kind` is one of `fact`, `calculation`, `document` and `premise` — a section is never a change
+row, since which sections were re-drafted, carried or carried stale is the draft step's own
+record. The change summary is also a seeded section definition, `change_summary`, created by the
+refresh's carry step alone.
+
 ## Gap 3 — The monitor cannot record a price move
 
 **Needed by.** F11's second alert kind.

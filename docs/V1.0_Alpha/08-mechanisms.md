@@ -92,6 +92,30 @@ judges materiality.
 | The diff finds a figure the prior run did not have | Not a failure. It is an appearance, and it is material |
 | Cost exceeds the refresh ceiling | Stop at the ceiling, keep what is drafted, report a partial refresh. Never silently become a full run |
 
+## 1.7 As built, 23 September 2026 (ADR 0131)
+
+`aer.calc.changes` is §1.4's table, pure and under Hypothesis; `aer.services.refresh` reads the
+two ledgers and the fact store into figures and writes the rows; `aer.workflow.workflows.refresh_v1`
+is §1.1's shape as nineteen steps under the slice's own keys. Four things read differently in
+the code from the text above:
+
+- **The key is `(kind, name, period, case, distinguisher)`**, the last being a calculation's
+  canonical parameters minus its case, so two strikes of one name under different recorded
+  choices are two figures; sensitivity cells are never compared.
+- **§1.4's "evidence pack" is the section's recorded claims.** The pack is built per section at
+  draft time and never persisted, so a section is re-drafted when a material row names a
+  calculation or fact among the claims its prior draft recorded — or when the prior run never
+  wrote it. "Verbatim" holds for the prose; the calculation ids inside a carried section's figure
+  rows are re-pointed at the new ledger where the key resolves.
+- **§1.2's "stop here" is decided after the recompute, not before it.** Nothing new means no
+  filing read for the first time, the aggregate's digest unchanged, and no material row; a
+  moved price with no new filing is still a refresh. On nothing new the validators are skipped
+  too — their assists are the one model call a quiet quarter would otherwise pay — and no
+  document is rendered.
+- **§1.6's first row is the engine's own rule** (a failed step fails the run and the prior report
+  stays current); the ceiling row is enforced before each section in the draft step, and a
+  section it will not carry is carried stale, which the summary and the step's record say.
+
 ---
 
 # 2 · Ask's tier resolution

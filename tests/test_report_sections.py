@@ -54,7 +54,13 @@ SEED_MIGRATIONS = (
     _VERSIONS / "0006_agents_costs_prompts_sections.py",
     _VERSIONS / "0023_the_eighteen_section_spine.py",
     _VERSIONS / "0084_the_closing_section_reads_the_operators_own_book.py",
+    _VERSIONS / "0086_a_run_knows_it_is_a_refresh.py",
 )
+
+# The refresh's change summary (F4, ADR 0131 §7), seeded by migration 0086 and created by
+# the refresh's carry step alone: no full run resolves it, so it joins the scan and not the
+# run-order assertions, exactly as the closing section does.
+CHANGE_SUMMARY_KEY = "change_summary"
 
 # The eighteen-section spine, in position order — what the seed migrations insert. The
 # source scan below looks for these keys and the full-run tests assert the order.
@@ -67,11 +73,12 @@ DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
 # Sections whose *platform-filled fields* are bound in the registry (ADR 0063). The same
 # seed-counterpart standing as the deterministic keys: the row's contract marks fields
 # code must fill, and the registry is where that code attaches.
-AUGMENTED_KEYS = ("valuation_dcf", CLOSING_KEY)
+AUGMENTED_KEYS = ("valuation_dcf", CLOSING_KEY, CHANGE_SUMMARY_KEY)
 
-# Every key a source file may not name: the spine, and the closing section beside it. The
-# run-order assertions stay on SEEDED_KEYS, because the fake scene states no planned weight.
-SCANNED_KEYS = (*SEEDED_KEYS, CLOSING_KEY)
+# Every key a source file may not name: the spine, the closing section and the change
+# summary beside it. The run-order assertions stay on SEEDED_KEYS, because the fake scene
+# states no planned weight and a full run is never a refresh.
+SCANNED_KEYS = (*SEEDED_KEYS, CLOSING_KEY, CHANGE_SUMMARY_KEY)
 DETERMINISTIC_REGISTRY = SRC_ROOT / "aer" / "sections" / "deterministic.py"
 
 # What the inserted section is called. Deliberately nothing like any built-in, so a

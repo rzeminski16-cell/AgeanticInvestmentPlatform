@@ -146,7 +146,7 @@ from aer.services.facts import (
     retag_for_sector,
     upsert_company,
 )
-from aer.services.filings import acquire_accounts, acquire_filings
+from aer.services.filings import acquire_accounts, acquire_filings, held_accessions
 from aer.services.history import prior_digest_for
 from aer.services.macro_acquisition import RiskFreeAcquisition, acquire_risk_free
 from aer.services.mandate import mandate_of
@@ -2463,6 +2463,13 @@ async def _acquire_from_edgar(context: StepContext, request: ResearchRequest) ->
         company=company,
         settings=context.service("settings"),
         job_id=context.job.id,
+        # A refresh reads what the request already holds from the record (ADR 0131 §4);
+        # a full run holds nothing yet and the set is empty.
+        already_held=(
+            await held_accessions(context.session, work_order_id=request.id)
+            if context.job.refreshes_report_id is not None
+            else frozenset()
+        ),
     )
 
     return StepResult(
@@ -4247,9 +4254,7 @@ async def _render(context: StepContext) -> StepResult:
                 context.session,
                 previous=previous,
                 successor=report,
-                reason=(
-                    f"A new report on this company was approved on {approval.decided_at:%d %B %Y}."
-                ),
+                reason=_supersession_reason(context, approved_at=approval.decided_at),
                 actor=actor,
             )
     report.immutable = approval is not None
@@ -4303,6 +4308,26 @@ async def _render(context: StepContext) -> StepResult:
             "characters": len(markdown),
             "themes_recorded": list(recorded_themes),
         }
+    )
+
+
+def _supersession_reason(context: StepContext, *, approved_at: datetime | None) -> str:
+    """Why the company's current report gives way to this one, in the reserved vocabulary.
+
+    A refresh leads with *Refreshed* (ADR 0131 §8) and says what moved, read from its own
+    diff and draft records; a full run says a new report was approved. The word is what
+    the library and the superseded report's band show, so it is chosen here, once.
+    """
+    day = f"{approved_at:%d %B %Y}" if approved_at is not None else "an unrecorded day"
+    if context.job.refreshes_report_id is None:
+        return f"A new report on this company was approved on {day}."
+    diff = context.outputs.get("diff", {})
+    draft = context.outputs.get("draft", {})
+    moved = int(diff.get("material", 0) or 0)
+    redrafted = len(draft.get("redrafted", []) or [])
+    return (
+        f"Refreshed on {day}: {moved} figure{'' if moved == 1 else 's'} moved, "
+        f"{redrafted} section{'' if redrafted == 1 else 's'} re-drafted."
     )
 
 

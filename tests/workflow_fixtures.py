@@ -126,6 +126,10 @@ SPINE_KEYS = (
 # the fake scene's request states none, so its runs carry the eighteen and not this one.
 CLOSING_KEY = "portfolio_consequences"
 
+# The refresh's change summary (F4, ADR 0131), seeded by migration 0086 at the head of the
+# document and created by the refresh's carry step alone: a full run never carries it.
+CHANGE_SUMMARY_KEY = "change_summary"
+
 
 class StubSecClient:
     """The SEC client's surface, served from a fixture through the real artefact store."""

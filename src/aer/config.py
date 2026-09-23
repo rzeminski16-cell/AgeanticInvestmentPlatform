@@ -366,6 +366,11 @@ class Settings(BaseSettings):
     # budget that is not one run's cap. A run the queue starts keeps its own per-run cap and
     # the month's cap applies on top; this bounds what the queue may *start* unattended.
     watchlist_budget_gbp: Decimal = Field(default=Decimal("30.00"), gt=0)
+    # What a refresh may spend re-drafting the sections that moved (F4, ADR 0131 §6): the
+    # specification's bar is under £2, and a refresh that crosses this stops with what it
+    # has drafted and says which sections it left carried. On top of the request's cap and
+    # the month's, never instead of them.
+    refresh_budget_gbp: Decimal = Field(default=Decimal("2.00"), gt=0)
     # The price move worth telling the operator about, in per cent over a watched listing's
     # window, for a listing that set none of its own (F11). A number nobody chose is not a
     # threshold, so this is overridable on the settings page and never proposed by a model.

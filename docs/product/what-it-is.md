@@ -154,6 +154,7 @@ on, rather than a dead link, and none is in that state at the moment.
 | **Post-trade review** | **Working.** A closed position scored against the process it was meant to follow; the reviewer proposes and you confirm. |
 | **Decision analytics** | **Working.** What the reviewed positions have in common, every statistic with its count. |
 | **Ask** | **Working**, tiers 1 and 2. A question over a company's record — recomputed for nothing, re-read for pennies, and priced where it needs new material. The third tier's acquisition follows the refresh. |
+| **Refresh** | **Working**, from a report's own page. A priced second run on the same request that reads only what has been filed since, recomputes every figure, re-drafts only the sections resting on a figure that moved, leads with what changed, and supersedes the prior report with *Refreshed*. Nothing is spent when nothing is new. |
 
 The honest summary of the research tool is that the **chain** is complete and the
 **breadth** is still growing. A run reaches a cited, validated, human-approved document

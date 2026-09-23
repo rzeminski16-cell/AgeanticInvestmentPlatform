@@ -14,7 +14,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, Text, text
 from sqlalchemy import Enum as SaEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -73,6 +73,23 @@ class Job(Base):
     )
     error: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
+    # What kind of run this is (F4, ADR 0131 §1): a full run, or a refresh of the report
+    # `refreshes_report_id` names. A refresh is the one job that starts on a request whose
+    # report is current, and the render step reads this to say `refreshed` when it
+    # supersedes that report. SET NULL on the report: withdrawing it keeps the run.
+    refresh_kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'full'")
+    )
+    # ``use_alter``: reports point at jobs and this points back, and the metadata's table
+    # sort refuses a cycle unless one side is added after both tables exist.
+    refreshes_report_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey(
+            "reports.id", ondelete="SET NULL", use_alter=True, name="fk_jobs_refreshes_report_id"
+        )
+    )
+    # When the operator read a refresh's change summary; the work list's row reads it.
+    changes_read_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
+
     work_order: Mapped[WorkOrder] = relationship(back_populates="jobs")
     plan: Mapped[ResearchPlan | None] = relationship(back_populates="jobs")
     steps: Mapped[list[JobStep]] = relationship(
@@ -83,6 +100,16 @@ class Job(Base):
 
     __table_args__ = (
         CheckConstraint("total_cost_gbp >= 0", name="total_cost_non_negative"),
+        CheckConstraint(
+            "refresh_kind IN ('full', 'refresh')", name="job_refresh_kind_is_one_of_two"
+        ),
+        # A full run names no report. A refresh names the one it refreshes, and keeps its
+        # kind when that report is deleted (the reference is set null): the run happened,
+        # and a record that forgot it was a refresh would misreport its own workflow.
+        CheckConstraint(
+            "refresh_kind = 'refresh' OR refreshes_report_id IS NULL",
+            name="job_full_run_names_no_report",
+        ),
         CheckConstraint(
             "finished_at IS NULL OR started_at IS NOT NULL",
             name="finished_implies_started",

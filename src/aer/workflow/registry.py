@@ -116,6 +116,19 @@ _DEFINITIONS: Final[tuple[WorkflowDefinition, ...]] = (
         adr="0016",
         summary="One company, one report: plan, acquire, extract, calculate, draft, render.",
     ),
+    # The refresh (F4): the slice's own steps under the slice's keys, the prior run's
+    # decisions carried, a diff, and a draft that pays only for what moved. Its gate
+    # payloads are the slice's, because it raises the slice's gates.
+    WorkflowDefinition(
+        version="refresh_v1",
+        build_steps_ref="aer.workflow.workflows.refresh_v1:build_steps",
+        gate_payload_ref="aer.workflow.workflows.vertical_slice_v1:gate_payload",
+        adr="0131",
+        summary=(
+            "A priced re-run of a company's current report: acquire what is new, recompute, "
+            "diff, re-draft only the sections that moved, supersede with 'refreshed'."
+        ),
+    ),
 )
 
 
