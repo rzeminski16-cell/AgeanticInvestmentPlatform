@@ -143,6 +143,8 @@ class CompanyRecord:
     thesis: Thesis | None
     thesis_state: str
     open_findings: int
+    # Open findings that contradicted a premise: the count behind *one premise broke*.
+    broken_premises: int
     decisions: int
     passed: Decision | None
     questions: int
@@ -440,6 +442,9 @@ async def _record(
         thesis=thesis,
         thesis_state=_thesis_state(thesis, thesis_findings, was_retired=was_retired),
         open_findings=len(thesis_findings),
+        broken_premises=sum(
+            1 for row in thesis_findings if row.status is PremiseStatus.CONTRADICTED
+        ),
         decisions=len(own_decisions),
         passed=passed,
         questions=int(questions or 0),
@@ -476,6 +481,7 @@ def _unresolved(entry: WatchlistEntry) -> CompanyRecord:
         thesis=None,
         thesis_state="none",
         open_findings=0,
+        broken_premises=0,
         decisions=0,
         passed=None,
         questions=0,

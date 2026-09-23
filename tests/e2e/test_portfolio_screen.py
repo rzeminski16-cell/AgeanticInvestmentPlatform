@@ -126,9 +126,13 @@ class TestASubtotalIsNeverShownAsATotal:
         _record(page, kind="deposit", quantity="20000", currency="USD", trade_date=TRADE_DATE)
 
         expect(page.locator("#portfolio-problem")).to_be_visible()
-        for tile in ("net-assets", "securities", "cash", "unrealised"):
-            expect(page.locator(f"#tile-{tile}")).to_contain_text("—")
-            expect(page.locator(f"#tile-{tile}")).not_to_contain_text("50,000")
+        # The header band (page specification §2.1) replaced the four tiles, and the rule
+        # travelled with it: every figure that is a sum over the rows blanks together. The
+        # count of positions is a count, not a sum, and stays.
+        header = page.locator("#book-header")
+        for field in ("total-value", "days-move", "cash"):
+            expect(header.locator(f'[data-field="{field}"]')).to_contain_text("—")
+            expect(header.locator(f'[data-field="{field}"]')).not_to_contain_text("50,000")
 
         # The row that did resolve still says what it says. A refused total is not a
         # refused page.

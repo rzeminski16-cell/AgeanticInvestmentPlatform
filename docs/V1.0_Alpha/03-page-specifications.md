@@ -103,6 +103,26 @@ preformatted figures). All wording for `reason` and `justification` is server-su
 **Must not.** Manufacture a suggestion to fill the band. Show a chart. Show profit as the
 headline figure. Rank by recency instead of the fixed rank order.
 
+**Corrected 24 September 2026, on building it** (`index.html`, `overview/_attention.html`,
+`web/overview/{companies,suggestions,state}.py`). Band 1 is the attention feed every tool
+already contributed to (ADR 0078's cross-tool surface), ranked by this section's six kinds
+rather than sorted by severity: a row's kind is read from the key its tool wrote, the six take
+ranks one to six, and every other row a tool contributes — a run at its cost ceiling, a failed
+run, a decision not carried out, a review proposal waiting — takes its place after them, worst
+first, with the label its severity gives it. Two of the six were emitted by no tool and are read
+from the company record: *held with no thesis* and *report gone stale*, the latter against the
+row's cadence window. The row anatomy is as specified with the timestamp rendered as *waiting
+{duration}*. Band 2's fifth suggestion, *look at your concentration*, cannot be earned: no
+ceiling is stored anywhere in the platform (ADR 0104, §11's correction), so the band shows the
+other four and never a fifth with an invented threshold. *Review a completed refresh* is earned
+by `jobs.changes_read_at` being null (ADR 0131) and cleared by opening the report the refresh
+produced. Band 3's *next check* is the daily pass's last run plus its cadence, and *No check
+scheduled* links to the platform. The states: *everything quiet* keeps the heading *Nothing is
+waiting* the shell's tests read by role, with *Nothing needs you today.* as the line beneath;
+*first run* shows the one card titled *Research your first company* whose text still opens
+*Start with two things*, which the same tests read. The tools launcher stays below the three
+bands: the menu is ADR 0112's and the bands are this section's, and neither replaces the other.
+
 ---
 
 ## 2. Portfolio
@@ -169,6 +189,27 @@ conviction_rank), `totals`, `risk_summary`, `priced_at`.
 
 **Must not.** Lead with performance. Draw a pie chart of allocation. Colour a row by profit.
 Hide the `no thesis` state behind a filter.
+
+**Corrected 24 September 2026, on building it** (`portfolio/index.html`,
+`web/portfolio/dashboard.py`). The header, the sentence, the seven columns, the conviction sort,
+the filters and the five summary rows are as specified, with these readings: *one premise broke*
+is a thesis with an open contradicted finding, *under review* one with an open finding that
+opened a gate without contradicting, and the count of broken premises is shown beside the label
+when more than one broke. *Checked* is the daily pass's last run and the next due, since the
+pass reads every held listing at once; *Never* is the warning it says it is, and a holding whose
+thesis holds but whose pass is missed or never run ranks as *not checked within cadence*.
+*Risk* flags *concentration* for a holding among the five largest and *sector {name}* for one
+in the largest sector cut — flags that something applies, not breaches, because no ceiling is
+stored (ADR 0104): the *over ceiling* filter and the *positions over their individual ceiling*
+row both say so rather than pretending to have looked, and the top-five row states its figure
+without a ceiling to state it against. The sort control is remembered for the session in a
+session cookie, so a fresh session is always conviction. The stated-shock row reads the first
+scenario the operator stated through the risk page's own computation (F12: one implementation),
+and *none stated* when there is none. The quantity and the pooled cost stay under the company
+cell as one line, because this is the screen an operator reconciles against a statement. The
+return and exposure sheets stay beneath the table; the empty-book card is the one that was
+already here. *Prices stale* is shown when the page defaulted to a last close that is not
+today's, and not when the operator asked for a date.
 
 ---
 

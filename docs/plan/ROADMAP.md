@@ -2101,7 +2101,9 @@ found rather than as scope that was always there.
     `/companies/{company_id}`, the last widened from the research history it already
     served — and Ask has had one since item 53. Of the nineteen, eighteen now have a route;
     Today is still `/` as the tools menu rather than the three bands, and a route existing
-    is still not the specification satisfied.
+    is still not the specification satisfied. *And on the same day (item 60):* Today has
+    its three bands above the launcher, and the Portfolio is the validity dashboard §2
+    specifies. The two *present but not met* are met, each with its dated corrections.
 
     *What the remaining order actually is*, in the dependency order
     `04-feature-specifications.md` gives: **F12's second surface** (the pre-trade check on
@@ -2448,6 +2450,28 @@ found rather than as scope that was always there.
     weight bar against (ADR 0104); a refused run's re-measure control is the console's; the
     Companies page action is the watchlist's follow form rather than a second one; Refresh
     on a row is offered only where the current report has no run going.
+
+60. **Today's three bands and the Portfolio as a validity dashboard, 24 September 2026.**
+    Page specification §1 and §2, the two surfaces item 48 measured as present but not met.
+    Today: the attention feed the tools already contribute to is ranked by the
+    specification's six kinds rather than by severity — a row's kind read from the key its
+    tool wrote, the six at ranks one to six, everything else after them worst first — with
+    the two kinds no tool emitted, *held with no thesis* and *report gone stale*, read from
+    the company record by a provider under the watchlist tool. Band 2's cards are each
+    earned by a condition in the record and the band is absent when none is: a finished
+    refresh whose change summary is unread (ADR 0131's mark, cleared by opening the report
+    it produced), a followed listing with no report and nothing commissioned in thirty days,
+    a holding with no thesis, a position closed more than thirty days ago and unreviewed.
+    The fifth in the specification cannot be earned, since no ceiling exists. Band 3 is four
+    figures read from the record, the book's day's move a traced change between two
+    valuations. Portfolio: the header band and its sentence; the seven columns with the
+    thesis state from the company record, the check from the daily pass and the risk flags
+    from the exposure the risk page computes; conviction risk as the default sort, the
+    choice remembered for the session; the filter row; the five-row risk summary through
+    the risk page's own computation. Found on the way: the change-summary mark ADR 0131
+    named had no writer; the specification's ceiling-dependent readings — the concentration
+    suggestion, the *over ceiling* filter, the positions-over-ceiling row, the weight bar's
+    ceiling — say plainly that no ceiling is stored rather than inventing one.
 
 ### Before this leaves one machine
 

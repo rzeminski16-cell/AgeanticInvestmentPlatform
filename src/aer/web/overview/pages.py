@@ -28,7 +28,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_308_PERMANENT_REDIRECT
 
-from aer.api.deps import DbSession, RedisClient, get_current_user
+from aer.api.deps import DbSession, RedisClient, SettingsDep, get_current_user
 from aer.core.dates import format_date
 from aer.db.schema_check import schema_drift
 from aer.errors import AerError
@@ -36,6 +36,8 @@ from aer.services.overview import has_ever_commissioned, spend_since, start_of_m
 from aer.version import build_identity
 from aer.web import figures
 from aer.web.overview.attention import Attention, Severity, items_for
+from aer.web.overview.state import StateFigure, state_for
+from aer.web.overview.suggestions import SHOWN, Suggestion, suggestions_for
 from aer.web.overview.verdict import overview_verdict
 from aer.web.shell.badges import Badge, cached_counts_for
 from aer.web.templating import render
@@ -63,7 +65,9 @@ SEVERITY_ORDER: Final[tuple[Severity, ...]] = (
 
 
 @router.get("/", response_class=HTMLResponse, summary="Main menu")
-async def main_menu(request: Request, session: DbSession, redis: RedisClient) -> Response:
+async def main_menu(
+    request: Request, session: DbSession, redis: RedisClient, settings: SettingsDep
+) -> Response:
     """Every tool, then everything waiting for you in whichever of them it is waiting.
 
     The clock is read here rather than in the service, so `services/overview.py` stays free
@@ -75,6 +79,8 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
     problem: str | None = None
     badges: tuple[Badge, ...] = ()
     attention: tuple[Attention, ...] = ()
+    suggestions: tuple[Suggestion, ...] = ()
+    state: tuple[StateFigure, ...] = ()
     spend: str | None = None
     # Whether this operator has ever written a request. `False` until proven otherwise, so a
     # database that could not be read shows the ordinary page rather than greeting a
@@ -101,6 +107,10 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
         gathered = True
         commissioned = await has_ever_commissioned(session, user_id=user.id)
         spend = _pounds(await spend_since(session, since=since))
+        # The second and third bands (page specification §1.2, §1.3). Each suggestion is
+        # earned by a condition in the record; the state is four figures read from it.
+        suggestions = await suggestions_for(session, user=user, now=now)
+        state = await state_for(session, user=user, settings=settings, now=now)
     except AerError as exc:
         # A configuration problem the operator can act on, such as no user having been
         # seeded. Its message says how to fix it, so show it.
@@ -134,6 +144,11 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
             # work under way whether or not a report was ever commissioned, and the
             # instruction must never cover the row that needs them.
             "first_run": gathered and not commissioned and not attention,
+            # Band 2: the four with the oldest condition, and how many more qualify.
+            "suggestions": suggestions[:SHOWN],
+            "more_suggestions": max(len(suggestions) - SHOWN, 0),
+            # Band 3: absent on first run, where there is nothing to state.
+            "state": state,
             "spend": spend,
             # The context strip, assembled here rather than in the template: a list is data
             # and Jinja has no comprehension, so a template that built one would be doing it

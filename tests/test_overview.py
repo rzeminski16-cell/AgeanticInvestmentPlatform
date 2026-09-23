@@ -501,15 +501,20 @@ class TestThePage:
 
         assert "The SEC index was unreachable." in body
 
-    async def test_the_tiles_are_the_registered_badges(self, client, seed: _Seeder) -> None:
-        # The sidebar and the dashboard read the same registry, so they cannot disagree
-        # about a number.
+    async def test_the_state_of_things_is_four_quiet_figures(self, client, seed: _Seeder) -> None:
+        # Band 3 (page specification §1.3): book value, companies watched, spend against
+        # the ceiling, reports held — each a figure read from the record, none an action.
         await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
 
         body = (await client.get("/")).text
 
-        assert "Waiting for you" in body
+        assert 'id="the-state-of-things"' in body
+        for key in ("book", "watched", "spent", "reports"):
+            assert f'data-state="{key}"' in body, key
         assert "Spent this month" in body
+        assert "No check scheduled" in body  # the daily pass has never run
+        # And the gate row wears the specification's label at the head of the list.
+        assert "A gate is waiting" in body
 
     async def test_the_page_is_reachable_from_the_nav(self, client) -> None:
         body = (await client.get("/")).text

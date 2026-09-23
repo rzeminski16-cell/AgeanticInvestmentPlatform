@@ -49,9 +49,10 @@ from aer.storage.local import LocalArtefactStore
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.portfolio import dashboard
 from aer.web.templating import render
 
-__all__ = ["GRADE_LABELS", "NO_FIGURE", "router"]
+__all__ = ["GRADE_LABELS", "NO_FIGURE", "SORT_COOKIE", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -65,6 +66,25 @@ DEFAULT_BOOK: Final = "My portfolio"
 # Which kinds move money rather than units, for the form's own branching. Read from the
 # service so the two cannot disagree about what a dividend is.
 CASH_KINDS: Final = portfolio_service.CASH_KINDS
+
+# The sort the operator chose, remembered for the session (page specification §2.2): a
+# session cookie rather than a lasting one, because the default on a fresh session is
+# always conviction and a preference that outlived the session would quietly change it.
+SORT_COOKIE: Final = "aer-portfolio-sort"
+SORT_WORDS: Final[dict[str, str]] = {
+    "conviction": "Conviction risk",
+    "weight": "Weight",
+    "value": "Value",
+    "unrealised": "Unrealised",
+    "name": "Name",
+}
+FILTER_WORDS: Final[dict[str, str]] = {
+    "all": "All",
+    "in_doubt": "Thesis in doubt",
+    "no_thesis": "No thesis",
+    "overdue": "Checked overdue",
+    "over_ceiling": "Over ceiling",
+}
 
 
 def pounds(value: Decimal, currency: str) -> str:
@@ -148,6 +168,26 @@ async def portfolio_page(
     exposure = await performance_service.exposure_as_at(
         session, context, portfolio=book, as_of=as_of, view=view
     )
+    # The validity dashboard (page specification §2): what the record says about each
+    # holding, the order conviction puts them in, and the risk summary beside the table.
+    readings = await dashboard.validity_for(session, user=user, view=view, exposure=exposure)
+    sort = _chosen_sort(request)
+    show = request.query_params.get("show", "all")
+    if show not in dashboard.FILTERS:
+        show = "all"
+    rows = dashboard.sort_rows(
+        [_holding_row(row, book, readings.get(row.security.id)) for row in view.holdings],
+        readings,
+        sort,
+    )
+    positions = [row for row in view.holdings if row.problem != portfolio_service.CLOSED]
+    holding_theses = sum(
+        1
+        for row in positions
+        if (reading := readings.get(row.security.id)) is not None
+        and reading.thesis_state == "holds"
+    )
+    today = datetime.now(UTC).date()
     response = render(
         request,
         "portfolio/index.html",
@@ -155,7 +195,35 @@ async def portfolio_page(
             "book": book,
             "as_of": as_of,
             "view": view,
-            "rows": [_holding_row(row, book) for row in view.holdings],
+            "rows": dashboard.filter_rows(rows, readings, show),
+            "all_rows": len(rows),
+            "header": await _header(
+                session, book=book, view=view, totals=totals, positions=len(positions)
+            ),
+            "thesis_sentence": (
+                f"{holding_theses} of {len(positions)} "
+                f"position{'s have' if len(positions) != 1 else ' has'} a thesis that "
+                "currently holds."
+            ),
+            "sort": sort,
+            "sorts": [{"value": key, "label": label} for key, label in SORT_WORDS.items()],
+            "show": show,
+            "filters": [
+                {"value": key, "label": label, "is_current": key == show}
+                for key, label in FILTER_WORDS.items()
+            ],
+            "risk_summary": await dashboard.risk_summary(
+                session,
+                book=book,
+                view=view,
+                exposure=exposure,
+                as_of=as_of,
+                money=pounds,
+                share=lambda value: percent(value).lstrip("+"),
+            ),
+            # Prices stale (§2's states): the book defaulted to the last close held and it
+            # is not today's. A date the operator asked for is their view, not stale.
+            "prices_stale": _requested_date(request) is None and as_of < today,
             "cash": [_cash_row(row, book) for row in view.cash],
             "totals": totals,
             "returns": _return_rows(returns),
@@ -183,13 +251,45 @@ async def portfolio_page(
             # never typed (ADR 0094), so the form does not offer it.
             "kinds": [kind for kind in TransactionKind if kind is not TransactionKind.SPLIT],
             "cash_kinds": sorted(kind.value for kind in CASH_KINDS),
-            "today": datetime.now(UTC).date().isoformat(),
+            "today": today.isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
     )
     set_csrf_cookie(response, token)
+    if request.query_params.get("sort") in dashboard.SORTS:
+        response.set_cookie(SORT_COOKIE, sort, httponly=True, samesite="strict")
     return response
+
+
+def _chosen_sort(request: Request) -> str:
+    """The query string's sort, else the session's remembered one, else conviction."""
+    asked = request.query_params.get("sort") or request.cookies.get(SORT_COOKIE, "")
+    return asked if asked in dashboard.SORTS else "conviction"
+
+
+async def _header(
+    session: DbSession,
+    *,
+    book: Portfolio,
+    view: portfolio_service.PortfolioView,
+    totals: dict[str, object],
+    positions: int,
+) -> dict[str, object]:
+    """§2.1: total value, the day's move, cash, and the count of positions."""
+    move = ""
+    if view.is_complete and view.net_assets is not None:
+        change = await dashboard.days_move(
+            session, book=book, as_of=view.as_of, latest=view.net_assets.value
+        )
+        move = percent(change) if change is not None else ""
+    return {
+        "value": totals["net_assets"],
+        "move": move,
+        "is_down": move.startswith("-"),
+        "cash": totals["cash"],
+        "positions": positions,
+    }
 
 
 def _book_verdict(
@@ -496,29 +596,52 @@ async def _resolve_security(session: DbSession, typed: str) -> Security | str | 
 # -- Rendering -----------------------------------------------------------------------------
 
 
-def _holding_row(row: portfolio_service.HoldingRow, book: Portfolio) -> dict[str, object]:
+def _holding_row(
+    row: portfolio_service.HoldingRow,
+    book: Portfolio,
+    reading: dashboard.Validity | None = None,
+) -> dict[str, object]:
     """One line of the table, already formatted.
 
     Formatted here rather than in the template because a template that formatted a figure
     would be a second house style nobody configured (ADR 0077) — and because the grade has
-    to travel with the number rather than beside it.
+    to travel with the number rather than beside it. The raw amounts ride along unrendered
+    for the sort alone; nothing renders them.
     """
+    company_id = row.security.company_id
     return {
         "key": row.security.provider_symbol,
         "security_id": row.security.id,
         "ticker": row.security.ticker,
         "exchange": row.security.exchange,
         "name": row.security.name or row.security.ticker,
+        # The company cell opens the company page; a listing with no company record opens
+        # the request form, since researching it is how the record starts (§2's states).
+        "company_href": f"/companies/{company_id}" if company_id is not None else "/requests/new",
+        "has_company": company_id is not None,
         "quantity": shares(row.quantity.value) if row.quantity else "",
         "cost": pounds(row.cost.value, book.base_currency) if row.cost else "",
         "value": pounds(row.value.value, book.base_currency) if row.value else "",
         "unrealised": (pounds(row.unrealised.value, book.base_currency) if row.unrealised else ""),
         "is_down": bool(row.unrealised and row.unrealised.value < 0),
         "weight": f"{row.weight.value * 100:.1f}%" if row.weight else "",
+        "weight_width": (
+            int(min(max(row.weight.value, Decimal(0)), Decimal(1)) * 100) if row.weight else 0
+        ),
+        "weight_value": row.weight.value if row.weight else None,
+        "value_amount": row.value.value if row.value else None,
+        "unrealised_amount": row.unrealised.value if row.unrealised else None,
         "grade": _grade_of(row.quantity),
         "grade_label": _grade_label(row.quantity),
         "problem": row.problem,
         "is_closed": row.problem == portfolio_service.CLOSED,
+        "thesis_state": reading.thesis_state if reading is not None else "",
+        "thesis_words": reading.thesis_words if reading is not None else "",
+        "thesis_tone": reading.thesis_tone if reading is not None else "",
+        "broken_premises": reading.broken_premises if reading is not None else 0,
+        "checked": reading.checked if reading is not None else "",
+        "checked_overdue": reading.checked_overdue if reading is not None else False,
+        "risk_flags": list(reading.risk_flags) if reading is not None else [],
     }
 
 

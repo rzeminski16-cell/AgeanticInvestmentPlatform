@@ -190,6 +190,7 @@ class TestTheRecord:
         assert (closed.thesis_state, closed.report_state) == ("none", "none")
         assert closed.is_overdue(NOW)
         assert researched.thesis_state == "holds"
+        assert researched.broken_premises == 0
         assert researched.report_state == "current"
         assert researched.report is not None
         assert researched.report.id == scene["report"].id

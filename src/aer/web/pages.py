@@ -3268,6 +3268,13 @@ async def report_detail(
             .order_by(Job.started_at.desc().nullslast())
         )
     )
+    # Opening the report a refresh produced is reading what changed: the mark Today's
+    # *worth doing* band reads (ADR 0131, page specification §1.2). The one write a read
+    # makes, and it records the reading rather than anything the reading concluded.
+    own_run = await session.get(Job, report.job_id)
+    if own_run is not None and own_run.refresh_kind == refresh_service.REFRESH:
+        await refresh_service.mark_changes_read(session, job=own_run)
+        await session.commit()
 
     token = new_csrf_token(settings)
     detail: Response = render(

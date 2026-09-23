@@ -42,11 +42,14 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 __all__ = [
+    "KINDS",
     "Attention",
     "AttentionProvider",
     "AttentionProviderError",
+    "Kind",
     "Severity",
     "items_for",
+    "kind_of",
     "registered_providers",
 ]
 
@@ -74,6 +77,42 @@ _ORDER: Final[dict[Severity, int]] = {
     Severity.BROKEN: 1,
     Severity.IDLE: 2,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class Kind:
+    """How the page specification (§1.1) reads one kind of row: its fixed rank, the tone
+    it is shown in, and the words on its status label."""
+
+    rank: int
+    tone: str
+    label: str
+
+
+# The six kinds the page specification ranks, by the prefix of the key each provider
+# writes (§1.1). The rank is fixed and not user-sortable: a gate waiting outranks a broken
+# premise outranks a holding with no thesis, whatever order the tools answered in. A key
+# outside these six takes its place after them, by severity (`_AFTER`), so a tool's own
+# rows still appear and still appear worst first.
+KINDS: Final[dict[str, Kind]] = {
+    "research.gate": Kind(rank=1, tone="warning", label="A gate is waiting"),
+    "monitor.gate": Kind(rank=2, tone="failure", label="A premise broke"),
+    "companies.no_thesis": Kind(rank=3, tone="warning", label="No thesis"),
+    "monitor.moved": Kind(rank=4, tone="info", label="A price moved"),
+    "review.unreviewed": Kind(rank=5, tone="muted", label="Not reviewed"),
+    "companies.stale": Kind(rank=6, tone="muted", label="Report stale"),
+}
+_AFTER: Final[dict[Severity, Kind]] = {
+    Severity.BLOCKED: Kind(rank=7, tone="warning", label="Waiting for you"),
+    Severity.BROKEN: Kind(rank=8, tone="failure", label="Needs diagnosis"),
+    Severity.IDLE: Kind(rank=9, tone="muted", label="Not started"),
+}
+
+
+def kind_of(key: str, severity: Severity) -> Kind:
+    """The specification's reading of a row, from the key's first two words."""
+    prefix = ".".join(key.split(".")[:2])
+    return KINDS.get(prefix, _AFTER[severity])
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +176,14 @@ class Attention:
                 "on is a notification, and this feed is a work list."
             )
             raise ValueError(message)
+
+    @property
+    def kind(self) -> Kind:
+        return kind_of(self.key, self.severity)
+
+    @property
+    def rank(self) -> int:
+        return self.kind.rank
 
 
 class AttentionItems(Protocol):
@@ -244,6 +291,15 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.watchlist:items",
         adr="0107",
     ),
+    # A holding with no thesis behind it, and a report older than its cadence's window —
+    # the two rows of the page specification's six (§1.1) that no tool emitted, read from
+    # the company record the Companies page is (ADR 0107; item 59).
+    AttentionProvider(
+        key="companies",
+        tool="watchlist",
+        items_ref="aer.web.overview.companies:items",
+        adr="0107",
+    ),
 )
 
 
@@ -278,7 +334,8 @@ def registered_providers() -> tuple[AttentionProvider, ...]:
 
 
 async def items_for(session: AsyncSession, *, user_id: uuid.UUID) -> tuple[Attention, ...]:
-    """Everything waiting, worst first, then in the order its tool returned it.
+    """Everything waiting, in the page specification's rank (§1.1), worst first within
+    a rank, then in the order its tool returned it.
 
     Sequential rather than gathered, for the reason `badges.counts_for` gives: an
     `AsyncSession` is not safe to use concurrently, and a `gather` would interleave
@@ -296,7 +353,7 @@ async def items_for(session: AsyncSession, *, user_id: uuid.UUID) -> tuple[Atten
                 error=str(failure),
             )
             collected.append(_could_not_ask(provider, failure))
-    return tuple(sorted(collected, key=lambda item: _ORDER[item.severity]))
+    return tuple(sorted(collected, key=lambda item: (item.rank, _ORDER[item.severity])))
 
 
 def _could_not_ask(provider: AttentionProvider, failure: Exception) -> Attention:

@@ -110,50 +110,217 @@
   {% endif %}
 
   {#
-    The exact-value ledger. All four go blank together: each is a sum over the rows that
-    resolved, so if any row did not, none of them may be shown — a cash tile reading
-    £50,000 beside a refused total is the "a subtotal looks like a total" failure wearing
-    the screen's own clothes.
+    The header band (page specification §2.1): total value, the day's move, cash and the
+    count of positions — and beneath them the one sentence the page exists to deliver. All
+    four go blank together, for the reason the four tiles they replaced did: each is a sum
+    over the rows that resolved, and a partial sum shown as a total overstates every weight.
+    The move is a traced change between two valuations of the book, never a subtraction here.
   #}
   {% set unavailable = "Unavailable while a position cannot be valued." %}
-  <dl class="grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div id="tile-net-assets">
-      {{
-        ui.figure(
-          "Net assets",
-          totals.net_assets,
-          "Holdings and cash together." if totals.is_complete else unavailable,
-        )
-      }}
+  <dl class="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4" id="book-header">
+    <div>
+      <dt class="type-label text-ink-muted">Total value</dt>
+      <dd class="type-data-xl text-ink" data-field="total-value">{{ header.value }}</dd>
     </div>
-    <div id="tile-securities">
-      {{
-        ui.figure(
-          "Securities",
-          totals.securities,
-          "Marked at the last close on or before the date." if totals.is_complete else unavailable,
-        )
-      }}
+    <div>
+      <dt class="type-label text-ink-muted">Day&rsquo;s move</dt>
+      <dd class="type-data {% if header.is_down %}text-failure-ink{% else %}text-ink{% endif %}" data-field="days-move">{{ header.move or "—" }}</dd>
     </div>
-    <div id="tile-cash">
-      {{
-        ui.figure(
-          "Cash",
-          totals.cash,
-          "Every currency, converted." if totals.is_complete else unavailable,
-        )
-      }}
+    <div>
+      <dt class="type-label text-ink-muted">Cash</dt>
+      <dd class="type-data text-ink" data-field="cash">{{ header.cash }}</dd>
     </div>
-    <div id="tile-unrealised">
-      {{
-        ui.figure(
-          "Unrealised",
-          totals.unrealised,
-          "Mark less pooled cost. Not a chargeable gain." if totals.is_complete else unavailable,
-        )
-      }}
+    <div>
+      <dt class="type-label text-ink-muted">Positions</dt>
+      <dd class="type-data text-ink" data-field="positions">{{ header.positions }}</dd>
     </div>
   </dl>
+  <p class="mt-3 max-w-prose type-body text-ink" id="thesis-sentence">{{ thesis_sentence }}</p>
+  {% if not totals.is_complete %}<p class="mt-1 type-body-sm text-ink-muted">{{ unavailable }}</p>{% endif %}
+
+  {% if prices_stale %}
+    {# Prices stale (§2's states): the last close held is not today's. The table renders in full. #}
+    <div class="mt-4" id="prices-stale">
+      {{ ui.callout("warning", "Valued at the close of " ~ as_of.isoformat() ~ ".", "Today's prices have not arrived. Every figure on this page is at that close.") }}
+    </div>
+  {% endif %}
+
+  {#
+    The positions table (§2.2) with the risk summary beside it (§2.3). Columns in the
+    specification's order — company, weight, thesis, checked, risk, value, unrealised —
+    and the default sort is conviction risk, descending: no thesis, then a premise broke,
+    then under review, then not checked within cadence, then holds; ties by weight. The
+    quantity and the pooled cost stay under the company as a line, because this is the one
+    screen an operator reconciles against a statement and a row without them cannot be.
+  #}
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]" id="dashboard">
+  {% call ui.sheet("Positions", id="positions") %}
+    {% if all_rows or cash %}
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <form method="get" action="/portfolio" class="flex items-end gap-2" id="sort-form">
+          {% if show != "all" %}<input type="hidden" name="show" value="{{ show }}" />{% endif %}
+          <div>
+            <label for="sort" class="block type-label text-ink-muted">Sort by</label>
+            <select id="sort" name="sort" class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink">
+              {% for option in sorts %}
+                <option value="{{ option.value }}" {% if option.value == sort %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button id="apply-sort" type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Sort</button>
+        </form>
+        <nav aria-label="Filter" class="flex flex-wrap gap-2" id="position-filters">
+          {% for filter in filters %}
+            <a
+              href="/portfolio?show={{ filter.value }}{% if sort != 'conviction' %}&amp;sort={{ sort }}{% endif %}"
+              class="inline-flex min-h-9 items-center rounded-sm border px-3 type-label {% if filter.is_current %}border-verification bg-verification-wash text-verification-strong{% else %}border-control-boundary text-ink hover:bg-surface-selected{% endif %}"
+              data-filter="{{ filter.value }}"
+              {% if filter.is_current %}aria-current="page"{% endif %}
+            >{{ filter.label }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+      {% if show == "over_ceiling" %}
+        <p class="mb-3 max-w-prose type-body-sm text-ink-muted" id="no-ceiling">
+          No ceiling is stored anywhere in the platform, so no position can be over one. The
+          filter is offered because the specification names it, and it says so rather than
+          pretending to have looked.
+        </p>
+      {% elif show != "all" and not rows %}
+        <p class="mb-3 max-w-prose type-body-sm text-ink-muted" id="nothing-matches">
+          Nothing matches this filter; <a href="/portfolio" class="text-verification underline underline-offset-[3px]">show all</a>.
+        </p>
+      {% endif %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[64rem]" id="holdings" data-sort="{{ sort }}">
+          <caption class="sr-only">
+            Every position with what the record says about it, then cash, with the grade of
+            evidence under each.
+          </caption>
+          <thead class="text-left">
+            <tr class="border-b border-line-strong">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Company</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Weight</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Thesis</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Checked</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Risk</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Value</th>
+              <th scope="col" class="py-2 text-right type-label text-ink-muted">Unrealised</th>
+            </tr>
+          </thead>
+          <tbody class="tabular-nums">
+            {% for row in rows %}
+              <tr class="border-b border-line align-top" data-holding="{{ row.key }}" data-thesis-state="{{ row.thesis_state }}">
+                <th scope="row" class="py-2 pr-4 text-left font-normal">
+                  <a href="{{ row.company_href }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="company">{{ row.name }}</a>
+                  <span class="ml-1 type-data-sm text-ink-subtle" data-field="ticker">{{ row.ticker }} &middot; {{ row.exchange }}</span>
+                  {{ grade_chip(row.grade, row.grade_label) }}
+                  {% if row.quantity %}
+                    <span class="block type-data-sm text-ink-muted"><span data-field="quantity">{{ row.quantity }}</span> shares{% if row.cost %}, <span data-field="cost">{{ row.cost }}</span> pooled cost{% endif %}</span>
+                  {% endif %}
+                  {% if not row.has_company %}
+                    <span class="block type-body-sm text-ink-muted">No company record &mdash; research it to start one.</span>
+                  {% endif %}
+                </th>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="weight">
+                  {{ row.weight }}
+                  {% if row.weight %}<span class="mt-1 block h-1 w-full min-w-[3rem] bg-line" aria-hidden="true"><span class="block h-1 bg-verification" style="width: {{ row.weight_width }}%"></span></span>{% endif %}
+                </td>
+                {% if row.problem %}
+                  {#
+                    A holding nobody could price, or one that closed. The reason goes where
+                    the figures would be: a blank cell reads as nil, which is a claim.
+                  #}
+                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="5">
+                    <span data-field="problem">
+                      {% if row.is_closed %}
+                        <a href="/portfolio/positions/{{ row.security_id }}" class="underline underline-offset-[3px] hover:text-ink">Closed</a>
+                      {% else %}{{ row.problem }}{% endif %}
+                    </span>
+                  </td>
+                {% else %}
+                  <td class="py-2 pr-4" data-field="thesis">
+                    {{ ui.status(row.thesis_tone, row.thesis_words) }}
+                    {% if row.broken_premises > 1 %}<span class="block type-data-sm text-ink-muted">{{ row.broken_premises }} broke</span>{% endif %}
+                  </td>
+                  <td class="py-2 pr-4 type-data-sm {% if row.checked_overdue %}text-warning-ink{% else %}text-ink{% endif %}" data-field="checked">{{ row.checked }}</td>
+                  <td class="py-2 pr-4" data-field="risk">
+                    {% for flag in row.risk_flags %}{{ ui.status("info", flag) }}{% endfor %}
+                  </td>
+                  {#
+                    The value cell opens the position (page specification §3): how it was
+                    built, what it is worth and what it does to the book, from the same walk.
+                  #}
+                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="value">
+                    <a href="/portfolio/positions/{{ row.security_id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.value }}</a>
+                  </td>
+                  <td
+                    class="py-2 text-right type-data-sm {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"
+                    data-field="unrealised"
+                  >
+                    {{ row.unrealised }}
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+
+            {#
+              Cash is a position and belongs in the same table. Without it every weight on
+              the page is a fraction of the wrong denominator — silently, and in the
+              direction that overstates every holding.
+            #}
+            {% for row in cash %}
+              <tr class="border-b border-line bg-surface-sunken align-top" data-cash="{{ row.currency }}">
+                <th scope="row" class="py-2 pr-4 text-left font-normal">
+                  <span class="type-body-strong text-ink">Cash</span>
+                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.currency }}</span>
+                  {{ grade_chip(row.grade, row.grade_label) }}
+                  <span class="block type-data-sm text-ink-muted" data-field="balance">{{ row.balance }}</span>
+                </th>
+                {% if row.problem %}
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="5">
+                    <span data-field="problem">{{ row.problem }}</span>
+                  </td>
+                {% else %}
+                  <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="weight">{{ row.weight }}</td>
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="in-base">{{ row.in_base }}</td>
+                  <td class="py-2"></td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {{
+        ui.empty(
+          "Nothing recorded yet",
+          "Enter a deposit and a trade below and the book computes itself from them. Nothing here is stored as a position — every figure is recomputed from what you enter.",
+        )
+      }}
+    {% endif %}
+  {% endcall %}
+
+  {#
+    The risk summary (§2.3): not a chart, five rows against labels, each linking to the
+    risk page for the working. Read from the same exposure the risk page computes.
+  #}
+  {% call ui.sheet("Risk summary", id="risk-summary") %}
+    <dl class="flex flex-col divide-y divide-line">
+      {% for row in risk_summary %}
+        <div class="py-3 first:pt-0" data-summary="{{ row.key }}">
+          <dt class="type-label text-ink-muted">{{ row.label }}</dt>
+          <dd class="type-data text-ink" data-field="value">{{ row.value }}</dd>
+          <dd class="type-body-sm text-ink-muted"><a href="{{ row.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ row.note }}</a></dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% endcall %}
+  </div>
 
   {#
     How the book has done. Two columns because they answer two questions, and a screen
@@ -271,120 +438,6 @@
     {% endif %}
   {% endcall %}
 
-  {% call ui.sheet("Holdings") %}
-    {#
-      Cash counts. A book holding nothing but a deposit is a book, and a table gated on
-      securities alone would have shown it the empty state — "nothing recorded yet" over a
-      balance somebody had just entered.
-    #}
-    {% if rows or cash %}
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[52rem]" id="holdings">
-          <caption class="sr-only">
-            Every holding and every cash balance, with the grade of evidence under each.
-          </caption>
-          <thead class="text-left">
-            <tr class="border-b border-line-strong">
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Security</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Quantity</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Cost</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Value</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Unrealised</th>
-              <th scope="col" class="py-2 text-right type-label text-ink-muted">Weight</th>
-            </tr>
-          </thead>
-          <tbody class="tabular-nums">
-            {% for row in rows %}
-              <tr class="border-b border-line" data-holding="{{ row.key }}">
-                <th scope="row" class="py-2 pr-4 text-left">
-                  <span class="type-body-strong text-ink" data-field="ticker">{{ row.ticker }}</span>
-                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.exchange }}</span>
-                  {{ grade_chip(row.grade, row.grade_label) }}
-                </th>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="quantity">
-                  {{ row.quantity }}
-                </td>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="cost">{{ row.cost }}</td>
-                {% if row.problem %}
-                  {#
-                    A holding nobody could price, or one that closed. The reason goes where
-                    the number would be: a blank cell reads as nil, which is a claim.
-                  #}
-                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="3">
-                    <span data-field="problem">
-                      {% if row.is_closed %}
-                        <a href="/portfolio/positions/{{ row.security_id }}" class="underline underline-offset-[3px] hover:text-ink">Closed</a>
-                      {% else %}{{ row.problem }}{% endif %}
-                    </span>
-                  </td>
-                {% else %}
-                  {#
-                    The value cell opens the position (page specification §3): how it was
-                    built, what it is worth and what it does to the book, from the same walk.
-                  #}
-                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="value">
-                    <a href="/portfolio/positions/{{ row.security_id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.value }}</a>
-                  </td>
-                  <td
-                    class="py-2 pr-4 text-right type-data-sm {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"
-                    data-field="unrealised"
-                  >
-                    {{ row.unrealised }}
-                  </td>
-                  <td class="py-2 text-right type-data-sm text-ink-muted" data-field="weight">
-                    {{ row.weight }}
-                  </td>
-                {% endif %}
-              </tr>
-            {% endfor %}
-
-            {#
-              Cash is a position and belongs in the same table. Without it every weight on
-              the page is a fraction of the wrong denominator — silently, and in the
-              direction that overstates every holding.
-            #}
-            {% for row in cash %}
-              <tr class="border-b border-line bg-surface-sunken" data-cash="{{ row.currency }}">
-                <th scope="row" class="py-2 pr-4 text-left">
-                  <span class="type-body-strong text-ink">Cash</span>
-                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.currency }}</span>
-                  {{ grade_chip(row.grade, row.grade_label) }}
-                </th>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="balance">
-                  {{ row.balance }}
-                </td>
-                {% if row.problem %}
-                  {#
-                    The reason goes where the number would be and spans the columns it would
-                    have filled, rather than being crushed into one cell.
-                  #}
-                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="4">
-                    <span data-field="problem">{{ row.problem }}</span>
-                  </td>
-                {% else %}
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="in-base">
-                    {{ row.in_base }}
-                  </td>
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 text-right type-data-sm text-ink-muted" data-field="weight">
-                    {{ row.weight }}
-                  </td>
-                {% endif %}
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      {{
-        ui.empty(
-          "Nothing recorded yet",
-          "Enter a deposit and a trade below and the book computes itself from them. Nothing here is stored as a position — every figure is recomputed from what you enter.",
-        )
-      }}
-    {% endif %}
-  {% endcall %}
 
   {% call ui.sheet("Record a transaction", subtitle="Enter positive amounts; the transaction type determines the sign. Typed entries are marked attested — self-certified, with no document behind them — and every figure computed from one inherits that.") %}
     <form
