@@ -177,6 +177,27 @@ available here. It offers no control, because a control that goes nowhere is the
 tools registry exists to refuse. The approval row, the hash check and the run are this
 record's, so that build adds the path and nothing else.
 
+**Amended 23 September 2026, on building the acquisition half** (after F4, ADR 0131). Three
+things the paragraph above left to the build are now fixed, and one sentence in it is
+corrected. The acquisition is **rooted on the company's current report's own research
+request**, not on the question's work order: the established hosts, the operator's
+exclusions, the held-document checks and the citation scope are that run's, so a fetch here
+is admitted exactly as a research worker's would be, and every document added is recorded
+under that request with the question's own job as the fetcher of record — which is what makes
+"added to the company's record" true rather than said. The question's work order still carries
+the run's job, its step and its costs. A question on a company with no current report cannot
+be approved, and one whose report is withdrawn between approval and run finishes without
+running, saying so. The **research worker** takes the question as its brief (a `question`
+topic on the `analysis` role, prompt version 6), within bounds set from the estimate the
+operator agreed to: one turn per search, one fetch per document the estimate allowed. What it
+fetched is **excerpted** on the way in, so the reader can cite it; the reader then answers as
+tier 2 does, over the grown record. **Nothing useful is an answer that says so** — the
+documents stay, the cost is reported, the question is answered — never a failure. The
+estimate's searches are capped at the worker's own bound and its turns are priced at the
+analysis route. The go-ahead is a form post carrying the estimate's hash; the run is queued
+to the worker, which holds the fetcher; the page says the question is being researched
+until it answers, and lists what was added beside the answer.
+
 ### 6. Every answer carries the drawer, and the drawer is the question's own
 
 A tier-1 figure links to the calculation walk, which already checks ownership through the

@@ -101,16 +101,24 @@ class WorkerExhaustedError(AerError):
 
 
 class ResearchTopic(StrEnum):
-    """The five investigations §2.5 fans out."""
+    """The five investigations §2.5 fans out, and the one Ask's third tier commissions."""
 
     COMPANY = "company"
     INDUSTRY = "industry"
     MACRO = "macro"
     RECENT_DEVELOPMENTS = "recent_developments"
     TECHNICAL_CONTEXT = "technical_context"
+    # One question the operator asked and priced (F6, ADR 0130 §5): the brief is the
+    # question itself, carried in the message rather than in the topic's standing text.
+    QUESTION = "question"
 
 
 _TOPIC_BRIEFS: Final[dict[ResearchTopic, str]] = {
+    ResearchTopic.QUESTION: (
+        "One question the operator asked, stated in the message. Find what answers it — "
+        "the newest material first — read it, and report what you found with the ids to "
+        "cite. Anything the question needs that you could not reach is a lead."
+    ),
     ResearchTopic.COMPANY: (
         "The company itself: business model, segments, management, disclosed risks, and "
         "what the filings actually say against what is commonly assumed."
@@ -225,6 +233,10 @@ class WorkerInput(BaseModel):
     # Turns left, this one included. Told to the worker for the same reason the tool budget
     # is: a bound it cannot see is a bound it cannot plan against -- see `user_message`.
     remaining_rounds: int = 1
+
+    # The operator's own question, for the ``QUESTION`` topic (ADR 0130 §5); empty for the
+    # five topics whose brief is standing text.
+    question: str = ""
 
     # The tools this run can actually execute: the role's allowlist narrowed to the
     # executors that were bound. Permission is not availability — `fetch_known_url` is
@@ -386,8 +398,9 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
     role: ClassVar[str] = "analysis"
     output_schema: ClassVar[type[BaseModel]] = WorkerTurn
     # 5: the web_search brief joined the menu (ADR 0092). The tool menu is interpolated
-    # into the system prompt, so a description change is a prompt change.
-    prompt_version: ClassVar[str] = "5"
+    # into the system prompt, so a description change is a prompt change. 6: the question
+    # topic's brief, and the operator's question in the message (ADR 0130 §5).
+    prompt_version: ClassVar[str] = "6"
 
     def system_prompt(self, payload: WorkerInput) -> str:
         return _SYSTEM_PROMPT.format(
@@ -405,6 +418,10 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
             f"Remaining turns, this one included: {payload.remaining_rounds}.",
             f"Internal results so far, as data:\n{internal['internal_results']}",
         ]
+        if payload.question:
+            # The operator's words, as the brief: after the standing lines and before the
+            # results, so the topic reads the same way whichever tier commissioned it.
+            parts.insert(1, f"The question to answer: {payload.question}")
         if payload.problems:
             # "Reply", not "report": the same channel carries a report the validator refused
             # and one the schema could not read at all, and the second is not a report.
@@ -494,6 +511,7 @@ async def investigate(
     validate: ReportValidator,
     max_tool_calls: int = MAX_TOOL_CALLS,
     max_rounds: int = MAX_ROUNDS,
+    question: str = "",
 ) -> Investigation:
     """Run one worker's request/execute loop to a validated report.
 
@@ -548,6 +566,7 @@ async def investigate(
                 internal_results=internal,
                 untrusted_evidence=untrusted,
                 problems=problems,
+                question=question,
             )
             problems = []
 

@@ -313,6 +313,16 @@ researching it is not yet available here.
 
 ---
 
+**Corrected 23 September 2026, on building tier 3** (ADR 0130 §5, amended). The third tier
+runs. Its acquisition is rooted on the company's current report's own request — the run's
+established hosts, exclusions and held-document checks — with the question's job as the
+fetcher of record; the research worker takes the question as its brief within the bounds the
+estimate priced; what it fetched is excerpted and the reader answers over the grown record. A
+question that finds nothing useful is answered honestly, with the documents kept and the cost
+reported. The go-ahead carries the hash of the price shown, happens once, and queues the run
+to the worker. *Done when*'s "a question outside the record is refused with a price rather
+than guessed" still holds for the ask; what follows the price is now a control.
+
 ## F7 · Depth in primary sources
 
 **What it is.** Reading further into free primary material rather than licensing secondary

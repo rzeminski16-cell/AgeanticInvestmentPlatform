@@ -889,7 +889,7 @@ authority on sequencing within this item.
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
 | F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession |
 | F5 | The model workbook | — |
-| F6 | Ask, in three tiers | F7 for tier 3 — **tiers 1 and 2 landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, tier 3 resolved and priced; its acquisition follows F4 |
+| F6 | Ask, in three tiers | F7 for tier 3 — **all three tiers landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, research after a priced go-ahead through the report's own acquisition path |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
 | F8 | Print what the run already computed | ADR 0118, F16 |
 | F9 | The thesis, as premises with tests | — |
@@ -2402,6 +2402,25 @@ found rather than as scope that was always there.
     the whole slate and the slate is read per job. Open, by design: the Today band's "review
     a completed refresh" row (`jobs.changes_read_at`) comes with the absent surfaces, and the
     UK path still re-fetches accounts by digest rather than by accession.
+
+58. **F6's third tier runs, 23 September 2026.** ADR 0130 §5, amended on building it. The
+    go-ahead is a row on the question carrying the hash of the price it was shown, refused
+    when the price on record differs and taken once; it queues `run_ask` to the worker,
+    which holds the fetcher. The run is rooted on the company's current report's own
+    request — the established hosts, the operator's exclusions, the held-document checks
+    and the citation scope are the run's, and a question's own work order holds nothing a
+    host could be established from — with the question's job as the fetcher of record, so
+    a document it adds is the company's and the next question's. The research worker takes
+    the question as its brief (`ResearchTopic.QUESTION`, prompt version 6) within bounds set
+    from the estimate; what it fetched is excerpted on the way in, because a worker reads
+    a page in its own channel and a citation needs a located excerpt; the reader then
+    answers as tier 2 does, and nothing useful is an answer that says so with the documents
+    kept. Found on the way: the estimate priced the worker's turns at the search route and
+    allowed a fourth search the worker would refuse — both corrected; and the extractor map
+    and the paragraph splitter the acquisition uses were private to their modules, now
+    shared. Open: a research run's documents show on the report's run sources page under
+    the question's job, and the Today band's row for an answered question comes with the
+    absent surfaces.
 
 ### Before this leaves one machine
 

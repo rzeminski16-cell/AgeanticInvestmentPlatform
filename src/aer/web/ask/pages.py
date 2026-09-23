@@ -8,9 +8,9 @@ evidence drawer's answer for one marker: an excerpt as stored, a fact with its s
 the walk on to a calculation.
 
 **The tier is shown before the answer**, and on the page it is the first thing after the
-question. A tier-3 question carries the sentence with the price and, until its acquisition
-lands after F4, says that researching it is not yet available here rather than offering a
-control that goes nowhere.
+question. A tier-3 question carries the sentence with the price and one control — the
+go-ahead, which posts the hash of the price it showed — then says it is being researched
+until the worker answers it, with what was added to the record listed beside the answer.
 """
 
 from __future__ import annotations
@@ -29,10 +29,20 @@ from starlette.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, SettingsDep, StoreDep
+from aer.api.deps import (
+    CurrentUser,
+    DbSession,
+    ProviderDep,
+    RedisClient,
+    RouterDep,
+    SettingsDep,
+    StoreDep,
+)
 from aer.core.ask import Tier
+from aer.core.enums import JobStatus
 from aer.db.models import Question
 from aer.errors import AerError
+from aer.queue import enqueue_ask
 from aer.services import ask as ask_service
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
@@ -67,10 +77,18 @@ class QuestionRow:
 
 
 def _state_of(question: Question) -> str:
-    kind = str(question.content.get("kind", "")) if isinstance(question.content, dict) else ""
+    content = question.content if isinstance(question.content, dict) else {}
+    kind = str(content.get("kind", ""))
     if question.is_answered:
         return "answered"
     if kind == "research":
+        if content.get("outcome") in {"stopped", "failed"}:
+            return "stopped"
+        if question.is_approved:
+            job = question.job
+            return (
+                "stopped" if job is not None and job.status is JobStatus.FAILED else "researching"
+            )
         return "priced"
     if kind == "stopped":
         return "stopped"
@@ -109,14 +127,23 @@ def _cost_words(question: Question) -> str:
         return (
             "Free. No model was called; every figure is arithmetic on this question's own ledger."
         )
-    if question.actual_cost_gbp is not None and question.tier != int(Tier.RESEARCH):
-        return f"Cost {figures.pounds(Decimal(question.actual_cost_gbp))}, shown after it ran."
-    if question.actual_cost_gbp is not None:
+    if question.actual_cost_gbp is None:
+        return "Nothing has been spent."
+    spent = figures.pounds(Decimal(question.actual_cost_gbp))
+    if question.tier != int(Tier.RESEARCH):
+        return f"Cost {spent}, shown after it ran."
+    content = question.content if isinstance(question.content, dict) else {}
+    outcome = str(content.get("outcome", ""))
+    if outcome in {"answered", "nothing_useful"}:
+        searches = int(content.get("searches", 0) or 0)
+        added = len(question.documents_added or [])
         return (
-            f"The re-read cost {figures.pounds(Decimal(question.actual_cost_gbp))} and was "
-            "discarded; nothing more has been spent."
+            f"Cost {spent}: {searches} search{'' if searches == 1 else 'es'} and {added} "
+            f"document{'' if added == 1 else 's'} added to the record, shown after it ran."
         )
-    return "Nothing has been spent."
+    if outcome in {"stopped", "failed"}:
+        return f"Cost {spent} before it stopped; nothing more has been spent."
+    return f"The re-read cost {spent} and was discarded; nothing more has been spent."
 
 
 def _verdict(question: Question) -> verdicts.Verdict:
@@ -133,6 +160,12 @@ def _verdict(question: Question) -> verdicts.Verdict:
             ["needs new material, and is priced"],
             when_none="Priced",
             tone=vocabulary.Tone.WARNING,
+        )
+    if state == "researching":
+        return verdicts.sentence(
+            ["approved at the price shown, and being researched"],
+            when_none="Being researched",
+            tone=vocabulary.Tone.INFO,
         )
     if state == "stopped":
         return verdicts.sentence(
@@ -225,13 +258,18 @@ async def ask_question(  # noqa: PLR0917 -- the service bundle, spelt out
 
 @router.get("/ask/{question_id}", response_class=HTMLResponse, summary="One question")
 async def question_page(
-    request: Request, question_id: uuid.UUID, session: DbSession, user: CurrentUser
+    request: Request,
+    question_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
 ) -> Response:
     """The tier first, then the answer, the price or the refusal."""
     question = await ask_service.question_of(session, question_id, user_id=user.id)
     if question is None:
         return _problem(request, "No such question.")
     content: dict[str, Any] = question.content if isinstance(question.content, dict) else {}
+    token = new_csrf_token(settings)
     page: Response = render(
         request,
         "ask/question.html",
@@ -246,11 +284,52 @@ async def question_page(
             "figures": list(content.get("figures", [])),
             "paragraphs": list(content.get("paragraphs", [])),
             "notes": list(content.get("notes", [])),
+            "documents": list(content.get("documents", [])),
             "cost_words": _cost_words(question),
             "rationale": question.tier_rationale,
+            "estimate_hash": ask_service.estimate_hash_of(question),
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
         },
     )
+    set_csrf_cookie(page, token)
     return page
+
+
+@router.post("/ask/{question_id}/research", summary="Research a question at the stated price")
+async def research_question(  # noqa: PLR0917 -- every one is an injected dependency
+    request: Request,
+    question_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """The go-ahead (ADR 0130 §5): the price's hash on the question's row, then the queue.
+
+    The acquisition itself runs in the worker, which holds the fetcher; the page says the
+    question is being researched until it answers.
+    """
+    submitted = await _submitted(request)
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _refused(request, "Nothing was started.")
+    question = await ask_service.question_of(session, question_id, user_id=user.id)
+    if question is None:
+        return _problem(request, "No such question.")
+    try:
+        await ask_service.approve_research(
+            session,
+            question=question,
+            user=user,
+            estimate_hash=submitted.get("estimate_hash", ""),
+        )
+        await session.commit()
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+    await enqueue_ask(redis, question.id)
+    _log.info("ask.page.approved", question_id=str(question.id))
+    return RedirectResponse(f"/ask/{question.id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.get(

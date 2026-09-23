@@ -203,6 +203,19 @@ error.
 are still added to the record (they were read, and the next question benefits), and the cost is
 reported. It is not a failure and must not be presented as one.
 
+## 2.6 As built, 23 September 2026 (ADR 0130 §5, amended)
+
+Steps 1 to 5 above are `aer.services.ask.research`, run by the worker's `run_ask` task after
+`approve_research` recorded the go-ahead. Two things read differently in the code from the
+text: step 3's "normal fetch path" is the research worker's own executors, bound to the
+company's **current report's request** (its established hosts, its exclusions, its held-document
+checks), with the question's job as the fetcher of record — a question's own work order holds
+nothing a host could be established from; and step 4's "citing what it fetched" needs the
+fetched pages **excerpted** first, because the worker reads a page's text in its own channel
+and a citation needs a located excerpt in the record. The estimate's searches are capped at
+the worker's bound (three), and the worker runs within one turn per search and one fetch per
+document the estimate allowed.
+
 ---
 
 # 3 · The monitor's metric resolution

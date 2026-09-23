@@ -7,7 +7,8 @@
   The tier is the first thing after the question (page specification §13.1). A tier-1
   answer is figures, each a recorded calculation with its walk; a tier-2 answer is
   paragraphs with numbered notes the drawer resolves; a tier-3 question is the sentence
-  with the price, and the honest line that researching it is not yet available here.
+  with the price and the go-ahead; approved, it says it is being researched; answered, it
+  is paragraphs with notes plus what the question added to the record.
 #}
 
 {% block title %}{{ row.ticker }} &middot; Ask &middot; Tracework{% endblock %}
@@ -43,8 +44,13 @@
         {% endfor %}
       </div>
     {% endcall %}
-  {% elif kind == "re_read" and state == "answered" %}
-    {% call ui.sheet("The answer", subtitle="Written from what the record holds and nothing else. Each note leads to the excerpt, fact or calculation the paragraph rests on.", id="answer") %}
+  {% elif kind in ("re_read", "research") and state == "answered" %}
+    {% if kind == "research" and content.get("outcome") == "nothing_useful" %}
+      {% call ui.sheet("The answer", subtitle="What was fetched was read and kept; none of it, nor the record, could carry an answer.", id="answer") %}
+        <p class="max-w-prose type-body text-ink" id="answer-text">{{ question.answer }}</p>
+      {% endcall %}
+    {% else %}
+    {% call ui.sheet("The answer", subtitle=("Written from the record as it now stands, the material this question added included, and nothing else." if kind == "research" else "Written from what the record holds and nothing else.") ~ " Each note leads to the excerpt, fact or calculation the paragraph rests on.", id="answer") %}
       <div class="flex max-w-prose flex-col gap-4" id="answer-text">
         {% for paragraph in paragraphs %}
           <p class="type-body text-ink" data-paragraph="{{ loop.index }}">
@@ -71,6 +77,38 @@
         {% endfor %}
       </ol>
     {% endcall %}
+    {% endif %}
+    {% if kind == "research" %}
+      {#
+        What the question left behind (ADR 0130 §5): every document it added to the
+        company's record, hashed and tiered like any other, and readable on the run's
+        own sources page. Present even when nothing was useful — the record grew.
+      #}
+      {% call ui.sheet("What was added to the record", subtitle="Fetched through the normal path — hashed, tiered, policy-checked — and kept for every later question.", id="added") %}
+        {% if documents %}
+          <ul class="flex flex-col" id="documents-added">
+            {% for document in documents %}
+              <li class="border-t border-line py-3 type-body-sm text-ink" data-document="{{ document.id }}">
+                {{ document.title }}
+                <span class="type-data-sm text-ink-muted">· {{ document.tier | replace("_", " ") | lower }}{% if document.quarantined %} · held apart{% endif %}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="type-body-sm text-ink-muted" id="nothing-added">Nothing was added: every page the search led to was already held, refused, or could not be read.</p>
+        {% endif %}
+        {% if question.job_id %}
+          <a href="/runs/{{ question.job_id }}/sources" class="mt-3 inline-block type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" id="added-sources-link">Sources and provenance for this question</a>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+  {% elif kind == "research" and state == "researching" %}
+    {% call ui.sheet("Being researched", subtitle="Approved at the price shown; the worker is acquiring what the question needs and will answer here.", id="researching") %}
+      <p class="max-w-prose type-body text-ink" id="price-sentence">{{ content.sentence }}</p>
+      <div class="mt-6">
+        {{ ui.callout("info", "In progress", "Approved on " ~ ((content.get("approved") or {}).get("at", "")[:10] or "the day it was asked") ~ ". Every fetch goes through the normal path and is recorded against the company; this page shows the answer when it lands.") }}
+      </div>
+    {% endcall %}
   {% elif kind == "research" %}
     {% call ui.sheet("What it would take", subtitle="Nothing has been spent. The price is an estimate from the routed models' published rates, said as one.", id="price") %}
       <p class="max-w-prose type-body text-ink" id="price-sentence">{{ content.sentence }}</p>
@@ -79,9 +117,30 @@
           {% for item in content.missing %}<li>{{ item }}</li>{% endfor %}
         </ul>
       {% endif %}
-      <div class="mt-6">
-        {{ ui.callout("info", "Researching it is not yet available here", "The third tier's acquisition lands after the refresh (ADR 0130 §5). The question is kept with its price, and nothing runs without your go-ahead when it does.") }}
-      </div>
+      {% if state == "stopped" %}
+        <div class="mt-6">
+          {{ ui.callout("refusal", "It stopped before answering", content.get("reason") or "The run stopped before an answer was written.", action_label="Back to Ask", action_href="/ask") }}
+        </div>
+      {% else %}
+        {#
+          The go-ahead (ADR 0130 §5): one control, carrying the hash of the price this
+          page shows, so an approval of a different price is refused on arrival.
+        #}
+        <form method="post" action="/ask/{{ question.id }}/research" id="research-form" class="mt-6 flex flex-col gap-3">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="estimate_hash" value="{{ estimate_hash }}" />
+          <p class="max-w-prose type-body-sm text-ink-muted">
+            Go ahead? The searches and the pages they lead to are fetched through the normal
+            path and added to the company's record; the reader then answers from the record
+            as it stands. The estimate is the price you agree to; the run's own bounds are
+            set from it.
+          </p>
+          <div>
+            <button type="submit" id="research-go-ahead"
+                    class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong">Go ahead</button>
+          </div>
+        </form>
+      {% endif %}
     {% endcall %}
   {% elif kind == "stopped" %}
     {% call ui.sheet("Stopped at a ceiling", id="stopped") %}

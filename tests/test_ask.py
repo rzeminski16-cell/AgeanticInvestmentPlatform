@@ -28,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.agents.ask_reader import AnswerParagraph, AskAnswer
+from aer.agents.worker import ToolRequest, WorkerLead, WorkerReport, WorkerTurn
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.config import Settings
 from aer.core.ask import (
@@ -53,7 +54,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
-from aer.errors import ValidationError
+from aer.errors import ConflictError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import ask as ask_service
@@ -68,6 +69,7 @@ from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.test_composed_view import _CONFIRMED, _SHARES, _YEARS, MANDATE, _price
+from tests.test_research_workers import _RecordingFetcher
 
 pytestmark = pytest.mark.usefixtures("db_session")
 
@@ -866,7 +868,7 @@ class TestThePages:
         assert "Free. No model was called" in shown.text
         assert 'data-figure="6"' in shown.text
 
-    async def test_a_tier_three_question_shows_its_price_and_no_control(
+    async def test_a_tier_three_question_shows_its_price_and_the_go_ahead(
         self, api: Any, committed: dict[str, Any]
     ) -> None:
         await _valued(committed)
@@ -885,8 +887,9 @@ class TestThePages:
         assert shown.status_code == 200
         assert "needs new material" in shown.text
         assert "This needs new material. About £" in shown.text
-        assert "not yet available here" in shown.text
-        assert "Go ahead" not in shown.text
+        assert 'id="research-form"' in shown.text
+        assert "Go ahead" in shown.text
+        assert "not yet available" not in shown.text
         assert "Nothing has been spent." in shown.text
         listed = await api.get("/ask")
         assert 'data-tier="3"' in listed.text
@@ -930,3 +933,376 @@ class TestThePages:
             },
         )
         assert response.status_code == 404
+
+
+# -- Tier 3 -----------------------------------------------------------------------------------
+
+# A page on the host the scene's record already reads from, with one paragraph long enough
+# to be an excerpt and no numeral the reader could be accused of inventing.
+ANNOUNCEMENT = (
+    "Contoso announced that it will acquire Fabrikam for cash from existing balances, and "
+    "that the board expects the transaction to close in the second half of the year, adding "
+    "to earnings from the first full year of ownership subject to the customary approvals."
+)
+PAGE = f"<html><body><h1>Contoso to acquire Fabrikam</h1><p>{ANNOUNCEMENT}</p></body></html>"
+FETCHED_URL = "https://data.sec.gov/news/contoso-fabrikam.htm"
+STRANGER_URL = "https://news.example.com/contoso-results"
+RESEARCH_QUESTION = "Has anything changed at their main competitor?"
+
+
+class _ResearchBrain:
+    """The worker searches, fetches one page on the record's own host and one it may not,
+    then reports; the reader cites the newest excerpt it was dealt."""
+
+    def __init__(self, *, answered: bool = True) -> None:
+        self.provider: FakeProvider | None = None
+        self.answered = answered
+        self.turns = [
+            WorkerTurn(
+                requests=[
+                    ToolRequest(tool="web_search", query="Contoso Fabrikam", why="what is new")
+                ]
+            ),
+            WorkerTurn(
+                requests=[
+                    ToolRequest(tool="fetch_known_url", query=FETCHED_URL, why="read it"),
+                    ToolRequest(tool="fetch_known_url", query=STRANGER_URL, why="and this"),
+                ]
+            ),
+            WorkerTurn(
+                report=WorkerReport(
+                    findings=[],
+                    leads=[WorkerLead(question="The terms?", why_it_matters="They price it.")],
+                    coverage_note="Read one announcement on the record's own host.",
+                )
+            ),
+        ]
+
+    def __call__(self, schema: type[Any]) -> Any:
+        if schema is WorkerTurn:
+            return self.turns.pop(0)
+        assert self.provider is not None
+        shown = " ".join(
+            str(message.get("cache_prefix") or "") + str(message.get("content") or "")
+            for message in self.provider.calls[-1]["messages"]
+        )
+        dealt = re.findall(r"extraction ([0-9a-f-]{36})", shown)
+        assert dealt, "the reader was dealt no excerpt"
+        return AskAnswer(
+            answered=self.answered,
+            paragraphs=[
+                AnswerParagraph(
+                    text=(
+                        "The announcement says the Fabrikam purchase is funded from cash and "
+                        "expected to close in the second half."
+                    ),
+                    cites=[dealt[-1]],
+                )
+            ],
+            not_in_record=[] if self.answered else ["a closing date"],
+        )
+
+
+def _research_provider(*, answered: bool = True) -> FakeProvider:
+    brain = _ResearchBrain(answered=answered)
+    provider = FakeProvider(brain, inspect_schema=refuse_unanswerable_schema)
+    brain.provider = provider
+    return provider
+
+
+async def _priced(scene: dict[str, Any], tmp_path: Path) -> Any:
+    await _valued(scene)
+    question = await _ask(scene, tmp_path, RESEARCH_QUESTION)
+    assert question.tier == 3
+    assert question.content["kind"] == "research"
+    return question
+
+
+async def _researched(
+    scene: dict[str, Any], tmp_path: Path, question: Any, *, provider: FakeProvider
+) -> tuple[Any, _RecordingFetcher]:
+    settings = _settings(tmp_path)
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+    fetcher = _RecordingFetcher(body=PAGE.encode())
+    fetcher.store = store
+    answered = await ask_service.research(
+        scene["session"],
+        settings=settings,
+        provider=provider,
+        router=Router(settings),
+        store=store,
+        fetcher=fetcher,
+        user=await _owner(scene),
+        company=scene["company"],
+        question=question,
+    )
+    return answered, fetcher
+
+
+class TestTheThirdTierRuns:
+    async def test_the_go_ahead_carries_the_price_shown_and_happens_once(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        question = await _priced(scene, tmp_path)
+        owner = await _owner(scene)
+        shown = ask_service.estimate_hash_of(question)
+
+        with pytest.raises(ValidationError, match="not the price on record"):
+            await ask_service.approve_research(
+                scene["session"], question=question, user=owner, estimate_hash="a" * 64
+            )
+        assert not question.is_approved
+
+        await ask_service.approve_research(
+            scene["session"], question=question, user=owner, estimate_hash=shown
+        )
+        assert question.is_approved
+        assert question.content["approved"]["estimate_hash"] == shown
+        assert question.content["approved"]["report_id"]
+
+        with pytest.raises(ConflictError, match="runs once"):
+            await ask_service.approve_research(
+                scene["session"], question=question, user=owner, estimate_hash=shown
+            )
+
+    async def test_it_is_refused_for_another_account_a_dealt_question_and_no_current_report(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        question = await _priced(scene, tmp_path)
+        shown = ask_service.estimate_hash_of(question)
+        stranger = User(email="other@example.invalid", display_name="Other", role=UserRole.OWNER)
+        scene["session"].add(stranger)
+        await scene["session"].flush()
+        with pytest.raises(ConflictError, match="not in your account"):
+            await ask_service.approve_research(
+                scene["session"], question=question, user=stranger, estimate_hash=shown
+            )
+
+        dealt = await _ask(scene, tmp_path, "What if the discount rate were half a point higher?")
+        assert dealt.tier == 1
+        with pytest.raises(ConflictError, match="dealt with from the record"):
+            await ask_service.approve_research(
+                scene["session"],
+                question=dealt,
+                user=await _owner(scene),
+                estimate_hash=ask_service.estimate_hash_of(dealt),
+            )
+
+        with pytest.raises(ConflictError, match="go-ahead"):
+            await _researched(scene, tmp_path, question, provider=_research_provider())
+
+    async def test_a_company_without_a_current_report_cannot_be_researched(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        scene["request"].company_id = scene["company"].id
+        await scene["session"].flush()
+        question = await _ask(scene, tmp_path, RESEARCH_QUESTION)
+        assert question.tier == 3
+        with pytest.raises(ConflictError, match="no current report"):
+            await ask_service.approve_research(
+                scene["session"],
+                question=question,
+                user=await _owner(scene),
+                estimate_hash=ask_service.estimate_hash_of(question),
+            )
+
+    async def test_it_acquires_through_the_report_and_answers_citing_what_it_fetched(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        question = await _priced(scene, tmp_path)
+        owner = await _owner(scene)
+        await ask_service.approve_research(
+            scene["session"],
+            question=question,
+            user=owner,
+            estimate_hash=ask_service.estimate_hash_of(question),
+        )
+        provider = _research_provider()
+
+        answered, fetcher = await _researched(scene, tmp_path, question, provider=provider)
+
+        session: AsyncSession = scene["session"]
+        assert answered.is_answered
+        assert answered.content["kind"] == "research"
+        assert answered.content["outcome"] == "answered"
+        assert "second half" in str(answered.answer)
+        # The searches and the fetches went through the run's own executors: the host the
+        # record reads from was admitted, the search engine's host was refused unread.
+        assert len(provider.web_searches) == 1
+        assert fetcher.urls == [FETCHED_URL]
+        assert answered.content["searches"] == 1
+        # One document, recorded under the report's request with this question's job as
+        # the fetcher of record, excerpted so the reader could cite it.
+        assert len(answered.documents_added or []) == 1
+        [document_id] = answered.documents_added
+        document = await session.get(SourceDocument, uuid.UUID(document_id))
+        assert document is not None
+        assert document.work_order_id == scene["request"].id
+        assert document.job_id == answered.job_id
+        assert document.url == FETCHED_URL
+        excerpts = list(
+            await session.scalars(
+                select(Extraction).where(Extraction.source_document_id == document.id)
+            )
+        )
+        assert excerpts, "the fetched page was not excerpted"
+        assert any(ANNOUNCEMENT[:40] in row.excerpt for row in excerpts)
+        note = answered.content["notes"][0]
+        assert note["kind"] == "excerpt"
+        assert note["id"] in {str(row.id) for row in excerpts}
+        assert answered.content["paragraphs"][0]["notes"] == [1]
+        assert answered.content["documents"][0]["id"] == document_id
+        # Priced before, metered after: the search fee, the worker's turns and the reader's
+        # pass all land on the question's own job.
+        assert answered.actual_cost_gbp is not None
+        assert answered.actual_cost_gbp > 0
+        job = await session.get(Job, answered.job_id)
+        assert job is not None
+        assert job.status is JobStatus.SUCCEEDED
+        costs = await session.scalar(
+            select(func.count()).select_from(Cost).where(Cost.job_id == job.id)
+        )
+        assert costs is not None
+        assert costs >= 3
+        # The question is now in the record: the next one resolves over the larger record.
+        record = await ask_service.held_record(session, user=owner, company=scene["company"])
+        assert "fabrikam" in record.vocabulary
+
+        with pytest.raises(ConflictError, match="runs once"):
+            await _researched(scene, tmp_path, question, provider=_research_provider())
+
+    async def test_nothing_useful_is_an_honest_answer_and_the_documents_stay(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        question = await _priced(scene, tmp_path)
+        await ask_service.approve_research(
+            scene["session"],
+            question=question,
+            user=await _owner(scene),
+            estimate_hash=ask_service.estimate_hash_of(question),
+        )
+
+        answered, fetcher = await _researched(
+            scene, tmp_path, question, provider=_research_provider(answered=False)
+        )
+
+        assert answered.is_answered
+        assert answered.content["outcome"] == "nothing_useful"
+        assert str(answered.answer).startswith("Nothing that was found answers this. 1 document")
+        assert answered.content["paragraphs"] == []
+        assert len(answered.documents_added or []) == 1
+        assert fetcher.urls == [FETCHED_URL]
+        assert answered.actual_cost_gbp is not None
+        assert answered.actual_cost_gbp > 0
+        job = await scene["session"].get(Job, answered.job_id)
+        assert job is not None
+        assert job.status is JobStatus.SUCCEEDED
+
+    async def test_the_worker_is_briefed_with_the_question_and_bounded_by_the_estimate(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        question = await _priced(scene, tmp_path)
+        await ask_service.approve_research(
+            scene["session"],
+            question=question,
+            user=await _owner(scene),
+            estimate_hash=ask_service.estimate_hash_of(question),
+        )
+        provider = _research_provider()
+
+        await _researched(scene, tmp_path, question, provider=provider)
+
+        first = provider.calls[0]
+        assert "Topic: question." in first["messages"][0]["content"]
+        assert f"The question to answer: {RESEARCH_QUESTION}" in first["messages"][0]["content"]
+        assert "One question the operator asked" in first["system"]
+        estimate = question.content["estimate"]
+        budget = int(estimate["searches"]) + int(estimate["documents_up_to"])
+        assert f"Remaining tool budget: {budget} call(s)" in first["messages"][0]["content"]
+
+
+class TestTheResearchPages:
+    async def test_the_go_ahead_starts_the_research_and_the_page_says_so(
+        self, api: Any, committed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        queued: list[str] = []
+
+        async def record(redis: Any, question_id: uuid.UUID) -> str:
+            queued.append(str(question_id))
+            return f"task-{question_id}"
+
+        monkeypatch.setattr("aer.web.ask.pages.enqueue_ask", record)
+        await _valued(committed)
+        await committed["session"].commit()
+        page = await api.get("/ask")
+        asked = await api.post(
+            "/ask",
+            data={
+                "csrf_token": _csrf(page.text),
+                "company_id": str(committed["company"].id),
+                "question": RESEARCH_QUESTION,
+            },
+        )
+        shown = await api.get(asked.headers["location"])
+        assert 'id="research-form"' in shown.text
+        assert "not yet available" not in shown.text
+        hidden = re.search(r'name="estimate_hash"\s+value="([0-9a-f]{64})"', shown.text)
+        assert hidden is not None
+
+        started = await api.post(
+            f"{asked.headers['location']}/research",
+            data={"csrf_token": _csrf(shown.text), "estimate_hash": hidden.group(1)},
+            follow_redirects=False,
+        )
+        assert started.status_code == 303, started.text
+        assert queued == [asked.headers["location"].rsplit("/", 1)[-1]]
+
+        again = await api.get(asked.headers["location"])
+        assert 'id="research-form"' not in again.text
+        assert 'id="researching"' in again.text
+        assert "being researched" in again.text
+        listed = await api.get("/ask")
+        assert 'data-state="researching"' in listed.text
+
+        index = await api.get("/ask")
+        twice = await api.post(
+            f"{asked.headers['location']}/research",
+            data={"csrf_token": _csrf(index.text), "estimate_hash": hidden.group(1)},
+            follow_redirects=False,
+        )
+        assert twice.status_code == 409
+        assert queued == [asked.headers["location"].rsplit("/", 1)[-1]]
+
+    async def test_a_go_ahead_at_a_different_price_is_refused(
+        self, api: Any, committed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        queued: list[str] = []
+
+        async def record(redis: Any, question_id: uuid.UUID) -> str:
+            queued.append(str(question_id))
+            return "task"
+
+        monkeypatch.setattr("aer.web.ask.pages.enqueue_ask", record)
+        await _valued(committed)
+        await committed["session"].commit()
+        page = await api.get("/ask")
+        asked = await api.post(
+            "/ask",
+            data={
+                "csrf_token": _csrf(page.text),
+                "company_id": str(committed["company"].id),
+                "question": RESEARCH_QUESTION,
+            },
+        )
+        shown = await api.get(asked.headers["location"])
+
+        refused = await api.post(
+            f"{asked.headers['location']}/research",
+            data={"csrf_token": _csrf(shown.text), "estimate_hash": "f" * 64},
+            follow_redirects=False,
+        )
+        assert refused.status_code == 422
+        assert "not the price on record" in refused.text
+        assert queued == []
+        still = await api.get(asked.headers["location"])
+        assert 'id="research-form"' in still.text

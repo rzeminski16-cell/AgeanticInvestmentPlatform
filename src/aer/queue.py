@@ -35,10 +35,12 @@ from arq.constants import default_queue_name, health_check_key_suffix
 __all__ = [
     "HEALTH_CHECK_INTERVAL_SECONDS",
     "HEALTH_CHECK_KEY",
+    "RUN_ASK_TASK",
     "RUN_DAILY_TASK",
     "RUN_MONITOR_TASK",
     "RUN_RESEARCH_TASK",
     "WorkerHealth",
+    "enqueue_ask",
     "enqueue_monitor",
     "enqueue_run",
     "redis_settings_from",
@@ -51,6 +53,9 @@ _log = structlog.get_logger("aer.queue")
 # disagree about it produce a queue that accepts work nothing ever runs.
 RUN_RESEARCH_TASK = "run_research"
 RUN_MONITOR_TASK = "run_monitor"
+# Ask's third tier (F6, ADR 0130 §5): the acquisition behind a priced go-ahead, in the
+# worker because the web process holds no fetcher and never will.
+RUN_ASK_TASK = "run_ask"
 
 # The daily pass (F15). It is a *schedule* rather than a queue entry — nothing enqueues it,
 # arq's cron fires it — and the name is here with the other two so that one place says what
@@ -133,6 +138,15 @@ async def enqueue_monitor(redis: Any, thesis_id: uuid.UUID) -> str | None:
     work order and job when it starts, so there is nothing to name before then.
     """
     return await _enqueue(redis, RUN_MONITOR_TASK, thesis_id)
+
+
+async def enqueue_ask(redis: Any, question_id: uuid.UUID) -> str | None:
+    """Queue the research behind one approved question, from the web process (F6).
+
+    Keyed on the question: the run makes its own work order and job when it starts, as a
+    monitor pass does, so there is nothing else to name before then.
+    """
+    return await _enqueue(redis, RUN_ASK_TASK, question_id)
 
 
 async def _enqueue(redis: Any, task_name: str, identifier: uuid.UUID) -> str | None:

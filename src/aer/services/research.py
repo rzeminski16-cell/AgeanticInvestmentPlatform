@@ -51,6 +51,7 @@ from aer.services.subject import subject_name
 from aer.sources.tiering import DocumentKind, tier_for
 
 __all__ = [
+    "EXTRACTORS",
     "MAX_HITS",
     "MAX_WEB_SEARCHES",
     "build_executors",
@@ -104,7 +105,7 @@ class _RegulatorHit:
 # Which extractor reads which kind. Anything else is archived and cited but not read: the
 # platform holds the bytes either way, and guessing at an extractor is how a parser meets
 # content it was not written for.
-_EXTRACTORS: Final[dict[str, str]] = {
+EXTRACTORS: Final[dict[str, str]] = {
     "text/html": "html",
     "application/xhtml+xml": "html",
     "application/xml": "html",
@@ -807,7 +808,7 @@ async def _text_of(
     reason as the note — a page that could not be read is a fact about the page, and the
     worker can record it as a lead instead of guessing at contents.
     """
-    extractor = _EXTRACTORS.get(media_type)
+    extractor = EXTRACTORS.get(media_type)
     if extractor is None:
         return "", f"no extractor for {media_type}"
     if settings is None:  # pragma: no cover -- bound only when settings are supplied

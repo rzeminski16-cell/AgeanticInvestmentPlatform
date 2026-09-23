@@ -5,8 +5,10 @@ over what this module read from the record. **Tier 1** strikes the current repor
 case again on the question's own ledger with one input changed, and calls no model.
 **Tier 2** deals the ask reader what the record holds within a token budget, runs one
 metered pass, and keeps the answer only if every check in :func:`_judge` passes. **Tier 3**
-is priced from the routed models' published rates and recorded; its acquisition lands after
-F4, and until then the page says researching it is not yet available here.
+is priced from the routed models' published rates and recorded; on the operator's go-ahead —
+a row on the question carrying the hash of the price it was shown — the research worker
+takes the question as its brief and acquires through the normal fetch path, rooted on the
+company's current report's own request, and the reader then answers over the grown record.
 
 Every question is its own run root (ADR 0072): a work order on the company with the tool
 ``ask``, one job, one step. Its calculations, its model call and its cost rows are written
@@ -38,6 +40,13 @@ from sqlalchemy.orm import selectinload
 
 from aer.agents.ask_reader import AskAnswer, AskInput, AskReaderAgent
 from aer.agents.base import AgentContext
+from aer.agents.worker import (
+    Investigation,
+    ResearchTopic,
+    ResearchWorker,
+    WorkerExhaustedError,
+    investigate,
+)
 from aer.calc.dcf import DcfResult
 from aer.calc.units import Quantity, SourceKind, SourceRef, Unit
 from aer.core.ask import (
@@ -58,6 +67,7 @@ from aer.core.sectors import (
     unclassified_mandate,
 )
 from aer.db.models import (
+    Artefact,
     Calculation,
     Company,
     Extraction,
@@ -71,17 +81,26 @@ from aer.db.models import (
     User,
     WorkOrder,
 )
-from aer.errors import AerError, BudgetExceededError, ValidationError
+from aer.errors import AerError, BudgetExceededError, ConflictError, ValidationError
+from aer.extract import extract_text
 from aer.providers.costs import estimate_gbp, price_web_search
 from aer.render import display
 from aer.services import configuration, provenance
 from aer.services.analysis import ANNUAL, analyse_company
 from aer.services.assumptions import confirmed_values
 from aer.services.calculations import indexed_calculations, new_context, persist_context
-from aer.services.extractions import may_print_excerpt
+from aer.services.extractions import may_print_excerpt, record_excerpts
+from aer.services.filings import paragraph_excerpts
 from aer.services.mandate import mandate_of
 from aer.services.reports import current_report
+from aer.services.research import (
+    EXTRACTORS,
+    MAX_WEB_SEARCHES,
+    build_executors,
+    validate_report,
+)
 from aer.services.sectors import confirmed_classification
+from aer.services.subject import subject_name
 from aer.services.valuation import run_valuation
 from aer.services.valuation_run import base_case_inputs, latest_period, prior_period
 from aer.version import git_sha
@@ -100,12 +119,15 @@ __all__ = [
     "WORKFLOW_VERSION",
     "Estimate",
     "Note",
+    "approve_research",
     "ask",
     "companies_with_a_record",
+    "estimate_hash_of",
     "held_record",
     "note_of",
     "question_of",
     "questions_for",
+    "research",
     "research_estimate",
 ]
 
@@ -783,15 +805,6 @@ async def _re_read(
         )
         return
 
-    projected = estimate_gbp(
-        model=router.resolve(AskReaderAgent.role).model,
-        input_tokens=pack.cost,
-        expected_output_tokens=_ANSWER_TOKENS,
-        usd_to_gbp=settings.usd_to_gbp,
-    )
-    guard = BudgetGuard(
-        per_run_cap_gbp=settings.per_run_budget_gbp, monthly_cap_gbp=settings.monthly_budget_gbp
-    )
     context = AgentContext(
         session=session,
         provider=provider,
@@ -799,6 +812,78 @@ async def _re_read(
         settings=settings,
         store=store,
         job_step=step,
+    )
+    reading = await _read(session, context=context, company=company, question=question, pack=pack)
+    question.actual_cost_gbp = context.spend_gbp
+    if reading.stopped is not None:
+        await _fail(
+            session, order=order, job=job, step=step, reason=reading.stopped, cost=context.spend_gbp
+        )
+        question.content = {"kind": "stopped", "reason": reading.stopped}
+        return
+    if reading.discarded is not None:
+        await _succeed(
+            session,
+            order=order,
+            job=job,
+            step=step,
+            cost=context.spend_gbp,
+            output={"discarded": reading.discarded},
+        )
+        _refuse_to_research(
+            question,
+            resolution,
+            reason=reading.discarded,
+            router=router,
+            settings=settings,
+            company=company,
+        )
+        return
+
+    paragraphs, notes = _compose(reading.kept, pack)
+    question.content = {
+        "kind": "re_read",
+        "paragraphs": paragraphs,
+        "notes": notes,
+        "dealt": dict(pack.dealt),
+        "truncated": pack.truncated,
+        "dropped": pack.dropped,
+    }
+    question.answer = "\n\n".join(text for text, _ in reading.kept)
+    question.answered_at = datetime.now(UTC)
+    await _succeed(
+        session, order=order, job=job, step=step, cost=context.spend_gbp, output=question.content
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _Reading:
+    """What one pass of the reader came to: the paragraphs kept, or why none were."""
+
+    kept: list[tuple[str, list[str]]]
+    discarded: str | None = None
+    # A cap the pass would have crossed, said before the model was asked.
+    stopped: str | None = None
+
+
+async def _read(
+    session: AsyncSession,
+    *,
+    context: AgentContext,
+    company: Company,
+    question: Question,
+    pack: _Pack,
+) -> _Reading:
+    """One metered pass of the reader over the pack, judged. Shared by tiers 2 and 3."""
+    settings = context.settings
+    projected = estimate_gbp(
+        model=context.router.resolve(AskReaderAgent.role).model,
+        input_tokens=pack.cost,
+        expected_output_tokens=_ANSWER_TOKENS,
+        usd_to_gbp=settings.usd_to_gbp,
+    )
+    guard = BudgetGuard(
+        per_run_cap_gbp=settings.per_run_budget_gbp, monthly_cap_gbp=settings.monthly_budget_gbp
     )
     payload = AskInput(
         company_name=company.name,
@@ -808,38 +893,23 @@ async def _re_read(
         untrusted_evidence=pack.untrusted,
         truncated=pack.truncated,
     )
+    job = await session.get(Job, context.job_step.job_id)
+    assert job is not None  # the step was opened on it moments ago
     try:
         await guard.check(session, job=job, projected_gbp=projected)
         draft = await AskReaderAgent().run(context, payload)
     except BudgetExceededError as refused:
-        await _fail(
-            session, order=order, job=job, step=step, reason=str(refused), cost=context.spend_gbp
-        )
-        question.actual_cost_gbp = context.spend_gbp
-        question.content = {"kind": "stopped", "reason": str(refused)}
-        return
-
+        return _Reading(kept=[], stopped=str(refused))
     kept, reason = _judge(draft, pack)
-    question.actual_cost_gbp = context.spend_gbp
     if reason is not None or not kept:
-        await _succeed(
-            session,
-            order=order,
-            job=job,
-            step=step,
-            cost=context.spend_gbp,
-            output={"discarded": reason or "no paragraph rested on the record"},
-        )
-        _refuse_to_research(
-            question,
-            resolution,
-            reason=reason or "no paragraph rested on the record",
-            router=router,
-            settings=settings,
-            company=company,
-        )
-        return
+        return _Reading(kept=[], discarded=reason or "no paragraph rested on the record")
+    return _Reading(kept=kept)
 
+
+def _compose(
+    kept: list[tuple[str, list[str]]], pack: _Pack
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """The paragraphs with their markers, and the notes the drawer resolves, numbered once."""
     numbered: dict[str, int] = {}
     notes: list[dict[str, str]] = []
     paragraphs: list[dict[str, Any]] = []
@@ -858,20 +928,7 @@ async def _re_read(
                 )
             markers.append(numbered[cite])
         paragraphs.append({"text": text, "notes": markers})
-
-    question.content = {
-        "kind": "re_read",
-        "paragraphs": paragraphs,
-        "notes": notes,
-        "dealt": dict(pack.dealt),
-        "truncated": pack.truncated,
-        "dropped": pack.dropped,
-    }
-    question.answer = "\n\n".join(text for text, _ in kept)
-    question.answered_at = datetime.now(UTC)
-    await _succeed(
-        session, order=order, job=job, step=step, cost=context.spend_gbp, output=question.content
-    )
+    return paragraphs, notes
 
 
 async def _pack(
@@ -1094,19 +1151,21 @@ class Estimate:
 def research_estimate(resolution: Resolution, *, router: Router, settings: Settings) -> Estimate:
     """Price the third tier from the routed models' published rates (ADR 0130 §5).
 
-    One search for the question and one for each thing it names that the record lacks, a
-    worker turn to read each search's listing, and the reading pass over what arrives. An
-    estimate, said as one — the acquisition that lands after F4 replaces it with the plan's
-    own — and rounded up to the penny rather than down.
+    One search for the question and one for each thing it names that the record lacks — no
+    more than the worker's own search bound — a worker turn at the analysis route to read
+    each listing and choose what to fetch, and the reading pass over what arrives. An
+    estimate, said as one, and rounded up to the penny rather than down; the run's bounds
+    (:func:`research`) are set from it, so what runs is what was priced.
     """
-    searches = min(_MAX_SEARCHES, 1 + len(resolution.missing))
+    searches = min(_MAX_SEARCHES, MAX_WEB_SEARCHES, 1 + len(resolution.missing))
     search_model = router.resolve("web_search").model
+    worker_model = router.resolve(ResearchWorker.role).model
     reader_model = router.resolve(AskReaderAgent.role).model
     fee = price_web_search(
         searches, provider="anthropic", model=search_model, usd_to_gbp=settings.usd_to_gbp
     )
     cost = (fee.amount_gbp if fee is not None else Decimal(0)) + searches * estimate_gbp(
-        model=search_model,
+        model=worker_model,
         input_tokens=_WORKER_INPUT_TOKENS,
         expected_output_tokens=_WORKER_OUTPUT_TOKENS,
         usd_to_gbp=settings.usd_to_gbp,
@@ -1157,6 +1216,366 @@ def _refuse_to_research(
     _price(question, resolution, router=router, settings=settings, company=company)
     question.tier_rationale = f"That is not in this record: {reason}. {question.tier_rationale}"
     question.content["discarded"] = reason
+
+
+# -- Tier 3: the go-ahead, and the acquisition behind it (ADR 0130 §5) --------------------------
+
+_RESEARCH: Final = "research"
+_OUTCOME: Final = "outcome"
+# What the research worker may spend, from the estimate the operator agreed to: one turn
+# per search to read its listing, one fetch per document the estimate allowed, and a last
+# turn for the report. Bounded by the estimate, so what runs is what was priced.
+_RESEARCH_ROUNDS_FLOOR: Final = 2
+
+
+def estimate_hash_of(question: Question) -> str:
+    """The hash of the price a tier-3 question was shown, which its go-ahead must carry."""
+    content = question.content if isinstance(question.content, dict) else {}
+    return sha256_hex(canonical_json(content.get("estimate") or {}))
+
+
+async def approve_research(
+    session: AsyncSession,
+    *,
+    question: Question,
+    user: User,
+    estimate_hash: str,
+    now: datetime | None = None,
+) -> Question:
+    """Record the operator's go-ahead on the question's own row (ADR 0130 §5).
+
+    One approval per question, carrying the hash of the estimate the page showed and
+    refused when the row's estimate differs — the same rule every gate keeps. Nothing is
+    spent here: the run is queued by the caller and happens in the worker.
+
+    Raises:
+        ConflictError: Not this account's question, not a priced tier-3 question, already
+            approved or answered, or no current report on the company to root the
+            acquisition on.
+        ValidationError: The hash is not the hash of the price on record.
+    """
+    content = question.content if isinstance(question.content, dict) else {}
+    if question.user_id != user.id:
+        message = "This question is not in your account's record."
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    if question.tier != int(Tier.RESEARCH) or content.get("kind") != _RESEARCH:
+        message = (
+            "Only a question that needs new material is researched; this one was dealt with "
+            "from the record."
+        )
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    if question.is_answered:
+        message = "This question has been answered; ask it again to research it afresh."
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    if question.is_approved:
+        message = (
+            f"This question was already approved on {question.approved_at:%d %B %Y}; a "
+            "question runs once."
+        )
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    if not estimate_hash or estimate_hash != estimate_hash_of(question):
+        message = (
+            "The price you were shown is not the price on record. Open the question again "
+            "and decide on what it shows now."
+        )
+        raise ValidationError(message, context={"question_id": str(question.id)})
+    report = await current_report(session, company_id=question.company_id)
+    if report is None:
+        message = (
+            "There is no current report on this company to add to; the third tier researches "
+            "on a report's own record. Commission a run first."
+        )
+        raise ConflictError(message, context={"question_id": str(question.id)})
+
+    approved_at = now or datetime.now(UTC)
+    question.approved_at = approved_at
+    question.content = {
+        **content,
+        "approved": {
+            "at": approved_at.isoformat(),
+            "estimate_hash": estimate_hash,
+            "report_id": str(report.id),
+        },
+    }
+    await session.flush()
+    _log.info("ask.approved", question_id=str(question.id), estimate_hash=estimate_hash)
+    return question
+
+
+async def research(
+    session: AsyncSession,
+    *,
+    settings: Settings,
+    provider: LLMProvider,
+    router: Router,
+    store: ArtefactStore,
+    fetcher: Any,
+    user: User,
+    company: Company,
+    question: Question,
+    sec_client: Any = None,
+) -> Question:
+    """Run an approved tier-3 question: acquire what it needs, then answer over the record.
+
+    **Rooted on the current report's own request.** The established hosts, the operator's
+    exclusions, the held-document checks and the citation scope are all that run's, so a
+    fetch here is admitted exactly as a research worker's would be — and every document
+    added is recorded under that request with this question's job as the fetcher of
+    record, which is how "added to the company's record" is made true rather than said.
+
+    The research worker takes the question as its brief, within the bounds the estimate
+    priced. Whatever it fetched is excerpted so the reader can cite it, and the reader
+    then answers as tier 2 does, over the grown record. **Nothing useful is an answer that
+    says so**, with the documents kept and the cost reported: the record is larger, and
+    the next question benefits.
+
+    Raises:
+        ConflictError: The question was never approved, has been answered, or already ran.
+    """
+    if not question.is_approved:
+        message = "Nothing runs without the operator's go-ahead on the price."
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    if question.is_answered or question.job_id is not None:
+        message = "This question has already been researched; a question runs once."
+        raise ConflictError(message, context={"question_id": str(question.id)})
+    content = dict(question.content) if isinstance(question.content, dict) else {}
+    priced = content.get("estimate")
+    estimate: dict[str, Any] = priced if isinstance(priced, dict) else {}
+    searches = max(1, int(estimate.get("searches", 1) or 1))
+    documents_up_to = max(1, int(estimate.get("documents_up_to", _HITS_PER_SEARCH) or 1))
+
+    report = await current_report(session, company_id=company.id)
+    request = await session.get(ResearchRequest, report.request_id) if report is not None else None
+    if report is None or request is None:
+        return await _without_a_root(session, question=question, content=content)
+
+    order, job, step = await _open_pass(session, settings=settings, user=user, company=company)
+    question.job_id = job.id
+    context = AgentContext(
+        session=session,
+        provider=provider,
+        router=router,
+        settings=settings,
+        store=store,
+        job_step=step,
+    )
+    guard = BudgetGuard(
+        per_run_cap_gbp=settings.per_run_budget_gbp, monthly_cap_gbp=settings.monthly_budget_gbp
+    )
+    try:
+        await guard.check(session, job=job, projected_gbp=Decimal(question.estimated_cost_gbp or 0))
+    except BudgetExceededError as refused:
+        await _fail(session, order=order, job=job, step=step, reason=str(refused))
+        question.actual_cost_gbp = Decimal(0)
+        question.content = {**content, _OUTCOME: "stopped", "reason": str(refused)}
+        return question
+
+    investigation, problem = await _investigate(
+        session,
+        context=context,
+        request=request,
+        question=question,
+        fetcher=fetcher,
+        sec_client=sec_client,
+        searches=searches,
+        documents_up_to=documents_up_to,
+    )
+    added = await _documents_added(session, request_id=request.id, job_id=job.id)
+    for document in added:
+        await _excerpt_added(session, store, settings, document=document)
+
+    pack = await _pack(
+        session, user=user, company=company, question=question.question, report_job_id=report.job_id
+    )
+    reading = await _read(session, context=context, company=company, question=question, pack=pack)
+    searched = (
+        sum(1 for item in investigation.executed if item.tool == "web_search" and item.executed)
+        if investigation is not None
+        else 0
+    )
+    question.actual_cost_gbp = context.spend_gbp
+    question.documents_added = [str(document.id) for document in added]
+    record = _research_record(content, added=added, searched=searched, problem=problem, pack=pack)
+    if reading.stopped is not None:
+        await _fail(
+            session, order=order, job=job, step=step, reason=reading.stopped, cost=context.spend_gbp
+        )
+        question.content = {**record, _OUTCOME: "stopped", "reason": reading.stopped}
+        return question
+
+    if reading.discarded is not None:
+        # Honest, not failed (08-mechanisms §2.5): the documents stay, the cost is said.
+        kept = len(added)
+        question.answer = (
+            f"Nothing that was found answers this. {kept} document"
+            f"{'' if kept == 1 else 's'} {'was' if kept == 1 else 'were'} read and kept in "
+            f"{company.name}'s record, and the reader found nothing in the record it could "
+            f"rest an answer on: {reading.discarded}."
+        )
+        question.answered_at = datetime.now(UTC)
+        question.content = {**record, _OUTCOME: "nothing_useful", "paragraphs": [], "notes": []}
+        await _succeed(
+            session,
+            order=order,
+            job=job,
+            step=step,
+            cost=context.spend_gbp,
+            output=question.content,
+        )
+        return question
+
+    paragraphs, notes = _compose(reading.kept, pack)
+    question.answer = "\n\n".join(text for text, _ in reading.kept)
+    question.answered_at = datetime.now(UTC)
+    question.content = {**record, _OUTCOME: "answered", "paragraphs": paragraphs, "notes": notes}
+    await _succeed(
+        session, order=order, job=job, step=step, cost=context.spend_gbp, output=question.content
+    )
+    _log.info(
+        "ask.researched",
+        question_id=str(question.id),
+        documents_added=len(added),
+        searches=searched,
+        cost_gbp=str(context.spend_gbp),
+    )
+    return question
+
+
+async def _without_a_root(
+    session: AsyncSession, *, question: Question, content: dict[str, Any]
+) -> Question:
+    """An approved question whose report was withdrawn before it ran: said, not run."""
+    question.content = {
+        **content,
+        _OUTCOME: "failed",
+        "reason": (
+            "There is no current report on this company to root the research on; the one "
+            "this question was approved against has since been withdrawn."
+        ),
+    }
+    await session.flush()
+    return question
+
+
+def _research_record(
+    content: dict[str, Any],
+    *,
+    added: list[SourceDocument],
+    searched: int,
+    problem: str | None,
+    pack: _Pack,
+) -> dict[str, Any]:
+    """What a researched question records beside its answer: the documents it added, the
+    searches it ran, what the worker could not finish, and what the reader was dealt."""
+    return {
+        **content,
+        "documents": [
+            {
+                "id": str(document.id),
+                "title": document.title or document.url,
+                "url": document.url,
+                "tier": document.source_tier.value,
+                "quarantined": document.quarantined,
+            }
+            for document in added
+        ],
+        "searches": searched,
+        "worker_problem": problem,
+        "dealt": dict(pack.dealt),
+        "truncated": pack.truncated,
+        "dropped": pack.dropped,
+    }
+
+
+async def _investigate(
+    session: AsyncSession,
+    *,
+    context: AgentContext,
+    request: ResearchRequest,
+    question: Question,
+    fetcher: Any,
+    sec_client: Any,
+    searches: int,
+    documents_up_to: int,
+) -> tuple[Investigation | None, str | None]:
+    """The research worker over the question, within the estimate's bounds.
+
+    A worker that runs out of rounds or replies unreadably has still fetched what it
+    fetched: the documents are recorded, and the answer is written over them either way.
+    """
+    executors = build_executors(
+        session,
+        request=request,
+        fetcher=fetcher,
+        store=context.store,
+        settings=context.settings,
+        job_id=context.job_step.job_id,
+        sec_client=sec_client,
+        agent_context=context,
+    )
+
+    async def validator(report: Any) -> list[str]:
+        return await validate_report(session, report, request=request)
+
+    try:
+        outcome = await investigate(
+            context,
+            topic=ResearchTopic.QUESTION,
+            company_name=await subject_name(session, request),
+            ticker=request.ticker,
+            as_of_date=date.today().isoformat(),  # noqa: DTZ011 -- the day it ran, on the platform's clock
+            executors=executors,
+            validate=validator,
+            max_tool_calls=searches + documents_up_to,
+            max_rounds=max(_RESEARCH_ROUNDS_FLOOR, searches + 1),
+            question=question.question,
+        )
+    except (WorkerExhaustedError, ValidationError) as failed:
+        _log.warning("ask.worker_failed", question_id=str(question.id), reason=failed.message)
+        return None, failed.message
+    return outcome, None
+
+
+async def _documents_added(
+    session: AsyncSession, *, request_id: uuid.UUID, job_id: uuid.UUID
+) -> list[SourceDocument]:
+    rows = await session.scalars(
+        select(SourceDocument)
+        .where(SourceDocument.work_order_id == request_id, SourceDocument.job_id == job_id)
+        .order_by(SourceDocument.retrieved_at, SourceDocument.id)
+    )
+    return list(rows)
+
+
+async def _excerpt_added(
+    session: AsyncSession, store: ArtefactStore, settings: Settings, *, document: SourceDocument
+) -> int:
+    """Record a fetched document's paragraphs as excerpts, so the reader can cite them.
+
+    The worker read the page's text in its own channel; a citation needs a located excerpt
+    in the record, which is what a filing gets on acquisition and a fetched page did not.
+    A page that will not extract costs its excerpts and nothing else.
+    """
+    artefact = await session.get(Artefact, document.artefact_id)
+    if artefact is None:  # pragma: no cover -- a document is recorded against its artefact
+        return 0
+    extractor = EXTRACTORS.get(artefact.media_type.split(";", 1)[0].strip())
+    if extractor is None:
+        return 0
+    try:
+        extracted = await extract_text(
+            store, sha256=artefact.sha256, extractor=extractor, settings=settings
+        )
+    except AerError as unreadable:
+        _log.info("ask.not_excerpted", url=document.url, reason=unreadable.message)
+        return 0
+    excerpts = paragraph_excerpts(extracted.text, form="")
+    if not excerpts:
+        return 0
+    rows = await record_excerpts(
+        session, source_document_id=document.id, extracted=extracted.text, excerpts=excerpts
+    )
+    return len(rows)
 
 
 # -- The run root, and its two endings ----------------------------------------------------------

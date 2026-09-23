@@ -69,6 +69,8 @@ __all__ = [
     "AcquiredFilings",
     "acquire_accounts",
     "acquire_filings",
+    "held_accessions",
+    "paragraph_excerpts",
 ]
 
 _log = structlog.get_logger("aer.services.filings")
@@ -820,7 +822,7 @@ async def _excerpt(
         _log.info("filings.not_extracted", url=document.url, reason=unreadable.message)
         return 0
 
-    excerpts = _paragraphs(extracted.text, form=form)
+    excerpts = paragraph_excerpts(extracted.text, form=form)
     # Per-document supply numbers (gap A49). The live run drafted every section against
     # a truncated pack built from 43 excerpts across nine documents — a 1.5MB 10-K among
     # them — and the log could not say whether the item cutting, the paragraph splitting
@@ -847,7 +849,7 @@ async def _excerpt(
     return len(rows)
 
 
-def _paragraphs(extracted: Any, *, form: str) -> list[Excerpt]:
+def paragraph_excerpts(extracted: Any, *, form: str) -> list[Excerpt]:
     """The passages most worth citing, in document order, as located excerpts.
 
     **Document order alone was the first version and it was nearly useless on a 10-K.**

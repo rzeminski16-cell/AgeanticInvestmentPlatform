@@ -31,8 +31,8 @@ from aer.services.filings import (
     MAX_EXCERPTS,
     MAX_EXHIBITS_PER_FILING,
     MIN_EXCERPT_CHARS,
-    _paragraphs,
     acquire_filings,
+    paragraph_excerpts,
 )
 from aer.services.sectors import propose_from_sic
 from aer.sources.base import ResolvedEntity
@@ -774,7 +774,7 @@ class TestAFilingWithoutBlankLinesStillYieldsParagraphs:
         )
 
     def test_the_item_is_cut_into_passages_not_kept_whole(self, extracted: ExtractedText) -> None:
-        excerpts = _paragraphs(extracted, form="10-K")
+        excerpts = paragraph_excerpts(extracted, form="10-K")
 
         assert len(excerpts) > 10, "one item arrived as one excerpt — the MTB shape again"
         assert all(len(found.text) <= MAX_EXCERPT_CHARS for found in excerpts)
@@ -784,12 +784,12 @@ class TestAFilingWithoutBlankLinesStillYieldsParagraphs:
         self, extracted: ExtractedText
     ) -> None:
         """A citation pointing at a piece must re-read to exactly the piece."""
-        for found in _paragraphs(extracted, form="10-K"):
+        for found in paragraph_excerpts(extracted, form="10-K"):
             assert extracted.excerpt(found.locator).text == found.text
 
     def test_a_piece_ends_where_a_reader_would_pause(self, extracted: ExtractedText) -> None:
         """Cut at a line break or a sentence end, not mid-word."""
-        for found in _paragraphs(extracted, form="10-K"):
+        for found in paragraph_excerpts(extracted, form="10-K"):
             assert found.text[-1] in ".?!", f"cut mid-sentence: ...{found.text[-40:]!r}"
 
     def test_a_filing_with_blank_lines_is_left_exactly_as_before(self) -> None:
@@ -806,7 +806,7 @@ class TestAFilingWithoutBlankLinesStillYieldsParagraphs:
             extractor_version="test",
         )
 
-        excerpts = _paragraphs(extracted, form="10-K")
+        excerpts = paragraph_excerpts(extracted, form="10-K")
 
         assert [found.text for found in excerpts if paragraph in found.text] == [paragraph]
 

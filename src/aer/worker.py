@@ -42,11 +42,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings, get_settings
 from aer.db.engine import create_engine
-from aer.db.models import Thesis, User
+from aer.db.models import Company, Question, Thesis, User
 from aer.errors import ValidationError
 from aer.logging import configure_logging
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS
 from aer.runtime import build_services, standalone_price_client
+from aer.services import ask as ask_service
 from aer.services import daily_pass, thesis_monitor
 from aer.services import runs as run_service
 from aer.services import theses as thesis_service
@@ -191,6 +192,60 @@ async def run_monitor(ctx: dict[str, Any], thesis_id: str) -> dict[str, Any]:
     }
 
 
+async def run_ask(ctx: dict[str, Any], question_id: str) -> dict[str, Any]:
+    """The research behind one approved question (F6, ADR 0130 §5).
+
+    Here rather than in the web process because this is the one path in Ask that fetches,
+    and only the worker holds a fetcher. A question that has gone, was never approved, or
+    was answered since it was queued is discarded the way a vanished run is.
+    """
+    settings: Settings = ctx["settings"]
+    session_factory: async_sessionmaker[Any] = ctx["session_factory"]
+    redis: Redis = ctx["aer_redis"]
+
+    parsed = uuid.UUID(question_id)
+
+    async with session_factory() as session:
+        question = await session.get(Question, parsed)
+        if question is None or not question.is_approved or question.is_answered:
+            _log.warning("worker.question_vanished", question_id=question_id)
+            return {"question_id": question_id, "status": "discarded", "spend_gbp": "0"}
+        user = await session.get(User, question.user_id)
+        company = await session.get(Company, question.company_id)
+        if user is None or company is None:  # pragma: no cover -- the row was just read
+            return {"question_id": question_id, "status": "discarded", "spend_gbp": "0"}
+
+        settings = await effective_settings(session, settings)
+        services = build_services(settings, redis=redis)
+        answered = await ask_service.research(
+            session,
+            settings=settings,
+            provider=services.provider,
+            router=services.router,
+            store=services.store,
+            fetcher=services.fetcher,
+            sec_client=services.sec_client,
+            user=user,
+            company=company,
+            question=question,
+        )
+        await session.commit()
+
+    _log.info(
+        "worker.ask_finished",
+        question_id=question_id,
+        answered=answered.is_answered,
+        documents_added=len(answered.documents_added or []),
+        spend_gbp=str(answered.actual_cost_gbp),
+    )
+    return {
+        "question_id": question_id,
+        "status": "answered" if answered.is_answered else "stopped",
+        "documents_added": len(answered.documents_added or []),
+        "spend_gbp": str(answered.actual_cost_gbp or "0"),
+    }
+
+
 async def run_daily_pass(ctx: dict[str, Any]) -> dict[str, Any]:
     """The daily pass, once per person, after the close (F15).
 
@@ -305,7 +360,7 @@ class WorkerSettings:
     """
 
     # Declared ClassVar rather than moved into an __init__ arq never calls.
-    functions: ClassVar[list[Any]] = [run_research, run_monitor]
+    functions: ClassVar[list[Any]] = [run_research, run_monitor, run_ask]
 
     # The daily pass (F15). 22:00 UTC: after the New York close and before the London open,
     # so "yesterday" means the same thing to both markets the platform reads.
