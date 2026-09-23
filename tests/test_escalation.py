@@ -74,9 +74,6 @@ from tests.workflow_fixtures import (
     seed_user,
 )
 
-pytestmark = pytest.mark.anyio
-
-
 # ==========================================================================================
 # The pure engine, against handwritten scenes
 # ==========================================================================================

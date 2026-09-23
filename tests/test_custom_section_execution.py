@@ -103,9 +103,6 @@ from tests.workflow_fixtures import (
     worker_report_turn,
 )
 
-pytestmark = pytest.mark.anyio
-
-
 FILING = b"""<!DOCTYPE html><html><head><title>10-K</title></head><body>
 <p>Total revenue was $198,270 million for fiscal year 2022.</p>
 <p>Switching costs anchor the installed base; churn is described as minimal.</p>

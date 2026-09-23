@@ -22,8 +22,6 @@ from aer.core.enums import JobStatus
 from aer.runtime import ServiceBundle
 from aer.services import runs as run_service
 
-pytestmark = pytest.mark.anyio
-
 _PRICE_CLIENT: Any = object()
 _ANY: Any = object()
 

@@ -25,8 +25,6 @@ from aer.services import preflight as preflight_module
 from aer.services.preflight import Check, CheckStatus, Preflight, run_preflight
 from tests.db_cleanup import delete_all
 
-pytestmark = pytest.mark.anyio
-
 _RECORD = "Sep-06 10:41:03 j_complete=3 j_failed=0 j_retried=0 j_ongoing=0 queued=0"
 _LIFETIME_MS = (HEALTH_CHECK_INTERVAL_SECONDS + 1) * 1000
 _NOW = datetime(2026, 9, 6, 12, 0, tzinfo=UTC)

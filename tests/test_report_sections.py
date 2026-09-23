@@ -46,8 +46,6 @@ from tests.workflow_fixtures import (
     with_price_feed,
 )
 
-pytestmark = pytest.mark.anyio
-
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
 _VERSIONS = Path(__file__).resolve().parent.parent / "migrations" / "versions"
 SEED_MIGRATIONS = (

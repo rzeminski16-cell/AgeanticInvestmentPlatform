@@ -202,10 +202,5 @@ async def db_session(db_engine: Any) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture
-def anyio_backend() -> str:
-    return "asyncio"
-
-
-@pytest.fixture
 def repo_root() -> Iterator[Path]:
     return REPO_ROOT

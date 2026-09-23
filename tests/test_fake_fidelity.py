@@ -27,8 +27,6 @@ from aer.providers.fake import _EFFORTS, FakeProvider
 from aer.providers.protocol import Message
 from tests.schema_guard import SchemaTheApiWouldRejectError, refuse_unanswerable_schema
 
-pytestmark = pytest.mark.anyio
-
 
 class Answer(BaseModel):
     model_config = ConfigDict(extra="forbid")

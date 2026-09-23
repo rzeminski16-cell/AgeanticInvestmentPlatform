@@ -53,8 +53,6 @@ from aer.services.knowledge import knowledge_stats
 from tests.report_fixtures import make_current
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 PRIOR_AS_OF = date(2022, 6, 30)
 READING_AS_OF = date(2024, 6, 30)
 USD = Unit.parse("USD")

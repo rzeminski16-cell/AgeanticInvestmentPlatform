@@ -37,7 +37,6 @@ from tests.api_fixtures import (  # noqa: F401
 )
 from tests.assumption_fixtures import scene  # noqa: F401
 from tests.db_fixtures import (  # noqa: F401
-    anyio_backend,
     database_url,
     db_engine,
     db_session,

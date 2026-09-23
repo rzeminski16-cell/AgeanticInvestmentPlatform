@@ -55,8 +55,6 @@ from tests.workflow_fixtures import (
     seed_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 
 def _challenge_row(
     job_id: uuid.UUID,

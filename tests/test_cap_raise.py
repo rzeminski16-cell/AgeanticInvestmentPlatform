@@ -29,8 +29,6 @@ from aer.services import requests as request_service
 from aer.workflow.engine import BudgetGuard
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 CEILING = Decimal("12.00")
 
 

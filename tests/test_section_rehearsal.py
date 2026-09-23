@@ -36,8 +36,6 @@ from aer.services.section_rehearsal import (
 )
 from tests.test_section_writer import SECTION_KEY, _good_draft, _scripted, build_writer_scene
 
-pytestmark = pytest.mark.anyio
-
 
 @pytest.fixture
 async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:

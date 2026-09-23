@@ -24,7 +24,6 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import HouseStyle
@@ -45,8 +44,6 @@ from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
 from aer.sections.render import CitationRef, render_section
 from tests.request_fixtures import research_request
-
-pytestmark = pytest.mark.anyio
 
 RETRIEVED_AT = datetime(2026, 2, 20, 12, 0, tzinfo=UTC)
 GENERATED_AT = datetime(2026, 2, 21, 9, 30, tzinfo=UTC)

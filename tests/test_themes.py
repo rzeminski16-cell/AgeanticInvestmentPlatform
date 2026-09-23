@@ -29,8 +29,6 @@ from aer.services import themes as theme_service
 from aer.services.knowledge import knowledge_stats
 from tests.workflow_fixtures import seed_job, seed_request
 
-pytestmark = pytest.mark.anyio
-
 AS_OF = date(2026, 6, 30)
 
 

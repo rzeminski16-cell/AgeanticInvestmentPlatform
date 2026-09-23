@@ -44,9 +44,6 @@ from aer.workflow.workflows.vertical_slice_v1 import _prior_research_note, plan_
 from tests.report_fixtures import make_current
 from tests.workflow_fixtures import AS_OF_DATE, seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
-
 # -- Building a prior approved report --------------------------------------------------------
 
 

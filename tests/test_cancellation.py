@@ -30,8 +30,6 @@ from aer.services import runs as run_service
 from aer.workflow.engine import StepResult, WorkflowEngine, WorkflowStep
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 
 def counting_step(key: str, log: list[str]) -> WorkflowStep:
     """A step that records that it ran, so "did it stop?" is a fact rather than a status."""

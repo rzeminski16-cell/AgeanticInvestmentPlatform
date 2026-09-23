@@ -26,8 +26,6 @@ from aer.services.graph_view import GraphEdge, GraphNode, graph_picture, place
 from tests.api_fixtures import build_app, client_for
 from tests.test_knowledge_stats import _company, _run, _user
 
-pytestmark = pytest.mark.anyio
-
 AS_OF = date(2026, 6, 30)
 _TABLES = "research_requests, audit_events, users, artefacts, companies, themes"
 

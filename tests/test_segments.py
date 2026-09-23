@@ -30,7 +30,7 @@ from aer.storage.local import LocalArtefactStore
 from tests.ixbrl_fixtures import SEGMENT_AXIS, SEGMENT_TRUTH, WITH_SEGMENTS
 from tests.request_fixtures import research_request
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 FILED = date(2022, 9, 15)
 ACCESSION = "0000789019-22-000091"

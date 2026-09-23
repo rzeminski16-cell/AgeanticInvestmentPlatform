@@ -29,7 +29,7 @@ from aer.services.mandate import (
 )
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 
 async def _research_run(session: AsyncSession) -> Any:

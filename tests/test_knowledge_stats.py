@@ -43,8 +43,6 @@ from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
-pytestmark = pytest.mark.anyio
-
 AS_OF = date(2026, 6, 30)
 _TABLES = "research_requests, audit_events, users, artefacts, companies"
 

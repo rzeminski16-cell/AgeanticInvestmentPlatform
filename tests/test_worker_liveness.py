@@ -32,8 +32,6 @@ from tests.request_fixtures import research_request
 from tests.run_fixtures import start_run
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 # What arq's worker writes, verbatim (`Worker.record_health`).
 _RECORD = "Sep-06 10:41:03 j_complete=3 j_failed=1 j_retried=0 j_ongoing=1 queued=2"
 _LIFETIME_MS = (HEALTH_CHECK_INTERVAL_SECONDS + 1) * 1000

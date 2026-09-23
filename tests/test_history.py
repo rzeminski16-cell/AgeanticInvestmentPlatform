@@ -42,8 +42,6 @@ from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 APPROVED_AT = datetime(2022, 1, 15, 10, 0, tzinfo=UTC)
 
 

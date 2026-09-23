@@ -76,8 +76,6 @@ from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 # The drafting context this fixture plants, which must never reach the adversary.
 WORKING_NOTE = "WOLFSBANE-the-bull-case-working-note"
 

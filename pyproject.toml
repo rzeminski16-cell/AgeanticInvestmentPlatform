@@ -196,7 +196,14 @@ testpaths = ["tests"]
 # a live test would have billed on every run, including in CI. A command-line `-m` still
 # wins, because addopts are prepended and pytest takes the last one, which is how
 # `just test-live` reaches them.
-addopts = "--strict-markers --strict-config -ra -m 'not live_llm'"
+#
+# `-p no:anyio` keeps one async runner in the process. anyio's pytest plugin, when loaded,
+# wraps every async fixture of a test carrying its marker — and whether its wrapper sits
+# outside pytest-asyncio's or inside it follows plugin registration order, which follows
+# the venv's directory listing. Outside, the fixture runs on anyio's loop and the test on
+# pytest-asyncio's, and asyncpg refuses the mix. CI runs 536 and 543 were that (ROADMAP
+# §3.19, item 61); tests/test_one_async_runner.py keeps this line here.
+addopts = "--strict-markers --strict-config -ra -m 'not live_llm' -p no:anyio"
 markers = [
   "integration: requires the Docker Compose services (Postgres, Redis)",
   "live_llm: performs a real, billable model call; excluded from the default suite",

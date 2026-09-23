@@ -60,8 +60,6 @@ from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.workflow_fixtures import declared_schema_name
 
-pytestmark = pytest.mark.anyio
-
 FILING = b"""<!DOCTYPE html><html><body>
 <p>Total revenue was $198,270 million for fiscal year 2022.</p>
 <p>Switching costs anchor the installed base; churn is described as minimal.</p>

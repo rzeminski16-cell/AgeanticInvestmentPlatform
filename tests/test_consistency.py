@@ -32,7 +32,7 @@ from aer.services.disagreements import disagreements_for_job
 from aer.storage.local import LocalArtefactStore
 from tests.scene_fixtures import build_scene
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture

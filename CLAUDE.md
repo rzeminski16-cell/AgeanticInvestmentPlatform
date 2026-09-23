@@ -93,6 +93,10 @@ single most common way systems like this produce confidently wrong numbers.
 - **The full suite is two processes**, `pytest --ignore=tests/e2e` then `pytest tests/e2e`:
   Playwright's sync API leaves a running loop on the main thread that wedges every
   pytest-asyncio test after it.
+- **One async runner.** Async tests and fixtures are pytest-asyncio's, in auto mode, with no
+  marker. anyio's pytest plugin is blocked in `addopts` and the `anyio` marker is not used:
+  two plugins willing to run an async fixture take turns by the venv's directory order, and
+  CI runs 536 and 543 (ROADMAP §3.19, item 61) were what the other order looks like.
 
 ## Security
 

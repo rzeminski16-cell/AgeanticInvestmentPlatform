@@ -2473,6 +2473,53 @@ found rather than as scope that was always there.
     suggestion, the *over ceiling* filter, the positions-over-ceiling row, the weight bar's
     ceiling — say plainly that no ceiling is stored rather than inventing one.
 
+61. **CI 543 is CI 536 again, and the cause is now pinned: two runners, ordered by a
+    directory listing, 24 September 2026.** Item 52 diagnosed run 536 to the end of what
+    its log allowed and left a test: red again at the same item means the cause is not in
+    a diff, and the next step is to pin it. Run 543, on item 59's commit, was red at the
+    same item — `test_assumption_agent::TestTheAgentRunsThroughTheBase`, **610 failed,
+    7,317 passed** — and its one permitted re-run identical. Pinned, by reproducing it on
+    this machine rather than by reading the runner's Postgres log again.
+
+    *The mechanism.* Two pytest plugins were each willing to run an async fixture:
+    pytest-asyncio in auto mode, which takes every coroutine test and fixture, and anyio's,
+    engaged by the `anyio` marker forty modules carried — the first of them in collection
+    order being `test_assumption_agent`. Each wraps `pytest_fixture_setup`, and the
+    later-registered plugin's wrapper is the outer one: it takes the fixture and the other
+    steps aside. With anyio's outside, `db_engine` and `db_session` run on anyio's loop
+    while pytest-asyncio runs the test on its own, and asyncpg says what the log said —
+    *Task got Future attached to a different loop* — in every anyio-marked test whose
+    fixture had put a connection on the other loop. 670 of the 707 anyio-marked tests use
+    an async fixture; 610 failed. The two selectors in the first failure's captured setup
+    were the two loops.
+
+    *Why it was CI's and never this machine's.* Plugin registration follows
+    `importlib.metadata.distributions()`, which follows the directory listing of
+    `site-packages`, which a filesystem orders as it likes. Here the listing puts anyio
+    before pytest-asyncio, so anyio's wrapper is inside, never engages, and the suite passes
+    every time. A fresh virtual environment on a fresh runner lists them either way round;
+    536 and 543 were the runs where it went the other way. Item 52's starved disk was real
+    and beside the point: a slow checkpoint does not move a connection between loops, and
+    the identical run 535 was green because its listing happened to match this machine's.
+
+    *Reproduced.* A throwaway plugin that re-registers anyio after pytest-asyncio — the
+    `pytest_fixture_setup` order becoming `fixtures, setupplan, setuponly, asyncio, anyio` —
+    fails the same test at the same line with the same error, on this machine, first time.
+
+    *The fix is one runner.* The `anyio` marker is gone from the forty modules
+    (pytest-asyncio's auto mode was already running every one of them on every green run,
+    so no test changes loop), the `anyio_backend` override with it, and anyio's plugin is
+    blocked in `addopts` — so a marker that comes back is an unknown marker under
+    `--strict-markers` rather than a second runner. `tests/test_one_async_runner.py` keeps
+    all three. Proved by running the default suite in both registration orders.
+
+    *What item 52 got right and wrong.* Right: one defect, cascading; nothing in either
+    diff could reach it; "flake" is not a root cause. Wrong: it named the runner's
+    environment as the likely cause when the harness's own loop discipline was the cause
+    and the environment only chose which of two behaviours a run got. The
+    abandoned-connection guard it named as the candidate answers a signature this failure
+    never showed, and stays unbuilt.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

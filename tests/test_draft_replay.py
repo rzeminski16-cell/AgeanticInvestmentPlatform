@@ -48,8 +48,6 @@ from tests.test_section_writer import (
     build_writer_scene,
 )
 
-pytestmark = pytest.mark.anyio
-
 ONE_TRANSACTION = datetime(2026, 9, 5, 14, 30, tzinfo=UTC)
 
 

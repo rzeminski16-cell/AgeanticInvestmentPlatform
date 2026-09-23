@@ -33,8 +33,6 @@ from aer.services.research import MAX_WEB_SEARCHES, build_executors
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 
 class _Request(SimpleNamespace):
     """The two fields a tool request carries into an executor."""

@@ -48,8 +48,6 @@ from aer.services.exhibits import (
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 GENERATED_AT = datetime(2022, 7, 2, 9, 30, tzinfo=UTC)
 RETRIEVED_AT = datetime(2022, 7, 1, 12, 0, tzinfo=UTC)
 

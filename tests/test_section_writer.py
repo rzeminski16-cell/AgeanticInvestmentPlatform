@@ -78,8 +78,6 @@ from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 FILING = b"""<!DOCTYPE html><html><head><title>10-K</title></head><body>
 <p>Cash flow from operations funded the year's capital programme in full.</p>
 <p>Total revenue was $198,270 million for fiscal year 2022.</p>

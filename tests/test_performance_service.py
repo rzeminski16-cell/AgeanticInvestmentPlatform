@@ -29,7 +29,7 @@ from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from tests import portfolio_fixtures
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 # The `book` fixture itself is registered in `conftest`; these are the helpers that put
 # trades into it. Rebound rather than star-imported for the reason `test_portfolio_service`

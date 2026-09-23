@@ -51,8 +51,6 @@ from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.workflow_fixtures import make_provider, seed_job, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 
 def _challenge(
     job_id: uuid.UUID,

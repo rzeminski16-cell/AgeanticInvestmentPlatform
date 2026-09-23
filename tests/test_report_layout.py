@@ -49,8 +49,6 @@ from tests.workflow_fixtures import (
     seed_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 GOLDEN_HTML = Path(__file__).parent / "fixtures" / "fx_report" / "golden.html"
 
 GENERATED_AT = datetime(2022, 7, 2, 9, 30, tzinfo=UTC)

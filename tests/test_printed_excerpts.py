@@ -58,8 +58,6 @@ from tests.injection_fixtures import PAYLOADS
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 RETRIEVED_AT = datetime(2026, 6, 30, 12, 0, tzinfo=UTC)
 
 PASSAGE = "Total revenue was $198,270 million for fiscal year 2022."

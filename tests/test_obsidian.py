@@ -32,7 +32,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
 from tests.scene_fixtures import build_scene
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 APPROVED_AT = datetime(2022, 7, 2, 10, 15, tzinfo=UTC)
 

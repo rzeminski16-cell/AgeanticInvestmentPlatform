@@ -47,8 +47,6 @@ from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_PROPOSED_BY
 from aer.storage.local import LocalArtefactStore
 from tests.workflow_fixtures import WORKFLOW_VERSION, seed_request, seed_user
 
-pytestmark = pytest.mark.anyio
-
 DISCOUNT_RATE = Decimal("0.085")
 
 

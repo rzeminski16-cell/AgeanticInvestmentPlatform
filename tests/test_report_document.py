@@ -90,8 +90,6 @@ from aer.sections.render import Banner, Heading, StatusLine, _unescaped, render_
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-pytestmark = pytest.mark.anyio
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fx_report"
 GOLDEN_MD = FIXTURES / "golden.md"
 GOLDEN_HTML = FIXTURES / "golden.html"

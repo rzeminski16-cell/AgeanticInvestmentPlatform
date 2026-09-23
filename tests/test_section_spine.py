@@ -57,8 +57,6 @@ from tests.workflow_fixtures import (
     seed_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
 
 

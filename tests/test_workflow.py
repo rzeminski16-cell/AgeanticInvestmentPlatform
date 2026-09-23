@@ -65,8 +65,6 @@ from tests.workflow_fixtures import (
     with_price_feed,
 )
 
-pytestmark = pytest.mark.anyio
-
 
 async def run_to_next_stop(
     session: AsyncSession,

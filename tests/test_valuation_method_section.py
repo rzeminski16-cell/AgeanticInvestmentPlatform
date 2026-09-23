@@ -36,8 +36,6 @@ from tests.request_fixtures import research_request
 from tests.test_valuation_surface import AS_OF_DATE, MANDATE, base_inputs, rate, usd
 from tests.workflow_fixtures import seed_job
 
-pytestmark = pytest.mark.anyio
-
 
 async def seed_method_scene(session: AsyncSession) -> dict[str, Any]:
     """A run whose valuation was really computed, with its assumptions and value step.

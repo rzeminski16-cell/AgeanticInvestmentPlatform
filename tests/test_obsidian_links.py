@@ -51,7 +51,7 @@ from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
-pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+pytestmark = pytest.mark.integration
 
 A1_AS_OF = date(2022, 6, 30)
 A2_AS_OF = date(2022, 12, 31)
