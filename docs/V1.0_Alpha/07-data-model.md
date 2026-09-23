@@ -209,6 +209,17 @@ A price-move finding has no `thesis_id` requirement (a watched company need not 
 carries its measurement in `observed`, and **dismissal takes a reason** — which is what makes the
 "too many dismissals mean the threshold is wrong" feedback possible at all.
 
+**Corrected 23 September 2026, by migration 0083.** The SQL above lost to two ADRs that outrank
+this document. *No `dismissed_at` and no `dismissed_reason`*: ADR 0078 makes a resolution an
+appended `finding_resolutions` row, never a flag on the finding, and that table already takes a
+dismissal with a required reason — so the feedback this gap wanted is a count of resolution rows,
+not a pair of columns. *`findings.user_id`, NOT NULL*: ADR 0120 §1 lists findings among the rows
+that carry the account directly, and a price move on a watched listing has no thesis to reach a
+user through; it was backfilled from each finding's thesis, then made NOT NULL, so the scoping
+query stops joining theses at all. `thesis_id` became nullable with a check that a kind names its
+subject — a price move names a listing, everything else a thesis. `security_id` is as written,
+cascading with the listing. The enum value is as written, and is the one-way door.
+
 ## Gap 4 — Nothing holds a cadence or a threshold
 
 **Needed by.** F11, F15.

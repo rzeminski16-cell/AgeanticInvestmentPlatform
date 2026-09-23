@@ -91,6 +91,7 @@ async def _seed_a_contradicted_premise(database_url: str) -> None:
             await session.flush()
             session.add(
                 Finding(
+                    user_id=thesis.user_id,
                     thesis_id=thesis.id,
                     judgement_id=premise.judgement_id,
                     job_id=job.id,

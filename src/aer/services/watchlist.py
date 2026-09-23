@@ -80,6 +80,14 @@ TOOL: Final = "watchlist"
 # have commissioned by hand with nothing changed.
 DEFAULT_HORIZON_MONTHS: Final = 12
 DEFAULT_MODE: Final = AnalysisMode.STANDARD
+
+# The days a price move is measured over when the listing sets no window (F11): the same
+# seven the schema defaults to (migration 0083), named once for the form, the service and
+# the page.
+DEFAULT_PRICE_WINDOW_DAYS: Final = 7
+
+# A threshold is a percentage of the price, and a move past the whole of it is a delisting.
+_WHOLE_PRICE: Final = Decimal(100)
 _HORIZON_LABEL: Final = "Commissioned from the watchlist"
 
 # A run in one of these may still spend up to its cap, so the standing budget reserves the
@@ -181,12 +189,19 @@ async def follow(
     ticker: str,
     exchange: str,
     why: str = "",
+    price_move_threshold_pct: Decimal | None = None,
+    price_move_window_days: int = DEFAULT_PRICE_WINDOW_DAYS,
 ) -> WatchlistEntry:
     """Start following a listing, checked against the universe a research request is.
 
+    The price-move threshold is the listing's own (F11); ``None`` is the account's default
+    from the settings page, so a listing followed before the default changed follows the
+    change. The window is the days a move is measured over.
+
     Raises:
         ValidationError: If the name is blank, or the listing is outside the universe —
-            every reason together, as the request form reports them.
+            every reason together, as the request form reports them — or the threshold or
+            window is not one.
         ConflictError: If the listing is already followed and not withdrawn.
     """
     name = company_name.strip()
@@ -195,6 +210,15 @@ async def follow(
     if not name or not symbol or not venue:
         message = "Following a company needs its name, its ticker and its exchange."
         raise ValidationError(message, context={"field": "company_name"})
+    if price_move_threshold_pct is not None and not 0 < price_move_threshold_pct <= _WHOLE_PRICE:
+        message = (
+            "The price move worth telling you about is a percentage above 0 and at most "
+            f"100; got {price_move_threshold_pct}."
+        )
+        raise ValidationError(message, context={"field": "price_move_threshold_pct"})
+    if price_move_window_days < 1:
+        message = f"A price move is measured over at least a day; got {price_move_window_days}."
+        raise ValidationError(message, context={"field": "price_move_window_days"})
     if not TICKER_PATTERN.match(symbol):
         # The request the commission creates would refuse it, and an entry the queue
         # cannot commission at its head would stop everything behind it.
@@ -223,11 +247,17 @@ async def follow(
         raise ConflictError(message, context={"entry_id": str(existing.id)})
 
     entry = WatchlistEntry(
-        user_id=user.id, company_name=name, ticker=symbol, exchange=venue, why=why.strip()
+        user_id=user.id,
+        company_name=name,
+        ticker=symbol,
+        exchange=venue,
+        why=why.strip(),
+        price_move_threshold_pct=price_move_threshold_pct,
+        price_move_window_days=price_move_window_days,
     )
     session.add(entry)
     await session.flush()
-    await session.refresh(entry, attribute_names=["followed_at", "commissions"])
+    await session.refresh(entry, attribute_names=["followed_at", "commissions", "cadence"])
     await _record(
         session,
         actor=user.email,
@@ -239,6 +269,10 @@ async def follow(
             "ticker": symbol,
             "exchange": venue,
             "why": entry.why,
+            "price_move_threshold_pct": (
+                str(price_move_threshold_pct) if price_move_threshold_pct is not None else None
+            ),
+            "price_move_window_days": price_move_window_days,
         },
     )
     _log.info("watchlist.followed", entry_id=str(entry.id), listing=entry.listing)

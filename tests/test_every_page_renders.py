@@ -149,6 +149,7 @@ async def committed(db_engine: Any, tmp_path: Path) -> Any:
             review_by=None,
         )
         finding = Finding(
+            user_id=thesis.user_id,
             thesis_id=thesis.id,
             judgement_id=premise.judgement_id,
             kind=FindingKind.READING,

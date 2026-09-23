@@ -332,6 +332,13 @@ PREMISE_STATES: Final[dict[PremiseStatus, HumanState]] = {
 
 # A pass that hit its cost ceiling and stopped rather than pausing for nobody (ADR 0078).
 # The refusal tone, because a guard did its job; a stopped pass is not a broken one.
+PRICE_MOVE: Final = HumanState(
+    "Price moved",
+    Tone.INFO,
+    "The close moved past the threshold you set. A finding beside the thesis state — never a "
+    "verdict on it, because a price is not evidence about a premise.",
+)
+
 STOPPED_PASS: Final = HumanState(
     "Stopped at its ceiling",
     Tone.REFUSAL,

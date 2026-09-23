@@ -41,9 +41,11 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.config import Settings
 from aer.core.enums import JobStatus, RequestStatus
 from aer.db.models import Job, Portfolio, Security, Transaction, User, WatchlistEntry, WorkOrder
 from aer.errors import AerError
+from aer.services import price_alerts
 from aer.services.price_acquisition import PriceClient
 from aer.services.prices import record_bars
 from aer.version import git_sha
@@ -105,6 +107,9 @@ class DailyOutcome:
 
     note: str = ""
 
+    alerts: int = 0
+    """Price moves past a threshold, each a finding beside the thesis state (F11)."""
+
 
 @dataclass(frozen=True, slots=True)
 class PassState:
@@ -153,6 +158,7 @@ async def run_daily_pass(
     client: PriceClient | None,
     *,
     user: User,
+    settings: Settings,
     as_of: date,
     now: datetime | None = None,
 ) -> DailyOutcome:
@@ -215,6 +221,13 @@ async def run_daily_pass(
             stored = await record_bars(session, security=security, response=response, job_id=job.id)
             outcome.stored += stored.inserted
 
+    # The second kind of alert, once the closes are in (F11). Arithmetic on stored bars and
+    # nothing else: no provider is in reach of this function, so it cannot spend.
+    moved = await price_alerts.check_watched_listings(
+        session, user=user, settings=settings, as_of=as_of, job_id=job.id, now=now
+    )
+    outcome.alerts = len(moved)
+
     finished = datetime.now(UTC) if now is None else now
     job.status = JobStatus.SUCCEEDED
     job.finished_at = finished
@@ -227,6 +240,7 @@ async def run_daily_pass(
         as_of=as_of.isoformat(),
         read=outcome.read,
         stored=outcome.stored,
+        alerts=outcome.alerts,
         problems=len(outcome.problems),
     )
     return outcome

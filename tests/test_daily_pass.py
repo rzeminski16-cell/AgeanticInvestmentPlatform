@@ -15,7 +15,7 @@ is the case the pass exists to survive.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -24,49 +24,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import JobStatus, RequestStatus
 from aer.db.models import WatchlistEntry, WorkOrder
-from aer.errors import ExternalServiceError
 from aer.services import daily_pass
-from aer.sources.eodhd.client import PriceResponse
-from tests import portfolio_fixtures, price_fixtures
+from tests import portfolio_fixtures
 from tests.portfolio_fixtures import AS_OF, funded, trade
+from tests.price_fixtures import StubPrices
 
 pytestmark = pytest.mark.integration
 
 book = portfolio_fixtures.book
-
-
-class _StubPrices:
-    """The slice of the vendor client the pass uses, answering from a dict.
-
-    A symbol mapped to ``None`` raises, which is the delisted-ticker case: the pass must
-    record it and carry on to the next listing rather than losing the night's other reads.
-    """
-
-    def __init__(self, bars: dict[str, list[tuple[date, str]]] | None = None) -> None:
-        self.bars = bars or {}
-        self.asked: list[str] = []
-
-    async def fetch_bars(
-        self, symbol: str, *, as_of: date, since: date | None = None
-    ) -> PriceResponse:
-        self.asked.append(symbol)
-        rows = self.bars.get(symbol)
-        if rows is None:
-            message = f"No series for {symbol}."
-            raise ExternalServiceError(message, provider="stub", context={"symbol": symbol})
-        return price_fixtures.bars_response(
-            [price_fixtures.row(on, close) for on, close in rows], as_of=as_of, symbol=symbol
-        )
-
-    async def fetch_actions(self, symbol: str, *, as_of: date, since: date | None = None) -> Any:
-        raise NotImplementedError
-
-    async def fetch_shares_outstanding(self, symbol: str, *, as_of: date) -> Any:
-        raise NotImplementedError
-
-    @property
-    def licence_note(self) -> str:
-        return "stub"
 
 
 async def _watch(session: AsyncSession, scene: dict[str, Any], ticker: str, exchange: str) -> None:
@@ -144,15 +109,15 @@ class TestWhichListingsThePassReads:
 
 class TestThePassRunsAndSaysSo:
     async def test_it_stores_the_closes_it_did_not_have(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         await funded(db_session, book)
         await trade(db_session, book, security=book["msft"], quantity="10", price="400")
         yesterday = AS_OF + timedelta(days=1)
-        client = _StubPrices({"MSFT.US": [(yesterday, "415")]})
+        client = StubPrices({"MSFT.US": [(yesterday, "415")]})
 
         outcome = await daily_pass.run_daily_pass(
-            db_session, client, user=book["user"], as_of=yesterday
+            db_session, client, user=book["user"], settings=api_settings, as_of=yesterday
         )
 
         assert client.asked == ["MSFT.US"]
@@ -161,16 +126,16 @@ class TestThePassRunsAndSaysSo:
         assert outcome.problems == []
 
     async def test_a_bar_already_held_is_not_news(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         """The fixture already stores a close at AS_OF. A pass re-reading it stores nothing
         and is not a failure — re-running an acquisition is not news."""
         await funded(db_session, book)
         await trade(db_session, book, security=book["msft"], quantity="10", price="400")
-        client = _StubPrices({"MSFT.US": [(AS_OF, "410")]})
+        client = StubPrices({"MSFT.US": [(AS_OF, "410")]})
 
         outcome = await daily_pass.run_daily_pass(
-            db_session, client, user=book["user"], as_of=AS_OF
+            db_session, client, user=book["user"], settings=api_settings, as_of=AS_OF
         )
 
         assert outcome.read == 1
@@ -178,7 +143,7 @@ class TestThePassRunsAndSaysSo:
         assert outcome.problems == []
 
     async def test_one_bad_symbol_does_not_stop_the_others(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         await funded(db_session, book)
         await trade(db_session, book, security=book["msft"], quantity="10", price="400")
@@ -186,10 +151,10 @@ class TestThePassRunsAndSaysSo:
             db_session, book, security=book["barc"], quantity="100", price="250", currency="GBX"
         )
         yesterday = AS_OF + timedelta(days=1)
-        client = _StubPrices({"MSFT.US": [(yesterday, "415")]})
+        client = StubPrices({"MSFT.US": [(yesterday, "415")]})
 
         outcome = await daily_pass.run_daily_pass(
-            db_session, client, user=book["user"], as_of=yesterday
+            db_session, client, user=book["user"], settings=api_settings, as_of=yesterday
         )
 
         assert outcome.read == 2
@@ -198,12 +163,12 @@ class TestThePassRunsAndSaysSo:
         assert "BARC" in outcome.problems[0]
 
     async def test_it_records_a_finished_job_that_cost_nothing(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         """A pass is a run like any other, and "when did this last work?" is answered from
         the record rather than from the worker's scrollback."""
         outcome = await daily_pass.run_daily_pass(
-            db_session, _StubPrices(), user=book["user"], as_of=AS_OF
+            db_session, StubPrices(), user=book["user"], settings=api_settings, as_of=AS_OF
         )
 
         assert outcome.job.status is JobStatus.SUCCEEDED
@@ -215,27 +180,29 @@ class TestThePassRunsAndSaysSo:
         assert order.status is RequestStatus.COMPLETED
 
     async def test_with_no_subscription_it_still_runs_and_says_why_it_read_nothing(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         """A schedule that silently does nothing is the failure this feature exists to make
         visible, so the no-subscription case is a finished pass with a sentence, not a skip."""
         await funded(db_session, book)
         await trade(db_session, book, security=book["msft"], quantity="10", price="400")
 
-        outcome = await daily_pass.run_daily_pass(db_session, None, user=book["user"], as_of=AS_OF)
+        outcome = await daily_pass.run_daily_pass(
+            db_session, None, user=book["user"], settings=api_settings, as_of=AS_OF
+        )
 
         assert outcome.job.status is JobStatus.SUCCEEDED
         assert outcome.read == 0
         assert "No market-data subscription" in outcome.note
 
     async def test_the_newest_pass_is_the_one_found(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
         earlier = datetime(2026, 6, 28, 22, 0, tzinfo=UTC)
         later = datetime(2026, 6, 29, 22, 0, tzinfo=UTC)
         for at in (earlier, later):
             await daily_pass.run_daily_pass(
-                db_session, None, user=book["user"], as_of=at.date(), now=at
+                db_session, None, user=book["user"], settings=api_settings, as_of=at.date(), now=at
             )
 
         found = await daily_pass.last_pass(db_session, user_id=book["user"].id)
@@ -244,9 +211,11 @@ class TestThePassRunsAndSaysSo:
         assert found.finished_at == later
 
     async def test_another_persons_pass_is_not_found(
-        self, db_session: AsyncSession, book: dict[str, Any]
+        self, db_session: AsyncSession, book: dict[str, Any], api_settings: Any
     ) -> None:
-        await daily_pass.run_daily_pass(db_session, None, user=book["user"], as_of=AS_OF)
+        await daily_pass.run_daily_pass(
+            db_session, None, user=book["user"], settings=api_settings, as_of=AS_OF
+        )
 
         assert await daily_pass.last_pass(db_session, user_id=uuid.uuid4()) is None
 

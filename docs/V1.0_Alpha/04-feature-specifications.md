@@ -394,15 +394,15 @@ It has no caller, no schedule and no screen.
 
 | Kind | Cadence | Mechanism | Cost |
 |---|---|---|---|
-| **A premise broke** | Monthly or quarterly, per company | Resolve each predicate's metric; measure against filings since the last read; decide | Nothing — it is arithmetic |
-| **The price moved** | Daily, after the close | Compare against a threshold **the operator set**, never a default nobody chose | Nothing beyond the price read |
+| **A premise broke** | Monthly or quarterly, per company | Resolve each predicate's metric; measure against filings since the last read; decide — then ask the model what the new facts do to the premise | The arithmetic is free; the reading is a model call (corrected below) |
+| **The price moved** | Daily, after the close | Compare the move over the listing's window against a threshold **the operator set**, never a default nobody chose | Nothing — arithmetic on stored bars |
 
 **A price move is never shipped alone.** It arrives with what the record says about it: whether
-anything has been filed since the last check, whether the premises hold, and whether the sector
+anything has been filed since the last check, whether the premises hold, and whether the market
 moved too.
 
-> Down 12.4% this week. Nothing has been filed since your last check, all four premises still
-> hold, and the sector moved 6.1% over the same period.
+> Down 12.4% over 7 days, from 410.00 USD to 359.16 USD. Nothing has been filed since your last
+> check; all 4 premises still hold; the S&P 500 moved -6.1% over the same period.
 
 That sentence is the product in miniature, and no chat can produce it, because no chat remembers
 what you believed last quarter.
@@ -416,6 +416,21 @@ the platform does not have, having only a queue; the alert surfaces; Today's que
 **Done when.** Every broken premise surfaces within one filing cycle; a price move above the
 operator's threshold surfaces the morning after the close with the thesis state beside it; and
 zero alerts are dismissed as noise across a quarter.
+
+**Corrected 23 September 2026, on building the price kind.** Two lines above did not survive
+contact with the code. *Premise checks "cost nothing"*: the arithmetic does, and then
+`aer.services.thesis_monitor` asks the model what the new facts do to the premise — a model
+call, so the premise kind is not a free nightly job and is not on the daily pass (F15's own
+correction says the same; the cadence and `next_check_at` columns are stored and unread until
+the operator decides about standing model spend). *"The sector moved too"*: the platform holds
+one market proxy per exchange (`aer.sources.eodhd.proxies`) and no sector series, so the
+sentence names the exchange's index — *the S&P 500 moved*, *the FTSE All-Share moved* — and
+never calls an index a sector; a sector series is work found, not work done. The rest stands and
+is built: the threshold is the operator's (per listing where it is followed, or the account's
+default on Settings); a move is a finding of its own kind, `price_move`, that carries no premise
+status and opens no gate (ADR 0079: a price is an outcome, not evidence); the premises beside it
+are the monitor's latest readings, read and never re-measured; and a dismissal takes a reason as
+an appended resolution (ADR 0078), which is what the threshold band counts.
 
 ---
 

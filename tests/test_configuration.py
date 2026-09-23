@@ -301,7 +301,7 @@ class TestThePage:
         assert "No daily pass has run yet" in page.text
 
     async def test_an_overdue_pass_is_a_failure_on_the_page(
-        self, api: Any, committed_user: Any, db_engine: Any
+        self, api: Any, committed_user: Any, db_engine: Any, api_settings: Any
     ) -> None:
         """*Visible rather than silent* is the whole done-when, and a grey line reading
         "last ran on the 17th" is silent: it leaves the arithmetic to the reader."""
@@ -311,7 +311,12 @@ class TestThePage:
             person = await session.get(User, committed_user.id)
             assert person is not None
             await daily_pass.run_daily_pass(
-                session, None, user=person, as_of=three_days_ago.date(), now=three_days_ago
+                session,
+                None,
+                user=person,
+                settings=api_settings,
+                as_of=three_days_ago.date(),
+                now=three_days_ago,
             )
             await session.commit()
 

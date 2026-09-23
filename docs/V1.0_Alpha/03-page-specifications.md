@@ -559,6 +559,18 @@ dismissals mean the threshold is wrong, not the market."*
 **Must not.** Alert on a price move without the thesis state beside it. Use red for a fall and
 green for a rise as the only signal.
 
+**Corrected 23 September 2026, on building it** (`monitor/finding.html`, the price shape).
+§12.3's third sentence says *the market*, not *the sector*: the platform holds one market proxy
+per exchange and no sector series, so the page names the index — *the S&P 500 over the same
+period* — and never calls an index a sector. §12.4 shows each premise as the monitor last read
+it — value against threshold where a reading exists, *not yet read* or *reviewed by a person*
+where none does — and never re-measures one here (ADR 0079). §12.5's count is alerts *and
+dismissals* over six months, because the dismissals are the number the sentence is about; the
+control to change the threshold is where the listing is followed, and the account's default is
+on Settings. Of the three actions, *record a decision* carries the listing into the decision
+form and *dismiss with a reason* is the finding's ordinary resolution; *open the company* waits
+for the Company page (§5), which does not exist yet, and the finding shows the listing instead.
+
 ---
 
 ## 13. Ask

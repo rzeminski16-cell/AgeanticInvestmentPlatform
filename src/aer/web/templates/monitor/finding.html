@@ -4,11 +4,15 @@
 {#
   One finding in full, and the forms that close it.
 
-  Three shapes. A contradicted finding that is still open shows the thesis gate: two
+  Four shapes. A contradicted finding that is still open shows the thesis gate: two
   buttons that say what happens to the premise, a reason, and the hash of exactly what is on
   this page. Any other open finding shows the acts a person can record — dismiss it with a
   reason, or withdraw the premise it is about. A resolved finding shows its history and the
-  one act left: reopening it, with a reason.
+  one act left: reopening it, with a reason. A price move (F11, page specification §12) is
+  the fourth: the move beside what the record says about it, the premises as the monitor
+  last read them, and the threshold that raised it — with the decision form one link away
+  and a dismissal that needs a reason. A price is an outcome, not evidence (ADR 0079), so
+  nothing on that shape can touch a premise.
 
   Nothing here is a figure. The observation is a sentence beside the calculation it came
   from, and it enters no arithmetic on any page.
@@ -18,14 +22,88 @@
 
 {% block content %}
   {% call ui.page_header(
-    item.thesis_title,
-    eyebrow="A FINDING" if not item.opens_gate else "A DECISION WAITING",
+    move.headline if move else item.thesis_title,
+    eyebrow="A PRICE MOVED" if move else ("A FINDING" if not item.opens_gate else "A DECISION WAITING"),
     identity=subject ~ " · raised " ~ item.raised_on,
     breadcrumbs=[{"href": "/monitor", "label": "Monitor"}],
   ) %}
     <div id="finding-status">{{ ui.status(item.tone, item.label, item.detail) }}</div>
   {% endcall %}
 
+  {% if move %}
+  {% call ui.sheet("The move", subtitle="From the last close on or before the window's start to the latest, on the total-return series, so a dividend's ex-date is not read as a fall.", id="move") %}
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-3" id="move-figures">
+      <div data-field="move">
+        {{ ui.figure("The move", move.move_pct, note=move.window_from ~ " to " ~ move.window_to ~ ", " ~ move.window_days ~ " days.", provenance_href=move.calculation_href, provenance_label="The calculation") }}
+      </div>
+      <div data-field="from">{{ ui.figure("From", move.start_close, note="The close on " ~ move.window_from ~ ".") }}</div>
+      <div data-field="to">{{ ui.figure("To", move.end_close, note="The close on " ~ move.window_to ~ ".") }}</div>
+    </div>
+    {% if move.series %}
+      {#
+        The one chart the specification sanctions outside Risk: the last fourteen closes,
+        as columns from zero, drawn from what the pass recorded. Every bar is a stored close;
+        the proportion is layout and nothing reads it.
+      #}
+      <figure class="mt-6" id="closes">
+        {# The height is an attribute rather than a utility class: the stylesheet is committed build output, and one chart is not a reason to rebuild it. #}
+        <svg viewBox="0 0 {{ move.series | length * 10 }} 100" preserveAspectRatio="none" height="96" class="w-full text-verification" role="img" aria-label="The last {{ move.series | length }} closes, {{ move.series[0].on }} to {{ move.series[-1].on }}">
+          {% for bar in move.series %}
+            <rect x="{{ loop.index0 * 10 + 1 }}" y="{{ 100 - bar.height }}" width="8" height="{{ bar.height }}" fill="currentColor" data-close="{{ bar.on }}"><title>{{ bar.on }}: {{ bar.close }}</title></rect>
+          {% endfor %}
+        </svg>
+        <figcaption class="mt-2 type-data-sm text-ink-muted">{{ move.series | length }} closes, {{ move.series[0].on }} to {{ move.series[-1].on }}, each a stored bar.</figcaption>
+      </figure>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What the record says", subtitle="Every clause is a stored fact. A price is the sum of every view every holder has about everything, and none of its moves is evidence about a premise.", id="record") %}
+    <p class="max-w-prose type-body text-ink" data-field="justification">{{ item.justification }}</p>
+    <dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div data-field="filed-since">
+        <dt class="type-eyebrow text-ink-muted">Filed since your last check</dt>
+        <dd class="mt-1 type-body text-ink">{% if move.filed_since == 0 %}Nothing{% else %}{{ move.filed_since }} document{{ "" if move.filed_since == 1 else "s" }}{% endif %}</dd>
+      </div>
+      <div data-field="market">
+        <dt class="type-eyebrow text-ink-muted">The {{ move.market_label }} over the same period</dt>
+        <dd class="mt-1 type-body text-ink">{{ move.market_move_pct if move.market_move_pct else "Could not be measured" }}</dd>
+      </div>
+    </dl>
+  {% endcall %}
+
+  {% call ui.sheet("The premises", subtitle="As the monitor last read them — read here, never re-measured. A price move changes none of them.", id="premises") %}
+    {% if move.premises %}
+      <ol class="flex flex-col" aria-label="Premises">
+        {% for row in move.premises %}
+          <li class="border-t border-line py-3" data-premise-state="{{ row.state }}">
+            <p class="type-eyebrow text-ink-muted">{{ row.thesis }}</p>
+            <p class="type-body-strong text-ink">{{ row.statement }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">{{ row.state }}{% if row.value %} &middot; {{ row.value }} against {{ row.threshold }}{% endif %}</p>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      {{ ui.empty("No thesis behind this listing", "A watched company need not have one. If the move makes you want a view, write the thesis first; a decision recorded against nothing is a trade with no premise to review.") }}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("The threshold", subtitle="Yours, never a default nobody chose. Too many dismissals mean the threshold is wrong, not the market.", id="threshold") %}
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2" id="threshold-figures">
+      <div data-field="threshold">{{ ui.figure("Alert past", move.threshold_pct ~ "%", note="Over " ~ move.window_days ~ " days, up or down.") }}</div>
+      <div data-field="six-months">{{ ui.figure("In the last six months", moves_in_six_months[0] ~ " alert" ~ ("" if moves_in_six_months[0] == 1 else "s"), note=moves_in_six_months[1] ~ " dismissed.") }}</div>
+    </div>
+    <p class="mt-4 type-body-sm text-ink-muted">
+      <a href="/watchlist" class="text-verification underline underline-offset-[3px]">The listing's own threshold is set where it is followed</a>;
+      the account's default is on <a href="/settings" class="text-verification underline underline-offset-[3px]">Settings</a>.
+    </p>
+  {% endcall %}
+
+  {% if item.is_open %}
+    <div class="mt-6" id="decide">
+      {{ ui.callout("info", "If the move changes what you would do", "Record it as a decision with the size and the reason; the pre-trade check runs before it is recorded. If it changes nothing, say so below with the reason — that is a row worth having.", action_label="Record a decision", action_href=decision_href) }}
+    </div>
+  {% endif %}
+  {% else %}
   {% call ui.sheet("The premise", id="premise") %}
     {% if item.has_premise %}
       <p class="type-body-strong text-ink" data-field="premise">{{ item.premise }}</p>
@@ -77,6 +155,7 @@
       </ul>
     {% endif %}
   {% endcall %}
+  {% endif %}
 
   {% if item.gate_is_decidable %}
     <div id="thesis-gate" class="mt-6">
@@ -117,7 +196,7 @@
         {{ ui.field("reason", "Because", required=true, rows=2, hint="What you read, and what you decided. Recorded in the audit trail.") }}
         <div class="flex flex-wrap gap-3">
           <button type="submit" name="action" value="{{ action_dismissed }}" id="dismiss"
-                  class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Read, and leaving the premise as it is</button>
+                  class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">{{ "Read, and doing nothing about it" if item.is_price_move else "Read, and leaving the premise as it is" }}</button>
           {% if item.has_premise %}
             <button type="submit" name="action" value="{{ action_withdrawn }}" id="withdraw-premise"
                     class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Withdraw the premise</button>

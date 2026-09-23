@@ -125,6 +125,7 @@ _log = structlog.get_logger("aer.services.thesis_monitor")
 
 TOOL: Final = "monitor"
 SUBJECT_THESIS: Final = "thesis"
+SUBJECT_LISTING: Final = "security"
 WORKFLOW_VERSION: Final = "thesis_monitor_v1"
 
 # A metric name ending in this is the year-on-year growth of the concept before it.
@@ -870,6 +871,7 @@ async def _write_finding(
     window: tuple[date, date],
 ) -> Finding:
     finding = Finding(
+        user_id=thesis.user_id,
         thesis_id=thesis.id,
         judgement_id=premise.judgement_id,
         job_id=job_id,
@@ -924,6 +926,7 @@ async def _stop(
     job.error = {"code": refused.code, "message": refused.message, "context": refused.context}
     await _finish(session, job=job, order=order, status=JobStatus.FAILED, at=at)
     finding = Finding(
+        user_id=thesis.user_id,
         thesis_id=thesis.id,
         judgement_id=None,
         job_id=job.id,
@@ -1018,6 +1021,8 @@ async def decide_finding(
         )
         raise ValidationError(message, context={"finding_id": str(finding.id)})
     _require_reason(reason, doing="Deciding what to do about a contradicted premise")
+    # A gate is only ever opened by a reading, and a reading always has a thesis.
+    assert finding.thesis_id is not None
     job = await session.get(Job, finding.job_id) if finding.job_id is not None else None
     if job is None:
         message = (
@@ -1157,6 +1162,7 @@ async def _append_resolution(
         actor=actor.email,
         event_type=f"monitor.finding_{action.value}",
         thesis_id=finding.thesis_id,
+        security_id=finding.security_id,
         job_id=finding.job_id,
         payload={
             "finding_id": str(finding.id),
@@ -1190,13 +1196,15 @@ async def _all_findings(session: AsyncSession, *, user_id: uuid.UUID) -> list[Fi
     return list(
         await session.scalars(
             select(Finding)
-            .join(Thesis, Thesis.id == Finding.thesis_id)
             .options(
                 selectinload(Finding.thesis),
                 selectinload(Finding.premise),
+                selectinload(Finding.security),
                 selectinload(Finding.resolutions),
             )
-            .where(Thesis.user_id == user_id)
+            # Scoped on the finding's own column (ADR 0120 §1), not through its thesis: a
+            # price move on a watched listing has no thesis, and a join would drop it.
+            .where(Finding.user_id == user_id)
             .order_by(Finding.created_at.desc())
         )
     )
@@ -1216,13 +1224,13 @@ async def finding_of(
     """One finding of this person's, or ``None`` for both "no such" and "not yours"."""
     found: Finding | None = await session.scalar(
         select(Finding)
-        .join(Thesis, Thesis.id == Finding.thesis_id)
         .options(
             selectinload(Finding.thesis),
             selectinload(Finding.premise),
+            selectinload(Finding.security),
             selectinload(Finding.resolutions),
         )
-        .where(Finding.id == finding_id, Thesis.user_id == user_id)
+        .where(Finding.id == finding_id, Finding.user_id == user_id)
     )
     return found
 
@@ -1284,11 +1292,21 @@ async def _record(
     actor: str,
     event_type: str,
     payload: dict[str, Any],
-    thesis_id: uuid.UUID,
+    thesis_id: uuid.UUID | None,
     job_id: uuid.UUID | None,
+    security_id: uuid.UUID | None = None,
 ) -> None:
-    """One link on the chain, correlated to the thesis and, where there is one, the pass."""
+    """One link on the chain, correlated to its subject and, where there is one, the pass.
+
+    The subject is the thesis where the finding has one, and the listing where it does
+    not — a price move on a watched company (F11) is about the listing and nothing else.
+    """
     previous = await session.scalar(select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1))
+    subject_id: uuid.UUID | None
+    if thesis_id is not None:
+        subject_kind, subject_id = SUBJECT_THESIS, thesis_id
+    else:
+        subject_kind, subject_id = SUBJECT_LISTING, security_id
     session.add(
         AuditEvent.create_linked(
             actor=actor,
@@ -1296,8 +1314,8 @@ async def _record(
             payload=payload,
             previous=previous,
             job_id=job_id,
-            subject_kind=SUBJECT_THESIS,
-            subject_id=thesis_id,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
         )
     )
     await session.flush()

@@ -2264,6 +2264,33 @@ found rather than as scope that was always there.
     of the code. It is recorded here as the candidate, to be built when a run shows the
     signature it answers.
 
+    *Run 537, the next push, was green on all three jobs.* The diagnosis stands; the
+    hardening is a decision for when a run shows the signature again.
+
+53. **F11's price move, measured against the record before it was built, 23 September
+    2026.** Three things the design said that the code and the ADRs contradicted, each
+    settled by the rule that ADRs outrank plans. *Dismissal columns* (`07-data-model.md`
+    Gap 3, `10-migration.md` M6): ADR 0078 makes a resolution an appended row, so
+    migration 0083 adds none and the existing `finding_resolutions` takes the dismissal
+    with its required reason — the threshold band counts those rows. *A finding without
+    an owner*: a price move has no thesis to reach a user through, so `findings.user_id`
+    is a column (ADR 0120 §1), backfilled from the thesis and NOT NULL, and every scoping
+    query stopped joining theses. *"The sector moved too"*: the platform holds a market
+    proxy per exchange and no sector series, so the sentence names the index and never
+    calls it a sector; a sector series is work found. Also found on the way: the settings
+    page's `values` block was a hand-kept list the new overridable fell out of — seven
+    failures, a `StrictUndefined` on the new key — and `effective_settings` applies an
+    override through `model_copy(update=)`, which validates nothing, so the field's
+    ceiling is repeated in `_coerce`. A price move is deduplicated per listing per window
+    whether or not the earlier finding was resolved: a move dismissed on Monday is not
+    news on Tuesday, and counting it twice would double the dismissals the band reads as
+    its own verdict. The worker's daily pass read the settings it was started with, not
+    the operator's overrides — so the account default on the settings page would have
+    been a page the pass ignored; it now reads the effective settings per pass, as a run
+    and a monitor pass already did. Not built, and named: the premise-kind schedule (the
+    cadence and `next_check_at` columns are stored and unread until the operator decides
+    about standing model spend, item 51).
+
 
 ### Before this leaves one machine
 

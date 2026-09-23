@@ -44,6 +44,7 @@ from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
     from aer.db.models.judgement import Premise, Thesis
+    from aer.db.models.security import Security
 
 __all__ = ["Finding", "FindingResolution"]
 
@@ -59,9 +60,16 @@ class Finding(Base):
 
     id: Mapped[UuidPk]
 
-    thesis_id: Mapped[UuidFk] = mapped_column(
-        ForeignKey("theses.id", ondelete="CASCADE"), nullable=False
+    # Whose finding this is, directly (ADR 0120 §1). A reading's thesis carries the same
+    # answer and a price move has no thesis to carry it, so the scope is a column of its own
+    # rather than a join that would silently drop every finding without a thesis.
+    user_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+
+    # Optional since F11: a price move on a watched listing has no thesis behind it — a
+    # watched company need not have one — and the check below says which kinds must.
+    thesis_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("theses.id", ondelete="CASCADE"))
 
     # The premise a reading is about. NULL for a stopped pass, which read nothing. CASCADE
     # rather than SET NULL: the check below says a reading names its premise, and a
@@ -74,6 +82,12 @@ class Finding(Base):
     # The monitor pass that wrote it. SET NULL so a finding survives `aer reset-research`
     # taking the run root with it — what was noticed is the operator's record, not the run's.
     job_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+
+    # The listing a price move is about, and nothing else's. Cascades with the listing for
+    # the reason the thesis does: a finding about a row that no longer exists says nothing.
+    security_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("securities.id", ondelete="CASCADE")
+    )
 
     kind: Mapped[FindingKind] = mapped_column(_enum(FindingKind, "finding_kind"), nullable=False)
 
@@ -105,8 +119,9 @@ class Finding(Base):
 
     created_at: Mapped[Timestamp] = created_at_column()
 
-    thesis: Mapped[Thesis] = relationship()
+    thesis: Mapped[Thesis | None] = relationship()
     premise: Mapped[Premise | None] = relationship()
+    security: Mapped[Security | None] = relationship()
     resolutions: Mapped[list[FindingResolution]] = relationship(
         back_populates="finding",
         cascade="all, delete-orphan",
@@ -128,6 +143,14 @@ class Finding(Base):
             "opens_gate = (status = 'contradicted')", name="finding_gate_follows_the_status"
         ),
         Index("ix_findings_thesis_id_created_at", "thesis_id", text("created_at DESC")),
+        Index("ix_findings_user_id_created_at", "user_id", text("created_at DESC")),
+        Index("ix_findings_security_id_created_at", "security_id", text("created_at DESC")),
+        # A kind names its subject: a price move names a listing, everything else a thesis.
+        CheckConstraint(
+            "(kind = 'price_move' AND security_id IS NOT NULL) "
+            "OR (kind <> 'price_move' AND thesis_id IS NOT NULL)",
+            name="finding_kind_names_its_subject",
+        ),
         Index("ix_findings_judgement_id", "judgement_id"),
         Index("ix_findings_job_id", "job_id"),
     )
@@ -153,7 +176,12 @@ class Finding(Base):
 
     def __repr__(self) -> str:
         what = self.status.value if self.status is not None else self.kind.value
-        return f"<Finding {what} on thesis {self.thesis_id}>"
+        subject = (
+            f"thesis {self.thesis_id}"
+            if self.thesis_id is not None
+            else f"listing {self.security_id}"
+        )
+        return f"<Finding {what} on {subject}>"
 
 
 class FindingResolution(Base):

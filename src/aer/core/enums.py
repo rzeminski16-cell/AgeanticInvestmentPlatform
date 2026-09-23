@@ -621,6 +621,23 @@ class FindingKind(StrEnum):
     READING = "reading"
     STOPPED = "stopped"
 
+    PRICE_MOVE = "price_move"
+    """The close moved past the threshold the operator set (F11's second kind). Nothing was
+    filed and no premise was read, so it carries no status and never opens the thesis gate:
+    price is an outcome test, not a premise test (ADR 0079), and this finding exists so a
+    move arrives *with* the thesis state beside it rather than instead of it."""
+
+
+class WatchCadence(StrEnum):
+    """How often a watched listing's premises are due to be read (F11's first kind).
+
+    Two values, both a person's choice per listing. Stored as text with a check rather than
+    as a Postgres enum: an enum value is a one-way door, and this list has no reason to be.
+    """
+
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+
 
 class FindingAction(StrEnum):
     """What a person did about a finding, as an appended record (ADR 0078).

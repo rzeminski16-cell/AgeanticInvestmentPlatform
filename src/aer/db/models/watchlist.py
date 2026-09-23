@@ -22,6 +22,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Text,
@@ -29,6 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from aer.core.enums import WatchCadence
 from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, TimestampOptional, UuidFk, UuidFkOptional, UuidPk
 
@@ -62,6 +64,22 @@ class WatchlistEntry(Base):
     withdrawn_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
     withdrawn_reason: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
+    # F11's two cadences, per listing (07-data-model Gap 4). How often the premises about
+    # this company are due to be read, and the price move worth telling the operator
+    # about: a percentage over a window of days. ``None`` for the threshold means the
+    # account default, so a listing followed before the default changed follows the change.
+    cadence: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=WatchCadence.MONTHLY.value
+    )
+    price_move_threshold_pct: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    price_move_window_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("7")
+    )
+    # When the schedule last read this listing, and when it is next due — stored rather
+    # than computed, so a missed window is visible rather than inferred.
+    last_checked_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
+    next_check_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
+
     commissions: Mapped[list[WatchlistCommission]] = relationship(
         back_populates="entry",
         cascade="all, delete-orphan",
@@ -74,6 +92,14 @@ class WatchlistEntry(Base):
         ),
         CheckConstraint("ticker = upper(ticker)", name="watchlist_entry_ticker_is_upper"),
         Index("ix_watchlist_entries_user_id_followed_at", "user_id", "followed_at"),
+        CheckConstraint(
+            "cadence IN ('monthly', 'quarterly')", name="watchlist_cadence_is_one_of_two"
+        ),
+        CheckConstraint(
+            "price_move_threshold_pct IS NULL OR price_move_threshold_pct > 0",
+            name="watchlist_threshold_is_positive",
+        ),
+        CheckConstraint("price_move_window_days >= 1", name="watchlist_window_is_at_least_a_day"),
         # One active entry per listing: the service refuses a duplicate by a read, and the
         # index makes a double submit a constraint rather than a race.
         Index(

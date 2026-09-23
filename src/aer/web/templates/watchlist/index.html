@@ -58,6 +58,7 @@
                 {%- if row.as_of %} · researched as at {{ row.as_of }}, commissioned {{ row.commissioned_on }}{% endif %}
                 {%- if row.commissions > 1 %} · {{ row.commissions }} commissions{% endif %}
               </p>
+              <p class="mt-1 type-data-sm text-ink-muted" data-field="alert">{{ row.alert }}</p>
               {% if row.request_href %}
                 <p class="mt-1 type-body-sm text-ink-muted">
                   <a href="{{ row.request_href }}" class="text-verification underline underline-offset-[3px]">The request</a>
@@ -164,6 +165,13 @@
         {{ ui.field("exchange", "Exchange", required=true, hint="LSE, NASDAQ, NYSE or NYSE American.") }}
       </div>
       {{ ui.field("why", "What would make it worth researching", rows=2, hint="A sentence. The reason the queue is a list of reasons rather than a list of tickers.") }}
+      {# The price-move threshold is the listing's own (F11); blank follows the account's
+         default on Settings, so a listing followed before the default changed follows the
+         change. Too many dismissals mean the number is wrong, not the market. #}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.field("price_move_threshold_pct", "Price move worth telling you about (%)", type="number", minimum="0.1", maximum="100", step="0.1", hint="Up or down. Blank uses the account's default from Settings.") }}
+        {{ ui.field("price_move_window_days", "Measured over (days)", type="number", minimum="1", step="1", hint="Seven unless you say otherwise.") }}
+      </div>
       <div>
         <button id="follow" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Follow</button>
       </div>

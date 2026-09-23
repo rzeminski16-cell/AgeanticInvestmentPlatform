@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 import structlog
@@ -27,8 +28,10 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
-from aer.errors import AerError
+from aer.db.models import WatchlistEntry
+from aer.errors import AerError, ValidationError
 from aer.queue import enqueue_run
+from aer.services import configuration
 from aer.services import overview as overview_service
 from aer.services import watchlist as watchlist_service
 from aer.web import figures, vocabulary
@@ -80,6 +83,11 @@ async def watchlist_page(
         session, user_id=user.id, mode=watchlist_service.DEFAULT_MODE
     )
     queued = [state for state in states if state.is_queued]
+    # The account's price-move default is an overridable (F11), so the row that follows
+    # it says the number the pass will use rather than "the default".
+    default_threshold = (
+        await configuration.effective_settings(session, settings)
+    ).price_move_threshold_pct
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -88,11 +96,11 @@ async def watchlist_page(
             "verdict": _watchlist_verdict(states, budget),
             "budget": _budget_context(budget),
             "cost_guidance": figures.cost_guidance(typical),
-            "rows": [_row(state) for state in states],
-            "withdrawn": [_row(state) for state in withdrawn],
+            "rows": [_row(state, default_threshold) for state in states],
+            "withdrawn": [_row(state, default_threshold) for state in withdrawn],
             "showing_withdrawn": showing_withdrawn,
             "queued": len(queued),
-            "next": _row(queued[0]) if queued else None,
+            "next": _row(queued[0], default_threshold) if queued else None,
             "today": datetime.now(UTC).date().isoformat(),
             "queued_notice": request.query_params.get("queued", ""),
             "csrf_field": CSRF_FIELD_NAME,
@@ -147,7 +155,7 @@ def _budget_context(budget: watchlist_service.StandingBudget) -> dict[str, Any]:
     }
 
 
-def _row(state: watchlist_service.EntryState) -> dict[str, Any]:
+def _row(state: watchlist_service.EntryState, default_threshold: Decimal) -> dict[str, Any]:
     words = STATE_WORDS[state.state]
     entry = state.entry
     job = state.job
@@ -156,6 +164,7 @@ def _row(state: watchlist_service.EntryState) -> dict[str, Any]:
         "company_name": entry.company_name,
         "listing": entry.listing,
         "why": entry.why,
+        "alert": _alert_words(entry, default_threshold),
         "followed_on": f"{entry.followed_at:%d %B %Y}",
         "state": state.state,
         "label": words.label,
@@ -181,6 +190,47 @@ def _row(state: watchlist_service.EntryState) -> dict[str, Any]:
         if len(state.history) > 1
         else [],
     }
+
+
+def _alert_words(entry: WatchlistEntry, default_threshold: Decimal) -> str:
+    """What the daily pass will tell the operator about this listing's price (F11)."""
+    days = entry.price_move_window_days
+    window = f"over {days} day{'s' if days != 1 else ''}"
+    if entry.price_move_threshold_pct is None:
+        return f"Alert past {_pct(default_threshold)} {window}, the account's default"
+    return f"Alert past {_pct(entry.price_move_threshold_pct)} {window}"
+
+
+def _pct(value: Decimal) -> str:
+    # `normalize` alone prints 10 as 1E+1; the fixed-point format keeps it a number a
+    # person would type.
+    return f"{value.normalize():f}%"
+
+
+def _threshold_of(text: str) -> Decimal | None:
+    """The form's threshold: blank is the account's default, anything else is a number."""
+    cleaned = text.strip().rstrip("%").strip()
+    if not cleaned:
+        return None
+    try:
+        return Decimal(cleaned)
+    except InvalidOperation as exc:
+        message = (
+            f"The price move worth telling you about is a percentage; {text.strip()!r} is not one."
+        )
+        raise ValidationError(message, context={"field": "price_move_threshold_pct"}) from exc
+
+
+def _window_of(text: str) -> int:
+    """The form's window: blank is the platform's seven days, anything else is whole days."""
+    cleaned = text.strip()
+    if not cleaned:
+        return watchlist_service.DEFAULT_PRICE_WINDOW_DAYS
+    try:
+        return int(cleaned)
+    except ValueError as exc:
+        message = f"A price move is measured over a number of days; {cleaned!r} is not one."
+        raise ValidationError(message, context={"field": "price_move_window_days"}) from exc
 
 
 def _commission_row(record: watchlist_service.CommissionRecord) -> dict[str, Any]:
@@ -215,6 +265,8 @@ async def follow(
             ticker=submitted.get("ticker", ""),
             exchange=submitted.get("exchange", ""),
             why=submitted.get("why", ""),
+            price_move_threshold_pct=_threshold_of(submitted.get("price_move_threshold_pct", "")),
+            price_move_window_days=_window_of(submitted.get("price_move_window_days", "")),
         )
         await session.commit()
     except AerError as refused:

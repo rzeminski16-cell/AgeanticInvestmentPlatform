@@ -45,9 +45,14 @@
   {% macro finding_groups(groups, label, meta_word, action_word) %}
     {% call ui.record_list(label) %}
       {% for group in groups %}
-        <li class="border-t border-line py-4" data-thesis="{{ group.thesis_id }}">
+        {# A price move's group is a listing, not a thesis (F11): no thesis to link to. #}
+        <li class="border-t border-line py-4" {% if group.thesis_id %}data-thesis="{{ group.thesis_id }}"{% else %}data-listing="{{ group.subject }}"{% endif %}>
           <p class="type-eyebrow text-ink-muted">{{ group.subject }}</p>
-          <a href="/theses/{{ group.thesis_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ group.thesis_title }}</a>
+          {% if group.thesis_id %}
+            <a href="/theses/{{ group.thesis_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ group.thesis_title }}</a>
+          {% else %}
+            <span class="type-subheading text-ink">{{ group.thesis_title }}</span>
+          {% endif %}
           <ol class="mt-3 flex flex-col gap-3" aria-label="Findings on {{ group.thesis_title }}">
             {% for row in group.findings %}
               <li

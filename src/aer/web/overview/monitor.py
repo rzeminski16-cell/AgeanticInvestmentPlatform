@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
 from aer.core.enums import FindingKind
-from aer.services import thesis_monitor
+from aer.services import price_alerts, thesis_monitor
 from aer.web import figures
 from aer.web.overview.attention import Attention, Severity
 
@@ -47,14 +47,19 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
     open_findings = await thesis_monitor.findings_for(session, user_id=user_id, open_only=True)
     gated = [row for row in open_findings if row.opens_gate]
     stopped = [row for row in open_findings if row.kind is FindingKind.STOPPED]
-    unread = [row for row in open_findings if not row.opens_gate and row not in stopped]
+    moved = [row for row in open_findings if row.kind is FindingKind.PRICE_MOVE]
+    unread = [
+        row
+        for row in open_findings
+        if not row.opens_gate and row not in stopped and row not in moved
+    ]
 
     collected.extend(
         Attention(
             key=f"monitor.gate.{row.id}",
             tool=TOOL,
             severity=Severity.BLOCKED,
-            title=f"A premise of {row.thesis.title} was contradicted",
+            title=f"A premise of {_title_of(row)} was contradicted",
             detail=(
                 "A filing defeated the predicate this premise carries. The finding opened a "
                 "gate: withdraw the premise or keep it, with your reason."
@@ -72,7 +77,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             key=f"monitor.stopped.{row.id}",
             tool=TOOL,
             severity=Severity.BROKEN,
-            title=f"The monitor stopped on {row.thesis.title}",
+            title=f"The monitor stopped on {_title_of(row)}",
             detail=_first_sentence(row.justification),
             href=f"/monitor/findings/{row.id}",
             action="Read the finding",
@@ -89,7 +94,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             key=f"monitor.finding.{row.id}",
             tool=TOOL,
             severity=Severity.IDLE,
-            title=f"A finding on {row.thesis.title}: {_status_word(row)}",
+            title=f"A finding on {_title_of(row)}: {_status_word(row)}",
             detail=(
                 "A finding, not a decision — the monitor read a premise against new evidence "
                 "and this is what it noticed. Nothing changes until you say what you did about it."
@@ -101,6 +106,23 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
         for row in unread[:_LIMIT]
     )
     collected.extend(_and_more(len(unread), "findings have not been read", Severity.IDLE, "unread"))
+
+    # The page specification's fourth row, at its own severity: a move is a reason to think,
+    # not an alarm, and it arrives with the thesis state beside it rather than instead of it.
+    collected.extend(
+        Attention(
+            key=f"monitor.moved.{row.id}",
+            tool=TOOL,
+            severity=Severity.IDLE,
+            title=price_alerts.headline_of(row),
+            detail=_first_sentence(row.justification),
+            href=f"/monitor/findings/{row.id}",
+            action="Read what the record says",
+            waited=figures.waited_for(row.created_at, now=now),
+        )
+        for row in moved[:_LIMIT]
+    )
+    collected.extend(_and_more(len(moved), "prices moved past a threshold", Severity.IDLE, "moved"))
 
     due = await thesis_monitor.reviews_due(session, user_id=user_id, today=now.date())
     collected.extend(
@@ -126,6 +148,15 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
     collected.extend(_and_more(len(due), "premises are due for review", Severity.IDLE, "review"))
 
     return collected
+
+
+def _title_of(row: Finding) -> str:
+    """What the finding is about, in words: the thesis where it has one, else the listing."""
+    if row.thesis is not None:
+        return row.thesis.title
+    if row.security is not None:
+        return row.security.name or row.security.ticker
+    return "a listing no longer on record"
 
 
 def _status_word(row: Finding) -> str:

@@ -115,6 +115,15 @@ class Security(Base):
     bars: Mapped[list[PriceBar]] = relationship(back_populates="security")
     actions: Mapped[list[CorporateAction]] = relationship(back_populates="security")
 
+    @property
+    def listing(self) -> str:
+        """``TICKER.EXCHANGE`` — the one way a listing is named to a person and a form.
+
+        The watchlist entry, the decision form and the daily pass all join the two the
+        same way; this is that join, once, so a fourth surface cannot join them differently.
+        """
+        return f"{self.ticker}.{self.exchange}"
+
     __table_args__ = (
         # One row per listing. The provider symbol is unique on its own, but the pair is what
         # a caller looks up by and a second row for one listing would make "the price" depend

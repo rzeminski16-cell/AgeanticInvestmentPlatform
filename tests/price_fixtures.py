@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
+from aer.errors import ExternalServiceError
 from aer.fetch.client import FetchResult
 from aer.sources.eodhd import api
 from aer.sources.eodhd.client import PriceResponse
 
-__all__ = ["AS_OF", "bars_response", "fetch_result", "row"]
+__all__ = ["AS_OF", "StubPrices", "bars_response", "fetch_result", "row"]
 
 AS_OF = date(2024, 6, 28)
 
@@ -45,6 +47,39 @@ def bars_response(
         discarded_after_as_of=0,
         fetch=fetch_result(),
     )
+
+
+class StubPrices:
+    """The slice of the vendor client the daily pass uses, answering from a dict.
+
+    A symbol mapped to ``None`` raises, which is the delisted-ticker case: the pass must
+    record it and carry on to the next listing rather than losing the night's other reads.
+    Shared by the pass's own tests and the price alert's, which needs a pass to run.
+    """
+
+    def __init__(self, bars: dict[str, list[tuple[date, str]]] | None = None) -> None:
+        self.bars = bars or {}
+        self.asked: list[str] = []
+
+    async def fetch_bars(
+        self, symbol: str, *, as_of: date, since: date | None = None
+    ) -> PriceResponse:
+        self.asked.append(symbol)
+        rows = self.bars.get(symbol)
+        if rows is None:
+            message = f"No series for {symbol}."
+            raise ExternalServiceError(message, provider="stub", context={"symbol": symbol})
+        return bars_response([row(on, close) for on, close in rows], as_of=as_of, symbol=symbol)
+
+    async def fetch_actions(self, symbol: str, *, as_of: date, since: date | None = None) -> Any:
+        raise NotImplementedError
+
+    async def fetch_shares_outstanding(self, symbol: str, *, as_of: date) -> Any:
+        raise NotImplementedError
+
+    @property
+    def licence_note(self) -> str:
+        return "stub"
 
 
 def row(on: date, close: str, *, adjusted: str | None = None) -> api.BarRow:

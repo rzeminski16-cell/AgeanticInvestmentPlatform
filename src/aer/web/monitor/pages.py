@@ -31,11 +31,11 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, FindingAction, FindingKind, GateKind
-from aer.db.models import Finding, SourceDocument, Thesis
+from aer.db.models import Finding, SourceDocument
 from aer.errors import AerError
 from aer.queue import enqueue_monitor
+from aer.services import price_alerts, thesis_monitor
 from aer.services import theses as thesis_service
-from aer.services import thesis_monitor
 from aer.services.approvals import payload_hash_for
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
@@ -68,7 +68,9 @@ class FindingRow:
     """One finding as either page shows it."""
 
     id: uuid.UUID
-    thesis_id: uuid.UUID
+    # ``None`` for a price move (F11): a watched listing need not have a thesis, and the row
+    # then names the listing where a reading names its thesis.
+    thesis_id: uuid.UUID | None
     thesis_title: str
     premise: str
     label: str
@@ -84,6 +86,9 @@ class FindingRow:
     has_premise: bool
     resolutions: tuple[ResolutionRow, ...]
     source_document_ids: tuple[str, ...]
+    is_price_move: bool = False
+    listing: str = ""
+    """``TICKER.EXCHANGE`` for a price move, so a control can carry it to the decision form."""
 
     @property
     def last_resolution(self) -> ResolutionRow | None:
@@ -97,9 +102,13 @@ class ThesisGroup:
     A thesis with three findings reads as one card with three lines rather than three rows
     that repeat its title; the thesis is the thing the reader holds a view on, and the
     findings are what happened to it.
+
+    ``thesis_id`` is ``None`` when the group is a watched listing's price moves rather than a
+    thesis's findings (F11); the template then names the listing and links nowhere a thesis
+    would be.
     """
 
-    thesis_id: uuid.UUID
+    thesis_id: uuid.UUID | None
     thesis_title: str
     subject: str
     findings: tuple[FindingRow, ...]
@@ -126,20 +135,44 @@ class ObservedFigures:
 
 async def _grouped(session: Any, findings: list[Finding]) -> list[ThesisGroup]:
     """The findings by thesis, in the order the theses first appear, each named once."""
-    by_thesis: dict[uuid.UUID, list[FindingRow]] = {}
-    theses: dict[uuid.UUID, Thesis] = {}
+    # Keyed by the thesis where there is one and by the listing where there is not, so a
+    # listing's price moves read as one card the way a thesis's findings do.
+    by_subject: dict[uuid.UUID, list[FindingRow]] = {}
+    first: dict[uuid.UUID, Finding] = {}
     for finding in findings:
-        by_thesis.setdefault(finding.thesis_id, []).append(_row(finding))
-        theses[finding.thesis_id] = finding.thesis
-    return [
-        ThesisGroup(
-            thesis_id=thesis_id,
-            thesis_title=theses[thesis_id].title,
-            subject=await thesis_service.subject_name(session, theses[thesis_id]),
-            findings=tuple(rows),
-        )
-        for thesis_id, rows in by_thesis.items()
-    ]
+        key = finding.thesis_id if finding.thesis_id is not None else finding.security_id
+        assert key is not None  # the schema's check: a kind names its subject
+        by_subject.setdefault(key, []).append(_row(finding))
+        first.setdefault(key, finding)
+    groups: list[ThesisGroup] = []
+    for key, rows in by_subject.items():
+        leader = first[key]
+        if leader.thesis is not None:
+            groups.append(
+                ThesisGroup(
+                    thesis_id=leader.thesis_id,
+                    thesis_title=leader.thesis.title,
+                    subject=await thesis_service.subject_name(session, leader.thesis),
+                    findings=tuple(rows),
+                )
+            )
+        else:
+            groups.append(
+                ThesisGroup(
+                    thesis_id=None,
+                    thesis_title=_listing_title(leader),
+                    subject=leader.security.listing if leader.security is not None else "",
+                    findings=tuple(rows),
+                )
+            )
+    return groups
+
+
+def _listing_title(finding: Finding) -> str:
+    security = finding.security
+    if security is None:
+        return "A listing no longer on record"
+    return security.name or security.ticker
 
 
 def _observed_figures(observed: dict[str, Any] | None) -> ObservedFigures | None:
@@ -168,20 +201,27 @@ def _observed_figures(observed: dict[str, Any] | None) -> ObservedFigures | None
 
 
 def _row(finding: Finding) -> FindingRow:
-    if finding.kind is FindingKind.STOPPED or finding.status is None:
+    is_price_move = finding.kind is FindingKind.PRICE_MOVE
+    if is_price_move:
+        words = vocabulary.PRICE_MOVE
+    elif finding.kind is FindingKind.STOPPED or finding.status is None:
         words = vocabulary.STOPPED_PASS
     else:
         words = vocabulary.PREMISE_STATES[finding.status]
     return FindingRow(
         id=finding.id,
         thesis_id=finding.thesis_id,
-        thesis_title=finding.thesis.title,
+        thesis_title=finding.thesis.title
+        if finding.thesis is not None
+        else _listing_title(finding),
         premise=finding.premise.statement if finding.premise is not None else "",
         label=words.label,
         tone=words.tone.value,
         detail=words.detail,
         justification=finding.justification,
-        observed=_observed_sentence(finding.observed),
+        # A price move's sentence is its justification; the reading's is composed from the
+        # measurement, and a price move's measurement is a different shape (F11).
+        observed=finding.justification if is_price_move else _observed_sentence(finding.observed),
         raised_on=f"{finding.created_at:%d %B %Y}",
         opens_gate=finding.opens_gate,
         gate_is_decidable=finding.gate_is_decidable,
@@ -198,12 +238,14 @@ def _row(finding: Finding) -> FindingRow:
             for row in finding.resolutions
         ),
         source_document_ids=tuple(str(ref) for ref in finding.source_document_ids),
+        is_price_move=is_price_move,
+        listing=finding.security.listing if finding.security is not None else "",
     )
 
 
 def _observed_sentence(observed: dict[str, Any] | None) -> str:
     """What code measured, as one sentence a reader can check against the calculation."""
-    if not observed:
+    if not observed or "move_pct" in observed:
         return ""
     unit = observed.get("unit") or "ratio"
     threshold_unit = observed.get("threshold_unit") or unit
@@ -358,7 +400,27 @@ async def finding_page(
         {
             "item": row,
             "subject": await _subject(session, finding),
-            "measured": _observed_figures(finding.observed),
+            "measured": (
+                None
+                if finding.kind is FindingKind.PRICE_MOVE
+                else _observed_figures(finding.observed)
+            ),
+            "move": price_alerts.figures_of(finding),
+            "moves_in_six_months": (
+                await price_alerts.moves_in_last_six_months(
+                    session,
+                    user_id=user.id,
+                    security_id=finding.security_id,
+                    now=datetime.now(UTC),
+                )
+                if finding.security_id is not None
+                else (0, 0)
+            ),
+            "decision_href": (
+                f"/decisions?security={finding.security.listing}"
+                if finding.security is not None
+                else "/decisions"
+            ),
             "sources": await _sources(session, finding),
             "gate_words": vocabulary.GATES[GateKind.THESIS],
             "gate_consequence": CONSEQUENCES[GateKind.THESIS],
@@ -453,7 +515,9 @@ async def resolve_finding(
 
 
 async def _subject(session: Any, finding: Finding) -> str:
-    return await thesis_service.subject_name(session, finding.thesis)
+    if finding.thesis is not None:
+        return await thesis_service.subject_name(session, finding.thesis)
+    return finding.security.listing if finding.security is not None else ""
 
 
 async def _sources(session: Any, finding: Finding) -> list[dict[str, str]]:

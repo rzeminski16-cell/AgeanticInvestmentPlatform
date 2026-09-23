@@ -216,6 +216,7 @@ async def run_daily_pass(ctx: dict[str, Any]) -> dict[str, Any]:
     passes = 0
     read = 0
     stored = 0
+    alerts = 0
     async with session_factory() as session:
         people = list(await session.scalars(select(User).order_by(User.email)))
     for person in people:
@@ -223,11 +224,18 @@ async def run_daily_pass(ctx: dict[str, Any]) -> dict[str, Any]:
             refreshed = await session.get(User, person.id)
             if refreshed is None:  # pragma: no cover -- the row was just read
                 continue
-            outcome = await daily_pass.run_daily_pass(session, client, user=refreshed, as_of=as_of)
+            # The price-move default is an override on the settings page (F11), read here
+            # as a run and a monitor pass read theirs — or the page would be one the pass
+            # ignores.
+            effective = await effective_settings(session, settings)
+            outcome = await daily_pass.run_daily_pass(
+                session, client, user=refreshed, settings=effective, as_of=as_of
+            )
             await session.commit()
         passes += 1
         read += outcome.read
         stored += outcome.stored
+        alerts += outcome.alerts
 
     _log.info(
         "worker.daily_pass_finished",
@@ -235,8 +243,15 @@ async def run_daily_pass(ctx: dict[str, Any]) -> dict[str, Any]:
         passes=passes,
         read=read,
         stored=stored,
+        alerts=alerts,
     )
-    return {"as_of": as_of.isoformat(), "passes": passes, "read": read, "stored": stored}
+    return {
+        "as_of": as_of.isoformat(),
+        "passes": passes,
+        "read": read,
+        "stored": stored,
+        "alerts": alerts,
+    }
 
 
 async def _startup(ctx: dict[str, Any]) -> None:

@@ -91,6 +91,15 @@ OVERRIDABLE: Final[tuple[Overridable, ...]] = (
         help_text="Spend across all runs in the calendar month.",
     ),
     Overridable(
+        key="price_move_threshold_pct",
+        label="Price move worth telling you about (%)",
+        help_text=(
+            "For a watched listing that set no threshold of its own: the move over its "
+            "window, up or down, past which the daily pass leaves a finding beside the "
+            "thesis state. Too many dismissals mean this is wrong, not the market."
+        ),
+    ),
+    Overridable(
         key="budget_warn_ratio",
         label="Warn at (fraction of budget)",
         help_text="Where the console starts warning, as a fraction between 0 and 1.",
@@ -421,6 +430,9 @@ def _is_secret(annotation: Any) -> bool:
 # The overridable settings whose value is a JSON object rather than a scalar.
 _OBJECT_KEYS: Final[frozenset[str]] = frozenset({"model_routes", "house_style"})
 
+# A percentage's ceiling, for the one overridable that is one.
+_WHOLE_PRICE: Final = Decimal(100)
+
 
 def _parsed(key: str, raw: str) -> Any:
     if key not in _OBJECT_KEYS:
@@ -464,6 +476,12 @@ def _coerce(key: str, raw: Any) -> Any:
     amount = Decimal(str(raw))
     if amount <= 0:
         message = f"{key} must be above zero; got {amount}."
+        raise ValidationError(message, context={"key": key})
+    if key == "price_move_threshold_pct" and amount > _WHOLE_PRICE:
+        # `model_copy(update=)` in `effective_settings` validates nothing, so the field's own
+        # ceiling is repeated here: a move past the whole of a price is a delisting, not a
+        # threshold.
+        message = f"The price move threshold is a percentage, at most 100; got {amount}."
         raise ValidationError(message, context={"key": key})
     return amount
 

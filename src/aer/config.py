@@ -362,6 +362,10 @@ class Settings(BaseSettings):
     # budget that is not one run's cap. A run the queue starts keeps its own per-run cap and
     # the month's cap applies on top; this bounds what the queue may *start* unattended.
     watchlist_budget_gbp: Decimal = Field(default=Decimal("30.00"), gt=0)
+    # The price move worth telling the operator about, in per cent over a watched listing's
+    # window, for a listing that set none of its own (F11). A number nobody chose is not a
+    # threshold, so this is overridable on the settings page and never proposed by a model.
+    price_move_threshold_pct: Decimal = Field(default=Decimal("10"), gt=0, le=100)
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 

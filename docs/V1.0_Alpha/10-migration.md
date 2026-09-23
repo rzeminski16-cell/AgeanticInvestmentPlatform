@@ -34,12 +34,18 @@ Each is additive. Each is reversible except where noted.
 | M3 | `jobs.refreshes_report_id`, `refresh_kind` | All existing jobs become `refresh_kind = 'full'` | Yes |
 | M4 | `report_changes` table | Empty | Yes |
 | M5 | `finding_kind` gains `price_move` | No existing findings | **No** — Postgres cannot remove an enum value |
-| M6 | `findings.security_id`, `dismissed_at`, `dismissed_reason` | All null | Yes |
+| M6 | `findings.user_id` (NOT NULL), `findings.security_id`; `thesis_id` nullable, with a check that a kind names its subject. **No dismissal columns** — corrected 23 September 2026, below | `user_id` filled from each finding's thesis; the rest null | Yes — the downgrade deletes price-move findings first, which have no thesis to restore |
 | M7 | `watchlist_entries` gains cadence, threshold, window, check timestamps | No existing entries | Yes |
 | M8 | `questions` table | Empty | Yes |
 | M9 | `reports.workbook_artefact_id` | All null — no existing report has a workbook | Yes |
 
 **M5 is the one-way door**, and it is a single enum value. Worth knowing, not worth avoiding.
+
+**M5, M6 and M7 landed together as migration 0083 on 23 September 2026.** M6 as designed carried
+`dismissed_at` and `dismissed_reason`; ADR 0078 makes a resolution an appended row, never a flag,
+and `finding_resolutions` already takes a dismissal with a required reason, so the columns were
+not added. `findings.user_id` was added instead (ADR 0120 §1): a price move has no thesis to
+reach a user through. The correction is recorded in `07-data-model.md`, Gap 3.
 
 ## 3 · The one migration that can fail
 
