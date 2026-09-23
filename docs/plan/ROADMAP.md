@@ -2207,6 +2207,64 @@ found rather than as scope that was always there.
     applied a second time in three days.
 
 
+52. **608 failures on CI from one connection on the wrong loop, and the change reaches
+    none of them, 23 September 2026.** CI run 536 on the daily-pass commit: lint green,
+    browser green, and the test suite **608 failed, 7,103 passed**. The same commit on this
+    machine: 7,711 passed, twice. Diagnosed to the end of what the log allows, and the end
+    is not a cause in the change.
+
+    *The failure has one shape.* The first failed test — item #320 of 7,711 in collection
+    order, `test_assumption_agent::TestTheAgentRunsThroughTheBase` — dies inside asyncpg's
+    `_start_transaction` with *Task got Future attached to a different loop*; every failure
+    after it is that or asyncpg's *another operation is in progress*. One connection
+    created on one event loop and awaited on another, and then every test that shared the
+    pool behind it. Not 608 defects: one, cascading.
+
+    *And the order was CI's, locally, twice.* `pytest-randomly` is declared nowhere and
+    installed nowhere — not in the lock, not on CI, not in this venv — so this suite has
+    only ever run in collection order, and the `-p no:randomly` I had been passing was a
+    no-op on an absent plugin. The full local run was the same 7,711 items in the same
+    order as CI. A replay of CI's first 400 items alone, `-x`, passed 400 of 400.
+
+    *What the change could reach.* F15 touched `worker.py`, `queue.py`, `web/pages.py`, the
+    settings template, and four test modules. Of the 319 items that ran green before the
+    failure, **none imports or exercises any of them** — the settings page, the worker and
+    the queue are first touched at items #1806, #7593 and #7593. The new `daily_pass`
+    import in `web/pages.py` was already in the process at collection through
+    `test_price_acquisition`. There is no path from the diff to item #320.
+
+    *What was ruled out by reading rather than assuming.* `db_engine` is function-scoped
+    and disposed per test, as is `api_engine`; every other engine before #320 is ad hoc
+    and disposed — so nothing in the harness hands a pooled connection from one loop to
+    the next by design. `c990d51`'s mechanism — a request cancelled at server teardown
+    leaving a connection for the collector to finalise during a later test — is what the
+    browser suite's `_finalise_abandoned_connections` exists for, and its signatures
+    (`ResourceWarning`, *non-checked-in connection*, *unclosed*) appear **nowhere** in
+    536's log. asyncpg 0.31.0, SQLAlchemy 2.0.51, pytest-asyncio 1.4.0, all from the lock,
+    identical on both machines.
+
+    *What the runner was doing.* Postgres's own log inside the job: checkpoints of 389 and
+    682 buffers taking **45 and 67 seconds** to write — an order of magnitude beyond a
+    healthy disk — and autovacuum skipping `source_documents`, `approvals`, `calculations`
+    and `jobs` for *lock not available*. A transaction start that waits long enough on a
+    starved runner is a transaction start that outlives the loop it began on; the
+    identical run 535, one commit earlier, was green on a runner that was not starved.
+
+    *So the record says:* a race in the harness's loop discipline, exposed by a slow
+    runner, on a commit that cannot have introduced it — and *"flake"* is still not a
+    root cause (item 44). The one re-run this repository permits is the next push. If it
+    is red at the same item, the cause is the runner's environment and the next step is
+    to pin it there; if green, this item stands as the diagnosis and the hardening below
+    becomes a decision rather than a guess.
+
+    *Not done, and named:* the default suite has no equivalent of the browser suite's
+    abandoned-connection guard. Porting it would be cheap and would have been the obvious
+    move — and nothing in this log says it would have caught this. A guard added against
+    a failure it did not see is item 39's class: a fix written against one imagined state
+    of the code. It is recorded here as the candidate, to be built when a run shows the
+    signature it answers.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
