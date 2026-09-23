@@ -13,6 +13,7 @@ different platforms.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -24,7 +25,7 @@ from aer.config import HouseStyle, ModelRoute, Settings
 from aer.core.enums import UserRole
 from aer.db.models import User
 from aer.errors import ValidationError
-from aer.services import configuration
+from aer.services import configuration, daily_pass
 from aer.services.configuration import (
     OVERRIDABLE,
     current_overrides,
@@ -289,6 +290,51 @@ class TestThePage:
 
         assert rejected.status_code == 400
         assert 'id="error"' in rejected.text
+
+    async def test_the_daily_pass_says_it_has_never_run(self, api: Any) -> None:
+        """F15's health half. Nothing has run, so nothing is late — a platform whose first
+        day reported a failure would teach its operator to ignore the indicator before it
+        had ever been right."""
+        page = await api.get("/settings")
+
+        assert 'id="daily-pass"' in page.text
+        assert "No daily pass has run yet" in page.text
+
+    async def test_an_overdue_pass_is_a_failure_on_the_page(
+        self, api: Any, committed_user: Any, db_engine: Any
+    ) -> None:
+        """*Visible rather than silent* is the whole done-when, and a grey line reading
+        "last ran on the 17th" is silent: it leaves the arithmetic to the reader."""
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        three_days_ago = datetime.now(UTC) - timedelta(days=3)
+        async with factory() as session:
+            person = await session.get(User, committed_user.id)
+            assert person is not None
+            await daily_pass.run_daily_pass(
+                session, None, user=person, as_of=three_days_ago.date(), now=three_days_ago
+            )
+            await session.commit()
+
+        page = await api.get("/settings")
+
+        assert "has not run for 3 days" in page.text
+        assert "stale" in page.text
+
+    async def test_a_refused_value_still_renders_the_daily_pass(self, api: Any) -> None:
+        """The re-render path, which is where the worker's own block was forgotten once and
+        answered 500 under StrictUndefined. Both blocks now come from one context builder,
+        and this is the test that says so."""
+        page = await api.get("/settings")
+        token = _hidden(page.text)
+
+        rejected = await api.post(
+            "/settings",
+            data={CSRF_FIELD_NAME: token, "key": "per_run_budget_gbp", "value": "-1"},
+        )
+
+        assert rejected.status_code == 400
+        assert 'id="daily-pass"' in rejected.text
+        assert 'id="worker"' in rejected.text
 
 
 @pytest.mark.integration

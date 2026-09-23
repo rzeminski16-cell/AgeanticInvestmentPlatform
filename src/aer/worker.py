@@ -30,11 +30,14 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
 import structlog
+from arq import cron
 from arq.connections import RedisSettings
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings, get_settings
@@ -43,15 +46,15 @@ from aer.db.models import Thesis, User
 from aer.errors import ValidationError
 from aer.logging import configure_logging
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS
-from aer.runtime import build_services
+from aer.runtime import build_services, standalone_price_client
+from aer.services import daily_pass, thesis_monitor
 from aer.services import runs as run_service
 from aer.services import theses as thesis_service
-from aer.services import thesis_monitor
 from aer.services.configuration import effective_settings
 from aer.tracing import configure_tracing
 from aer.version import version
 
-__all__ = ["WorkerSettings", "run_monitor", "run_research"]
+__all__ = ["WorkerSettings", "run_daily_pass", "run_monitor", "run_research"]
 
 _log = structlog.get_logger("aer.worker")
 
@@ -64,6 +67,10 @@ _JOB_TIMEOUT_SECONDS = 7200
 # repeating it would spend the same again on the same failure. Resuming is a deliberate
 # act, and the engine makes it cheap by skipping the steps that succeeded.
 _MAX_TRIES = 1
+
+# When the daily pass fires, in UTC. After the New York close (21:00 UTC in summer, 22:00 in
+# winter) and well before the London open, so a pass reads a day both markets have finished.
+DAILY_PASS_HOUR_UTC = 22
 
 
 async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
@@ -184,6 +191,54 @@ async def run_monitor(ctx: dict[str, Any], thesis_id: str) -> dict[str, Any]:
     }
 
 
+async def run_daily_pass(ctx: dict[str, Any]) -> dict[str, Any]:
+    """The daily pass, once per person, after the close (F15).
+
+    Fired by arq's cron rather than enqueued: nothing asks for it, and a day going by is
+    the only trigger. One pass per account, each scoped to that person's own book and
+    watchlist (ADR 0120 §1), each committed on its own so that one account's bad symbol
+    cannot cost another account its prices.
+
+    **The as-of date is yesterday, not today.** The pass runs after a close, and asking a
+    vendor for today's bar before today has closed is asking for a bar that does not exist.
+
+    **It never spends on a model.** It reads prices, which the subscription's own ceiling
+    governs; there is no provider and no router in this function, so a premise check could
+    not be added here without the addition being visible.
+    """
+    session_factory: async_sessionmaker[Any] = ctx["session_factory"]
+    settings: Settings = ctx["settings"]
+    redis: Redis = ctx["aer_redis"]
+    store = build_services(settings, redis=redis).store
+    client = standalone_price_client(settings, store=store, redis=redis)
+    as_of = (datetime.now(UTC) - timedelta(days=1)).date()
+
+    passes = 0
+    read = 0
+    stored = 0
+    async with session_factory() as session:
+        people = list(await session.scalars(select(User).order_by(User.email)))
+    for person in people:
+        async with session_factory() as session:
+            refreshed = await session.get(User, person.id)
+            if refreshed is None:  # pragma: no cover -- the row was just read
+                continue
+            outcome = await daily_pass.run_daily_pass(session, client, user=refreshed, as_of=as_of)
+            await session.commit()
+        passes += 1
+        read += outcome.read
+        stored += outcome.stored
+
+    _log.info(
+        "worker.daily_pass_finished",
+        as_of=as_of.isoformat(),
+        passes=passes,
+        read=read,
+        stored=stored,
+    )
+    return {"as_of": as_of.isoformat(), "passes": passes, "read": read, "stored": stored}
+
+
 async def _startup(ctx: dict[str, Any]) -> None:
     """Build the engine, the session factory and a Redis client, once per worker."""
     configure_logging()
@@ -236,6 +291,18 @@ class WorkerSettings:
 
     # Declared ClassVar rather than moved into an __init__ arq never calls.
     functions: ClassVar[list[Any]] = [run_research, run_monitor]
+
+    # The daily pass (F15). 22:00 UTC: after the New York close and before the London open,
+    # so "yesterday" means the same thing to both markets the platform reads.
+    #
+    # `run_at_startup=False` deliberately. A worker restarted five times in an afternoon
+    # would otherwise make five passes, and the vendor's ceiling is a day's budget rather
+    # than a restart's. A missed pass is visible on the settings page instead, which is what
+    # F15 asks for — the schedule is not made reliable by running it more often, it is made
+    # *legible* by saying when it last worked.
+    cron_jobs: ClassVar[list[Any]] = [
+        cron(run_daily_pass, hour=DAILY_PASS_HOUR_UTC, minute=0, run_at_startup=False)
+    ]
     on_startup = _startup
     on_shutdown = _shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

@@ -514,11 +514,26 @@ is a different thing.
 valuation. None is a queued run.
 
 **How it works.** A single daily job after the close: value the book, read prices for every
-watched company, evaluate price thresholds, and run any premise check whose cadence is due. One
-job, one schedule, one place to look when it does not run.
+watched company, ~~evaluate price thresholds, and run any premise check whose cadence is due~~.
+One job, one schedule, one place to look when it does not run.
 
 **No standing budget is needed.** The price subscription's ceiling is high and permits several
-reads a day; the daily pass runs inside it. Premise checks are arithmetic and cost nothing.
+reads a day; the daily pass runs inside it. ~~Premise checks are arithmetic and cost nothing.~~
+
+**Corrected 23 September 2026, against the monitor as built** (roadmap §3.19 item 51). A
+premise check is *not* arithmetic alone: `aer.services.thesis_monitor` measures the metric and
+decides the predicate in code, and then **asks the model what the new facts do to the premise**
+— that reading is the finding, and it is a model call. So the two struck sentences contradict
+each other: a nightly job that runs premise checks is a nightly job that spends, unattended,
+under a line saying no budget is needed. The pass as landed reads prices and only prices, and
+records every run as a job with a spend of `0.00`. **Premise checks on the schedule wait for
+F11, and for the operator's decision on standing spend** — whether the platform may spend on a
+timer with nobody watching is a budget decision (invariant 6), not a wiring detail. Price
+thresholds are F11's price-move alert kind and go with it.
+
+*"Valued at yesterday's close"* means having yesterday's bars: there is no `positions` table
+to value into (ADR 0083), so the book is computed from bars on the way to the screen, and
+reading the closes *is* valuing it.
 
 **Touches.** A scheduler beside `aer.worker`; the health page.
 

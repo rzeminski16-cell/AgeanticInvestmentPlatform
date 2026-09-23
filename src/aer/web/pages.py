@@ -91,7 +91,7 @@ from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import citations as citation_service
-from aer.services import configuration, provenance
+from aer.services import configuration, daily_pass, provenance
 from aer.services import gates as gates_service
 from aer.services import history as history_service
 from aer.services import reports as reports_service
@@ -2832,9 +2832,8 @@ async def settings_page(
     operator here when a run is queued with nothing to run it, rather than telling them
     which command to type (§2.11).
     """
-    del user
     token = new_csrf_token(settings)
-    context = await _settings_context(session, settings, token=token)
+    context = await _settings_context(session, settings, token=token, user_id=user.id)
     context["saved"] = request.query_params.get("saved") == "1"
     context["worker"] = await _worker_words(redis)
     page: Response = render(request, "settings/index.html", context)
@@ -2873,7 +2872,7 @@ async def save_settings(
         )
     except ValidationError as refused:
         token = new_csrf_token(settings)
-        context = await _settings_context(session, settings, token=token)
+        context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
         context["worker"] = await _worker_words(redis)
         rejected: Response = render(request, "settings/index.html", context)
@@ -2918,7 +2917,7 @@ async def save_standing_settings(
         )
     except ValidationError as refused:
         token = new_csrf_token(settings)
-        context = await _settings_context(session, settings, token=token)
+        context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
         context["worker"] = await _worker_words(redis)
         rejected: Response = render(request, "settings/index.html", context)
@@ -2961,13 +2960,43 @@ async def _worker_words(redis: Redis) -> dict[str, Any]:
     }
 
 
+async def _daily_pass_words(session: DbSession, *, user_id: uuid.UUID) -> dict[str, Any]:
+    """When the daily pass last ran, and whether it is late (F15).
+
+    Beside the worker's own status rather than on a page of its own, because they answer
+    one question between them — *is the machinery working?* — and an operator who has to
+    know which of two pages to look at has been given a puzzle instead of an answer.
+
+    **A missed pass reads as a failure, not as a note.** F15's done-when is that a missed
+    run is *visible rather than silent*, and a grey line saying "last ran on the 14th" is
+    silent in every way that matters: it puts the arithmetic on the reader.
+    """
+    last = await daily_pass.last_pass(session, user_id=user_id)
+    state = daily_pass.pass_state(
+        last.finished_at if last is not None else None, now=datetime.now(UTC)
+    )
+    if state.last_finished is None:
+        return {"running": None, "label": "Not yet", "detail": state.sentence}
+    if state.is_missed:
+        return {"running": False, "label": "Overdue", "detail": state.sentence}
+    return {"running": True, "label": "Up to date", "detail": state.sentence}
+
+
 async def _settings_context(
-    session: DbSession, settings: Settings, *, token: str
+    session: DbSession, settings: Settings, *, token: str, user_id: uuid.UUID
 ) -> dict[str, Any]:
-    """What the settings form renders from: current effective values, and what is overridden."""
+    """What the settings form renders from: current effective values, and what is overridden.
+
+    **The daily pass's state is built here rather than at each call site**, and that is a
+    lesson paid for once already: when the worker's own block was added it was set beside
+    two of the three renders, and the third — `save_settings` re-rendering after a refused
+    value — answered 500 under `StrictUndefined`. A block every render needs belongs where
+    every render already goes, so a fourth caller cannot forget it.
+    """
     effective = await configuration.effective_settings(session, settings)
     overrides = await configuration.current_overrides(session)
     return {
+        "daily": await _daily_pass_words(session, user_id=user_id),
         "overridable": configuration.OVERRIDABLE,
         "overrides": overrides,
         "values": {

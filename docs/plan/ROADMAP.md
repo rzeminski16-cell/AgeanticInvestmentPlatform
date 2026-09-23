@@ -2163,6 +2163,50 @@ found rather than as scope that was always there.
     moment you are about to extend it.
 
 
+51. **F15 says a premise check costs nothing, and it is a model call, 23 September 2026.**
+    Found while building the daily pass, by reading what the pass was asked to run rather
+    than adding it.
+
+    `04-feature-specifications.md` F15: the single daily job should *"run any premise check
+    whose cadence is due"*, and *"no standing budget is needed"* because *"premise checks
+    are arithmetic and cost nothing"*. Measured against `aer.services.thesis_monitor` —
+    diagnosed whole in item 45 — **that is not what a premise check is.** Code resolves the
+    metric, measures it from the filed facts and decides the predicate, all free; and then
+    `_read_premise` hands the observation to `ThesisMonitorAgent` and **asks the model what
+    the new facts do to the premise**. The arithmetic is the cheap half. The reading is the
+    half that spends, and it is the half that produces the finding.
+
+    *So the two sentences cannot both be kept.* An unattended nightly job that calls the
+    model spends money with nobody watching, under a line that says no budget is needed —
+    which is the exact shape invariant 6 exists to forbid: a cap that nobody set is not a
+    cap. The pass built here reads prices and only prices, records that it ran as a work
+    order and a job with a spend of `0.00`, and says so in its docstring. **The premise half
+    waits for F11 and for the operator**, because *should the platform spend on a schedule
+    with nobody watching?* is a standing-spend decision and not a wiring detail.
+
+    *The specification is corrected in place* — struck through, with the measurement —
+    rather than quietly narrowed, on the same rule as items 43 and 45: a plan that
+    described the code from memory is corrected where it is read, so the next reader meets
+    the correction rather than the claim.
+
+    *What the pass does ship:* an arq cron at 22:00 UTC, after the New York close and
+    before the London open; `run_at_startup=False`, so five worker restarts are not five
+    passes against a vendor ceiling that is a day's budget; the closes for everything held
+    or watched, scoped to a person (ADR 0120 §1) with the bars shared; and a settings-page
+    block beside the worker's that reads *Overdue* as a failure once a pass is more than a
+    day and six hours old — six hours of grace, because a schedule read at nine the morning
+    after it ran at ten the night before has not failed, and calling that a miss is how an
+    indicator teaches its reader to skip it. The verdict is a pure function of a timestamp
+    and a clock, so the tests hold the clock still and assert the sentence at the hour they
+    want; *"a missed run is visible rather than silent"* cannot be tested by waiting for it.
+
+    *And one more copy caught before it became one.* `fetch_result`, `bars_response` and
+    `row` — the vendor-series builders — lived in `tests/test_prices_service.py`, and the
+    daily pass's tests wanted all three. They are now `tests/price_fixtures.py`, on the
+    pattern `portfolio_fixtures` and `workflow_fixtures` already set. Item 50's lesson,
+    applied a second time in three days.
+
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

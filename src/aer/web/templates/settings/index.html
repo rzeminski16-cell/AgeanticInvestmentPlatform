@@ -44,6 +44,28 @@
     </p>
   {% endcall %}
 
+  {#
+    The daily pass (F15). In the same place as the worker because they answer one question
+    between them — is the machinery working? — and because the pass only runs when a worker
+    is up, so the two read together or not at all.
+
+    An overdue pass is a `failure` rather than a note. F15's done-when is that a missed run
+    is *visible rather than silent*, and a grey line reading "last ran on the 14th" leaves
+    the arithmetic to the reader, which is the same as not saying it.
+  #}
+  {% call ui.sheet("The daily pass", id="daily-pass") %}
+    <p class="type-body text-ink">
+      {% if daily.running %}
+        {{ ui.status("success", daily.label) }}
+      {% elif daily.running is false %}
+        {{ ui.status("failure", daily.label) }}
+      {% else %}
+        {{ ui.status("muted", daily.label) }}
+      {% endif %}
+      <span class="ml-2 type-body-sm text-ink-muted" id="daily-pass-detail">{{ daily.detail }}</span>
+    </p>
+  {% endcall %}
+
   {% call ui.sheet("Cost and method") %}
     <div class="flex flex-col divide-y divide-line">
       {% for item in overridable %}

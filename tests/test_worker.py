@@ -30,7 +30,7 @@ import pytest
 from arq.connections import RedisSettings
 from arq.worker import Worker, create_worker, get_kwargs
 
-from aer.queue import RUN_RESEARCH_TASK, redis_settings_from
+from aer.queue import RUN_DAILY_TASK, RUN_RESEARCH_TASK, redis_settings_from
 
 
 @pytest.fixture
@@ -39,6 +39,14 @@ def worker_settings(settings_env: pytest.MonkeyPatch) -> Any:
     from aer.worker import WorkerSettings  # noqa: PLC0415 -- see the module docstring
 
     return WorkerSettings
+
+
+@pytest.fixture
+def daily_pass_hour(settings_env: pytest.MonkeyPatch) -> int:
+    """The hour the pass is scheduled for, read from the worker rather than repeated."""
+    from aer.worker import DAILY_PASS_HOUR_UTC  # noqa: PLC0415 -- see the module docstring
+
+    return DAILY_PASS_HOUR_UTC
 
 
 class _SessionFactoryStub:
@@ -113,6 +121,59 @@ class TestArqCanStartTheWorker:
         """A real run is twenty to sixty minutes. A timeout at the median would kill
         exactly the runs with the most work in them."""
         assert get_kwargs(worker_settings)["job_timeout"] >= 3600
+
+
+def _daily_pass_job(worker_settings: Any) -> Any:
+    """The scheduled pass, or a failure naming what *is* scheduled.
+
+    A bare ``next()`` raises ``StopIteration``, which inside a coroutine becomes a
+    ``RuntimeError`` about the event loop and says nothing about the schedule.
+    """
+    worker = create_worker(worker_settings)
+    found = [row for row in worker.cron_jobs if row.name == f"cron:{RUN_DAILY_TASK}"]
+    assert found, (
+        f"the daily pass is not scheduled; these are: {[j.name for j in worker.cron_jobs]}"
+    )
+    return found[0]
+
+
+class TestTheDailyPassIsOnTheSchedule:
+    """F15. The schedule is the one part of this feature no other test can reach.
+
+    Every other daily-pass test calls the service directly, exactly as every other worker
+    test once drove the workflow directly — which is how this module's own docstring
+    describes the worker being the one component with no test and the one that did not
+    work. A cron job silently dropped from this class would leave the pass written, tested,
+    rendered on the settings page, and never once fired.
+    """
+
+    async def test_arq_registers_the_daily_pass_as_a_cron_job(self, worker_settings: Any) -> None:
+        """arq names a cron job ``cron:<coroutine>``, so the registered name is not the bare
+        one the queue module holds. Asserted in its real form rather than loosely, because
+        "something with that substring is scheduled" is what a typo would also satisfy."""
+        worker = create_worker(worker_settings)
+
+        scheduled = {job.name for job in worker.cron_jobs}
+
+        assert f"cron:{RUN_DAILY_TASK}" in scheduled
+
+    async def test_it_fires_once_a_day_after_the_close(
+        self, worker_settings: Any, daily_pass_hour: int
+    ) -> None:
+        """One hour, every day. A cron whose hour was left open would fire hourly, and the
+        vendor's ceiling is a day's budget rather than an hour's."""
+        job = _daily_pass_job(worker_settings)
+
+        assert job.hour == daily_pass_hour
+        assert job.minute == 0
+
+    async def test_it_does_not_fire_on_every_restart(self, worker_settings: Any) -> None:
+        """A worker restarted five times in an afternoon would otherwise make five passes.
+        A missed pass is made visible on the settings page instead — a schedule is not made
+        reliable by running it more often."""
+        job = _daily_pass_job(worker_settings)
+
+        assert job.run_at_startup is False
 
 
 class TestTheEnqueueSettings:

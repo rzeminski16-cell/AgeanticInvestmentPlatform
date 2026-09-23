@@ -35,6 +35,7 @@ from arq.constants import default_queue_name, health_check_key_suffix
 __all__ = [
     "HEALTH_CHECK_INTERVAL_SECONDS",
     "HEALTH_CHECK_KEY",
+    "RUN_DAILY_TASK",
     "RUN_MONITOR_TASK",
     "RUN_RESEARCH_TASK",
     "WorkerHealth",
@@ -50,6 +51,11 @@ _log = structlog.get_logger("aer.queue")
 # disagree about it produce a queue that accepts work nothing ever runs.
 RUN_RESEARCH_TASK = "run_research"
 RUN_MONITOR_TASK = "run_monitor"
+
+# The daily pass (F15). It is a *schedule* rather than a queue entry — nothing enqueues it,
+# arq's cron fires it — and the name is here with the other two so that one place says what
+# this worker can be asked to run.
+RUN_DAILY_TASK = "run_daily_pass"
 
 # How often the worker records that it is alive, and the key arq records it under. Thirty
 # seconds rather than arq's hour-long default, because the record's lifetime is the

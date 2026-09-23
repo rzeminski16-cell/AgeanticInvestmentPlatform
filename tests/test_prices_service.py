@@ -33,13 +33,13 @@ from aer.db.models import (
     User,
 )
 from aer.errors import ValidationError
-from aer.fetch.client import FetchResult
 from aer.services import assumptions
 from aer.services import prices as service
 from aer.services.assumptions import UnconfirmedAssumptionError
 from aer.services.disagreements import disagreements_for_job
 from aer.sources.eodhd import api
-from aer.sources.eodhd.client import ActionsResponse, PriceResponse
+from aer.sources.eodhd.client import ActionsResponse
+from tests import price_fixtures
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
@@ -49,48 +49,13 @@ _TABLES = (
     "companies, securities, research_requests, jobs, users, artefacts, disagreements, assumptions"
 )
 
-AS_OF = date(2024, 6, 28)
+# The builders live in `price_fixtures`: three test modules want the same three, and a
+# second copy of a stand-in is how it drifts from the thing it stands in for.
+AS_OF = price_fixtures.AS_OF
+fetch_result = price_fixtures.fetch_result
+bars_response = price_fixtures.bars_response
+row = price_fixtures.row
 SOURCE = SourceRef.security("price-series")
-
-
-def fetch_result() -> FetchResult:
-    """A `FetchResult` stand-in. These tests store rows; they do not fetch."""
-    return FetchResult(
-        url="https://eodhd.com/api/eod/MSFT.US?api_token=REDACTED",
-        final_url="https://eodhd.com/api/eod/MSFT.US?api_token=REDACTED",
-        status_code=200,
-        sha256="a" * 64,
-        size_bytes=1,
-        media_type="application/json",
-        declared_media_type="application/json",
-        headers={},
-        redirect_chain=(),
-        elapsed_ms=1.0,
-        attempts=1,
-    )
-
-
-def bars_response(rows: list[api.BarRow], *, as_of: date = AS_OF) -> PriceResponse:
-    return PriceResponse(
-        symbol="MSFT.US",
-        as_of=as_of,
-        bars=tuple(rows),
-        discarded_after_as_of=0,
-        fetch=fetch_result(),
-    )
-
-
-def row(on: date, close: str, *, adjusted: str | None = None) -> api.BarRow:
-    value = Decimal(close)
-    return api.BarRow(
-        on=on,
-        open=value,
-        high=value,
-        low=value,
-        close=value,
-        adjusted_close=Decimal(adjusted) if adjusted else None,
-        volume=1_000,
-    )
 
 
 def actions_response(
