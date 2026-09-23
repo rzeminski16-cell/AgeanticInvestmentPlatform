@@ -1,8 +1,8 @@
 {
   "_comment": [
     "Thirty known-answer calculations, one per row, hand-computed and never generated.",
-    "Each entry is the stored-record shape a `calculations` row carries \u2014 the same shape",
-    "`aer.eval.replay.replay` reads \u2014 so a golden case exercises the replay harness itself",
+    "Each entry is the stored-record shape a `calculations` row carries — the same shape",
+    "`aer.eval.replay.replay` reads — so a golden case exercises the replay harness itself",
     "against an answer a person worked out on paper. Values are chosen to be exact in",
     "decimal arithmetic so a failure is a code change, never a rounding argument.",
     "Every calc module in CALC_MODULES is represented; the coverage test enforces it."
@@ -1363,6 +1363,146 @@
       "expected": {
         "value": "2400",
         "unit": "USD"
+      }
+    },
+    {
+      "name": "cash_weight_after",
+      "inputs": [
+        {
+          "name": "cash_weight",
+          "value": "0.40",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "current_weight",
+          "value": "0.02",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "planned_weight",
+          "value": "0.05",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "0.37",
+        "unit": "pure"
+      }
+    },
+    {
+      "name": "payback_year",
+      "inputs": [
+        {
+          "name": "present_values[0]",
+          "value": "30",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "present_values[1]",
+          "value": "40",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "present_values[2]",
+          "value": "50",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "market_enterprise_value",
+          "value": "100",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "3",
+        "unit": "year"
+      }
+    },
+    {
+      "name": "forecast_recovery",
+      "inputs": [
+        {
+          "name": "present_values[0]",
+          "value": "30",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "present_values[1]",
+          "value": "40",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "present_values[2]",
+          "value": "50",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "market_enterprise_value",
+          "value": "100",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "1.2",
+        "unit": "pure"
       }
     }
   ]

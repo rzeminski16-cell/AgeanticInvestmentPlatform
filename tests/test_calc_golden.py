@@ -56,7 +56,13 @@ GOLDEN_TOLERANCE = Decimal("0.0001")
 # Then three for the capital-allocation figures (roadmap §2.1): the sum the writer kept
 # doing in prose, its share of operating cash flow, and one year-on-year change — 24,100
 # against 21,700 is a rise of 2,400, and the sign is the whole point of recording it.
-EXPECTED_CORPUS_SIZE = 39
+#
+# Then three for the closing section's arithmetic (F3, ADR 0129): the cash a planned
+# position leaves, and the two horizon figures — a forecast of 30, 40 and 50 against an
+# enterprise the market prices at 100 pays back in year three and recovers 120% of it. The
+# payback is the case that fails if the terminal value is ever folded into the forecast,
+# which would make every payback the last year.
+EXPECTED_CORPUS_SIZE = 42
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:

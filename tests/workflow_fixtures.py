@@ -121,6 +121,11 @@ SPINE_KEYS = (
     "validation_disagreements",
 )
 
+# The closing section (F3, ADR 0129), seeded by migration 0084 at the foot of the spine and
+# applicable only to a request that states a planned weight. Kept apart from SPINE_KEYS:
+# the fake scene's request states none, so its runs carry the eighteen and not this one.
+CLOSING_KEY = "portfolio_consequences"
+
 
 class StubSecClient:
     """The SEC client's surface, served from a fixture through the real artefact store."""

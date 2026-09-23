@@ -65,6 +65,7 @@ CALC_MODULES: Final[tuple[str, ...]] = (
     "aer.calc.bridge",
     "aer.calc.cash_uses",
     "aer.calc.comps",
+    "aer.calc.consequences",
     "aer.calc.dcf",
     "aer.calc.fx",
     "aer.calc.outcomes",

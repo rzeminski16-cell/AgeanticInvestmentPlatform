@@ -51,6 +51,7 @@ from aer.core.enums import (
     TransactionKind,
 )
 from aer.core.escalation import TriggerKind
+from aer.core.schemas.request import RequestPurpose
 from aer.core.sectors import SECTOR_PROFILES, ValuationModel
 from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
@@ -68,6 +69,7 @@ __all__ = [
     "PROCESS_QUALITIES",
     "PROVIDERS",
     "QUARANTINE_REASONS",
+    "REQUEST_PURPOSES",
     "REQUEST_STATES",
     "RESOLUTION_OUTCOMES",
     "SECTION_STATES",
@@ -988,3 +990,22 @@ def gate_words(gate: GateKind) -> GateWords:
             "every gate and useless about this one."
         )
         raise KeyError(message) from None
+
+
+# What the answer is for (F3): the request form's purpose, in words a person would choose
+# between. Muted, every one — a purpose is what the operator said, never a state the platform
+# is in — and none of them is a size or a direction.
+REQUEST_PURPOSES: Final[dict[RequestPurpose, HumanState]] = {
+    RequestPurpose.NEW_POSITION: HumanState(
+        "A new position", Tone.MUTED, "The book holds none of this company."
+    ),
+    RequestPurpose.ADD: HumanState(
+        "Adding to a position", Tone.MUTED, "The book already holds some, and the question is more."
+    ),
+    RequestPurpose.REVIEW: HumanState(
+        "Reviewing a position", Tone.MUTED, "Held, and the question is whether to keep it."
+    ),
+    RequestPurpose.WATCHING_ONLY: HumanState(
+        "Watching only", Tone.MUTED, "No trade in view; the research is for the record."
+    ),
+}

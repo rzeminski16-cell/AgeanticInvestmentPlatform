@@ -98,11 +98,32 @@ class EsgSensitivity(StrEnum):
     MATERIAL = "material"
 
 
+class RequestPurpose(StrEnum):
+    """What the answer is for (F3): the closing section reads it beside the planned weight.
+
+    Four, and none of them is a size or a direction. *Watching only* is a real purpose — a
+    company followed without a position in view — and the closing section says so rather
+    than inventing a trade to compute.
+    """
+
+    NEW_POSITION = "new_position"
+    ADD = "add"
+    REVIEW = "review"
+    WATCHING_ONLY = "watching_only"
+
+
 class PortfolioContext(BaseModel):
     """Where this holding sits, or would sit, in the operator's portfolio.
 
     Optional in full: someone researching a company they do not own has no weights to
     give, and demanding a zero would be demanding a fiction.
+
+    **The planned weight is the whole position after the trade, as a fraction of the
+    book** (F3), typed here before any research exists. It is the operator's number and
+    never one the platform proposed: ADR 0104 keeps a *decision's* size a sentence so that
+    nothing can size a position by a view, and this is a mandate field beside the two
+    weights that already stand — what the closing section computes from it are fractions
+    of the book, never a money amount for the position.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -110,8 +131,10 @@ class PortfolioContext(BaseModel):
     current_weight: Annotated[Decimal | None, Field(ge=0, le=1)] = None
     maximum_weight: Annotated[Decimal | None, Field(ge=0, le=1)] = None
     benchmark: Annotated[str | None, Field(max_length=120)] = None
+    planned_weight: Annotated[Decimal | None, Field(ge=0, le=1)] = None
+    purpose: RequestPurpose | None = None
 
-    @field_validator("benchmark", mode="before")
+    @field_validator("benchmark", "purpose", mode="before")
     @classmethod
     def _blank_is_none(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
@@ -133,7 +156,11 @@ class PortfolioContext(BaseModel):
 
     def is_empty(self) -> bool:
         return (
-            self.current_weight is None and self.maximum_weight is None and self.benchmark is None
+            self.current_weight is None
+            and self.maximum_weight is None
+            and self.benchmark is None
+            and self.planned_weight is None
+            and self.purpose is None
         )
 
 

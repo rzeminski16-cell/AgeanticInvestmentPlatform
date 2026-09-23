@@ -187,6 +187,13 @@ def _form_context(
         ],
         "risk_tolerances": list(RiskTolerance),
         "esg_sensitivities": list(EsgSensitivity),
+        # What the answer is for (F3), in the vocabulary's words: the closing section reads
+        # the purpose beside the planned weight, and a select offering "new_position" is
+        # the schema showing through.
+        "purposes": [
+            {"value": purpose.value, "label": state.label}
+            for purpose, state in vocabulary.REQUEST_PURPOSES.items()
+        ],
         "today": datetime.now(UTC).date().isoformat(),
         # The date this form's request is, or will be, dated to. `page.extra` overrides it
         # on the edit form, which is a request already stamped. See `_edit_page`.

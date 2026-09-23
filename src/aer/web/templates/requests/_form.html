@@ -117,6 +117,32 @@
     </div>
   {% endcall %}
 
+  {#
+    Your context (F3, ADR 0129). Its own sheet because it does something different from the
+    rest of the form: the brief says what to research, and these three say what the answer is
+    *for*. The closing section reads them and states what the position would do to the book
+    you already hold — consequences, never a recommendation. A blank weight is a real answer,
+    and the report then has no closing section rather than an empty one.
+  #}
+  {% call ui.sheet("Your context", subtitle="What the answer is for. The closing section reads these and states what the position would do to the book you already hold — consequences, never a recommendation.", id="your-context") %}
+    <div class="grid gap-5 sm:grid-cols-3">
+      {{ ui.field("planned_weight_percent", "Planned weight (%)",
+                  value=values.get("planned_weight_percent", ""), type="number",
+                  error=errors.get("planned_weight_percent", [""])[0],
+                  minimum="0", maximum="100", step="any", placeholder="5",
+                  hint="The whole position after the trade, as a share of your book. Leave it blank and the report has no closing section.") }}
+      {{ ui.field("investment_horizon_months", "Horizon (months)",
+                  value=values.get("investment_horizon_months", ""), type="number", required=true,
+                  error=errors.get("investment_horizon_months", [""])[0],
+                  minimum="1", maximum="240", step="1", hint="Set against the model's own payback.") }}
+      {{ ui.field("purpose", "Purpose", value=values.get("purpose", ""),
+                  error=errors.get("purpose", [""])[0], choices=purposes,
+                  blank_label="Not stated", hint="A new position, adding, reviewing, or watching only.") }}
+    </div>
+    {{ ui.field("horizon_label", "Horizon, in your words", value=values.get("horizon_label", ""),
+                error=errors.get("horizon_label", [""])[0], placeholder="Through the next cycle") }}
+  {% endcall %}
+
   {% call ui.sheet("Questions this report must answer", subtitle="Optional, and the part that shapes the plan most.") %}
     {{ ui.field("focus_questions", "Questions you want answered", value=values.get("focus_questions", ""),
                 rows=5, error=errors.get("focus_questions", [""])[0],
@@ -140,12 +166,6 @@
           {{ ui.field("reporting_currency", "Reporting currency", value=values.get("reporting_currency", ""),
                       error=errors.get("reporting_currency", [""])[0], choices=currencies,
                       blank_label="Same as base currency") }}
-          {{ ui.field("investment_horizon_months", "Investment horizon (months)",
-                      value=values.get("investment_horizon_months", ""), type="number", required=true,
-                      error=errors.get("investment_horizon_months", [""])[0],
-                      minimum="1", maximum="240", step="1", hint="Defaults to twelve months.") }}
-          {{ ui.field("horizon_label", "Horizon label", value=values.get("horizon_label", ""),
-                      error=errors.get("horizon_label", [""])[0], placeholder="Through the next cycle") }}
         </div>
 
         <div class="grid gap-5 sm:grid-cols-2">

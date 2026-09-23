@@ -148,6 +148,27 @@ spine, `aer.render.document`.
 footnoted to a calculation, and a run commissioned without one renders the section absent rather
 than empty.
 
+**Corrected 23 September 2026, on building it** (ADR 0129, migration 0084). Five lines above did
+not survive contact with the code, and one question the specification cannot answer alone is
+answered by an ADR. *The request form gains three fields*: two — the horizon has been on the form
+since it was built, as `investment_horizon_months` and its label; the planned weight and the
+purpose join it in a *Your context* sheet of their own. *The section renders every figure*: it
+does, on the operator's own copy — the report reader and the final-gate preview — and the figures
+rest on the operator's book, whose typed entries are attested (ADR 0073), so the stored HTML, the
+PDF and the Markdown carry ADR 0073's disclosure in the section's place whenever any figure's
+lineage is attested, and the section in full only where every entry is documented. *"The model's
+own payback year"*: nothing computed one; the value step now strikes how much of today's
+enterprise value the explicit forecast recovers, and the payback year only where the forecast
+reaches it — the example's *year six* lies beyond a five-year forecast and is stated as beyond.
+*"Four of the six strings in `RESERVED_OUTPUT_FIELDS`"*: the set holds thirteen, since ADR 0104,
+and `weight` is one of them; the section's own fields are named so as not to be. *The weight
+after*: it is the planned weight itself, which the section states as the operator's input rather
+than computing; what it computes are the cash after, the five largest holdings' share after and
+the sector's share after, each a fraction of the book, and never a money amount for the position
+— ADR 0104's rule that a decision's size is a sentence stands, and the section multiplies the
+planned weight by nothing. A run with a planned weight and no book on record renders one honest
+sentence and no figure.
+
 ---
 
 ## F4 · The refresh

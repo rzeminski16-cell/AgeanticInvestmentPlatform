@@ -46,6 +46,7 @@ from aer.db.models import (
     FinancialFact,
     FxRateRow,
     MacroObservationRow,
+    ResearchRequest,
     RiskScenarioShock,
     Security,
 )
@@ -669,6 +670,40 @@ async def _scenario_shock_node(session: AsyncSession, stored: _StoredInput) -> L
     )
 
 
+async def _request_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
+    """The weight the operator planned on the request form (F3, ADR 0129).
+
+    An assumption's guarantee in the mandate's own relation, as a scenario shock is in its
+    (ADR 0106): the node reads as an assumption, because that is what a number somebody
+    chose is, and the detail names the commission so a reader can see which request the
+    consequence was computed for.
+    """
+    parsed = _uuid_or_none(stored.identifier)
+    request = await session.get(ResearchRequest, parsed) if parsed is not None else None
+    if request is None:
+        return None
+    context = request.portfolio_context or {}
+    return LineageNode(
+        kind="assumption",
+        identifier=stored.identifier,
+        label=stored.label or f"planned weight, stated on the request for {request.ticker}",
+        value=(
+            stored.value
+            if stored.value is not None
+            else _decimal_or_none(context.get("planned_weight"))
+        ),
+        unit=stored.unit or "pure",
+        detail={
+            "table": SourceTable.RESEARCH_REQUESTS.value,
+            "request_id": str(request.id),
+            "ticker": request.ticker,
+            "exchange": request.exchange,
+            "purpose": context.get("purpose"),
+            "stated_by": request.work_order.user_id and str(request.work_order.user_id),
+        },
+    )
+
+
 _LeafLoader = Callable[[AsyncSession, "_StoredInput"], Awaitable[LineageNode | None]]
 
 # One entry per relation a leaf can live in. Adding a source table is a line here and a
@@ -686,6 +721,7 @@ _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.SECURITIES: _security_node,
     SourceTable.ASSUMPTIONS: _assumption_node,
     SourceTable.RISK_SCENARIO_SHOCKS: _scenario_shock_node,
+    SourceTable.RESEARCH_REQUESTS: _request_node,
 }
 
 _KNOWN_TABLES: Final[Mapping[str, SourceTable]] = {table.value: table for table in SourceTable}

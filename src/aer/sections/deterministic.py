@@ -43,6 +43,12 @@ from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, Sectio
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.eval.metrics import spoken_metric
 from aer.render.display import stored
+from aer.sections.consequences import (
+    consequences_block,
+    consequences_note,
+    consequences_only,
+    consequences_problems,
+)
 from aer.sections.registry import sections_for_job
 from aer.sections.valuation_method import (
     commentary_problems,
@@ -56,6 +62,7 @@ from aer.services.history import prior_comparison_content
 __all__ = [
     "AUGMENTERS",
     "BUILDERS",
+    "CONSEQUENCES_KEY",
     "SectionAugmenter",
     "SectionStage",
     "fill_deterministic_sections",
@@ -483,12 +490,23 @@ class SectionAugmenter:
     note: Callable[[dict[str, Any]], str] | None = None
 
 
+# The closing section's key (F3, ADR 0129), named here and nowhere else in code: the seed
+# migration says the row exists, this registry binds the code that fills it, and the
+# renderer imports the name rather than spelling it.
+CONSEQUENCES_KEY: Final = "portfolio_consequences"
+
 AUGMENTERS: dict[str, SectionAugmenter] = {
     "valuation_dcf": SectionAugmenter(
         build=valuation_method_block,
         check=commentary_problems,
         standalone=method_only,
         note=component_note,
+    ),
+    CONSEQUENCES_KEY: SectionAugmenter(
+        build=consequences_block,
+        check=consequences_problems,
+        standalone=consequences_only,
+        note=consequences_note,
     ),
 }
 

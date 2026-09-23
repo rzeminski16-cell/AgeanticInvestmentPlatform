@@ -63,6 +63,8 @@ FORM_FIELDS: Final[tuple[str, ...]] = (
     "reporting_currency",
     "investment_horizon_months",
     "horizon_label",
+    "planned_weight_percent",
+    "purpose",
     "analysis_mode",
     "undated_sources_admissible",
     "current_weight_percent",
@@ -83,6 +85,8 @@ _LOCATION_TO_FIELD: Final[dict[tuple[str, ...], str]] = {
     ("portfolio_context", "current_weight"): "current_weight_percent",
     ("portfolio_context", "maximum_weight"): "maximum_weight_percent",
     ("portfolio_context", "benchmark"): "benchmark",
+    ("portfolio_context", "planned_weight"): "planned_weight_percent",
+    ("portfolio_context", "purpose"): "purpose",
     ("portfolio_context",): "current_weight_percent",
 }
 
@@ -193,6 +197,7 @@ def parse_request_form(form: dict[str, str]) -> ParsedForm:
     for form_name, schema_name in (
         ("current_weight_percent", "current_weight"),
         ("maximum_weight_percent", "maximum_weight"),
+        ("planned_weight_percent", "planned_weight"),
     ):
         try:
             weights[schema_name] = percent_to_fraction(values[form_name])
@@ -220,6 +225,8 @@ def parse_request_form(form: dict[str, str]) -> ParsedForm:
             "current_weight": weights.get("current_weight"),
             "maximum_weight": weights.get("maximum_weight"),
             "benchmark": values["benchmark"],
+            "planned_weight": weights.get("planned_weight"),
+            "purpose": values["purpose"],
         },
         "risk_tolerance": values["risk_tolerance"],
         "liquidity_constraint_gbp": values["liquidity_constraint_gbp"] or None,
@@ -272,6 +279,8 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "current_weight_percent": fraction_to_percent(_weight(portfolio.get("current_weight"))),
         "maximum_weight_percent": fraction_to_percent(_weight(portfolio.get("maximum_weight"))),
         "benchmark": str(portfolio.get("benchmark") or ""),
+        "planned_weight_percent": fraction_to_percent(_weight(portfolio.get("planned_weight"))),
+        "purpose": str(portfolio.get("purpose") or ""),
         "risk_tolerance": request.risk_tolerance or "",
         "liquidity_constraint_gbp": _plain(request.liquidity_constraint_gbp),
         "esg_sensitivity": request.esg_sensitivity or "",

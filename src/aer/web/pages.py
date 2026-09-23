@@ -46,7 +46,7 @@ from starlette.status import (
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, RegistersDep, SettingsDep
 from aer.api.routes.assumptions import assumptions_payload
-from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
+from aer.calc.comps import MULTIPLE_DEFINITIONS, Audience, CompsTable
 from aer.calc.dcf import HIGH_TERMINAL_SHARE, HIGH_TERMINAL_SHARE_CAVEAT
 from aer.charts import (
     ValuationHistoryInput,
@@ -1764,6 +1764,8 @@ async def _run_document(
         )
     )
     comps = await comps_for(session, job=job, request=research_request)
+    # The operator's own screen (ADR 0129): what they approve at the final gate is their
+    # copy, closing section in full; the render step assembles the shareable one.
     return await assemble_document(
         session,
         job=job,
@@ -1778,6 +1780,7 @@ async def _run_document(
             request=research_request,
             licence_note=comps.licence_note if comps else "",
         ),
+        audience=Audience.INTERNAL,
     )
 
 
@@ -3570,6 +3573,8 @@ async def report_preview(
         await session.get(Company, report.company_id) if report.company_id is not None else None
     )
     comps = await comps_for(session, job=job, request=research_request)
+    # The operator's own copy (ADR 0129): the closing section's figures in full, with the
+    # grade stated beside them. The stored HTML and the exports are the shareable assembly.
     document = await assemble_document(
         session,
         job=job,
@@ -3587,6 +3592,7 @@ async def report_preview(
         rating=report.rating,
         confidence=report.confidence,
         generated_at=report.created_at,
+        audience=Audience.INTERNAL,
     )
     return HTMLResponse(render_html(document))
 

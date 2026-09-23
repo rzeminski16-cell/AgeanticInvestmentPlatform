@@ -35,6 +35,7 @@ from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.workflow_fixtures import (
+    CLOSING_KEY,
     SPINE_KEYS,
     StubSecClient,
     gate_for,
@@ -52,6 +53,7 @@ _VERSIONS = Path(__file__).resolve().parent.parent / "migrations" / "versions"
 SEED_MIGRATIONS = (
     _VERSIONS / "0006_agents_costs_prompts_sections.py",
     _VERSIONS / "0023_the_eighteen_section_spine.py",
+    _VERSIONS / "0084_the_closing_section_reads_the_operators_own_book.py",
 )
 
 # The eighteen-section spine, in position order — what the seed migrations insert. The
@@ -65,7 +67,11 @@ DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
 # Sections whose *platform-filled fields* are bound in the registry (ADR 0063). The same
 # seed-counterpart standing as the deterministic keys: the row's contract marks fields
 # code must fill, and the registry is where that code attaches.
-AUGMENTED_KEYS = ("valuation_dcf",)
+AUGMENTED_KEYS = ("valuation_dcf", CLOSING_KEY)
+
+# Every key a source file may not name: the spine, and the closing section beside it. The
+# run-order assertions stay on SEEDED_KEYS, because the fake scene states no planned weight.
+SCANNED_KEYS = (*SEEDED_KEYS, CLOSING_KEY)
 DETERMINISTIC_REGISTRY = SRC_ROOT / "aer" / "sections" / "deterministic.py"
 
 # What the inserted section is called. Deliberately nothing like any built-in, so a
@@ -514,7 +520,7 @@ class TestNoSectionKeyIsHardcoded:
     def _code_mentioning(key: str) -> set[Path]:
         return {path for path in SRC_ROOT.rglob("*.py") if key in executable_source(path)}
 
-    @pytest.mark.parametrize("key", SEEDED_KEYS)
+    @pytest.mark.parametrize("key", SCANNED_KEYS)
     def test_no_source_file_names_a_seeded_section(self, key: str) -> None:
         """One scoped exception: the deterministic registry may name the keys it binds.
 
@@ -542,7 +548,7 @@ class TestNoSectionKeyIsHardcoded:
     def test_the_seed_migrations_do_name_them(self) -> None:
         """Guards the scan from passing because the keys were renamed everywhere."""
         text = "".join(path.read_text(encoding="utf-8") for path in SEED_MIGRATIONS)
-        for key in SEEDED_KEYS:
+        for key in SCANNED_KEYS:
             assert key in text
 
     def test_the_scan_sees_a_hardcoded_key_and_ignores_a_documented_one(

@@ -82,12 +82,23 @@ class ResearchRequest(Base):
         default=AnalysisMode.FULL,
         server_default=AnalysisMode.FULL.value,
     )
-    # current_weight, maximum_weight, benchmark. JSONB rather than columns because the
-    # shape is validated by Pydantic at the API boundary and is likely to grow; the
-    # database does not need to understand it to store it faithfully.
+    # current_weight, maximum_weight, benchmark, and since F3 planned_weight and purpose.
+    # JSONB rather than columns because the shape is validated by Pydantic at the API
+    # boundary and is likely to grow; the database does not need to understand it to
+    # store it faithfully.
     portfolio_context: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
+
+    @property
+    def has_planned_weight(self) -> bool:
+        """Whether the closing section applies (F3).
+
+        Read by the section registry's applicability predicate, whose language is a request
+        attribute and a list of permitted values — so the fact is a boolean here rather
+        than a query there, and the section's row says ``{"has_planned_weight": [true]}``.
+        """
+        return (self.portfolio_context or {}).get("planned_weight") is not None
 
     # -- Operator preferences ----------------------------------------------------------
     risk_tolerance: Mapped[str | None] = mapped_column(Text)
@@ -198,6 +209,19 @@ class ResearchRequest(Base):
             )
             """,
             name="maximum_weight_is_a_fraction",
+        ),
+        CheckConstraint(
+            """
+            portfolio_context = '{}'::jsonb
+            OR (
+              (portfolio_context->>'planned_weight') IS NULL
+              OR (
+                (portfolio_context->>'planned_weight')::numeric >= 0
+                AND (portfolio_context->>'planned_weight')::numeric <= 1
+              )
+            )
+            """,
+            name="planned_weight_is_a_fraction",
         ),
         # The list page's questions — whose, and not archived — are asked of the *work
         # order* now, and its own indexes answer them. What is left here is the one lookup

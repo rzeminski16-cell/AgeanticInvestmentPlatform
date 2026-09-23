@@ -743,6 +743,7 @@ class TestTheLeafRegistry:
             SourceRef.assumption("f"),
             SourceRef.calculation("g"),
             SourceRef.scenario_shock("h"),
+            SourceRef.planned_weight("i"),
         )
 
         assert {ref.table for ref in made} == set(SourceTable)

@@ -47,6 +47,7 @@ from aer.skills.resolution import pinned_skills_for_work_order
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
 from tests.workflow_fixtures import (
+    CLOSING_KEY,
     SPINE_KEYS,
     gate_for,
     paused_at,
@@ -156,8 +157,24 @@ class TestTheSeed:
             latest[row.key] = row
         ordered = sorted(latest.values(), key=lambda r: (r.position, r.key))
 
-        assert [row.key for row in ordered] == list(SPINE_KEYS)
-        assert len(ordered) == 18
+        # The spine, then the closing section (migration 0084): a builtin definition like
+        # the eighteen, at the foot, and the one whose applicability is conditional.
+        assert [row.key for row in ordered] == [*SPINE_KEYS, CLOSING_KEY]
+        assert len(ordered) == 19
+
+    async def test_the_closing_section_applies_only_to_a_planned_weight(
+        self, db_session: AsyncSession
+    ) -> None:
+        """F3's *absent rather than empty*, as data: the row's own predicate, not a branch."""
+        row = await db_session.scalar(
+            select(SectionDefinition).where(SectionDefinition.key == CLOSING_KEY)
+        )
+        assert row is not None
+        assert row.applicability == {"has_planned_weight": [True]}
+        assert row.required is False
+        assert row.token_budget > 0
+        assert row.output_contract["properties"]["consequences"]["platform_filled"] is True
+        assert row.output_contract["required"] == ["commentary"]
 
     async def test_every_spine_section_is_required(self, db_session: AsyncSession) -> None:
         rows = await db_session.scalars(

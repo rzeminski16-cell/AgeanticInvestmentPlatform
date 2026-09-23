@@ -34,7 +34,7 @@ from typing import Any, Final
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.comps import CompsTable, WithheldComps
+from aer.calc.comps import Audience, CompsTable, WithheldComps
 from aer.calc.units import SourceKind
 from aer.charts import Chart, ChartTable
 from aer.config import HouseStyle
@@ -62,6 +62,7 @@ from aer.eval.metrics import spoken_metric
 from aer.render import display
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
 from aer.render.view import VIEW_CONTRACT, VIEW_TITLE, base_range, view_content
+from aer.sections.consequences import consequences_for_audience
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
 from aer.sections.render import (
@@ -588,6 +589,7 @@ async def assemble_document(
     confidence: float | None = None,
     generated_at: datetime | None = None,
     style: HouseStyle | None = None,
+    audience: Audience = Audience.SHAREABLE,
 ) -> ReportDocument:
     """Assemble a run's sections into one document.
 
@@ -608,6 +610,13 @@ async def assemble_document(
         generated_at: Stamped on the document. A parameter rather than a clock read so a
             test can assert the whole output byte for byte, and so a re-render of an
             archived report can carry the date it was actually produced.
+        audience: Who is reading (ADR 0129). The default is the shareable assembly — the
+            stored HTML, the PDF, the Markdown: everything that gets exported, attached
+            and sent. The operator's own screens pass ``INTERNAL``, and the one thing
+            that differs is the closing section: its figures rest on the operator's book,
+            and a lineage with an attested node reaches no shareable rendering (ADR
+            0073), so the shareable assembly carries the disclosure in its place. Same
+            walk, same numbering; the containment is a type with no field for the figure.
 
     Raises:
         ValidationError: If any chart in ``charts`` is internal-only.
@@ -619,6 +628,12 @@ async def assemble_document(
             "They render solely on the valuation surface."
         )
         raise ValidationError(message)
+
+    # The closing section's key is spelled in the deterministic registry and nowhere else
+    # in code (the section-key scan), and the registry reaches the evaluation service, which
+    # assembles documents: a cycle at import time and none at call time, so the name is
+    # read here.
+    from aer.sections.deterministic import CONSEQUENCES_KEY  # noqa: PLC0415
 
     sections = await sections_for_job(session, job.id)
     definitions = await _definitions_for(session, sections)
@@ -672,7 +687,11 @@ async def assemble_document(
             key=section.section_key,
             title=definition.title if definition else section.section_key,
             contract=(definition.output_contract if definition else {}),
-            content=section.content,
+            content=(
+                consequences_for_audience(section.content, audience)
+                if section.section_key == CONSEQUENCES_KEY and section.content
+                else section.content
+            ),
             # Numbering continues across the document, so a reader chasing marker 3
             # finds the third marker in the report rather than the third in some section.
             footnote_start=len(citations) + 1,

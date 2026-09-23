@@ -49,7 +49,7 @@ from typing import Any, Final
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc import basic
+from aer.calc import basic, comps, consequences
 from aer.calc.dcf import (
     DcfInputs,
     DcfResult,
@@ -253,6 +253,11 @@ async def value_the_business(
     # The upside goes into the same ledger as everything else, so the document can footnote
     # it and `aer replay-run` can re-derive it.
     upside = _implied_upside(ledger, base, price_per_share=price_per_share)
+    # The horizon figures the closing section reads (F3, ADR 0129): how much of what the
+    # market pays for the enterprise the explicit forecast recovers, and the year it
+    # recovers all of it if that year is inside the forecast. Company figures, not book
+    # figures, so they are struck here beside the upside and composed on render.
+    _horizon_figures(ledger, base, inputs, market_capitalisation=market_capitalisation)
     await persist_context(session, ledger, job_id=job_id)
 
     scenarios = await _scenarios(
@@ -332,6 +337,41 @@ def _implied_upside(
                 measure=method.value,
             )
     return found
+
+
+def _horizon_figures(
+    ledger: CalculationContext,
+    base: DcfResult,
+    inputs: DcfInputs,
+    *,
+    market_capitalisation: Quantity | None,
+) -> None:
+    """Strike the forecast's recovery of today's enterprise value, and its payback year.
+
+    Nothing where the run holds no capitalisation: a payback against a price the run does
+    not have is not a figure. The payback is struck only where the forecast reaches it —
+    :func:`aer.calc.consequences.payback_year` refuses otherwise — and the recovery row
+    says how far the forecast got, which is the honest figure for a payback beyond it.
+
+    A refusal is caught rather than raised, on the terms :func:`_implied_upside` sets: a
+    capitalisation in a different currency from the balance sheet is a conversion nobody
+    performed, and the valuation is not lost over a figure the closing section can be
+    silent about.
+    """
+    if market_capitalisation is None:
+        return
+    with suppress(AerError):
+        market_value = comps.market_enterprise_value(
+            ledger, market_capitalisation=market_capitalisation, net_debt=inputs.net_debt
+        )
+        present_values = [year.present_value for year in base.years]
+        recovery = consequences.forecast_recovery(
+            ledger, present_values=present_values, market_enterprise_value=market_value
+        )
+        if recovery.value >= 1:
+            consequences.payback_year(
+                ledger, present_values=present_values, market_enterprise_value=market_value
+            )
 
 
 # -- The discount rate ---------------------------------------------------------------------

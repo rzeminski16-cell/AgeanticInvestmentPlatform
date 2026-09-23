@@ -226,6 +226,14 @@ class SourceTable(StrEnum):
     about the book — in its own relation, because a scenario shock is not a valuation
     input and has no run to be confirmed against."""
 
+    RESEARCH_REQUESTS = "research_requests"
+    """The weight the operator planned on the request form (F3, ADR 0129).
+
+    An assumption's guarantee in the mandate's own relation, on the terms
+    ``RISK_SCENARIO_SHOCKS`` set: a number somebody chose, neither published nor a fact
+    about the book, that has no run to be confirmed against because it is what the run was
+    commissioned with."""
+
 
 @dataclass(frozen=True, slots=True)
 class SourceRef:
@@ -364,6 +372,17 @@ class SourceRef:
             kind=SourceKind.ASSUMPTION,
             identifier=str(identifier),
             table=SourceTable.RISK_SCENARIO_SHOCKS,
+            label=label,
+        )
+
+    @classmethod
+    def planned_weight(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        """The weight the operator planned on a request (F3): an assumption in the mandate's
+        relation. ``identifier`` is the request's id."""
+        return cls(
+            kind=SourceKind.ASSUMPTION,
+            identifier=str(identifier),
+            table=SourceTable.RESEARCH_REQUESTS,
             label=label,
         )
 

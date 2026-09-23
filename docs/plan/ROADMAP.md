@@ -886,7 +886,7 @@ authority on sequencing within this item.
 |---|---|---|
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
-| F3 | The closing section reads the operator's own book | F12 |
+| F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
 | F4 | The refresh | ADR 0116, F7 |
 | F5 | The model workbook | — |
 | F6 | Ask, in three tiers | F7 for tier 3 |
@@ -894,11 +894,11 @@ authority on sequencing within this item.
 | F8 | Print what the run already computed | ADR 0118, F16 |
 | F9 | The thesis, as premises with tests | — |
 | F10 | Decisions | F9, F12 |
-| F11 | The monitor | F9, F15 |
+| F11 | The monitor | F9, F15 — **landed 23 September 2026**: both alert kinds, the price move under ADR 0079's rule that a price is never evidence |
 | F12 | Risk and the pre-trade check | — |
 | F13 | The stated view, in two halves | ADR 0117, F9 |
 | F14 | Post-trade review and decision analytics | F10 |
-| F15 | Scheduling | — |
+| F15 | Scheduling | — **landed 23 September 2026**: one cron after the close, prices only (item 51) |
 | F16 | The evidence boundary | ADR 0119 — **landed 18 September 2026**, Accepted: the passage prints behind three gates, and a poisoned prior moves no plan |
 | F17 | Authentication, sharing and the evidence pack | ADR 0120 — **deferred** |
 | F18 | Model portability | — |
@@ -2290,6 +2290,40 @@ found rather than as scope that was always there.
     and a monitor pass already did. Not built, and named: the premise-kind schedule (the
     cadence and `next_check_at` columns are stored and unread until the operator decides
     about standing model spend, item 51).
+
+54. **F3's closing section, and the question the specification could not answer alone,
+    23 September 2026.** Built under ADR 0129, measured against the code first (the map is
+    the ADR's context). *The question:* F3 asks for figures computed over the operator's
+    book in the one document ADR 0073 forbids an attested lineage from — the rendered
+    report is the shareable artefact, and a typed trade is attested — and ADR 0073's own
+    disclosure text already answered it without naming the surface: *shown in full on the
+    operator's own copy, where the grade is stated beside it*. The report reader and the
+    final-gate preview are that copy (`Audience.INTERNAL`, the comps block's own seam);
+    the stored HTML, the PDF and the Markdown are the shareable one, and there the section
+    is the disclosure and nothing else when any figure's lineage is attested — commentary
+    included, because prose that quotes a withheld figure is the figure in another
+    notation. *Five corrections to the specification*, recorded in F3: the horizon field
+    already existed; nothing computed a payback, and the value step now strikes the
+    explicit forecast's recovery of today's enterprise value and a payback year only where
+    the forecast reaches it (the example's *year six* is beyond a five-year forecast and is
+    stated as beyond); `RESERVED_OUTPUT_FIELDS` holds thirteen names since ADR 0104, not
+    six; the weight after is the operator's input, not a computation; and the section
+    multiplies the planned weight by nothing — cash after, the five largest holdings'
+    share after and the sector's share after are fractions of the book, so ADR 0104's
+    rule that a decision's size is a sentence stands unamended. *Built as the platform
+    builds a section*: a seeded definition (migration 0084) applicable only where the
+    request states a planned weight, so the section is absent rather than empty by the
+    row's own predicate; the augmenter pattern of ADR 0063, with the block struck once in
+    the draft step and composed from the ledger after that; the planned weight in the
+    ledger as an assumption in the request's own relation, on ADR 0106's terms for a
+    scenario shock, with a lineage node that names the commission. *Found on the way*: a
+    calculation's inputs are recorded at full precision and its output at twelve places,
+    so a figure read off a row's inputs beside one read off a row was one figure in two
+    notations until the block quantised the first; the section-key scan's rule that a key
+    is spelled only in the deterministic registry meets the renderer's need to know the
+    key, resolved by a function-level import rather than a second spelling. *Not built,
+    and named*: the request detail page does not yet show the three context fields, and
+    the design guide's tinted fieldset is a plain sheet until the stylesheet is rebuilt.
 
 
 ### Before this leaves one machine
