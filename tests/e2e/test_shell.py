@@ -677,11 +677,14 @@ class TestTheLauncher:
     def test_the_front_page_leads_with_every_tool(self, page: Page, live_server: str) -> None:
         page.goto(f"{live_server}")
 
-        expect(page.locator("[data-tool]")).to_have_count(9)
+        expect(page.locator("[data-tool]")).to_have_count(10)
         expect(page.locator('[data-tool="research"][data-status="Working"]')).to_be_visible()
         # Portfolio shipped, so the launcher's claim about it changed. That the front page
         # is where a status change becomes visible is the whole point of the row being data.
         expect(page.locator('[data-tool="portfolio"][data-status="Working"]')).to_be_visible()
+        # The tenth: a question over a company's record (ADR 0130), working from its first
+        # commit, so it never had a placeholder card to grow out of.
+        expect(page.locator('[data-tool="ask"][data-status="Working"]')).to_be_visible()
 
     def test_the_once_planned_tool_is_the_tool_now(self, page: Page, live_server: str) -> None:
         """The watchlist was the last placeholder, and the placeholder said what it waited

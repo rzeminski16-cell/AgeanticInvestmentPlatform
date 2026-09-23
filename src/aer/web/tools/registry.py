@@ -236,6 +236,20 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
         action_href="/analytics",
         adr="0081",
     ),
+    Tool(
+        key="ask",
+        label="Ask",
+        status=ToolStatus.WORKING,
+        href="/ask",
+        summary=(
+            "A question about a company, answered from its record where it can be and "
+            "priced where it cannot: recomputed for nothing, re-read for pennies, "
+            "researched only after you say go ahead."
+        ),
+        action_label="Ask a question",
+        action_href="/ask",
+        adr="0130",
+    ),
 )
 
 

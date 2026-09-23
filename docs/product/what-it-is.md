@@ -138,20 +138,22 @@ multi-user deployment**. Those are not on a roadmap; they are out of scope.
 
 ## What is built, and what is not
 
-Two of the nine planned tools work today. The rest are honest placeholders — a page that
-says what the tool would be and what it is waiting on, rather than a dead link.
+Ten tools work today (as at 23 September 2026). The launcher shows each one's state as data
+rather than as a claim: a tool that is not built yet is a page that says what it is waiting
+on, rather than a dead link, and none is in that state at the moment.
 
 | Tool | State |
 |---|---|
 | **Equity Research** | **Working.** The full pipeline above, end to end. |
 | **Portfolio** | **Working.** What you hold, at what cost, as at a date — every figure recomputed from the transactions rather than stored. |
-| Watchlist | Planned. Needs a standing budget that is not one run's cap. |
-| Theses | Planned. Needs the judgement record. |
-| Decisions | Planned. Needs judgements. |
-| Monitor | Planned. Needs theses to monitor against. |
-| Risk | Planned. Needs a book to be about. |
-| Post-trade review | Planned. Needs decisions and positions. |
-| Decision analytics | Planned. Needs enough reviewed decisions to say anything at all. |
+| **Watchlist** | **Working.** Companies you follow and have not commissioned research on, with a standing budget the queue spends that is not one run's cap. |
+| **Theses** | **Working.** What you believe about a company and why, as premises with the tests that would defeat them. |
+| **Decisions** | **Working.** What you decided to do about a thesis, written before the outcome is known, and the trades that carried it out. |
+| **Monitor** | **Working.** What has happened since a thesis was written that bears on it — findings the platform raises and never answers. |
+| **Risk** | **Working.** What the book is exposed to and what a stated shock would do to it, every figure a traced calculation. |
+| **Post-trade review** | **Working.** A closed position scored against the process it was meant to follow; the reviewer proposes and you confirm. |
+| **Decision analytics** | **Working.** What the reviewed positions have in common, every statistic with its count. |
+| **Ask** | **Working**, tiers 1 and 2. A question over a company's record — recomputed for nothing, re-read for pennies, and priced where it needs new material. The third tier's acquisition follows the refresh. |
 
 The honest summary of the research tool is that the **chain** is complete and the
 **breadth** is still growing. A run reaches a cited, validated, human-approved document

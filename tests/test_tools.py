@@ -93,7 +93,7 @@ class TestEachToolIsARowWithARecord:
             if tool.is_built:
                 assert tool.needs == "", tool.key
 
-    def test_the_platform_has_nine_working_tools_and_nothing_half_built(self) -> None:
+    def test_the_platform_has_ten_working_tools_and_nothing_half_built(self) -> None:
         """Stated rather than counted loosely: this is the claim the launcher makes.
 
         Portfolio was ``UNDER_CONSTRUCTION`` while its tables and arithmetic were being
@@ -108,8 +108,10 @@ class TestEachToolIsARowWithARecord:
         calculation over the weights the book holds now, a scenario the operator states, and
         an analyst that reads and cannot write. The watchlist closed the set (§3.10): a
         standing intention with one clock, a commission with the other, and a standing
-        budget the queue spends. Nothing occupies the middle state today, which is a fact
-        about this moment rather than a reason to remove it.
+        budget the queue spends. Ask made it ten (§3.19.55, ADR 0130): a question over a
+        company's record, answered at the tier it needs and priced before it runs. Nothing
+        occupies the middle state today, which is a fact about this moment rather than a
+        reason to remove it.
         """
         by_status = {tool.key: tool.status for tool in installed_tools()}
 
@@ -122,7 +124,8 @@ class TestEachToolIsARowWithARecord:
         assert by_status["analytics"] is ToolStatus.WORKING
         assert by_status["risk"] is ToolStatus.WORKING
         assert by_status["watchlist"] is ToolStatus.WORKING
-        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 9
+        assert by_status["ask"] is ToolStatus.WORKING
+        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 10
         assert not [
             key for key, status in by_status.items() if status is ToolStatus.UNDER_CONSTRUCTION
         ]
@@ -182,8 +185,8 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_nine_tools_under_four_headings(self) -> None:
-        """Nine contributions, unchanged; ten headings down to four (ADR 0112).
+    def test_the_navigation_is_ten_tools_under_four_headings(self) -> None:
+        """Ten contributions; ten headings down to four (ADR 0112).
 
         Both halves, because the point of the grouping is that the first number is free to
         grow and the second is not. A tenth tool adds a line to a group; it does not add a
@@ -192,6 +195,7 @@ class TestWhereEachStatePutsATool:
         assert [section.key for section in flat_sections()] == [
             "overview",
             "research",
+            "ask",
             "watchlist",
             "portfolio",
             "risk",

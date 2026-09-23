@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from aer.web.ask.nav import ASK
 from aer.web.decisions.nav import DECISIONS
 from aer.web.monitor.nav import MONITOR
 from aer.web.nav import NavGroup, NavItem, NavSection
@@ -86,7 +87,10 @@ GROUPS: Final[tuple[NavGroup, ...]] = (
     # Last in the group because a group's items are its sections' in order, and `Requests`
     # is what an operator reaches for — leading with the queue that feeds it would put the
     # secondary destination first.
-    NavGroup(key="research", label="Research", sections=(RESEARCH, WATCHLIST)),
+    # Ask sits between them: a question is asked over a research record, and its third
+    # tier commissions research (ADR 0130). After the tool whose record it reads, before
+    # the queue that feeds it.
+    NavGroup(key="research", label="Research", sections=(RESEARCH, ASK, WATCHLIST)),
     # What you own, and everything that follows from owning it: what it is worth, what it
     # exposes you to, what you decided, and how those decisions turned out.
     NavGroup(key="book", label="Your book", sections=(PORTFOLIO, RISK, DECISIONS, REVIEW)),
@@ -170,6 +174,9 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # A reviewer's proposal and a confirmed review, each reached from the review list.
         "/review/passes/{pass_id}",
         "/review/{review_id}",
+        # One question, reached from the list of questions; one of its notes, from it.
+        "/ask/{question_id}",
+        "/ask/{question_id}/notes/{number}",
         # A request and everything done to one.
         "/requests/new",
         "/requests/{request_id}",

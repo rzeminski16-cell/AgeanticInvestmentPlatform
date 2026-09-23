@@ -125,6 +125,19 @@ type never fetched — it is not tier 2.
 **Step 3 — everything else is tier 3**, which is the safe default because it is the only tier
 that asks permission.
 
+> **Corrected 23 September 2026, on building it** (ADR 0130 §2). Step 2 as written has a model
+> propose the entities before the tier is known, and that call is metered — so a tier-3
+> question would spend before the approval the tier exists to demand, and §2.5's *nothing is
+> spent before approval* could not be kept to the letter. As built, the extraction is
+> deterministic: `aer.core.ask.resolve` reads the question's years, quarters, document kinds,
+> temporal references and capitalised names against what the record holds — the subject's
+> names, the held documents' titles, the fiscal and publication years, and the capitalised
+> vocabulary of the held titles and excerpts. The model's opinion arrives one call later,
+> inside the tier-2 pass, as a field naming what the question needed that the material did
+> not hold; it can only push a question upward, and it is one of the checks in §2.4 that
+> discard the answer. The store's contents are still the answer; the model's proposal is still
+> only a proposal.
+
 ## 2.3 The asymmetry, stated as a rule
 
 **Resolution may err upward and never downward.** A tier-2 question answered at tier 3 wastes
@@ -145,6 +158,13 @@ operator sees: *"That is not in this record. Researching it costs about £X."*
 
 That check is cheap, it runs always, and it is the whole safety net for §2.3's one-directional
 error.
+
+> **As built, 23 September 2026** (ADR 0130 §4): three checks rather than one, all in code. A
+> citation naming anything outside the dealt pack is dropped, and an answer left with none is
+> discarded. An answer whose reader says the material does not answer the question, or names
+> something it needed and did not hold, is discarded. A numeral in the prose that no dealt
+> figure or cited excerpt reads as is a figure of the model's own, and the answer is discarded.
+> The pass's cost is recorded against the question either way, and the tier-3 price follows.
 
 ## 2.5 Tier 3, end to end
 

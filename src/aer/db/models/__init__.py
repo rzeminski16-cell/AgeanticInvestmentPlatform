@@ -39,6 +39,7 @@ from aer.db.models.plan import ResearchPlan
 from aer.db.models.plan_skill_pin import PlanSkillPin
 from aer.db.models.portfolio import Portfolio
 from aer.db.models.prompt import Prompt
+from aer.db.models.question import Question
 from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
 from aer.db.models.request import ResearchRequest
@@ -101,6 +102,7 @@ __all__ = [
     "Premise",
     "PriceBar",
     "Prompt",
+    "Question",
     "Report",
     "ReportSection",
     "ResearchPlan",

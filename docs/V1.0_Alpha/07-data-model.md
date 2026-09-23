@@ -263,6 +263,16 @@ CREATE TABLE questions (
 record larger than it found it, and it is what the company page counts when it says the record
 grew.
 
+**Corrected 23 September 2026, on building it** (ADR 0130 §1, migration 0085). Three columns
+differ from the draft above. `company_id` is **not null**: a question is answered from a
+company's record, and a question over nothing has no record to be answered from. `job_id uuid
+REFERENCES jobs(id)` is added — the question's own run root (ADR 0072), under which its
+calculations, its model call and its cost rows are written and by which the calculation walk
+checks ownership. `content jsonb NOT NULL DEFAULT '{}'` is added — the structured answer, the
+figures with their calculation ids and the paragraphs with the citations they rest on, from
+which the page and the drawer are composed; `answer text` stays as the prose alone. Costs are
+`numeric(12, 6)`, because a tier-2 pass costs a fraction of a penny and the page says so.
+
 ## Gap 6 — The workbook is not an artefact kind
 
 **Needed by.** F5.

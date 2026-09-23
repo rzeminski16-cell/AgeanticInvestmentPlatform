@@ -71,6 +71,9 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         # Commentary over a book's risk figures, per book and on the cheaper route
         # (ADR 0080): downstream of everything, and the monthly cap notices it.
         "risk_analyst",
+        # One pass over what a company's record already holds, answering a question from
+        # it and nothing else (ADR 0130). Pennies per question on the workhorse route.
+        "ask_reader",
         # The model that carries a web search (ADR 0092). A route, not an agent role: the
         # call runs one server-side search and code reads the listing, so the model's
         # only judgement is none at all — which is why the default is the cheapest model.

@@ -59,6 +59,7 @@ from aer.db.models import (
 )
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
+from aer.services import ask as ask_service
 from aer.services import decisions as decision_service
 from aer.services import post_trade
 from aer.services import theses as thesis_service
@@ -319,7 +320,27 @@ async def finished_run(
         claim = await session.scalar(select(Claim).limit(1))
         calculation = await session.scalar(select(Calculation).where(Calculation.job_id == job_id))
         company = await session.scalar(select(Company).limit(1))
+        # One question over the run's record, resolved to the third tier: priced, never
+        # run, no model called — so the question and note pages have a row to render.
+        owner = await session.scalar(select(User).order_by(User.created_at).limit(1))
+        subject = report.company_id if report is not None and report.company_id else None
+        asked = None
+        if owner is not None and subject is not None:
+            asked = await ask_service.ask(
+                session,
+                settings=api_settings,
+                provider=FakeProvider(),
+                router=Router(api_settings),
+                store=LocalArtefactStore(
+                    api_settings.artefact_root, max_bytes=api_settings.max_artefact_bytes
+                ),
+                user=owner,
+                company=await session.get(Company, subject),
+                text="Has anything changed at their main competitor since the last results?",
+            )
+            await session.commit()
     return {
+        "question_id": asked.id if asked is not None else uuid.uuid4(),
         "job_id": job_id,
         "request_id": committed["request"].id,
         "report_id": report.id if report else uuid.uuid4(),

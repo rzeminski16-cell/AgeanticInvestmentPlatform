@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One note on an answer: the excerpt as stored, the fact with its source, or the source
+  itself. A calculation note never reaches this page — it redirects to the walk.
+
+  The excerpt is printed **verbatim, as stored**, inside a `pre`, never as markup, and only
+  where ADR 0119's licence rule allows it; otherwise the source is named and the text is
+  withheld with the reason.
+#}
+
+{% block title %}Note {{ note.number }} &middot; Ask &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    "Note " ~ note.number,
+    eyebrow="WHAT THE ANSWER RESTS ON",
+    identity=row.ticker ~ " · " ~ note.label,
+    breadcrumbs=[{"href": "/ask", "label": "Ask"}, {"href": "/ask/" ~ question.id, "label": "The question"}],
+  ) %}
+    <p class="type-body-sm text-ink-muted">Cited by the answer to: <span id="question-text">{{ question.question }}</span></p>
+  {% endcall %}
+
+  {% if note.kind == "excerpt" %}
+    {% call ui.sheet("The excerpt", subtitle="Extracted by code from the hashed document, and stored with its locator.", id="excerpt") %}
+      {% if note.withheld %}
+        <p class="max-w-prose type-body text-ink" id="excerpt-withheld">
+          The document's licence does not permit its text to be reproduced here; it is cited, not printed.
+        </p>
+      {% else %}
+        <pre class="overflow-x-auto whitespace-pre-wrap rounded-sm bg-surface-sunken p-4 type-body-sm text-ink" data-field="excerpt">{{ note.excerpt }}</pre>
+      {% endif %}
+    {% endcall %}
+  {% elif note.kind == "fact" %}
+    {% call ui.sheet("The fact", subtitle="As the store holds it, from the filing it was read from.", id="fact") %}
+      <p class="type-body text-ink" data-field="figure">{{ note.label }}: {{ note.figure }}</p>
+    {% endcall %}
+  {% endif %}
+
+  {% if note.source %}
+    {% call ui.sheet("The source", id="source") %}
+      <p class="type-body">
+        <a href="{{ note.source.url }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong" rel="noopener noreferrer">{{ note.source.title or note.source.url }}</a>
+      </p>
+      <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <dt class="type-eyebrow text-ink-muted">Tier</dt>
+          <dd class="mt-1 type-body-sm text-ink" data-field="tier">{{ note.source.source_tier.value | tier_words }}</dd>
+        </div>
+        <div>
+          <dt class="type-eyebrow text-ink-muted">Published</dt>
+          <dd class="mt-1 type-body-sm text-ink">{{ note.source.publication_date.isoformat() if note.source.publication_date else "no determinable date" }}</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="type-eyebrow text-ink-muted">Artefact SHA-256</dt>
+          <dd class="mt-1 break-all type-data-sm text-ink" id="source-sha256">{% if note.source.sha256 %}{{ note.source.sha256 }}{% else %}no artefact stored{% endif %}</dd>
+        </div>
+      </dl>
+    {% endcall %}
+  {% elif note.kind != "excerpt" and note.kind != "fact" %}
+    {% call ui.sheet("Unresolved", id="unresolved") %}
+      <p class="max-w-prose type-body text-refusal-ink" id="unresolved-note">This note names a {{ note.kind | in_words }} the record no longer resolves.</p>
+    {% endcall %}
+  {% endif %}
+{% endblock %}

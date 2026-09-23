@@ -96,7 +96,9 @@ from aer.services.valuation import (
 __all__ = [
     "ValuationNotPossibleError",
     "ValuationOutcome",
+    "base_case_inputs",
     "latest_period",
+    "prior_period",
     "required_line",
     "share_count",
     "value_the_business",
@@ -207,7 +209,7 @@ async def value_the_business(
     genuine defect — a unit mismatch, a broken ledger — still raises.
     """
     latest = latest_period(analysis)
-    prior = _prior_period(analysis)
+    prior = prior_period(analysis)
     if latest is None:
         return ValuationOutcome(
             ran=False,
@@ -221,25 +223,13 @@ async def value_the_business(
 
     ledger = new_context()
     try:
-        capital = _cost_of_capital(
+        capital, inputs = base_case_inputs(
             ledger,
             values,
             latest=latest,
             prior=prior,
-            market_capitalisation=market_capitalisation,
-        )
-        inputs = inputs_from(
-            values,
             years=years,
-            base_revenue=required_line(latest, "revenue"),
-            opening_working_capital=_working_capital(ledger, latest),
-            wacc=capital.wacc,
-            net_debt=_net_debt(ledger, latest),
-            shares_outstanding=share_count(latest),
-            # Empty, and stated rather than defaulted: this build reads no associate
-            # holdings, minority interests or pension deficits off a filing, so the bridge
-            # from enterprise to equity value is debt and cash alone. A reader is told.
-            non_operating=(),
+            market_capitalisation=market_capitalisation,
         )
     except (MissingAssumptionError, ValuationNotPossibleError) as refusal:
         return ValuationOutcome(ran=False, reason=str(refusal))
@@ -291,6 +281,49 @@ _BRIDGE_CAVEAT: Final = (
     "build, so a business carrying material non-operating items is valued as though it does "
     "not."
 )
+
+
+def base_case_inputs(
+    ledger: CalculationContext,
+    values: dict[str, Quantity],
+    *,
+    latest: PeriodAnalysis,
+    prior: PeriodAnalysis | None,
+    years: int,
+    market_capitalisation: Quantity | None = None,
+) -> tuple[CostOfCapital, DcfInputs]:
+    """The base case's inputs from the confirmed assumptions and the filed facts.
+
+    Lifted out of :func:`value_the_business` so a question can strike the same base case
+    again on a ledger of its own (F6, ADR 0130 §3): the value step and the recompute call
+    this one function, and cannot assemble the inputs two ways. The cost of capital's
+    intermediate steps and the working-capital and net-debt derivations land in ``ledger``.
+
+    Raises:
+        MissingAssumptionError: An input nobody has chosen.
+        ValuationNotPossibleError: A figure nobody filed.
+    """
+    capital = _cost_of_capital(
+        ledger,
+        values,
+        latest=latest,
+        prior=prior,
+        market_capitalisation=market_capitalisation,
+    )
+    inputs = inputs_from(
+        values,
+        years=years,
+        base_revenue=required_line(latest, "revenue"),
+        opening_working_capital=_working_capital(ledger, latest),
+        wacc=capital.wacc,
+        net_debt=_net_debt(ledger, latest),
+        shares_outstanding=share_count(latest),
+        # Empty, and stated rather than defaulted: this build reads no associate
+        # holdings, minority interests or pension deficits off a filing, so the bridge
+        # from enterprise to equity value is debt and cash alone. A reader is told.
+        non_operating=(),
+    )
+    return capital, inputs
 
 
 def _calculation_id(figure: Quantity) -> str | None:
@@ -566,7 +599,7 @@ def latest_period(analysis: AnalysisOutcome) -> PeriodAnalysis | None:
     return analysis.periods[0] if analysis.periods else None
 
 
-def _prior_period(analysis: AnalysisOutcome) -> PeriodAnalysis | None:
+def prior_period(analysis: AnalysisOutcome) -> PeriodAnalysis | None:
     """The year before the latest, when the run assembled one.
 
     Only used to average the debt the year's interest was charged on. A single-period run

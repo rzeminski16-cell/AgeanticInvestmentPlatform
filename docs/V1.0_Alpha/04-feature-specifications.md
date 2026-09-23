@@ -275,6 +275,21 @@ existing code); the acquisition path for tier 3; the cost ledger.
 cannot run without an explicit approval carrying a price; and an adversarial corpus of questions
 outside the record produces no answer generated from the model's own knowledge.
 
+**Corrected 23 September 2026, on building tiers 1 and 2** (ADR 0130, migration 0085). Three
+lines above did not survive the code. *"The scenario engine and the margin bridge — both of
+which exist and have no callers today"*: the bridge gained its caller in Phase 6.1
+(`services/analysis.py` strikes it per period), and the scenario engine's callers are the value
+step's scenarios and grids. What tier 1 actually re-runs is the run's **base case**, struck
+again on the question's own ledger with one input changed, through the value step's own input
+assembly (`base_case_inputs`) — there is no stored `DcfInputs` to reload, and the scenario table
+is a diff over confirmed assumptions rather than a model to re-run. *"A tier-1 answer names the
+inputs it changed and the model it re-ran"*: it does, and every figure is a calculation row a
+reader walks. *"Tier resolution is a classification step"*: it is a deterministic match over
+what the record holds, and spends nothing (ADR 0130 §2; mechanisms §2.2 corrected). The tier-3
+acquisition is the one line not yet built: it lands after F4, whose fetch-for-a-company path it
+shares, and until then a tier-3 question is resolved, priced and recorded, and the page says
+researching it is not yet available here.
+
 ---
 
 ## F7 · Depth in primary sources

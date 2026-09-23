@@ -434,6 +434,22 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=16_384,
         adr="0080",
     ),
+    RoleDefinition(
+        role="ask_reader",
+        purpose=(
+            "Answer one question about a company from the excerpts, facts and recorded "
+            "calculations it is dealt — the company's own record, and nothing outside it. "
+            "Every paragraph names what it rests on; what the question needed that the "
+            "material does not hold is said, not filled in. Never a figure of its own, "
+            "never a recommendation."
+        ),
+        output_schema_ref="aer.agents.ask_reader:AskAnswer",
+        # No tools, and this is the whole of the second tier's honesty: a reader that could
+        # fetch would be the third tier without its approval. The record is dealt by code.
+        allowed_tools=frozenset(),
+        max_output_tokens=16_384,
+        adr="0130",
+    ),
 )
 
 

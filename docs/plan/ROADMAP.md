@@ -889,7 +889,7 @@ authority on sequencing within this item.
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
 | F4 | The refresh | ADR 0116, F7 |
 | F5 | The model workbook | — |
-| F6 | Ask, in three tiers | F7 for tier 3 |
+| F6 | Ask, in three tiers | F7 for tier 3 — **tiers 1 and 2 landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, tier 3 resolved and priced; its acquisition follows F4 |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
 | F8 | Print what the run already computed | ADR 0118, F16 |
 | F9 | The thesis, as premises with tests | — |
@@ -2325,6 +2325,59 @@ found rather than as scope that was always there.
     and named*: the request detail page does not yet show the three context fields, and
     the design guide's tinted fieldset is a plain sheet until the stylesheet is rebuilt.
 
+
+55. **F6's Ask, tiers 1 and 2, and the six things the specification left open, 23 September
+    2026.** Built under ADR 0130, mapped against the code first. *What the map found:* a
+    tier-1 re-run has no stored inputs to reload — the value step records counts and strings
+    and rebuilds everything each time, and `value_the_business` strikes the base case, the
+    scenarios and both grids in one persisted call; nothing lists what the record holds for
+    a company across runs (`gather_evidence` is one request's); the footnote drawer resolves
+    inside a run only; a priced approval outside a gate has no record; and mechanisms §2.2's
+    model-proposed entities would spend before a tier-3 approval. *What was decided:* a
+    question is a record over one company (migration 0085, `company_id` not null, its own
+    run root and a structured `content`); resolution is deterministic, pure and spends
+    nothing, erring upward only, with the model's scope opinion arriving inside the tier-2
+    pass; tier 1 is the base case struck twice on the question's ledger through the value
+    step's own input assembly, lifted into `base_case_inputs`, with the changed input an
+    assumption in the question's own relation (`SourceTable.QUESTIONS`, the shape ADR 0129
+    gave the planned weight) and no model called; tier 2 is one metered pass by a new role,
+    `ask_reader`, over a company-wide pack within a token budget, kept only past three checks
+    in code — a citation outside the pack, a reader that says the material does not answer,
+    a numeral nothing dealt reads as; tier 3 is priced from published rates and recorded, and
+    its acquisition follows F4, whose fetch-for-a-company path it shares.
+
+    *Measured against its own "done when":* a tier-1 question answers in figures with
+    calculation ids, for nothing, inside five seconds on the fake scene (asserted); a tier-3
+    question cannot run at all yet and, when it can, runs only behind `approved_at` carrying
+    the estimate's hash; the adversarial corpus of questions outside the record produces no
+    answer and **no model call** (asserted on the fake provider's call count). The four rows
+    of `11-testing-strategy.md` are in `tests/test_ask.py`, the property one under
+    `hypothesis` over subsets of the held record.
+
+    *Two corrections recorded in place:* the F6 specification's *"both of which exist and
+    have no callers today"* — the bridge gained its caller in Phase 6.1 — and mechanisms
+    §2.2's model-first extraction. *Found and left:* a research run's work order never sets
+    `subject_id` (the request's `company_id` does the naming after the acquire step), so
+    the record's scope reads both; and `SourceDocument` carries no form type, so a document
+    kind is matched against its title — an untitled filing errs the question upward, which
+    is the permitted direction. The tenth working tool; the *Research* heading gains its
+    line between the requests and the queue.
+
+56. **The valuation page's headline was the corner of a sensitivity grid on every run with
+    grids, 23 September 2026.** Found by the tier-1 test that sets the recomputed base case
+    beside *the figure the report printed*: the two differed by a third, and the recompute
+    was right. `services/valuation_view._latest` took the most recent `value_per_share` row
+    for a terminal method by `(created_at, sequence)`, on the reasoning that a resumed run's
+    last strike is the one the report was written from. But every grid cell is a whole
+    valuation recording the same names under `case="sensitivity"`, the grids are persisted
+    after the base case inside the same step's transaction, and by sequence the last cell
+    of the last grid is what "most recent" returned. The report's composed header was never
+    affected — it reads the value step's own record — so the page and the document
+    disagreed and nothing compared them. The selector now refuses a sensitivity row and
+    prefers the base case over a scenario's, and `tests/test_valuation_surface.py` pins the
+    headline to the base case's own row on a run with grids. The class is §3.19.49's:
+    a fixture that could not reach the failing state, because the surface's own tests
+    valued a business without grids.
 
 ### Before this leaves one machine
 

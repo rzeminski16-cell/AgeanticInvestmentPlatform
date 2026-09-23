@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One question: the tier it resolved to, then the answer, the price, or the refusal.
+
+  The tier is the first thing after the question (page specification §13.1). A tier-1
+  answer is figures, each a recorded calculation with its walk; a tier-2 answer is
+  paragraphs with numbered notes the drawer resolves; a tier-3 question is the sentence
+  with the price, and the honest line that researching it is not yet available here.
+#}
+
+{% block title %}{{ row.ticker }} &middot; Ask &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    "A question about " ~ row.company,
+    eyebrow="ASK",
+    identity=row.ticker ~ " · asked " ~ row.asked_on,
+    breadcrumbs=[{"href": "/ask", "label": "Ask"}],
+  ) %}
+    <p class="type-body text-ink" id="question-text">{{ question.question }}</p>
+  {% endcall %}
+
+  <div class="flex flex-wrap items-center gap-3" id="tier">
+    {{ ui.status(indicator.tone, indicator.label, detail="Tier " ~ question.tier ~ ", " ~ (row.tier_label | lower)) }}
+  </div>
+
+  {{ ui.verdict("WHAT BECAME OF IT", verdict.composed, tone=verdict.tone.value) }}
+
+  {% call ui.sheet("Why this tier", subtitle="Decided from the question's words and what the record holds, before anything ran.", id="rationale") %}
+    <p class="max-w-prose type-body text-ink" id="tier-rationale">{{ rationale }}</p>
+  {% endcall %}
+
+  {% if kind == "recompute" and state == "answered" %}
+    {% call ui.sheet("The answer", subtitle="The stored model, struck again on this question's own ledger with one input changed. Open any figure to walk its calculation.", id="answer") %}
+      <p class="max-w-prose type-body text-ink" id="answer-text">{{ question.answer }}</p>
+      <div class="mt-6 grid gap-6 sm:grid-cols-2" id="figures">
+        {% for figure in figures %}
+          <div data-figure="{{ loop.index }}">
+            {{ ui.figure(figure.label, figure.rendered, provenance_href=("/calculations/" ~ figure.calculation_id) if figure.calculation_id else "", provenance_label="Open the calculation" if figure.calculation_id else "") }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endcall %}
+  {% elif kind == "re_read" and state == "answered" %}
+    {% call ui.sheet("The answer", subtitle="Written from what the record holds and nothing else. Each note leads to the excerpt, fact or calculation the paragraph rests on.", id="answer") %}
+      <div class="flex max-w-prose flex-col gap-4" id="answer-text">
+        {% for paragraph in paragraphs %}
+          <p class="type-body text-ink" data-paragraph="{{ loop.index }}">
+            {{ paragraph.text }}
+            {% for number in paragraph.notes %}
+              <a href="/ask/{{ question.id }}/notes/{{ number }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" data-note="{{ number }}">[{{ number }}]</a>
+            {% endfor %}
+          </p>
+        {% endfor %}
+      </div>
+      {% if content.truncated %}
+        <p class="mt-4 max-w-prose type-body-sm text-ink-muted" id="truncated-note">
+          The record was cut to the pass's token budget: {{ content.dropped }} item{{ "" if content.dropped == 1 else "s" }} the ranking placed last did not reach the reader.
+        </p>
+      {% endif %}
+    {% endcall %}
+    {% call ui.sheet("Notes", subtitle="What each marker rests on, as stored.", id="notes") %}
+      <ol class="flex flex-col" aria-label="Notes">
+        {% for note in notes %}
+          <li class="border-t border-line py-3 type-body-sm text-ink" data-note-row="{{ note.number }}">
+            <a href="/ask/{{ question.id }}/notes/{{ note.number }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">Note {{ note.number }}</a>
+            · {{ note.kind | replace("_", " ") }} · {{ note.label }}
+          </li>
+        {% endfor %}
+      </ol>
+    {% endcall %}
+  {% elif kind == "research" %}
+    {% call ui.sheet("What it would take", subtitle="Nothing has been spent. The price is an estimate from the routed models' published rates, said as one.", id="price") %}
+      <p class="max-w-prose type-body text-ink" id="price-sentence">{{ content.sentence }}</p>
+      {% if content.missing %}
+        <ul class="mt-4 flex max-w-prose flex-col gap-1 type-body-sm text-ink-muted" id="missing">
+          {% for item in content.missing %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      <div class="mt-6">
+        {{ ui.callout("info", "Researching it is not yet available here", "The third tier's acquisition lands after the refresh (ADR 0130 §5). The question is kept with its price, and nothing runs without your go-ahead when it does.") }}
+      </div>
+    {% endcall %}
+  {% elif kind == "stopped" %}
+    {% call ui.sheet("Stopped at a ceiling", id="stopped") %}
+      {{ ui.callout("refusal", "The pass would have crossed a spending cap", content.reason ~ " Nothing was asked of the model; the question can be asked again.", action_label="Back to Ask", action_href="/ask") }}
+    {% endcall %}
+  {% else %}
+    {% call ui.sheet("Not answered", id="refused") %}
+      {{ ui.callout("refusal", "The record could not answer this", content.reason if content.reason else rationale, action_label="Back to Ask", action_href="/ask") }}
+    {% endcall %}
+  {% endif %}
+
+  <p class="type-body-sm text-ink-muted" id="cost">{{ cost_words }}</p>
+{% endblock %}

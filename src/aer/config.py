@@ -205,6 +205,10 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # runs per book rather than once per report, so the mid-tier route at medium effort —
     # the one the validator and the proposal roles take (ADR 0080).
     "risk_analyst": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # A question answered from the record it was dealt (ADR 0130): one pass, no tools, and
+    # the specification's price is pennies — so the workhorse at medium effort rather than
+    # the judgement model, and the excerpts it reads are capped by a token budget in code.
+    "ask_reader": ModelRoute(model="claude-sonnet-5", effort="medium"),
 }
 
 

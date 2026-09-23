@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Ask: one input over a company's record, and every question asked so far.
+
+  A question resolves to a tier before it runs and the page says which (ADR 0130). The
+  first two tiers run when the form is posted; the third is priced and, until its
+  acquisition lands, says researching it is not yet available here.
+#}
+
+{% block title %}Ask &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Ask", eyebrow="A QUESTION OVER THE RECORD") %}
+    <p class="type-body text-ink-muted">
+      A question about a company, answered from its record where it can be and priced where
+      it cannot: recomputed for nothing, re-read for pennies, researched only after you say
+      go ahead. No answer comes from the model's own knowledge.
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("Ask a question", subtitle="The tier is decided from the question's words and what the record holds, and shown before anything runs.", id="ask") %}
+    {% if companies %}
+      <form method="post" action="/ask" class="grid max-w-3xl gap-6" id="ask-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("company_id", "Company", value=chosen, choices=companies, blank_label="Choose a company with a record", required=true, hint="Only a company this account holds a record for.") }}
+        {{ ui.field("question", "The question", type="textarea", rows=3, required=true, hint="\"What if the discount rate were half a point higher?\" recomputes for nothing. \"What does the 10-K say about leases?\" re-reads what is held. \"Has anything changed at their main competitor?\" needs new material, and is priced first.") }}
+        <div>
+          <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" id="ask-submit">Ask</button>
+        </div>
+      </form>
+    {% else %}
+      {{ ui.empty("No record to ask over", "A question is answered from a company's record, and this account holds none yet. Commission a research request first.", action_label="Start a research request", action_href="/requests/new") }}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Asked", subtitle="Newest first, each with the tier it resolved to.", id="asked") %}
+    {% if rows %}
+      {% call ui.record_list("Questions asked") %}
+        {% for row in rows %}
+          <li class="border-t border-line py-4" data-question="{{ row.id }}" data-tier="{{ row.tier }}" data-state="{{ row.state }}">
+            <a href="/ask/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.question }}</a>
+            <p class="mt-1 type-data-sm text-ink-muted">{{ row.ticker }} · tier {{ row.tier }}, {{ row.tier_label | lower }} · {{ row.state }} · asked {{ row.asked_on }}</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("Nothing asked yet", "Questions appear here with the tier each resolved to and what became of it.") }}
+    {% endif %}
+  {% endcall %}
+{% endblock %}

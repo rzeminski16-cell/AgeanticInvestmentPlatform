@@ -234,6 +234,13 @@ class SourceTable(StrEnum):
     about the book, that has no run to be confirmed against because it is what the run was
     commissioned with."""
 
+    QUESTIONS = "questions"
+    """The changed input a question stated for a tier-1 recompute (F6, ADR 0130).
+
+    An assumption's guarantee in the question's own relation, on the same terms: *what if
+    the discount rate were half a point higher* is a number somebody chose for one answer,
+    confirmed against nothing, and the lineage names the question it was stated in."""
+
 
 @dataclass(frozen=True, slots=True)
 class SourceRef:
@@ -383,6 +390,17 @@ class SourceRef:
             kind=SourceKind.ASSUMPTION,
             identifier=str(identifier),
             table=SourceTable.RESEARCH_REQUESTS,
+            label=label,
+        )
+
+    @classmethod
+    def question(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        """The input a question changed for a recompute (F6): an assumption in the
+        question's relation. ``identifier`` is the question's id."""
+        return cls(
+            kind=SourceKind.ASSUMPTION,
+            identifier=str(identifier),
+            table=SourceTable.QUESTIONS,
             label=label,
         )
 

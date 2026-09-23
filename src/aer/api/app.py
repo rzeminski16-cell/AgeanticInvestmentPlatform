@@ -50,6 +50,7 @@ from aer.version import build_identity, version
 from aer.web import pages as web_pages
 from aer.web import routes as web_routes
 from aer.web import skills_pages
+from aer.web.ask import pages as ask_pages
 from aer.web.decisions import pages as decision_pages
 from aer.web.monitor import pages as monitor_pages
 from aer.web.overview import pages as overview_pages
@@ -200,6 +201,7 @@ def create_app(
     app.include_router(review_pages.router)
     app.include_router(risk_pages.router)
     app.include_router(watchlist_pages.router)
+    app.include_router(ask_pages.router)
     app.include_router(tool_pages.router)
     _register_local_media_types()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

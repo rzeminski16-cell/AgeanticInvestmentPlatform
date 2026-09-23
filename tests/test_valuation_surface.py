@@ -391,6 +391,28 @@ class TestTheGrid:
         view = await valuation_view(db_session, scene["job"])
         assert view.grids == ()
 
+    async def test_the_headline_is_the_base_case_and_never_a_cell(self, db_session, scene):
+        """Roadmap §3.19.56: every cell records the same names, later, in the same
+        transaction — so "most recent" was the last cell of the last grid."""
+        before = await valuation_view(db_session, scene["job"])
+        await add_grid(db_session, scene)
+        after = await valuation_view(db_session, scene["job"])
+
+        assert before.gordon.value_per_share is not None
+        assert after.gordon.value_per_share is not None
+        assert after.gordon.value_per_share.value == before.gordon.value_per_share.value
+        stored = Decimal("1e-12")
+        assert after.gordon.value_per_share.value.quantize(stored) == scene[
+            "result"
+        ].gordon.value_per_share.value.quantize(stored)
+        assert after.gordon.value_per_share.calculation_id == (
+            before.gordon.value_per_share.calculation_id
+        )
+        cells = {
+            calculation_id for _, cells in after.grids[0].rows for _, _, calculation_id in cells
+        }
+        assert after.gordon.value_per_share.calculation_id not in cells
+
 
 class TestTheSectorBanner:
     async def test_an_ordinary_company_gets_none(self, db_session, scene):

@@ -46,6 +46,7 @@ from aer.db.models import (
     FinancialFact,
     FxRateRow,
     MacroObservationRow,
+    Question,
     ResearchRequest,
     RiskScenarioShock,
     Security,
@@ -704,6 +705,34 @@ async def _request_node(session: AsyncSession, stored: _StoredInput) -> LineageN
     )
 
 
+async def _question_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
+    """The input a question changed for a tier-1 recompute (F6, ADR 0130).
+
+    An assumption's guarantee in the question's own relation, as the planned weight is in
+    the request's (ADR 0129): the node reads as an assumption, because a number somebody
+    chose for one answer is one, and the detail names the question so a reader of the walk
+    can see which *what if* the figure was struck for.
+    """
+    parsed = _uuid_or_none(stored.identifier)
+    question = await session.get(Question, parsed) if parsed is not None else None
+    if question is None:
+        return None
+    return LineageNode(
+        kind="assumption",
+        identifier=stored.identifier,
+        label=stored.label or "stated in a question",
+        value=stored.value,
+        unit=stored.unit or "pure",
+        detail={
+            "table": SourceTable.QUESTIONS.value,
+            "question_id": str(question.id),
+            "question": question.question,
+            "tier": question.tier,
+            "asked_by": str(question.user_id),
+        },
+    )
+
+
 _LeafLoader = Callable[[AsyncSession, "_StoredInput"], Awaitable[LineageNode | None]]
 
 # One entry per relation a leaf can live in. Adding a source table is a line here and a
@@ -722,6 +751,7 @@ _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.ASSUMPTIONS: _assumption_node,
     SourceTable.RISK_SCENARIO_SHOCKS: _scenario_shock_node,
     SourceTable.RESEARCH_REQUESTS: _request_node,
+    SourceTable.QUESTIONS: _question_node,
 }
 
 _KNOWN_TABLES: Final[Mapping[str, SourceTable]] = {table.value: table for table in SourceTable}
