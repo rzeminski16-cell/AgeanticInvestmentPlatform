@@ -54,6 +54,7 @@ __all__ = [
     "RATIO",
     "SHARES",
     "acquisition_cost",
+    "average_cost",
     "cash_balance",
     "cash_movement",
     "dealt_cash_effect",
@@ -61,6 +62,7 @@ __all__ = [
     "net_assets",
     "pooled_cost",
     "quantity_held",
+    "realised_gain",
     "unrealised",
     "weight",
 ]
@@ -379,6 +381,126 @@ def pooled_cost(
 
 
 @traced(
+    name="realised_gain",
+    formula=(
+        "realised = sum over disposals of (proceeds - cost removed from the pool at its "
+        "average), walked in trade-date order"
+    ),
+    assumptions=(
+        "The same pooled-average convention as `pooled_cost` (ADR 0085): a disposal takes "
+        "cost out at the pool's average per unit at the moment it is dealt, so the gain on "
+        "it is its proceeds less that cost. **Not a tax computation.**",
+        "Proceeds are net of the disposal's own dealing costs, in the dealing currency.",
+        "The three sequences are parallel and in trade-date order: a purchase carries a "
+        "cost and nil proceeds, a disposal carries proceeds and nil cost, a reorganisation "
+        "carries neither.",
+        "A position with no disposal has realised nothing, and the answer is a sourced nil.",
+    ),
+)
+def realised_gain(
+    _context: CalculationContext,
+    *,
+    movements: Sequence[Quantity],
+    acquisition_costs: Sequence[Quantity],
+    proceeds: Sequence[Quantity],
+) -> Quantity:
+    """What the disposals of one security made or lost against the pool's average cost.
+
+    The companion of :func:`pooled_cost`, walking the same pool: where that function
+    answers what the shares still held cost, this one answers what the shares no longer
+    held were sold for over what they cost. The two together account for every unit
+    that ever entered the pool, which is what lets a partly closed position show its
+    realised and unrealised halves separately without either being a remainder.
+
+    Raises:
+        CalculationError: If the sequences differ in length or are empty; if a purchase
+            carries proceeds or a disposal a cost; if a disposal exceeds what the pool
+            holds; or if the money is not all in one currency.
+        UnitMismatchError: If the movements are not all in one unit.
+    """
+    if not (len(movements) == len(acquisition_costs) == len(proceeds)):
+        message = (
+            f"{len(movements)} movements, {len(acquisition_costs)} costs and {len(proceeds)} "
+            "proceeds. The three are paired by position, so a mismatch means some trade's "
+            "money belongs to a different trade."
+        )
+        raise CalculationError(
+            message,
+            context={
+                "movements": len(movements),
+                "costs": len(acquisition_costs),
+                "proceeds": len(proceeds),
+            },
+        )
+    if not movements:
+        message = "A realised gain needs at least one trade to have been dealt."
+        raise CalculationError(message, context={"movements": 0})
+
+    currency = _one_currency([*acquisition_costs, *proceeds])
+    dealt = [movement for movement in movements if movement.unit != RATIO]
+    if not dealt:
+        message = "A realised gain needs at least one trade; a reorganisation alone deals nothing."
+        raise CalculationError(message, context={"movements": len(movements)})
+    _one_unit(dealt)
+
+    pool_units = Decimal(0)
+    pool_cost = Decimal(0)
+    realised = Decimal(0)
+
+    for index, (movement, cost, proceed) in enumerate(
+        zip(movements, acquisition_costs, proceeds, strict=True)
+    ):
+        if movement.unit == RATIO:
+            if movement.value <= 0 or cost.value != 0 or proceed.value != 0:
+                message = (
+                    f"Trade {index} is a reorganisation and must carry a positive ratio, no "
+                    "cost and no proceeds (ADR 0094)."
+                )
+                raise CalculationError(message, context={"index": index})
+            pool_units *= movement.value
+            continue
+        if movement.value > 0:
+            if proceed.value != 0:
+                message = (
+                    f"Trade {index} is a purchase of {movement.value} and carries proceeds "
+                    f"of {proceed.value}. A purchase realises nothing."
+                )
+                raise CalculationError(message, context={"index": index})
+            pool_units += movement.value
+            pool_cost += cost.value
+            continue
+        if movement.value == 0:
+            message = f"Trade {index} moves nothing, and a nil trade realises nothing."
+            raise CalculationError(message, context={"index": index})
+        if cost.value != 0:
+            message = (
+                f"Trade {index} is a disposal of {abs(movement.value)} and carries a cost of "
+                f"{cost.value}. A disposal removes cost at the pool's average."
+            )
+            raise CalculationError(message, context={"index": index, "cost": str(cost.value)})
+        sold = -movement.value
+        if sold > pool_units:
+            message = (
+                f"Trade {index} disposes of {sold} and the pool holds {pool_units}. Either a "
+                "disposal was entered before its acquisition or trades are missing."
+            )
+            raise CalculationError(
+                message,
+                context={"index": index, "disposed": str(sold), "held": str(pool_units)},
+            )
+        # Multiplied before it is divided: `cost * sold / units` is exact whenever the
+        # answer has a finite decimal, where `cost * (sold / units)` carries the residue of
+        # a repeating fraction — a hundredth sold out of a hundred and ninety-two came back
+        # as 1E-30 rather than nought, which is a figure somebody would have to explain.
+        removed = pool_cost * sold / pool_units
+        realised += proceed.value - removed
+        pool_cost -= removed
+        pool_units -= sold
+
+    return Quantity.of(realised, currency)
+
+
+@traced(
     name="holding_value",
     formula="value = quantity * price",
     assumptions=(
@@ -501,6 +623,35 @@ def unrealised(_context: CalculationContext, *, value: Quantity, cost: Quantity)
     """
     _require_same_currency(value, cost, what="the cost basis")
     return value - cost
+
+
+@traced(
+    name="average_cost",
+    formula="average_cost = cost / quantity",
+    assumptions=(
+        "The cost is the pooled cost of ADR 0085, so this is the pool's average per share "
+        "and not the price of any one purchase.",
+    ),
+)
+def average_cost(_context: CalculationContext, *, cost: Quantity, quantity: Quantity) -> Quantity:
+    """What each share still held cost, on the pool's average.
+
+    The per-share reading of :func:`pooled_cost`, and only that: a position page that
+    printed the pooled cost beside the last close would leave the reader to divide, which
+    is the arithmetic this module exists to keep out of a head and a template.
+
+    Raises:
+        CalculationError: If nothing is held, since a cost per share of no shares is not a
+            figure; or if the cost is not money.
+    """
+    if quantity.unit != SHARES:
+        message = f"An average cost is per share; the quantity is in {quantity.unit.symbol}."
+        raise UnitMismatchError(message, context={"unit": quantity.unit.symbol})
+    if quantity.value <= 0:
+        message = "An average cost per share needs shares held; nothing is."
+        raise CalculationError(message, context={"quantity": str(quantity.value)})
+    _one_currency([cost])
+    return cost / quantity
 
 
 # -- Shared guards ---------------------------------------------------------------------------

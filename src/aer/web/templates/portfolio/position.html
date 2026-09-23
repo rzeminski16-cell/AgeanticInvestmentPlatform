@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One position (page specification §3): how it was built, what it is worth, and what it
+  does to the book. Reached from the book's own row.
+
+  Every figure arrived computed from the transactions below, in the same walk the book
+  makes, so nothing here can disagree with the portfolio page. Nothing is recomputed in
+  this template: a template that divided or summed would be a second book nobody
+  reconciles. A partly closed position shows realised and unrealised separately; a closed
+  one shows what it made or lost and nothing it no longer has.
+#}
+
+{% block title %}{{ security.ticker }} &middot; Position{% endblock %}
+
+{% macro grade_chip(grade, label) %}
+  {% if grade == "attested" %}
+    <span class="ml-2 inline-flex items-center rounded-full bg-warning-wash px-2 py-0.5 text-xs font-semibold text-warning-ink" data-grade="attested" title="Typed and self-certified. No document behind it, and every figure above it inherits that.">{{ label }}</span>
+  {% elif grade == "documented" %}
+    <span class="ml-2 inline-flex items-center rounded-full bg-success-wash px-2 py-0.5 text-xs font-semibold text-success-ink" data-grade="documented" title="Extracted from a hashed document, with a citation behind it.">{{ label }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+  {% call ui.page_header(
+    name,
+    eyebrow="POSITION",
+    identity=security.ticker ~ " · " ~ security.exchange,
+    breadcrumbs=[{"href": "/portfolio", "label": book.name}],
+  ) %}
+    <div class="flex flex-wrap items-baseline gap-x-6 gap-y-2" id="position-header">
+      {% if is_closed %}
+        {{ ui.status("muted", "Closed") }}
+      {% else %}
+        <span class="type-data-xl text-ink" data-field="value">{{ row.value }}</span>
+        <span class="type-data text-ink-muted" data-field="weight">{{ weight }} of the book</span>
+      {% endif %}
+      <span class="type-body-sm text-ink-muted">as at {{ as_of.isoformat() }}</span>
+      {{ grade_chip(row.grade, row.grade_label) }}
+    </div>
+  {% endcall %}
+
+  {% call ui.sheet("How it was built", subtitle="The ledger the figures walk, oldest first. A split is the one reorganisation the walk knows; nothing here is typed twice.", id="how-it-was-built") %}
+    {% if ledger %}
+      <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Transactions">
+        <table class="w-full min-w-[40rem] border-collapse tabular-nums" id="ledger">
+          <caption class="sr-only">Every transaction in this listing, in trade-date order, with the grade of evidence under each.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Date</th>
+              <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Kind</th>
+              <th scope="col" class="border-b border-line-strong py-2 pr-4 text-right type-label text-ink-muted">Quantity</th>
+              <th scope="col" class="border-b border-line-strong py-2 pr-4 text-right type-label text-ink-muted">Price</th>
+              <th scope="col" class="border-b border-line-strong py-2 pr-4 text-right type-label text-ink-muted">Fees</th>
+              <th scope="col" class="border-b border-line-strong py-2 text-left type-label text-ink-muted">Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for trade in ledger %}
+              <tr data-trade="{{ trade.id }}">
+                <th scope="row" class="border-b border-line py-2 pr-4 text-left type-data-sm font-normal text-ink">{{ trade.on }}</th>
+                <td class="border-b border-line py-2 pr-4">{{ ui.status(trade.tone, trade.kind) }}</td>
+                <td class="border-b border-line py-2 pr-4 text-right type-data-sm text-ink" data-field="quantity">{{ trade.quantity }}</td>
+                <td class="border-b border-line py-2 pr-4 text-right type-data-sm text-ink" data-field="price">{{ trade.price }}</td>
+                <td class="border-b border-line py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="fees">{{ trade.fees }}</td>
+                <td class="border-b border-line py-2">{{ grade_chip(trade.grade, trade.grade_label) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="type-body text-ink-muted" id="no-trades">No transaction in this listing is in force as at this date.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What it is worth", subtitle="Cost is the pooled average of ADR 0085 and not a chargeable gain; every figure is exact to the penny and carries its grade.", id="what-it-is-worth") %}
+    <dl class="grid grid-cols-1 gap-x-6 gap-y-3 tabular-nums sm:grid-cols-[12rem_1fr]" id="worth">
+      {% if not is_closed %}
+        <dt class="type-label text-ink-muted">Held</dt>
+        <dd class="type-data text-ink" data-field="quantity">{{ row.quantity }} shares</dd>
+        <dt class="type-label text-ink-muted">Cost, pooled</dt>
+        <dd class="type-data text-ink" data-field="cost">{{ row.cost }}{{ grade_chip(row.grade, row.grade_label) }}</dd>
+        <dt class="type-label text-ink-muted">Average cost a share</dt>
+        <dd class="type-data text-ink" data-field="average" title="{{ average.formula }}">{{ average.value }}</dd>
+        <dt class="type-label text-ink-muted">Value</dt>
+        <dd class="type-data text-ink" data-field="value">{{ row.value }} <span class="type-body-sm text-ink-muted">at the close of {{ as_of.isoformat() }}</span></dd>
+        <dt class="type-label text-ink-muted">Unrealised</dt>
+        <dd class="type-data {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}" data-field="unrealised">{{ row.unrealised }}</dd>
+      {% endif %}
+      {% if realised.value != "—" %}
+        <dt class="type-label text-ink-muted">Realised{% if is_partly_closed %} on what was sold{% endif %}</dt>
+        <dd class="type-data {% if realised_is_down %}text-failure-ink{% else %}text-success-ink{% endif %}" data-field="realised" title="{{ realised.formula }}">{{ realised.value }}{{ grade_chip(realised.grade, realised.grade_label) }}</dd>
+      {% endif %}
+      {% if is_closed and realised.value == "—" %}
+        <dt class="type-label text-ink-muted">Realised</dt>
+        <dd class="type-body-sm text-ink-subtle" data-field="realised">Could not be read from the ledger as it stands.</dd>
+      {% endif %}
+    </dl>
+    {% if is_partly_closed %}
+      <p class="mt-3 max-w-prose type-body-sm text-ink-muted" id="partly-closed">
+        Part of this position has been sold. The realised figure is what those sales made or
+        lost against the pool&rsquo;s average cost; the unrealised figure is what is still held,
+        marked at the close. Neither is a remainder of the other.
+      </p>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What it does to the book", subtitle="Its weight, whether it is among the largest holdings, and the sector cut it sits in — each with its working on the risk page.", id="what-it-does") %}
+    {% if is_closed %}
+      <p class="type-body text-ink-muted" id="nothing-to-the-book">A closed position does nothing to the book as at this date.</p>
+    {% else %}
+      <dl class="grid grid-cols-1 gap-x-6 gap-y-3 tabular-nums sm:grid-cols-[12rem_1fr]" id="book-contribution">
+        <dt class="type-label text-ink-muted">Weight</dt>
+        <dd class="type-data text-ink" data-field="weight">{{ weight }}</dd>
+        <dt class="type-label text-ink-muted">Concentration</dt>
+        <dd class="type-body text-ink" data-field="concentration">
+          {% if in_top_holdings %}
+            Among the {{ top_count }} largest holdings, which are {{ top_holdings }} of the book together.
+          {% else %}
+            Not among the {{ top_count }} largest holdings, which are {{ top_holdings }} of the book together.
+          {% endif %}
+        </dd>
+        <dt class="type-label text-ink-muted">Sector</dt>
+        <dd class="type-body text-ink" data-field="sector">
+          {% if sector %}
+            {{ sector.label }}, {{ sector.share }} of the book{% if not sector.known %} &mdash; a cut the registry could not name{% endif %}.
+          {% else %}
+            No sector cut includes this listing.
+          {% endif %}
+        </dd>
+      </dl>
+      <p class="mt-3"><a href="/risk" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">The working, on the risk page</a></p>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Written about it", subtitle="Every thesis on the company, with its dates, and the decisions taken on them that moved the book.", id="written-about-it") %}
+    {% if theses %}
+      <ul class="flex flex-col gap-2" aria-label="Theses">
+        {% for thesis in theses %}
+          <li data-thesis="{{ thesis.id }}">
+            <a href="/theses/{{ thesis.id }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ thesis.title }}</a>
+            <span class="type-data-sm text-ink-muted">from {{ thesis.since }}{% if thesis.until %} until {{ thesis.until }}{% endif %}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if decisions %}
+        <ul class="mt-3 flex flex-col gap-1" aria-label="Decisions">
+          {% for decision in decisions %}
+            <li class="type-body-sm text-ink" data-decision="{{ decision.id }}">
+              <a href="/decisions/{{ decision.id }}" class="text-verification underline underline-offset-[3px]">{{ decision.action | capitalize }}</a>, {{ decision.decided_on }}: {{ decision.statement }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p class="type-body text-ink-muted" id="no-thesis">Nothing is written down about why this is held.</p>
+    {% endif %}
+  {% endcall %}
+
+  <nav aria-label="Actions" class="mb-8 flex flex-wrap items-center gap-3" id="actions">
+    <a href="/portfolio#record-transaction" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong" id="record-transaction">Record a transaction</a>
+    {% if company_href %}
+      <a href="{{ company_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="open-company">Open the company page</a>
+    {% endif %}
+    {% if thesis_href %}
+      <a href="{{ thesis_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="revise-thesis">Revise the thesis</a>
+    {% else %}
+      <a href="{{ write_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="write-thesis">Write a thesis</a>
+    {% endif %}
+  </nav>
+{% endblock %}

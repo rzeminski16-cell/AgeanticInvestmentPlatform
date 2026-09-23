@@ -145,8 +145,8 @@ on, rather than a dead link, and none is in that state at the moment.
 | Tool | State |
 |---|---|
 | **Equity Research** | **Working.** The full pipeline above, end to end. |
-| **Portfolio** | **Working.** What you hold, at what cost, as at a date — every figure recomputed from the transactions rather than stored. |
-| **Watchlist** | **Working.** Companies you follow and have not commissioned research on, with a standing budget the queue spends that is not one run's cap. |
+| **Portfolio** | **Working.** What you hold, at what cost, as at a date — every figure recomputed from the transactions rather than stored — and, from each row, the position: how it was built, what it is worth with its realised and unrealised halves apart, and what it does to the book. |
+| **Watchlist** | **Working.** Companies, which is everything the account knows about — held, researched and not owned, closed and watched — why each is there, when it is next looked at, and one page per company leading with what you believe beside what you hold; and the watchlist beneath it, the queue of what to research next with a standing budget that is not one run's cap. |
 | **Theses** | **Working.** What you believe about a company and why, as premises with the tests that would defeat them. |
 | **Decisions** | **Working.** What you decided to do about a thesis, written before the outcome is known, and the trades that carried it out. |
 | **Monitor** | **Working.** What has happened since a thesis was written that bears on it — findings the platform raises and never answers. |

@@ -122,6 +122,11 @@ If the system holds a company at all, the operator is watching it at some cadenc
 **held**, **researched but not owned**, and **closed but still watched**. The middle one is the
 one nobody else has — the ideas you rejected, with your reasons, still being watched.
 
+**Corrected 24 September 2026, on building it.** Companies is the menu item, at `/companies`,
+under the watchlist tool; the Watchlist page stays beside it as the queue that commissions
+research and the standing budget the queue spends — the form behind the list, not a second
+list.
+
 ### Deciding has no menu item, because it always happens about a company
 
 A thesis and a decision are written where the operator is looking at the thing being decided —

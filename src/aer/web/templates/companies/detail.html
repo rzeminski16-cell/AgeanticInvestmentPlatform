@@ -2,25 +2,179 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  The section 2.7 company page: what this account has concluded about one listing over
-  time. Approved reports only — a draft was never agreed to and cannot become "what we
-  used to think".
+  The company page (page specification §5): everything known about one company, and every
+  action that concerns it. A destination for a question, not a daily home.
 
-  The catalyst form is a primary completion surface, not a footer form: closing the loop
-  on a window the calendar has shut is the one thing this page most often exists to do.
+  The reading order is the specification's and it is an argument: what you believe sits
+  beside and above what you hold, because a holding is a consequence of a belief and not
+  the other way round. Nothing on the page is a recommendation — the report's own view is
+  the report's, stated in the record's row and reached from it.
+
+  Below the record sits what this page was before §5: the approved-report timeline, the
+  valuation history and the catalyst outcomes. Approved reports only — a draft was never
+  agreed to and cannot become "what we used to think".
 #}
 
-{% block title %}{{ company.ticker }} &middot; Company history{% endblock %}
+{% block title %}{{ company.ticker }} &middot; Company{% endblock %}
 
 {% block content %}
-  {{ ui.page_header(
+  {% call ui.page_header(
     company.name,
-    eyebrow="COMPANY HISTORY",
+    eyebrow="COMPANY",
     identity=company.ticker ~ " · " ~ company.exchange,
-    breadcrumbs=[{"href": "/knowledge", "label": "Knowledge"}],
-  ) }}
+    breadcrumbs=[{"href": "/companies", "label": "Companies"}],
+  ) %}
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" id="company-header">
+      <div class="flex flex-wrap items-center gap-2">
+        {% for state in header.states %}
+          {{ ui.status("info", state) }}
+        {% endfor %}
+        {% if header.weight %}<span class="type-data-sm text-ink" data-field="weight">{{ header.weight }}</span>{% endif %}
+        {% if header.cadence %}<span class="type-data-sm text-ink-muted" data-field="cadence">looked at {{ header.cadence }}</span>{% endif %}
+      </div>
+      {#
+        The price block. If no price series is held it says so in the subtle ink — never a
+        blank and never a zero, both of which are claims.
+      #}
+      <div class="text-left sm:text-right" id="price-block">
+        {% if header.price %}
+          <p class="type-data-xl text-ink" data-field="close">{{ header.price.close }}</p>
+          <p class="type-data-sm {% if header.price.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}" data-field="move">{{ header.price.move }}</p>
+          <p class="type-data-sm text-ink-muted">at the close of {{ header.price.dated }}</p>
+        {% else %}
+          <p class="type-body text-ink-subtle" data-field="no-price">No price series</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endcall %}
 
-  {{ ui.verdict("THE STANDING VIEW", verdict.composed, tone=verdict.tone.value) }}
+  {{ ui.verdict("THE RECORD SAYS", verdict.composed, tone=verdict.tone.value) }}
+
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    {# §5.2 What you believe #}
+    <div id="believe">
+      {% if believe.thesis %}
+        {% call ui.sheet("What you believe", subtitle=believe.thesis.title, id="what-you-believe") %}
+          <ol class="flex flex-col" aria-label="Premises">
+            {% for item in believe.premises %}
+              <li class="border-t border-line py-3 first:border-t-0 first:pt-0" data-premise="{{ item.row.position }}" data-premise-state="{{ item.status.label | lower | replace(' ', '_') }}">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <p class="type-body {% if item.row.is_withdrawn %}line-through text-ink-muted{% else %}text-ink{% endif %}">{{ item.row.statement }}</p>
+                  {{ ui.status(item.status.tone, item.status.label, detail=item.status.detail) }}
+                </div>
+                <p class="mt-1 type-data-sm text-ink-muted">{{ item.row.defeated_by }}</p>
+              </li>
+            {% endfor %}
+          </ol>
+          {% if believe.state_line %}
+            <p class="mt-4 max-w-prose type-body text-ink" id="thesis-state-line">{{ believe.state_line }}</p>
+          {% endif %}
+          <p class="mt-3">
+            <a href="/theses/{{ believe.thesis.id }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">Open the thesis</a>
+          </p>
+        {% endcall %}
+      {% else %}
+        <div id="no-thesis">
+          {{ ui.callout("warning", "Nothing is written down about why you hold this." if hold.is_held else "Nothing is written down about this company.", ("The thesis was retired; a new one starts from what you believe now." if believe.was_retired else "A thesis is what you believe and what would show you were wrong. Without one, nothing the monitor reads can bear on this company."), action_label="Write a thesis", action_href=believe.write_href) }}
+        </div>
+      {% endif %}
+    </div>
+
+    {# §5.3 What you hold #}
+    <div id="hold">
+      {% call ui.sheet("What you hold", id="what-you-hold") %}
+        {% if hold.is_held %}
+          <dl class="grid grid-cols-2 gap-x-6 gap-y-3 tabular-nums" id="position-figures">
+            <dt class="type-label text-ink-muted">Position</dt>
+            <dd class="type-data text-ink" data-field="quantity">{{ hold.quantity }} shares</dd>
+            <dt class="type-label text-ink-muted">Value</dt>
+            <dd class="type-data text-ink" data-field="value">{{ hold.value }}</dd>
+            <dt class="type-label text-ink-muted">Average cost</dt>
+            <dd class="type-data text-ink" data-field="average">{{ hold.average }}<span class="type-body-sm text-ink-muted"> a share, pooled</span></dd>
+            <dt class="type-label text-ink-muted">Unrealised</dt>
+            <dd class="type-data {% if hold.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}" data-field="unrealised">{{ hold.unrealised }}</dd>
+            <dt class="type-label text-ink-muted">Weight</dt>
+            <dd data-field="weight">
+              <span class="type-data text-ink">{{ hold.weight }}</span>
+              {#
+                The bar has no ceiling to be drawn against: no ceiling is stored anywhere in
+                the platform (ADR 0104), so this is the weight and only the weight.
+              #}
+              <span class="mt-1 block h-1 w-full max-w-[12rem] bg-line" aria-hidden="true"><span class="block h-1 bg-verification" style="width: {{ (hold.weight_share * 100) | round(1) }}%"></span></span>
+            </dd>
+          </dl>
+          {% if hold.problem %}<p class="mt-3 type-body-sm text-ink-subtle">{{ hold.problem }}</p>{% endif %}
+          <p class="mt-4">
+            <a href="/portfolio/positions/{{ hold.security_id }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong" id="open-position">How it was built, and what it does to the book</a>
+          </p>
+        {% else %}
+          <p class="max-w-prose type-body text-ink" id="not-held">{{ hold.not_held }}</p>
+        {% endif %}
+      {% endcall %}
+    </div>
+  </div>
+
+  {# §5.4 The record #}
+  {% call ui.sheet("The record", id="the-record") %}
+    <ol class="flex flex-col" aria-label="The record">
+      {% for row in rows %}
+        <li class="grid grid-cols-1 gap-2 border-t border-line py-4 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_1fr_auto] sm:gap-6" data-record="{{ row.key }}">
+          <p class="type-label text-ink-muted">{{ row.title }}</p>
+          <div class="min-w-0">
+            <a href="{{ row.href }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="summary">{{ row.summary }}</a>
+            <p class="mt-1 max-w-prose type-body-sm text-ink-muted" data-field="detail">{{ row.detail }}</p>
+          </div>
+          <p class="text-left sm:text-right">
+            <span class="type-data text-ink" data-field="figure">{{ row.figure }}</span>
+            {% if row.figure_label %}<span class="block type-label text-ink-muted">{{ row.figure_label }}</span>{% endif %}
+          </p>
+        </li>
+      {% endfor %}
+    </ol>
+  {% endcall %}
+
+  {# §5.5 Ask #}
+  {% call ui.sheet("Ask", subtitle="A question over this company's record. What it costs depends on what it needs: a recomputation is free, a re-read costs pennies, and new material is priced first.", id="ask") %}
+    {% if can_ask %}
+      <form method="post" action="/ask" class="grid max-w-3xl gap-4" id="ask-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <input type="hidden" name="company_id" value="{{ company.id }}" />
+        {{ ui.field("question", "The question", type="textarea", rows=2, required=true, hint="The tier is decided from the question and shown with the answer, never assumed here.") }}
+        <div>
+          <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" id="ask-submit">Ask</button>
+        </div>
+      </form>
+    {% else %}
+      <p class="max-w-prose type-body text-ink-muted" id="ask-needs-a-record">
+        A question is answered from a company's record, and this one has none yet. Research it first.
+      </p>
+    {% endif %}
+  {% endcall %}
+
+  {# §5.6 Action bar #}
+  <nav aria-label="Actions" class="mb-8 flex flex-wrap items-center gap-3" id="actions">
+    {% if actions.refresh_href and not refresh_refusal %}
+      <form method="post" action="{{ actions.refresh_href }}" id="refresh-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong" id="refresh-go-ahead">{{ refresh_label }}</button>
+      </form>
+    {% else %}
+      <span class="inline-flex min-h-11 items-center rounded-sm border border-line px-4 type-label text-ink-subtle" id="refresh-refused" title="{{ refresh_refusal }}">Refresh the report &mdash; {{ refresh_refusal }}</span>
+    {% endif %}
+    {% if actions.thesis_href %}
+      <a href="{{ actions.thesis_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="revise-thesis">Revise the thesis</a>
+    {% else %}
+      <a href="{{ actions.write_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="write-thesis">Write a thesis</a>
+    {% endif %}
+    <a href="{{ actions.decision_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="record-decision">Record a decision</a>
+    {#
+      The fourth action does not exist. The workbook is F5 and is not built; a control
+      that opened nothing would be worse than a sentence that says so.
+    #}
+    <span class="inline-flex min-h-11 items-center px-2 type-body-sm text-ink-subtle" id="workbook-absent">Open the workbook &mdash; not built yet.</span>
+  </nav>
+
+  {# What the research tool has concluded over time: the page as it was before §5. #}
 
   {% if unresolved_labels %}
     {% call ui.sheet("Record what happened", subtitle="A window the calendar has shut is a question only you can answer — whether the event occurred is never a model's to record.") %}

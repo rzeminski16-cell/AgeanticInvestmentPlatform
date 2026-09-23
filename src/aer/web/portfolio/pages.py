@@ -42,6 +42,7 @@ from aer.services import calculations as calculation_service
 from aer.services import decisions as decision_service
 from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
+from aer.services import positions as positions_service
 from aer.services import splits as splits_service
 from aer.services.listings import add_listing
 from aer.storage.local import LocalArtefactStore
@@ -66,7 +67,7 @@ DEFAULT_BOOK: Final = "My portfolio"
 CASH_KINDS: Final = portfolio_service.CASH_KINDS
 
 
-def _pounds(value: Decimal, currency: str) -> str:
+def pounds(value: Decimal, currency: str) -> str:
     """An amount, exact to the penny.
 
     **Not `aer.render.display.money`.** That is the research report's house style, which
@@ -79,7 +80,7 @@ def _pounds(value: Decimal, currency: str) -> str:
     return f"{sign}{symbol}{abs(value):,.2f}"
 
 
-def _percent(value: Decimal) -> str:
+def percent(value: Decimal) -> str:
     """A rate, to one decimal place, with its sign always shown.
 
     **The sign is never dropped**, even at zero, because the reader's question is which way
@@ -92,7 +93,7 @@ def _percent(value: Decimal) -> str:
     return f"{sign}{abs(scaled):,.1f}%"
 
 
-def _shares(value: Decimal) -> str:
+def shares(value: Decimal) -> str:
     """A share count, with the trailing zeros a NUMERIC(38, 12) round-trip adds removed."""
     trimmed = value.normalize()
     # `normalize` turns 100 into 1E+2, which is correct and unreadable.
@@ -504,13 +505,14 @@ def _holding_row(row: portfolio_service.HoldingRow, book: Portfolio) -> dict[str
     """
     return {
         "key": row.security.provider_symbol,
+        "security_id": row.security.id,
         "ticker": row.security.ticker,
         "exchange": row.security.exchange,
         "name": row.security.name or row.security.ticker,
-        "quantity": _shares(row.quantity.value) if row.quantity else "",
-        "cost": _pounds(row.cost.value, book.base_currency) if row.cost else "",
-        "value": _pounds(row.value.value, book.base_currency) if row.value else "",
-        "unrealised": (_pounds(row.unrealised.value, book.base_currency) if row.unrealised else ""),
+        "quantity": shares(row.quantity.value) if row.quantity else "",
+        "cost": pounds(row.cost.value, book.base_currency) if row.cost else "",
+        "value": pounds(row.value.value, book.base_currency) if row.value else "",
+        "unrealised": (pounds(row.unrealised.value, book.base_currency) if row.unrealised else ""),
         "is_down": bool(row.unrealised and row.unrealised.value < 0),
         "weight": f"{row.weight.value * 100:.1f}%" if row.weight else "",
         "grade": _grade_of(row.quantity),
@@ -523,8 +525,8 @@ def _holding_row(row: portfolio_service.HoldingRow, book: Portfolio) -> dict[str
 def _cash_row(row: portfolio_service.CashRow, book: Portfolio) -> dict[str, object]:
     return {
         "currency": row.currency,
-        "balance": _pounds(row.balance.value, row.currency),
-        "in_base": _pounds(row.in_base.value, book.base_currency) if row.in_base else "",
+        "balance": pounds(row.balance.value, row.currency),
+        "in_base": pounds(row.in_base.value, book.base_currency) if row.in_base else "",
         "weight": f"{row.weight.value * 100:.1f}%" if row.weight else "",
         "grade": _grade_of(row.balance),
         "grade_label": _grade_label(row.balance),
@@ -562,11 +564,11 @@ def _totals(view: portfolio_service.PortfolioView, book: Portfolio) -> dict[str,
     profit = sum((row.unrealised.value for row in priced if row.unrealised), Decimal(0))
     return {
         "net_assets": (
-            _pounds(view.net_assets.value, book.base_currency) if view.net_assets else NO_FIGURE
+            pounds(view.net_assets.value, book.base_currency) if view.net_assets else NO_FIGURE
         ),
-        "securities": _pounds(securities, book.base_currency),
-        "cash": _pounds(cash, book.base_currency),
-        "unrealised": _pounds(profit, book.base_currency),
+        "securities": pounds(securities, book.base_currency),
+        "cash": pounds(cash, book.base_currency),
+        "unrealised": pounds(profit, book.base_currency),
         "is_down": profit < 0,
         "grade": _grade_of(view.net_assets),
         "grade_label": _grade_label(view.net_assets),
@@ -587,10 +589,10 @@ def _return_rows(view: performance_service.ReturnView) -> list[dict[str, object]
             "label": period.label,
             "span": f"{period.begin.isoformat()} to {period.end.isoformat()}",
             "time_weighted": (
-                _percent(period.time_weighted.value) if period.time_weighted else NO_FIGURE
+                percent(period.time_weighted.value) if period.time_weighted else NO_FIGURE
             ),
             "money_weighted": (
-                _percent(period.money_weighted.value) if period.money_weighted else NO_FIGURE
+                percent(period.money_weighted.value) if period.money_weighted else NO_FIGURE
             ),
             "is_down": bool(period.time_weighted and period.time_weighted.value < 0),
             "problem": period.problem,
@@ -624,8 +626,8 @@ def _exposure_bands(
 def _exposure_row(row: performance_service.ExposureSlice, book: Portfolio) -> dict[str, object]:
     return {
         "label": row.label,
-        "value": _pounds(row.value.value, book.base_currency),
-        "share": _percent(row.share.value).lstrip("+"),
+        "value": pounds(row.value.value, book.base_currency),
+        "share": percent(row.share.value).lstrip("+"),
         # The bar's width, as a whole number of percent. Presentation only: the figure
         # beside it is the one a reader takes away.
         "width": int(max(Decimal(0), min(Decimal(1), row.share.value)) * 100),
@@ -646,7 +648,7 @@ def _concentration(view: performance_service.ExposureView) -> dict[str, object]:
     holdings = next((band for band in view.bands if band.kind == "holding"), None)
     covered = len(holdings.slices) if holdings is not None else 0
     return {
-        "share": _percent(view.top_holdings.value).lstrip("+") if view.top_holdings else NO_FIGURE,
+        "share": percent(view.top_holdings.value).lstrip("+") if view.top_holdings else NO_FIGURE,
         "count": min(covered, performance_service.CONCENTRATION_COUNT),
         "of": covered,
     }
@@ -789,3 +791,123 @@ def _refused(request: Request, consequence: str) -> Response:
         f"This form's security token was missing or had expired. {consequence}",
         status=HTTP_403_FORBIDDEN,
     )
+
+
+# -- One position (page specification §3) ---------------------------------------------------
+
+
+@router.get("/portfolio/positions/{security_id}", response_class=HTMLResponse, summary="A position")
+async def position_page(
+    request: Request,
+    security_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,  # noqa: ARG001 -- the dependency every page carries
+    user: CurrentUser,
+) -> Response:
+    """One holding: how it was built, what it is worth, and what it does to the book.
+
+    Reached from the book's own row, and read as at the same instant the book is — the
+    query string's date, or the last close — so a figure here is the figure the book
+    shows. A partly closed position shows its realised and unrealised halves separately,
+    and a closed one shows what it made or lost and nothing it no longer has.
+    """
+    try:
+        detail = await positions_service.position_as_at(
+            session, user=user, security_id=security_id, as_of=_requested_date(request)
+        )
+    except AerError as problem:
+        _log.warning("position.failed", security=str(security_id), error=str(problem))
+        return _problem(request, f"That position could not be read: {problem}", status=409)
+    if detail is None:
+        return _problem(request, "That listing is not a position in your book.")
+    book = detail.portfolio
+    base = book.base_currency
+    holding = detail.holding
+    response: Response = render(
+        request,
+        "portfolio/position.html",
+        {
+            "book": book,
+            "as_of": detail.as_of,
+            "security": detail.security,
+            "company": detail.company,
+            "name": detail.security.name
+            or (detail.company.name if detail.company is not None else detail.security.ticker),
+            "is_closed": detail.is_closed,
+            "is_partly_closed": detail.is_partly_closed,
+            "row": _holding_row(holding, book),
+            "average": _figure_words(detail.average, base),
+            "realised": _figure_words(detail.realised, base),
+            "realised_is_down": bool(detail.realised and detail.realised.value < 0),
+            "weight": f"{holding.weight.value * 100:.1f}%" if holding.weight else NO_FIGURE,
+            "in_top_holdings": detail.in_top_holdings,
+            "top_holdings": (
+                f"{detail.top_holdings.value * 100:.1f}%" if detail.top_holdings else NO_FIGURE
+            ),
+            "top_count": performance_service.CONCENTRATION_COUNT,
+            "sector": (
+                {
+                    "label": detail.sector.label,
+                    "share": f"{detail.sector.share.value * 100:.1f}%",
+                    "known": detail.sector.known,
+                }
+                if detail.sector is not None
+                else None
+            ),
+            "ledger": [_ledger_row(trade) for trade in detail.ledger],
+            "theses": [
+                {
+                    "id": thesis.id,
+                    "title": thesis.title,
+                    "since": f"{(thesis.written_at or thesis.created_at):%d %B %Y}",
+                    "until": f"{thesis.retired_at:%d %B %Y}" if thesis.retired_at else "",
+                }
+                for thesis in detail.theses
+            ],
+            "decisions": [
+                {
+                    "id": row.judgement_id,
+                    "action": decision_service.ACTION_WORDS[row.action],
+                    "statement": row.statement,
+                    "decided_on": f"{row.judgement.held_at:%d %B %Y}",
+                }
+                for row in detail.decisions
+            ],
+            "company_href": f"/companies/{detail.company.id}" if detail.company else "",
+            "thesis_href": f"/theses/{detail.theses[0].id}" if detail.theses else "",
+            "write_href": (f"/theses?company={detail.company.id}" if detail.company else "/theses"),
+        },
+    )
+    return response
+
+
+def _figure_words(figure: portfolio_service.Figure | None, base: str) -> dict[str, str]:
+    """A figure to the penny in its own currency, with its grade and its formula."""
+    if figure is None:
+        return {"value": NO_FIGURE, "grade": "", "grade_label": "", "formula": ""}
+    currency = next(iter(figure.unit.currencies), base)
+    return {
+        "value": pounds(figure.value, currency),
+        "grade": _grade_of(figure),
+        "grade_label": _grade_label(figure),
+        "formula": figure.record.formula,
+    }
+
+
+def _ledger_row(trade: Transaction) -> dict[str, object]:
+    kind = vocabulary.TRANSACTION_KINDS[trade.kind]
+    attestation = trade.attestation
+    return {
+        "id": trade.attestation_id,
+        "on": f"{trade.trade_date:%d %B %Y}",
+        "kind": kind.label,
+        "tone": kind.tone.value,
+        "quantity": shares(abs(trade.quantity))
+        if trade.kind is not TransactionKind.SPLIT
+        else f"{trade.quantity.normalize():f} for 1",
+        "price": pounds(trade.price, trade.currency) if trade.price is not None else NO_FIGURE,
+        "fees": pounds(trade.fees, trade.currency),
+        "currency": trade.currency,
+        "grade": attestation.grade.value,
+        "grade_label": GRADE_LABELS[attestation.grade],
+    }

@@ -249,6 +249,8 @@ async def theses_page(
         {
             "rows": named,
             "showing_retired": retired,
+            # The company page's *Write a thesis* arrives with its company chosen.
+            "chosen": request.query_params.get("company", ""),
             "companies": [
                 {"value": str(company.id), "label": f"{company.name} ({company.ticker})"}
                 for company in companies

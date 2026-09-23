@@ -51,6 +51,7 @@ from aer.web import pages as web_pages
 from aer.web import routes as web_routes
 from aer.web import skills_pages
 from aer.web.ask import pages as ask_pages
+from aer.web.companies import pages as company_pages
 from aer.web.decisions import pages as decision_pages
 from aer.web.monitor import pages as monitor_pages
 from aer.web.overview import pages as overview_pages
@@ -178,31 +179,37 @@ def create_app(
     app.add_middleware(RequestContextMiddleware)
     register_exception_handlers(app)
 
-    app.include_router(health.router)
-    app.include_router(requests.router)
-    app.include_router(assumptions.router)
-    app.include_router(calculations.router)
-    app.include_router(claims.router)
-    app.include_router(plans.router)
-    app.include_router(runs.router)
-    app.include_router(reports.router)
-    app.include_router(companies.router)
-    app.include_router(knowledge.router)
-    app.include_router(skills.router)
-    app.include_router(web_routes.router)
-    app.include_router(web_pages.router)
-    app.include_router(skills_pages.router)
-    app.include_router(overview_pages.router)
-    app.include_router(overview_research_pages.router)
-    app.include_router(portfolio_pages.router)
-    app.include_router(theses_pages.router)
-    app.include_router(monitor_pages.router)
-    app.include_router(decision_pages.router)
-    app.include_router(review_pages.router)
-    app.include_router(risk_pages.router)
-    app.include_router(watchlist_pages.router)
-    app.include_router(ask_pages.router)
-    app.include_router(tool_pages.router)
+    # In registration order, which is route-matching order: the API routers first, then
+    # the pages. Two routers serving one path would be decided here, silently.
+    for mounted in (
+        health.router,
+        requests.router,
+        assumptions.router,
+        calculations.router,
+        claims.router,
+        plans.router,
+        runs.router,
+        reports.router,
+        companies.router,
+        knowledge.router,
+        skills.router,
+        web_routes.router,
+        web_pages.router,
+        skills_pages.router,
+        overview_pages.router,
+        overview_research_pages.router,
+        portfolio_pages.router,
+        theses_pages.router,
+        monitor_pages.router,
+        decision_pages.router,
+        review_pages.router,
+        risk_pages.router,
+        watchlist_pages.router,
+        ask_pages.router,
+        company_pages.router,
+        tool_pages.router,
+    ):
+        app.include_router(mounted)
     _register_local_media_types()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

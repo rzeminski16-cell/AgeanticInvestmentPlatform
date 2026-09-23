@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Companies (page specification §4): everything the account knows about, why it is there,
+  and when it is next looked at. This is the watchlist in the specification's sense.
+
+  Three populations, never merged: held, researched and not owned, closed and watched. The
+  middle one is the record of ideas declined with reasons — the population nobody else keeps
+  — and the default filter shows it. The sort is oldest-looked-at first, because the point
+  of the page is what has been neglected, and a company never looked at sorts first of all.
+
+  Every state in the table was read on the way here, from the book, the report's columns
+  and the open findings. Nothing on this page is a figure a report rests on.
+#}
+
+{% block title %}Companies &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Companies", eyebrow="THE RECORD") %}
+    <p class="max-w-prose type-body text-ink-muted">
+      Everything this account knows about, why it is there, and when it is next looked at.
+      Oldest-looked-at first: the point of the page is what has been neglected.
+    </p>
+  {% endcall %}
+
+  {{ ui.verdict("WHAT THE RECORD HOLDS", verdict.composed, tone=verdict.tone.value) }}
+
+  {% if total %}
+    {#
+      The filter row. Links rather than a form, so a filtered view is a URL somebody can
+      keep. "Researched, not owned" is one of the filters and is never hidden by the
+      default: "All" shows it.
+    #}
+    <nav aria-label="Filter" class="mb-4 flex flex-wrap gap-2" id="filters">
+      {% for filter in filters %}
+        <a
+          href="/companies{% if filter.key != 'all' %}?show={{ filter.key }}{% endif %}"
+          class="inline-flex min-h-9 items-center gap-1 rounded-sm border px-3 type-label {% if filter.is_current %}border-verification bg-verification-wash text-verification-strong{% else %}border-control-boundary text-ink hover:bg-surface-selected{% endif %}"
+          data-filter="{{ filter.key }}"
+          {% if filter.is_current %}aria-current="page"{% endif %}
+        >{{ filter.label }} <span class="type-data-sm text-ink-muted">{{ filter.count }}</span></a>
+      {% endfor %}
+    </nav>
+
+    {% call ui.sheet("", id="companies") %}
+      {% if rows %}
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Companies">
+          <table class="w-full min-w-[60rem] border-collapse">
+            <caption class="sr-only">
+              Every company in the record, why it is here, when it was last looked at, its
+              cadence, and the state of its thesis and its report.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Company</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Why it is here</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Last looked at</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Cadence</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Thesis state</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Report state</th>
+                <th scope="col" class="border-b border-line-strong py-2 text-left type-label text-ink-muted"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+                <tr
+                  class="align-top"
+                  data-company="{{ row.key }}"
+                  data-population="{{ row.population }}"
+                  data-thesis-state="{{ row.thesis_state }}"
+                  data-report-state="{{ row.report_state }}"
+                  {% if row.is_overdue %}data-overdue="yes"{% endif %}
+                >
+                  <th scope="row" class="border-b border-line py-3 pr-4 text-left font-normal">
+                    <a href="{{ row.href }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="name">{{ row.name }}</a>
+                    <span class="block type-data-sm text-ink-subtle">{{ row.listing }}</span>
+                  </th>
+                  <td class="border-b border-line py-3 pr-4 type-body-sm text-ink" data-field="population">
+                    {{ row.population_words }}
+                    {% if row.closed_on %}<span class="block type-data-sm text-ink-muted">closed {{ row.closed_on }}</span>{% endif %}
+                    {% if row.why %}<span class="block max-w-xs type-body-sm text-ink-muted">{{ row.why }}</span>{% endif %}
+                  </td>
+                  <td class="border-b border-line py-3 pr-4 type-data-sm {% if row.never_looked_at or row.is_overdue %}text-warning-ink{% else %}text-ink{% endif %}" data-field="last-looked-at">
+                    {{ row.last_looked_at }}
+                    {% if row.is_overdue %}<span class="block type-label text-warning-ink">overdue</span>{% endif %}
+                  </td>
+                  <td class="border-b border-line py-3 pr-4 type-data-sm text-ink" data-field="cadence">
+                    {{ row.cadence }}
+                    {% if row.next_check %}<span class="block type-data-sm text-ink-muted">next {{ row.next_check }}</span>{% endif %}
+                  </td>
+                  <td class="border-b border-line py-3 pr-4" data-field="thesis-state">
+                    {{ ui.status(row.thesis_tone, row.thesis_words) }}
+                    {% if row.open_findings %}<span class="block type-data-sm text-ink-muted">{{ row.open_findings }} open</span>{% endif %}
+                  </td>
+                  <td class="border-b border-line py-3 pr-4" data-field="report-state">
+                    {% if row.report_href %}
+                      <a href="{{ row.report_href }}" class="inline-block">{{ ui.status(row.report_tone, row.report_words) }}</a>
+                    {% else %}
+                      {{ ui.status(row.report_tone, row.report_words) }}
+                    {% endif %}
+                    {% if row.run_state %}
+                      <a href="{{ row.run_href }}" class="block type-data-sm text-verification underline underline-offset-[3px]">run {{ row.run_state }}</a>
+                    {% endif %}
+                  </td>
+                  <td class="border-b border-line py-3">
+                    <div class="flex flex-col gap-2">
+                      <a href="{{ row.href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">Open</a>
+                      {% if row.refresh_href %}
+                        <form method="post" action="{{ row.refresh_href }}" data-refresh="{{ row.key }}">
+                          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                          <button type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">{{ row.refresh_label }}</button>
+                        </form>
+                      {% endif %}
+                      {% if row.entry_id %}
+                        <form method="post" action="/companies/{{ row.entry_id }}/cadence" class="flex items-center gap-1" data-cadence="{{ row.key }}">
+                          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                          <label class="sr-only" for="cadence-{{ row.entry_id }}">Cadence</label>
+                          <select id="cadence-{{ row.entry_id }}" name="cadence" class="min-h-9 rounded-sm border border-control-boundary bg-surface px-2 type-body-sm text-ink">
+                            {% for cadence in cadences %}
+                              <option value="{{ cadence.value }}" {% if cadence.value == row.cadence_value %}selected{% endif %}>{{ cadence.label }}</option>
+                            {% endfor %}
+                          </select>
+                          <button type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">Change cadence</button>
+                        </form>
+                      {% else %}
+                        <a href="/watchlist#following" class="type-body-sm text-ink-muted underline underline-offset-[3px]">Follow to set a cadence</a>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {{ ui.empty("Nothing matches this filter", "Every company in the record is under another filter; \"All\" shows the lot.", action_label="Show all", action_href="/companies") }}
+      {% endif %}
+    {% endcall %}
+
+    <p class="mt-4 type-body-sm text-ink-muted">
+      <a href="/watchlist#following" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong" id="add-to-watch">Add a company to watch</a>
+      &mdash; a name or a ticker; it enters the record with no report, and the daily pass
+      picks it up at its cadence.
+    </p>
+  {% else %}
+    {#
+      The empty state (§4): one card, with the request form as its action. A second door,
+      following without researching, is the sentence beneath it.
+    #}
+    <div id="nothing-watched">
+      {{ ui.empty("Nothing is being watched yet", "A company enters the record when you research it, hold it, write a thesis about it, or follow it. Research is the usual way in.", action_label="Start a research request", action_href="/requests/new") }}
+      <p class="mt-3 type-body-sm text-ink-muted">
+        Or <a href="/watchlist#following" class="text-verification underline underline-offset-[3px]" id="add-to-watch">add a company to watch</a> without researching it yet.
+      </p>
+    </div>
+  {% endif %}
+{% endblock %}

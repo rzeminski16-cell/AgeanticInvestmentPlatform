@@ -312,12 +312,18 @@
                   #}
                   <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="3">
                     <span data-field="problem">
-                      {% if row.is_closed %}Closed{% else %}{{ row.problem }}{% endif %}
+                      {% if row.is_closed %}
+                        <a href="/portfolio/positions/{{ row.security_id }}" class="underline underline-offset-[3px] hover:text-ink">Closed</a>
+                      {% else %}{{ row.problem }}{% endif %}
                     </span>
                   </td>
                 {% else %}
+                  {#
+                    The value cell opens the position (page specification §3): how it was
+                    built, what it is worth and what it does to the book, from the same walk.
+                  #}
                   <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="value">
-                    {{ row.value }}
+                    <a href="/portfolio/positions/{{ row.security_id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.value }}</a>
                   </td>
                   <td
                     class="py-2 pr-4 text-right type-data-sm {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"

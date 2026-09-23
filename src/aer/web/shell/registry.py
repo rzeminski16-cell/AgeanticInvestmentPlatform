@@ -162,6 +162,8 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/calculations/{calculation_id}",
         "/claims/{claim_id}",
         "/companies/{company_id}",
+        # One holding, reached from the book's own row (page specification §3).
+        "/portfolio/positions/{security_id}",
         "/knowledge/graph",
         "/reports/{report_id}",
         "/reports/{report_id}/preview",

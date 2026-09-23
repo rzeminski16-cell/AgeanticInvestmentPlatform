@@ -49,15 +49,12 @@ from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.comps import MULTIPLE_DEFINITIONS, Audience, CompsTable
 from aer.calc.dcf import HIGH_TERMINAL_SHARE, HIGH_TERMINAL_SHARE_CAVEAT
 from aer.charts import (
-    ValuationHistoryInput,
-    ValuationRangePoint,
     svg_data_uri,
-    valuation_history,
 )
 from aer.config import HouseStyle, Settings
 from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome
-from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
+from aer.core.enums import Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
@@ -89,11 +86,9 @@ from aer.sections.registry import section_outcomes
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
-from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import citations as citation_service
 from aer.services import configuration, daily_pass, provenance
 from aer.services import gates as gates_service
-from aer.services import history as history_service
 from aer.services import refresh as refresh_service
 from aer.services import reports as reports_service
 from aer.services import requests as requests_service
@@ -3231,178 +3226,6 @@ async def knowledge_graph_page(
     picture = await graph_picture(session)
     page: Response = render(request, "knowledge/graph.html", {"picture": picture})
     return page
-
-
-@router.get(
-    "/companies/{company_id}", response_class=HTMLResponse, summary="A company's research history"
-)
-async def company_page(
-    request: Request,
-    company_id: uuid.UUID,
-    session: DbSession,
-    settings: SettingsDep,
-    user: CurrentUser,
-) -> Response:
-    """The section 2.7 page: timeline, valuation history, prior catalysts and what happened.
-
-    Approved reports only — the history a decision could rest on. The valuation chart is
-    the deterministic exportable builder salted with the company id, so the page shows
-    the same bytes on every load.
-    """
-    company = await history_service.company_for_user(
-        session, company_id=company_id, user_id=user.id
-    )
-    if company is None:
-        return problem_page(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
-
-    views = await history_service.valuation_history_for(session, company_id=company.id)
-
-    chart = valuation_history(
-        ValuationHistoryInput(
-            currency=next(
-                (view.valuation_currency for view in views if view.valuation_currency), ""
-            ),
-            points=tuple(
-                ValuationRangePoint(
-                    as_of=view.as_of_date,
-                    low=Decimal(view.valuation_low),
-                    high=Decimal(view.valuation_high),
-                )
-                for view in views
-                if view.valuation_low is not None and view.valuation_high is not None
-            ),
-        ),
-        hashsalt=str(company.id),
-    )
-
-    today = datetime.now(UTC).date()
-    catalyst_rows: list[Any] = []
-    for view in reversed(views):  # newest report's catalysts first
-        prior = await session.get(Report, view.report_id)
-        if prior is None:  # pragma: no cover -- the view was built from this row
-            continue
-        catalyst_rows.extend(
-            await history_service.catalyst_outcomes_for(session, prior=prior, as_of=today)
-        )
-
-    resolutions = await catalyst_service.resolutions_for(session, company_id=company.id)
-    # The labels a resolution may attach to: passed or undated windows nobody has
-    # answered yet. Pending ones wait — resolving a window that has not closed would be
-    # recording the future.
-    unresolved = sorted(
-        {
-            outcome.label
-            for outcome in catalyst_rows
-            if outcome.status != "pending" and outcome.label not in resolutions
-        }
-    )
-    timeline = list(reversed(views))
-    # The wording avoids "as of": that phrase is the timeline link's, and a page test pins
-    # it appearing exactly once per approved report.
-    if not timeline:
-        lead = verdicts.sentence(
-            [
-                "no approved view exists for this company yet; drafts and rejected runs do "
-                "not appear here"
-            ],
-            when_none="No approved view exists yet",
-            tone=vocabulary.Tone.MUTED,
-        )
-    else:
-        newest = timeline[0]
-        clauses: list[verdicts.Count | str] = [
-            f"the last approved view is {newest.rating or 'no view reached'}, "
-            f"{newest.valuation_range}, dated {newest.as_of_date.isoformat()}",
-            verdicts.Count(
-                len(unresolved),
-                "catalyst window has since closed and needs its outcome recorded",
-                "catalyst windows have since closed and need their outcomes recorded",
-            ),
-        ]
-        lead = verdicts.sentence(
-            clauses,
-            when_none="One approved view exists",
-            tone=vocabulary.Tone.WARNING if unresolved else vocabulary.Tone.INFO,
-        )
-
-    token = new_csrf_token(settings)
-    page: Response = render(
-        request,
-        "companies/detail.html",
-        {
-            "company": company,
-            "verdict": lead,
-            "timeline": timeline,
-            "chart_uri": svg_data_uri(chart.svg),
-            "chart_caption": chart.caption,
-            "chart_is_placeholder": chart.placeholder,
-            "catalyst_outcomes": catalyst_rows,
-            "resolutions": resolutions,
-            "unresolved_labels": unresolved,
-            "outcome_kinds": list(CatalystOutcomeKind),
-            "csrf_field": CSRF_FIELD_NAME,
-            "csrf_token": token,
-        },
-    )
-    set_csrf_cookie(page, token)
-    return page
-
-
-@router.post(
-    "/companies/{company_id}/catalyst-resolutions",
-    response_class=HTMLResponse,
-    summary="Record what happened to a catalyst",
-)
-async def resolve_catalyst(
-    request: Request,
-    company_id: uuid.UUID,
-    session: DbSession,
-    settings: SettingsDep,
-    user: CurrentUser,
-) -> Response:
-    """The operator's answer to a closed window (K4). Never a model's.
-
-    The service validates everything that matters — the label must name a catalyst an
-    approved report proposed, the reason must not be blank — so this route decides
-    nothing beyond ownership and the CSRF token, the export form's own division.
-    """
-    company = await history_service.company_for_user(
-        session, company_id=company_id, user_id=user.id
-    )
-    if company is None:
-        return problem_page(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
-
-    form = await request.form()
-    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
-    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
-        return problem_page(
-            request,
-            "This form's security token was missing or had expired. Nothing was recorded.",
-            status=HTTP_403_FORBIDDEN,
-        )
-
-    try:
-        outcome = CatalystOutcomeKind(submitted.get("outcome", ""))
-    except ValueError:
-        return problem_page(
-            request,
-            "The outcome must be one of: occurred, did not occur, superseded.",
-            status=HTTP_422_UNPROCESSABLE_CONTENT,
-        )
-    try:
-        await catalyst_service.record_catalyst_resolution(
-            session,
-            company_id=company.id,
-            label=submitted.get("label", ""),
-            outcome=outcome,
-            reason=submitted.get("reason", ""),
-            actor=user,
-        )
-    except ValidationError as exc:
-        return problem_page(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
-
-    await session.commit()
-    return RedirectResponse(f"/companies/{company_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.get("/reports/{report_id}", response_class=HTMLResponse, summary="A finished report")

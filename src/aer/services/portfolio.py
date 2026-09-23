@@ -161,6 +161,11 @@ class HoldingRow:
     unrealised: Figure | None
     weight: Figure | None
     problem: str = ""
+    # The pool's cost per share still held, in the book's currency (page specification §3
+    # and §5.3). Computed in the same ledger as the cost, because a grade is a claim about a
+    # lineage and this figure rests on nothing the cost did not. ``None`` where nothing is
+    # held or the cost could not be read.
+    average: Figure | None = None
 
     @property
     def is_priced(self) -> bool:
@@ -561,6 +566,7 @@ async def _holding(
         value=graded_figure(context, value),
         unrealised=graded_figure(context, calc.unrealised(context, value=value, cost=cost)),
         weight=None,
+        average=graded_figure(context, calc.average_cost(context, cost=cost, quantity=held)),
     )
 
 

@@ -192,6 +192,20 @@ across more than one thesis shows each with its date range.
 **Must not.** Recompute anything client-side. Every figure arrives computed from the
 transactions.
 
+**Corrected 24 September 2026, on building it** (`portfolio/position.html`,
+`services/positions.py`). The three sheets are as specified, at `/portfolio/positions/{id}`
+from the row's value cell — and from its *Closed* cell, since a closed position is the one
+with the most to say about what it made. *What it is worth* adds the pool's cost per share
+(`average_cost`, a traced calculation, never a division in a template) and, for a partly
+closed or closed position, the realised figure from `realised_gain`, which walks the same pool
+`pooled_cost` does so the two halves account for every unit that entered it. *What it does to
+the book* names the largest-holdings share and the sector cut, each from the exposure the risk
+page shows, and links there for the working; no position ceiling is drawn because none is
+stored anywhere (§11's correction, ADR 0104). *A position built across more than one thesis*
+lists every thesis on the company with its dates, and the decisions on them that moved the
+book. *Revise the thesis* opens the first thesis, or the form with the company chosen where
+none exists.
+
 ---
 
 ## 4. Companies
@@ -225,6 +239,22 @@ thesis_state, report_state, next_check_at).
 **Must not.** Merge the three populations into an undifferentiated list. Sort by name by
 default — sort by *last looked at*, oldest first, because the point of the page is what has
 been neglected.
+
+**Corrected 24 September 2026, on building it** (`companies/index.html`,
+`services/company_record.py`). The populations, columns, filters, sort and empty card are as
+specified, and every state is read on the way to the page rather than stored. *Report state*
+reads `stale` when the current report is older than the row's cadence window (31 days monthly,
+92 quarterly, and 92 for a company with no cadence), because how often the operator asked to
+look is the honest measure of too old. *Last looked at* is the newest of: the report's
+approval, the last run, the watch's last check or follow, the open findings, the decisions, the
+questions — and *Never* sorts first. A followed listing the platform has never resolved is a
+row known by its listing alone, opening on the watchlist. *Refresh the report* is offered on a
+row only where the current report has no run going; the route refuses anything else. *Change
+cadence* moves the next check from now. The page action *Add a company to watch* is the
+watchlist's own follow form, reached by link, rather than a second form that would drift from
+it; the empty card's action is the request form, with the follow form as the sentence beneath.
+In the menu, Companies sits beside Watchlist under the same tool (02's §6): the one is the
+other's list, and the queue and the standing budget stay where they were.
 
 ---
 
@@ -283,6 +313,24 @@ Refresh the report (priced) · Revise the thesis · Record a decision · Open th
 
 **Must not.** Show a chart of the price by default. Put the position above the thesis. Show a
 recommendation.
+
+**Corrected 24 September 2026, on building it** (`companies/detail.html`,
+`web/companies/pages.py`). The header, the two columns in that order, the three record rows,
+the Ask input and the action bar are as specified. §5.1's *No price series* is the block's
+text where no listing or no bar exists. §5.2 shows each premise's status as the monitor last
+read it — *not yet read* or *reviewed by a person* where it has not — and never re-measures
+one here (ADR 0079); the state line counts the premises that broke and dates the latest. §5.3
+draws the weight bar with no ceiling, because none is stored (ADR 0104); *not held* pulls the
+recorded pass, and says plainly when no pass is recorded. §5.4's Report row: *Never
+researched* links to the request form, which is where the price is; *running* shows the run's
+own state and links to the console, which names the stage; *refused* names the run's stated
+reason and links to the console, whose re-measure control it is (ADR 0123) — the row does not
+carry a second one. §5.5 posts to Ask with the company chosen; a company with no record says
+so instead of offering an input. §5.6's *Open the workbook* is a sentence that it is not built
+(F5), never a control that opens nothing. The page answers for any door into the record — a
+holding, a thesis, a watch or a report — where before it answered for the research history
+alone, and it keeps the approved-report timeline, the valuation history and the catalyst
+outcomes it carried before this section existed.
 
 ---
 

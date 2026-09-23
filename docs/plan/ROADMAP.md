@@ -2096,6 +2096,12 @@ found rather than as scope that was always there.
     distinction matters: **a route existing is not the specification satisfied**, and
     nothing here claims otherwise. What it claims is that five features and fifteen surfaces
     do not need building from nothing, which is a different phase from the one estimated.
+    *Corrected 24 September 2026, on building them (item 59):* Position detail, Companies
+    and Company have routes — `/portfolio/positions/{security_id}`, `/companies` and
+    `/companies/{company_id}`, the last widened from the research history it already
+    served — and Ask has had one since item 53. Of the nineteen, eighteen now have a route;
+    Today is still `/` as the tools menu rather than the three bands, and a route existing
+    is still not the specification satisfied.
 
     *What the remaining order actually is*, in the dependency order
     `04-feature-specifications.md` gives: **F12's second surface** (the pre-trade check on
@@ -2421,6 +2427,27 @@ found rather than as scope that was always there.
     shared. Open: a research run's documents show on the report's run sources page under
     the question's job, and the Today band's row for an answered question comes with the
     absent surfaces.
+
+59. **The three absent surfaces, 24 September 2026.** Page specification §3, §4 and §5,
+    built on what the loop already had. A `company_record` service reads every state the
+    Companies page shows — held, researched-not-owned or closed-watching from the book's
+    own walk; current, stale or none from the report's columns against the cadence's
+    window; holds, under review, none or retired from the open findings; last looked at
+    as the newest of the things that looked — and stores none of it. A `positions` service
+    reads one listing out of the same walk the book makes, with two calculations added to
+    `calc/portfolio.py`: what the disposals made or lost against the pool's average, so a
+    partly closed position states its realised and unrealised halves separately, and the
+    pool's cost per share. Companies sits beside Watchlist in the menu (02's §6: the one
+    is the other's list); the company page moved out of `web/pages.py` into its own
+    package with its history sheets intact, and now leads with what you believe beside
+    what you hold, the three record rows, a question over the record, and the four actions
+    — three of which exist and the workbook, which does not and says so. Found on the way:
+    a company held or followed but never researched was invisible to its own page, since
+    visibility followed the research history alone; the page now answers for any door into
+    the record. Corrected in the specification: no position ceiling exists to draw the
+    weight bar against (ADR 0104); a refused run's re-measure control is the console's; the
+    Companies page action is the watchlist's follow form rather than a second one; Refresh
+    on a row is offered only where the current report has no run going.
 
 ### Before this leaves one machine
 
