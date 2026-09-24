@@ -83,6 +83,7 @@ _MODELS_ACCEPTING_EFFORT: Final[frozenset[str]] = frozenset(
     {
         "claude-fable-5",
         "claude-fable-5-1",
+        "claude-opus-5-5",
         "claude-opus-5",
         "claude-opus-4-8",
         "claude-opus-4-7",
@@ -592,6 +593,7 @@ _MODELS_WITH_DYNAMIC_SEARCH: Final[frozenset[str]] = frozenset(
     {
         "claude-fable-5",
         "claude-fable-5-1",
+        "claude-opus-5-5",
         "claude-opus-5",
         "claude-opus-4-8",
         "claude-opus-4-7",

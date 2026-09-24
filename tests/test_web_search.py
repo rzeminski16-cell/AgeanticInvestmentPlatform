@@ -25,8 +25,8 @@ from aer.agents.worker import _TOOL_BRIEFS
 from aer.core.enums import JobStatus
 from aer.db.models import Cost, JobStep
 from aer.errors import ExternalServiceError
-from aer.providers.anthropic import AnthropicProvider
-from aer.providers.costs import WEB_SEARCH_USD_PER_CALL, price_web_search
+from aer.providers.anthropic import _MODELS_WITH_DYNAMIC_SEARCH, AnthropicProvider
+from aer.providers.costs import DEFAULT_PRICES, WEB_SEARCH_USD_PER_CALL, price_web_search
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.research import MAX_WEB_SEARCHES, build_executors
@@ -332,6 +332,12 @@ class TestTheProviderReadsTheListing:
 
         assert messages.requests[0]["tools"][0]["type"] == "web_search_20250305"
         assert messages.requests[1]["tools"][0]["type"] == "web_search_20260209"
+
+    def test_every_priced_model_is_a_deliberate_decision_about_the_variant(self) -> None:
+        """The effort table's guard, for the search table beside it. A model priced without a
+        decision here searches on the basic variant, and nothing says so; Haiku is the one
+        model the basic variant is for."""
+        assert set(DEFAULT_PRICES) - _MODELS_WITH_DYNAMIC_SEARCH == {"claude-haiku-4-5"}
 
 
 class TestThePrice:
