@@ -1,6 +1,8 @@
-"""The console-style baseline: the same brief, answered by Opus 5 with web search.
+"""The console-style baseline: the same brief, answered by a model with web search.
 
     uv run python -m audit.baseline.anthropic_baseline msft1 [--max-searches 25]
+    uv run python -m audit.baseline.anthropic_baseline msft1 --model claude-opus-5-5 \\
+        --label msft1-fresh
 
 Deliberately not a platform call. It imports the vendor SDK directly, which nothing under
 ``src/aer`` outside ``providers/anthropic`` may do, and it writes no ``agent_runs`` or
@@ -8,6 +10,15 @@ Deliberately not a platform call. It imports the vendor SDK directly, which noth
 baseline that counted against them would distort the very comparison it exists for. Its
 usage is priced with the platform's own price table so the two sides are like for like,
 and recorded in the audit's ledger.
+
+**The route is three constants and one of them is a choice.** September's notes were written
+on :data:`MODEL`, and that stays the default so they can be reproduced. A later round's
+comparator is meant to improve for free while the plan runs, so its model is named on the
+command line and in the round's pre-registration, never by editing the default.
+
+**A refusal ends the baseline and falls back to nothing.** A comparator that quietly
+continued on another model would be a note by two authors measured as one; the reply is
+kept, the usage is priced, and the run stops saying which model declined.
 """
 
 from __future__ import annotations
@@ -47,12 +58,17 @@ SYSTEM: Final = (
 )
 
 
+class BaselineRefusedError(RuntimeError):
+    """The model declined the brief. The comparator is void, not rerouted."""
+
+
 class BaselineResult:
     """What one baseline run produced, and what it cost."""
 
-    def __init__(self, *, subject: Subject, out_dir: Path) -> None:
+    def __init__(self, *, subject: Subject, out_dir: Path, model: str = MODEL) -> None:
         self.subject = subject
         self.out_dir = out_dir
+        self.model = model
         self.text = ""
         self.citations: list[dict[str, Any]] = []
         self.usages: list[dict[str, Any]] = []
@@ -70,7 +86,7 @@ class BaselineResult:
                 Usage(
                     input_tokens=usage["input_tokens"],
                     output_tokens=usage["output_tokens"],
-                    model=MODEL,
+                    model=self.model,
                     cache_read_tokens=usage["cache_read_tokens"],
                     cache_write_tokens=usage["cache_write_tokens"],
                 ),
@@ -87,7 +103,7 @@ class BaselineResult:
                 )
                 total += line.amount_gbp
         search_line = price_web_search(
-            self.searches, provider="anthropic", model=MODEL, usd_to_gbp=usd_to_gbp
+            self.searches, provider="anthropic", model=self.model, usd_to_gbp=usd_to_gbp
         )
         if search_line is not None:
             lines.append(
@@ -143,6 +159,7 @@ async def run_baseline(
     max_searches: int = 25,
     out_root: Path = OUT_DIR,
     label: str | None = None,
+    model: str = MODEL,
 ) -> BaselineResult:
     settings = load_settings()
     key = settings.require_secret("anthropic_api_key")
@@ -150,11 +167,11 @@ async def run_baseline(
     label = label or subject.key
     out_dir = out_root / "baseline" / label
     out_dir.mkdir(parents=True, exist_ok=True)
-    result = BaselineResult(subject=subject, out_dir=out_dir)
+    result = BaselineResult(subject=subject, out_dir=out_dir, model=model)
 
     brief = brief_for(subject, as_of=as_of, section_titles=section_titles)
     request: dict[str, Any] = {
-        "model": MODEL,
+        "model": model,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM,
         "output_config": {"effort": EFFORT},
@@ -180,6 +197,8 @@ async def run_baseline(
         result.usages.append(usage)
         result.searches += usage["web_search_requests"]
         result.stop_reasons.append(str(message.stop_reason))
+        if message.stop_reason == "refusal":
+            _record_refusal(result, message, settings=settings, label=label, out_root=out_root)
         _collect(message, result)
         if message.stop_reason != "pause_turn":
             break
@@ -196,7 +215,7 @@ async def run_baseline(
     summary = {
         "subject": subject.key,
         "label": label,
-        "model": MODEL,
+        "model": model,
         "effort": EFFORT,
         "as_of": as_of,
         "started_at": result.started_at.isoformat(),
@@ -222,6 +241,7 @@ async def run_baseline(
         label=label,
         amount_gbp=Decimal(priced["total_gbp"]),
         detail={
+            "model": model,
             "searches": result.searches,
             "turns": len(result.responses),
             "words": summary["words"],
@@ -229,6 +249,45 @@ async def run_baseline(
     )
     print(json.dumps(summary, indent=2, default=str))
     return result
+
+
+def _record_refusal(
+    result: BaselineResult, message: Any, *, settings: Any, label: str, out_root: Path
+) -> None:
+    """Price what the declined turn used, write down why, and stop.
+
+    The reply itself was already archived with every other turn. What is added here is the
+    one thing a reader of the round needs about it: that the comparator does not exist, and
+    the category the model gave — never a note completed by a different model.
+    """
+    details = getattr(message, "stop_details", None)
+    category = str(getattr(details, "category", "") or "unstated")
+    priced = result.priced(settings.usd_to_gbp)
+    (result.out_dir / "refused.json").write_text(
+        json.dumps(
+            {
+                "model": result.model,
+                "category": category,
+                "explanation": str(getattr(details, "explanation", "") or ""),
+                "price": priced,
+            },
+            indent=2,
+            default=str,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    Ledger(out_root / "ledger.json").record(
+        kind="baseline",
+        label=f"{label}-refused",
+        amount_gbp=Decimal(priced["total_gbp"]),
+        detail={"model": result.model, "refused": category},
+    )
+    message_text = (
+        f"{result.model} declined the brief for {result.subject.key} ({category}). The "
+        "comparator is void; nothing was rerouted to another model."
+    )
+    raise BaselineRefusedError(message_text)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -239,6 +298,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--as-of", default=datetime.now(UTC).date().isoformat())
     parser.add_argument("--max-searches", type=int, default=25)
     parser.add_argument("--label", default=None)
+    parser.add_argument(
+        "--model",
+        default=MODEL,
+        help="the comparator's model; September's route is the default",
+    )
     args = parser.parse_args(argv)
     asyncio.run(
         run_baseline(
@@ -246,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             as_of=args.as_of,
             max_searches=args.max_searches,
             label=args.label,
+            model=args.model,
         )
     )
     return 0

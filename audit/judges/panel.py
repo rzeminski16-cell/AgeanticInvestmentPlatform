@@ -151,13 +151,13 @@ class Round:
         return sum((one.cost_gbp for one in self.guesses), Decimal(0))
 
 
-def _seed() -> int:
+def _seed(pre_registration: Path = PRE_REGISTRATION) -> int:
     """The assignment seed, from the pre-registration rather than from a constant here.
 
     A seed written twice is a seed that can disagree with itself after the round, and the
     committed file is the half of the pair that is hashed.
     """
-    data = json.loads(PRE_REGISTRATION.read_text(encoding="utf-8"))
+    data = json.loads(pre_registration.read_text(encoding="utf-8"))
     return int(data["blinding"]["assignment_seed"])
 
 
@@ -290,11 +290,18 @@ def _by_confidence(guesses: list[Guess]) -> dict[str, dict[str, int]]:
     return tally
 
 
-async def identity(limit: int | None = None) -> int:
+async def identity(limit: int | None = None, design: RoundDesign | None = None) -> int:
+    """Ask each lens which document is the platform's.
+
+    With no design, over September's three pairs under the Phase 5 seed — the gate's own
+    measurement. With a round's design, over that round's pairs under its own seed, so the
+    rate is measured on the documents the round judged.
+    """
     settings = load_settings()
     key = settings.require_secret("anthropic_api_key")
-    seed = _seed()
-    assignments = assign(seed=seed, subjects=SUBJECTS)
+    seed = _seed() if design is None else _seed(design.pre_registration)
+    keys = SUBJECTS if design is None else tuple(pair.key for pair in design.pairs)
+    assignments = assign(seed=seed, subjects=keys)
     if limit is not None:
         assignments = assignments[:limit]
 
@@ -303,7 +310,11 @@ async def identity(limit: int | None = None) -> int:
         f"Identity guess: {len(asked)} reads over {len(assignments)} blinded pairs, "
         f"seed {seed}, {MODEL} at effort={EFFORT}."
     )
-    documents = {one.subject: _blinded(one.subject) for one in assignments}
+    if design is None:
+        documents = {one.subject: _blinded(one.subject) for one in assignments}
+    else:
+        pairs = {pair.key: pair for pair in design.pairs}
+        documents = {one.subject: _pair_documents(pairs[one.subject]) for one in assignments}
     client = anthropic.AsyncAnthropic(api_key=key, max_retries=3, timeout=900.0)
     semaphore = asyncio.Semaphore(CONCURRENCY)
     round_ = Round(seed=seed)
@@ -324,7 +335,10 @@ async def identity(limit: int | None = None) -> int:
 
     rate = hit_rate(one.as_scored() for one in round_.guesses)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    IDENTITY_FILE.write_text(
+    identity_file = (
+        IDENTITY_FILE if design is None else OUT_DIR / f"identity-phase{design.phase}.json"
+    )
+    identity_file.write_text(
         json.dumps(
             {
                 "model": MODEL,
@@ -363,7 +377,11 @@ async def identity(limit: int | None = None) -> int:
     if round_.guesses:
         Ledger().record(
             kind="other",
-            label="phase5-gate-identity-guess",
+            label=(
+                "phase5-gate-identity-guess"
+                if design is None
+                else f"phase{design.phase}-round-identity-guess"
+            ),
             amount_gbp=round_.cost_gbp,
             detail={"guesses": len(round_.guesses), "model": MODEL, "hit_rate": str(rate)},
         )
@@ -376,7 +394,7 @@ async def identity(limit: int | None = None) -> int:
         print(f"  {confidence}: {row['hits']} right, {row['misses']} wrong")
     for failure in round_.failures:
         print(f"  FAILED {failure['guess']}: {failure['error']}")
-    print(f"Wrote {IDENTITY_FILE}")
+    print(f"Wrote {identity_file}")
     return 0 if not round_.failures else 1
 
 
@@ -391,6 +409,97 @@ ROUND_SUBJECTS: Final[tuple[str, ...]] = ("azn", "msft1")
 # the same company. That is the whole point of the round, and reading the wrong file would
 # produce six comparisons of the corpus against itself.
 ROUND_REPORTS: Final = ROOT / "docs" / "plan" / "phase-5-round-2026-09"
+
+# The verdict round's own documents and its hashed readings (delivery plan §11).
+ROUND_7_REPORTS: Final = ROOT / "docs" / "plan" / "phase-7-round-2026-09"
+PHASE_7_PRE_REGISTRATION: Final = ROOT / "docs" / "plan" / "phase-7-pre-registration.json"
+
+# The two sets a round's comparisons are read in. *Counted* is the set the pre-registration's
+# target is taken over; *like for like* is the set whose comparator has not changed since the
+# last round, which is the only set in which movement can be attributed to the platform.
+COUNTED: Final = "counted"
+LIKE_FOR_LIKE: Final = "like_for_like"
+
+
+@dataclass(frozen=True, slots=True)
+class Pair:
+    """One pairing each lens is asked to compare: a platform document against a comparator.
+
+    ``key`` is what the assignment is dealt over, so two pairings that share a platform
+    document — the round's report against a fresh note and against September's — are two
+    keys, each with its own side of the coin.
+    """
+
+    key: str
+    platform: Path
+    baseline: Path
+    sets: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RoundDesign:
+    """A round's comparisons as its pre-registration fixes them: which pairs, which seed,
+    where the record goes, and what the ledger calls the spend."""
+
+    phase: int
+    pre_registration: Path
+    pairs: tuple[Pair, ...]
+    out_file: Path
+    ledger_label: str
+
+
+PHASE_5_ROUND: Final = RoundDesign(
+    phase=5,
+    pre_registration=PRE_REGISTRATION,
+    pairs=tuple(
+        Pair(
+            key=subject,
+            platform=ROUND_REPORTS / subject / "report.md",
+            baseline=RECORDED / "baseline" / subject / "note.md",
+            sets=(COUNTED, LIKE_FOR_LIKE),
+        )
+        for subject in ROUND_SUBJECTS
+    ),
+    out_file=COMPARE_FILE,
+    ledger_label="phase5-round-comparisons",
+)
+
+# Three pairings, nine comparisons. AZN against September's note is in both sets; MSFT is read
+# twice, against the fresh note (the target's set: *with the fresh baseline in the set*, §12)
+# and against September's (the set that shows what moved since Phase 5, which used the same
+# note).
+PHASE_7_ROUND: Final = RoundDesign(
+    phase=7,
+    pre_registration=PHASE_7_PRE_REGISTRATION,
+    pairs=(
+        Pair(
+            key="azn",
+            platform=ROUND_7_REPORTS / "azn" / "report.md",
+            baseline=RECORDED / "baseline" / "azn" / "note.md",
+            sets=(COUNTED, LIKE_FOR_LIKE),
+        ),
+        Pair(
+            key="msft1",
+            platform=ROUND_7_REPORTS / "msft1" / "report.md",
+            baseline=ROUND_7_REPORTS / "baseline" / "msft1-fresh" / "note.md",
+            sets=(COUNTED,),
+        ),
+        Pair(
+            key="msft1-september",
+            platform=ROUND_7_REPORTS / "msft1" / "report.md",
+            baseline=RECORDED / "baseline" / "msft1" / "note.md",
+            sets=(LIKE_FOR_LIKE,),
+        ),
+    ),
+    out_file=OUT_DIR / "compare-phase7.json",
+    ledger_label="phase7-round-comparisons",
+)
+
+ROUNDS: Final[dict[int, RoundDesign]] = {5: PHASE_5_ROUND, 7: PHASE_7_ROUND}
+
+# Phase 5's six, the level the verdict round's like-for-like set is read against: every
+# comparison handed to the console, and two of 36 dimension verdicts to the platform.
+PHASE_5_LEVEL: Final = {"handed_to_the_console": 6, "dimension_verdicts_to_the_platform": 2}
 
 COMPARE_SYSTEM: Final = """You are one of three independent judges comparing two equity \
 research documents about the same company, written to the same brief.
@@ -457,13 +566,11 @@ class Comparison:
         return self.side(found.group(1)) if found else "unreadable"
 
 
-def _round_pair(subject: str) -> dict[str, str]:
-    """The round's platform report against September's console note, both blinded."""
+def _pair_documents(pair: Pair) -> dict[str, str]:
+    """One pairing's two documents, both blinded, read from their committed copies."""
     return {
-        PLATFORM: neutralise((ROUND_REPORTS / subject / "report.md").read_text(encoding="utf-8")),
-        BASELINE: neutralise(
-            (RECORDED / "baseline" / subject / "note.md").read_text(encoding="utf-8")
-        ),
+        PLATFORM: neutralise(pair.platform.read_text(encoding="utf-8")),
+        BASELINE: neutralise(pair.baseline.read_text(encoding="utf-8")),
     }
 
 
@@ -582,11 +689,56 @@ def _scored(comparisons: list[Comparison]) -> dict[str, Any]:
     }
 
 
-async def compare(limit: int | None = None) -> int:
+def scored_by_set(comparisons: list[Comparison], design: RoundDesign) -> dict[str, Any]:
+    """Each of the design's sets scored on its own: a comparison counts in every set its
+    pairing belongs to, and in no other."""
+    sets_of = {pair.key: pair.sets for pair in design.pairs}
+    names = sorted({name for pair in design.pairs for name in pair.sets})
+    return {
+        name: _scored([c for c in comparisons if name in sets_of.get(c.subject, ())])
+        for name in names
+    }
+
+
+def verdict_round_reading(by_set: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """The quantitative half of the verdict round's readings, exactly as pre-registered.
+
+    ``fixed`` is delivery plan §12's target over the counted six. ``nothing_moved`` is the
+    numeric half of the abandonment criterion over the like-for-like six, against Phase 5's
+    level; its other half — whether any judge's stated reason changed category — is read
+    from the judges' own words and written down beside the quotes, because it is not a
+    count. Six answered comparisons in a set are required to read it: fewer, and the reading
+    says so rather than being taken over a smaller denominator.
+    """
+    counted = by_set.get(COUNTED, {})
+    like = by_set.get(LIKE_FOR_LIKE, {})
+    counted_whole = int(counted.get("comparisons", 0)) == 6
+    like_whole = int(like.get("comparisons", 0)) == 6
+    fixed = (
+        counted_whole
+        and int(counted.get("no_longer_chose_the_console", 0)) >= 3
+        and int(counted.get("handed_to_the_platform", 0)) >= 2
+    )
+    nothing_moved = (
+        like_whole
+        and int(like.get("handed_to_the_console", 0)) == PHASE_5_LEVEL["handed_to_the_console"]
+        and int(like.get("dimension_verdicts_to_the_platform", 0))
+        <= PHASE_5_LEVEL["dimension_verdicts_to_the_platform"]
+    )
+    return {
+        "counted_six_answered": counted_whole,
+        "like_for_like_six_answered": like_whole,
+        "fixed": fixed,
+        "nothing_moved_since_phase_5": nothing_moved,
+        "phase_5_level": dict(PHASE_5_LEVEL),
+    }
+
+
+async def compare(limit: int | None = None, design: RoundDesign = PHASE_5_ROUND) -> int:
     settings = load_settings()
     key = settings.require_secret("anthropic_api_key")
-    seed = _seed()
-    assignments = assign(seed=seed, subjects=ROUND_SUBJECTS)
+    seed = _seed(design.pre_registration)
+    assignments = assign(seed=seed, subjects=tuple(pair.key for pair in design.pairs))
     if limit is not None:
         assignments = assignments[:limit]
 
@@ -595,7 +747,8 @@ async def compare(limit: int | None = None) -> int:
         f"Comparisons: {len(asked)} over {len(assignments)} blinded pairs, seed {seed}, "
         f"{MODEL} at effort={EFFORT}."
     )
-    documents = {one.subject: _round_pair(one.subject) for one in assignments}
+    pairs = {pair.key: pair for pair in design.pairs}
+    documents = {one.subject: _pair_documents(pairs[one.subject]) for one in assignments}
     client = anthropic.AsyncAnthropic(api_key=key, max_retries=3, timeout=900.0)
     semaphore = asyncio.Semaphore(CONCURRENCY)
     out: list[Comparison] = []
@@ -619,10 +772,13 @@ async def compare(limit: int | None = None) -> int:
 
     cost = sum((c.cost_gbp for c in out), Decimal(0))
     score = _scored(out)
+    by_set = scored_by_set(out, design)
+    reading = verdict_round_reading(by_set) if design.phase == 7 else None
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    COMPARE_FILE.write_text(
+    design.out_file.write_text(
         json.dumps(
             {
+                "phase": design.phase,
                 "model": MODEL,
                 "effort": EFFORT,
                 "seed": seed,
@@ -632,6 +788,17 @@ async def compare(limit: int | None = None) -> int:
                 "asked": len(asked),
                 "answered": len(out),
                 "score": score,
+                "by_set": by_set,
+                "reading": reading,
+                "pairs": [
+                    {
+                        "key": pair.key,
+                        "platform": str(pair.platform.relative_to(ROOT)),
+                        "baseline": str(pair.baseline.relative_to(ROOT)),
+                        "sets": list(pair.sets),
+                    }
+                    for pair in design.pairs
+                ],
                 "compares": [
                     {
                         "subject": c.subject,
@@ -656,7 +823,7 @@ async def compare(limit: int | None = None) -> int:
     if out:
         Ledger().record(
             kind="other",
-            label="phase5-round-comparisons",
+            label=design.ledger_label,
             amount_gbp=cost,
             detail={
                 "comparisons": len(out),
@@ -672,9 +839,16 @@ async def compare(limit: int | None = None) -> int:
         f"  dimension verdicts to the platform: {score['dimension_verdicts_to_the_platform']} "
         f"(September: 0 of 54); equal: {score['dimension_verdicts_equal']}"
     )
+    for name, one in by_set.items():
+        print(
+            f"  {name}: {one['handed_to_the_platform']} to the platform, "
+            f"{one['handed_to_the_console']} to the console, of {one['comparisons']}"
+        )
+    if reading is not None:
+        print(f"  reading: {reading}")
     for failure in failures:
         print(f"  FAILED {failure['comparison']}: {failure['error']}")
-    print(f"Wrote {COMPARE_FILE}")
+    print(f"Wrote {design.out_file}")
     return 0 if not failures else 1
 
 
@@ -687,8 +861,17 @@ if __name__ == "__main__":
         "--compare", action="store_true", help="the round's six comparisons, over the rubric"
     )
     parser.add_argument("--limit", type=int, default=None, help="only the first N subjects")
+    parser.add_argument(
+        "--round",
+        type=int,
+        choices=sorted(ROUNDS),
+        default=None,
+        help="the round whose pairs to read; identity defaults to September's corpus",
+    )
     args = parser.parse_args()
     if args.identity == args.compare:
         parser.error("pass exactly one of --identity and --compare")
-    runner = identity if args.identity else compare
-    raise SystemExit(asyncio.run(runner(args.limit)))
+    chosen = ROUNDS[args.round] if args.round is not None else None
+    if args.identity:
+        raise SystemExit(asyncio.run(identity(args.limit, chosen)))
+    raise SystemExit(asyncio.run(compare(args.limit, chosen or PHASE_5_ROUND)))

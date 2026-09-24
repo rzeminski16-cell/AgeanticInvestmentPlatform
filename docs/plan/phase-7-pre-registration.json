@@ -1,0 +1,230 @@
+{
+  "$comment": [
+    "The verdict round's readings (delivery plan section 11, Phase 7), written before the round",
+    "spends so the result cannot be read generously after the fact. The panel reads its seed from",
+    "this file (audit/judges/panel.py, PHASE_7_ROUND); a verdict that disagrees with it is a verdict",
+    "this file overrules.",
+    "",
+    "Committed and hashed on 24 September 2026, before any of the round's spend. The hash is recorded",
+    "in docs/V1.0_Alpha/11-testing-strategy.md section 5 and asserted by tests/test_pre_registration.py,",
+    "so editing this file after the round without also moving the recorded hash fails the suite.",
+    "",
+    "Three things differ from Phase 5's file, each for a reason Phase 5 found. The target is the",
+    "delivery plan's section 12 test for ISSUE 2, verbatim: Phase 5 asked whether the thesis held,",
+    "this round asks whether the issue is fixed. The readings are mutually exclusive and read in a",
+    "stated order: Phase 5's file let two readings fit at once, which its own round named a defect.",
+    "And the comparisons are read in two sets, because the target names a comparator Phase 5 did not",
+    "have — a fresh baseline — and movement since Phase 5 can only be attributed to the platform",
+    "where the comparator is the one Phase 5 used."
+  ],
+  "phase": 7,
+  "committed_on": "2026-09-24",
+  "budget_gbp": "31.50",
+  "signed_off_by_operator": true,
+  "sign_off": "The operator's go-ahead of 24 September 2026, given in reply to the message that named Phase 7 at about £31.50 of live spend and two days of operator time.",
+  "round": {
+    "runs": [
+      {
+        "subject": "azn",
+        "count": 1,
+        "kind": "full",
+        "when": "day one"
+      },
+      {
+        "subject": "msft1",
+        "count": 1,
+        "kind": "full",
+        "when": "day one"
+      },
+      {
+        "subject": "msft1",
+        "count": 1,
+        "kind": "refresh",
+        "when": "the next UTC day, of day one's MSFT report",
+        "why": "The delivery plan's second MSFT run 'doubles as the refresh case and the variance check'. In September that case was a second full run (the audit's msft2, 'refreshing a company already researched, the next day'); F4 has since built the product's answer to exactly that case, and a refresh with nothing new filed is bounded by the platform's £2 refresh ceiling where a full run costs about £7 — which is what keeps the round inside the £31.50 approved."
+      }
+    ],
+    "driver": {
+      "full": "uv run python -m audit.driver.run <subject> --cap 10.50 --raise-to 12.00 --executor worker --mode standard --label <subject>-round7",
+      "refresh": "uv run python -m audit.driver.run msft1 --refresh-of <day one's MSFT report id> --raise-to 2.00 --executor worker --label msft1-refresh-round7"
+    },
+    "final_gate_refused": "A run whose own final gate shows a failed blocking check stops the driver, as its policy says. It is then approved through the gate's own decision — the driver resumed with --override-final and the measured scores as the reason, which the approval row carries ahead of the policy's own reason for stopping — so the round has its documents: the operator's decision for the same case in Phase 5, on 19 September 2026. Every comparison such a document enters carries the fact that the platform would not have published it, and ISSUE 1's reading counts the run as rescued. A draft that lost sections is not overridden.",
+    "comparator": {
+      "september": "The console notes recorded in September 2026 for azn and msft1, under docs/plan/readiness-audit-2026-09/baseline/ — the notes Phase 5 judged against.",
+      "fresh": {
+        "subject": "msft1",
+        "label": "msft1-fresh",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "max_searches": 25,
+        "tool": "web_search_20260209",
+        "brief": "audit/subjects.py brief_for, with September's section titles — the brief September's notes answered",
+        "command": "uv run python -m audit.baseline.anthropic_baseline msft1 --model claude-opus-5-5 --label msft1-fresh",
+        "why_one": "Open question 13 of docs/V1.0_Alpha/06-open-questions.md: one fresh console baseline is bought for the verdict round.",
+        "why_msft": "MSFT carries both of the round's platform documents, and its September note cost the least of the three to write.",
+        "why_this_model": "The current best route the approved budget can buy for one note. Claude Fable 5.1 is the more capable model and was priced first: at $10/$50 a note like September's MSFT one (1.54 million input tokens, 68 thousand output) costs about £15, which takes the round to about £36 against £31.50 approved. Claude Opus 5.5, the newest Opus, costs about £6 for the same note at $4/$20. September's own route, Claude Opus 5, would be a fresh note on a route that has not improved, which is the one thing the fresh baseline exists not to be."
+      }
+    },
+    "panel": {
+      "model": "claude-opus-5",
+      "effort": "medium",
+      "why_unchanged": "The panel is an instrument, and the round reads movement against Phase 5's. A different judge would be a different instrument wearing the same name (testing strategy section 3.5).",
+      "lenses": "audit/judges/rubric.py LENSES, the three lifted verbatim from September's judge reads",
+      "pairings": [
+        {
+          "key": "azn",
+          "platform": "docs/plan/phase-7-round-2026-09/azn/report.md",
+          "comparator": "docs/plan/readiness-audit-2026-09/baseline/azn/note.md",
+          "sets": [
+            "counted",
+            "like_for_like"
+          ]
+        },
+        {
+          "key": "msft1",
+          "platform": "docs/plan/phase-7-round-2026-09/msft1/report.md",
+          "comparator": "docs/plan/phase-7-round-2026-09/baseline/msft1-fresh/note.md",
+          "sets": [
+            "counted"
+          ]
+        },
+        {
+          "key": "msft1-september",
+          "platform": "docs/plan/phase-7-round-2026-09/msft1/report.md",
+          "comparator": "docs/plan/readiness-audit-2026-09/baseline/msft1/note.md",
+          "sets": [
+            "like_for_like"
+          ]
+        }
+      ],
+      "failed_comparison": "A comparison whose reply cannot be scored is asked again once, identically. A second failure is reported, and a set with fewer than six answered comparisons cannot be read against its test; the reading says so rather than taking a smaller denominator."
+    }
+  },
+  "readings": [
+    {
+      "id": "fixed",
+      "order": 1,
+      "when": "Over the counted six, at least 3 of 6 comparisons do not choose the console, and at least 2 of 6 choose the platform, with the fresh baseline in the set.",
+      "means": "ISSUE 2 is fixed by the delivery plan's own test (section 12).",
+      "then": "Write ISSUE 2 into the roadmap as closed on this number, with every caveat the round carries; the judges' remaining criticisms become ordinary roadmap items."
+    },
+    {
+      "id": "abandon",
+      "order": 2,
+      "when": "Not fixed; and over the like-for-like six all six choose the console, no more than 2 of 36 dimension verdicts go to the platform (Phase 5's level), and no judge's stated reason changes category from Phase 5's — that the platform's stated view is broken or contradicts itself.",
+      "means": "Nothing moved since Phase 5, and no stated reason changed category: the document is not where the gap is.",
+      "then": "Stop. Narrow the product's claim to what the readiness audit section 4.3 already scores yes — an evidence base and a checking instrument — and spend the remaining sessions on ISSUE 1 alone."
+    },
+    {
+      "id": "not_yet",
+      "order": 3,
+      "when": "Neither of the above.",
+      "means": "ISSUE 2 is not fixed, and the abandonment criterion did not fire: something moved, and not enough.",
+      "then": "Write the round's numbers and the judges' stated reasons into the roadmap as ISSUE 2's next work, ranked by how many comparisons each reason decided."
+    }
+  ],
+  "reading_rules": [
+    "The readings are read in their order and the first that holds is the round's. None is chosen after the fact from more than one that fit.",
+    "The numeric halves are computed by audit/judges/panel.py verdict_round_reading. Whether a stated reason changed category is read from the judges' own words, quoted in the round's record beside the category it was read as."
+  ],
+  "issue_1": {
+    "target": "Three of three runs in the measurement window — one a bank — reach an approved rendered report with no terminal and no rescue (delivery plan section 12).",
+    "read_over": "The round's three runs. No bank is in this round's plan; the window's bank is the M&T run of 17 September 2026, read from its own record and reported beside the three.",
+    "no_terminal": "Every decision the run needed was taken through the product's own gate decisions, which the audit driver calls exactly as the pages post them, with no command, script or database edit standing in for a control.",
+    "no_rescue": "No gate approved against its own failed checks, no stranded-run resume, and no reseal. A cap raised at a budget stop through the product's own control is recorded and is not a rescue.",
+    "refresh": "A refresh that finds nothing new renders no document and leaves the prior report current by design; reaching that state counts as reaching its terminal state."
+  },
+  "refresh_case": {
+    "done_when": "F4's own test (docs/V1.0_Alpha/04-feature-specifications.md): the refresh costs under £2, completes in under ten minutes, produces a change summary naming every material move, and leaves the prior report readable at its own address.",
+    "variance": "audit.scoring.variance over day one's MSFT run and its refresh. Every calculation that differs is either price-driven — named by the refresh's own change rows as moved with no document read for the first time — or a defect, named."
+  },
+  "blinding": {
+    "assignment_seed": 20260924,
+    "identity_guess_at_chance": "0.5",
+    "identity_guess_reported_with_caveat_above": "0.7",
+    "phase_5_rate": "1.0, over fifteen reads on 19 September 2026, every one stated as certain",
+    "$comment": "A hit rate materially above chance does not void the comparison; it attaches a caveat to it, and the caveat is never omitted. The Phase 5 rate attaches to all nine comparisons unless the round's own identity guess, last in the spend order, measures a lower one."
+  },
+  "spend_order": [
+    {
+      "stage": "the AZN run",
+      "estimate_gbp": "7.60"
+    },
+    {
+      "stage": "the MSFT run",
+      "estimate_gbp": "7.10"
+    },
+    {
+      "stage": "the fresh baseline",
+      "estimate_gbp": "6.20"
+    },
+    {
+      "stage": "the MSFT refresh, the next UTC day",
+      "estimate_gbp": "2.00"
+    },
+    {
+      "stage": "the counted six comparisons",
+      "estimate_gbp": "2.10"
+    },
+    {
+      "stage": "the three like-for-like MSFT comparisons",
+      "estimate_gbp": "1.05"
+    },
+    {
+      "stage": "the identity guess over the round's pairings",
+      "estimate_gbp": "2.50"
+    }
+  ],
+  "stop_rule": "Before each stage, if the round's spend so far plus the stage's estimate would pass £31.50, the stage is not bought: the identity guess and the like-for-like MSFT comparisons are dropped and reported as not bought; any earlier stage stops the round and goes back to the operator.",
+  "assumptions": {
+    "$comment": [
+      "Unchanged in substance from Phase 5's corrected block, and written from the runner rather",
+      "than beside it: audit/subjects.py is what the driver supplies, keyed by the runner's own",
+      "subject keys. A derived value is the product being measured and is allowed to vary; a typed",
+      "value is the operator's and must not, because two runs that differ only in the typing produce",
+      "two valuations and no information."
+    ],
+    "rule": "Prefer the platform's own derived value wherever it can derive one. Where it cannot, the operator supplies the value named below, identically in every run of the round — except for those named as derived, for which no typed value exists in the round's commissions, so a run that cannot derive one halts at the assumptions gate instead.",
+    "derived_and_not_fixed": [
+      "beta",
+      "risk_free_rate",
+      "exit_multiple"
+    ],
+    "also_derived_when_the_platform_can": [
+      "equity_risk_premium",
+      "terminal_growth",
+      "cost_of_debt",
+      "revenue_growth",
+      "ebit_margin",
+      "capex_intensity",
+      "depreciation_intensity",
+      "working_capital_intensity",
+      "tax_rate"
+    ],
+    "operator_supplied_and_fixed": {
+      "azn": {
+        "equity_risk_premium": "0.045",
+        "terminal_growth": "0.025",
+        "cost_of_debt": "0.05",
+        "revenue_growth": "0.12",
+        "ebit_margin": "0.22",
+        "capex_intensity": "0.05",
+        "depreciation_intensity": "0.10",
+        "working_capital_intensity": "0.00",
+        "tax_rate": "0.20"
+      },
+      "msft1": {
+        "equity_risk_premium": "0.045",
+        "terminal_growth": "0.025",
+        "cost_of_debt": "0.05",
+        "revenue_growth": "0.15",
+        "ebit_margin": "0.45",
+        "capex_intensity": "0.25",
+        "depreciation_intensity": "0.10",
+        "working_capital_intensity": "0.00",
+        "tax_rate": "0.18"
+      }
+    },
+    "policy_bounds": "audit/driver/policy.py BOUNDS amend a proposal outside its band to the nearest bound and record it; the beta band is 0.3 to 2.0, and AZN's prices have implied about 0.27 on both of its runs so far."
+  }
+}

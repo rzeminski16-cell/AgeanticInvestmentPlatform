@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final
 
@@ -138,3 +139,115 @@ class TestTheBlindingIsDecidedInAdvance:
 
         assert float(blinding["identity_guess_at_chance"]) == 0.5
         assert float(blinding["identity_guess_reported_with_caveat_above"]) > 0.5
+
+
+# -- The verdict round (Phase 7) -------------------------------------------------------------------
+
+PHASE_7: Final = ROOT / "docs" / "plan" / "phase-7-pre-registration.json"
+
+# Delivery plan §12's target for ISSUE 2, word for word. The round is read against this
+# sentence and nothing looser, so a copy that drifts from it is a different target.
+SECTION_12_TARGET: Final = (
+    "at least 3 of 6 comparisons do not choose the console, and at least 2 of 6 choose the "
+    "platform, with the fresh baseline in the set"
+)
+
+
+def _phase_7() -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(PHASE_7.read_text())
+    return data
+
+
+class TestTheVerdictRoundIsFixedInAdvance:
+    """The same mechanism as Phase 5's, over the verdict round's own file."""
+
+    def test_the_file_is_hashed_where_the_strategy_records_it(self) -> None:
+        digest = sha256_hex(PHASE_7.read_bytes())
+        recorded = set(re.findall(r"\b[0-9a-f]{64}\b", STRATEGY.read_text()))
+
+        assert _phase_7()["phase"] == 7
+        assert digest in recorded, (
+            f"The verdict round's pre-registration hashes to {digest}, which is not among the "
+            f"digests recorded in {STRATEGY.relative_to(ROOT)}."
+        )
+
+    def test_the_readings_are_three_and_read_in_order(self) -> None:
+        """Phase 5's file let two readings fit at once. These are ordered, so the first that
+        holds is the round's and no choice is left for after the result."""
+        readings = _phase_7()["readings"]
+
+        assert [r["id"] for r in readings] == ["fixed", "abandon", "not_yet"]
+        assert [r["order"] for r in readings] == [1, 2, 3]
+        for reading in readings:
+            assert reading["when"].strip(), reading["id"]
+            assert reading["means"].strip(), reading["id"]
+            assert reading["then"].strip(), reading["id"]
+
+    def test_the_target_is_the_delivery_plans_own_words(self) -> None:
+        fixed = next(r for r in _phase_7()["readings"] if r["id"] == "fixed")
+
+        assert SECTION_12_TARGET in fixed["when"]
+        plan = (ROOT / "docs" / "V1.0_Alpha" / "05-delivery-plan.md").read_text()
+        assert "3 of 6 comparisons do not choose the console" in plan
+
+    def test_the_abandonment_criterion_still_says_stop(self) -> None:
+        abandon = next(r for r in _phase_7()["readings"] if r["id"] == "abandon")
+
+        assert abandon["then"].lstrip().startswith("Stop.")
+        assert "evidence base" in abandon["then"]
+        assert "no judge's stated reason changes category" in abandon["when"]
+
+    def test_the_seed_is_fresh_and_is_what_the_panel_reads(self) -> None:
+        """A round seeded like the last one deals the same sides to the same keys."""
+        from audit.judges.panel import PHASE_7_ROUND, _seed  # noqa: PLC0415
+
+        seed = _phase_7()["blinding"]["assignment_seed"]
+        assert isinstance(seed, int)
+        assert seed != _loaded()["blinding"]["assignment_seed"]
+        assert PHASE_7_ROUND.pre_registration == PHASE_7
+        assert _seed(PHASE_7_ROUND.pre_registration) == seed
+
+    def test_the_pairings_are_the_panels(self) -> None:
+        """The file and the code describe one round, or the code wins silently — the failure
+        Phase 5's file met through its assumptions block."""
+        from audit.judges.panel import PHASE_7_ROUND  # noqa: PLC0415
+
+        written = [
+            (p["key"], p["platform"], p["comparator"], tuple(p["sets"]))
+            for p in _phase_7()["round"]["panel"]["pairings"]
+        ]
+        coded = [
+            (
+                pair.key,
+                str(pair.platform.relative_to(ROOT)),
+                str(pair.baseline.relative_to(ROOT)),
+                pair.sets,
+            )
+            for pair in PHASE_7_ROUND.pairs
+        ]
+        assert written == coded
+
+    def test_the_fresh_baseline_is_in_the_counted_set(self) -> None:
+        pairings = _phase_7()["round"]["panel"]["pairings"]
+        counted = [p for p in pairings if "counted" in p["sets"]]
+        fresh = _phase_7()["round"]["comparator"]["fresh"]
+
+        assert len(counted) * 3 == 6
+        assert any(fresh["label"] in p["comparator"] for p in counted)
+
+    def test_the_typed_assumptions_are_the_runners(self) -> None:
+        """Written from `audit/subjects.py`, keyed by the runner's own subject keys."""
+        from audit.subjects import subject_for  # noqa: PLC0415
+
+        fixed = _phase_7()["assumptions"]["operator_supplied_and_fixed"]
+        derived = set(_phase_7()["assumptions"]["derived_and_not_fixed"])
+        for key, values in fixed.items():
+            typed = {a.name: a.value for a in subject_for(key).assumptions}
+            assert {name: Decimal(value) for name, value in values.items()} == typed, key
+            assert not derived & set(typed), f"{key} types a value the round derives"
+
+    def test_the_spend_order_fits_the_budget(self) -> None:
+        data = _phase_7()
+        total = sum(Decimal(stage["estimate_gbp"]) for stage in data["spend_order"])
+
+        assert total <= Decimal(data["budget_gbp"])

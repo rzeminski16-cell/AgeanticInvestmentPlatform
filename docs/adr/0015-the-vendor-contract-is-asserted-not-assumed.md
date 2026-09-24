@@ -191,3 +191,19 @@ untargeted attempts behind it for SDK shape drift.
 - **A shared "model facts" module.** `effort` capability lives with the provider that speaks
   the protocol and prices live in `costs.py`, which the provider-agnostic meter needs. Merging
   them would drag vendor capability into a module that has no business knowing about it.
+
+## Amended 24 September 2026: Sonnet 5's $2/$10 is the standard price
+
+The decision above not to meter Sonnet 5 at its introductory $2/$10 rested on the rate
+lapsing on 31 August, after which a ledger fed by it would under-report. It did not lapse. The
+official pricing page, read on 24 September 2026, says the introductory price *"is now the
+standard price"* and that the scheduled rise to $3/$15 *"will not occur"*. So the table's $3/$15
+has overstated every Sonnet 5 call by half since the first of the month — the safe direction,
+and still the defect this record already named for Opus: a cap that trips early stops runs with
+money left in the month. `DEFAULT_PRICES` now carries $2/$10.
+
+The same read added two rows the table did not have. Opus 5.5 is $4/$20, and it and Fable 5.1
+read the cache at a twentieth and a fortieth of input rather than a tenth, so
+`ModelPrices.from_input_rate` takes the ratio as an argument and the two rows state it. The
+reasoning is this record's own: a price is asserted against the published page on a date, not
+carried forward from the last model that looked similar.

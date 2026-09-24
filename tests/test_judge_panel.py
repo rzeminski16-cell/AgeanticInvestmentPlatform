@@ -32,17 +32,25 @@ from audit.judges.blinding import (
     tells_in,
 )
 from audit.judges.panel import (
+    COUNTED,
+    LIKE_FOR_LIKE,
+    PHASE_5_ROUND,
+    PHASE_7_ROUND,
     PRE_REGISTRATION,
     SUBJECTS,
+    Comparison,
     Guess,
     Round,
     _answer_of,
     _blinded,
     _by_confidence,
+    _pair_documents,
     _prompt,
     _seed,
+    scored_by_set,
+    verdict_round_reading,
 )
-from audit.judges.rubric import LENS_BRIEFS, LENSES
+from audit.judges.rubric import LENS_BRIEFS, LENSES, VERDICT_DIMENSIONS
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 RECORDED: Final = ROOT / "docs" / "plan" / "readiness-audit-2026-09"
@@ -188,3 +196,142 @@ class _FakeBlock:
 class _FakeMessage:
     def __init__(self, text: str) -> None:
         self.content = [_FakeBlock(text)]
+
+
+# -- The verdict round's design and arithmetic -------------------------------------------------
+
+
+def _comparison(key: str, *, handed: str, platform_dimensions: int = 0) -> Comparison:
+    """A scored comparison, invented: the judge's letter mapped through a fixed identity."""
+    identity = {"A": PLATFORM, "B": BASELINE}
+    letter = "A" if handed == PLATFORM else "B"
+    dimensions = [
+        "A" if index < platform_dimensions else "B" for index in range(len(VERDICT_DIMENSIONS))
+    ]
+    verdict: dict[str, Any] = dict(zip(VERDICT_DIMENSIONS, dimensions, strict=True))
+    verdict["which_would_you_hand_to_a_colleague_and_why"] = (
+        "Neither of them, as it happens." if handed == "unreadable" else f"{letter}, it is sound."
+    )
+    return Comparison(
+        subject=key,
+        lens="operator",
+        identity=identity,
+        verdict=verdict,
+        usage={},
+        cost_gbp=Decimal(0),
+    )
+
+
+class TestTheVerdictRoundsDesign:
+    def test_its_pairings_are_three_keys_over_two_platform_documents(self) -> None:
+        keys = [pair.key for pair in PHASE_7_ROUND.pairs]
+        platforms = {pair.platform for pair in PHASE_7_ROUND.pairs}
+
+        assert keys == ["azn", "msft1", "msft1-september"]
+        assert len(platforms) == 2
+        assert PHASE_7_ROUND.out_file != PHASE_5_ROUND.out_file
+
+    def test_the_counted_six_hold_the_fresh_baseline(self) -> None:
+        counted = [pair for pair in PHASE_7_ROUND.pairs if COUNTED in pair.sets]
+
+        assert len(counted) * len(LENSES) == 6
+        assert any("msft1-fresh" in str(pair.baseline) for pair in counted)
+
+    def test_the_like_for_like_six_use_the_notes_phase_5_judged_against(self) -> None:
+        like = [pair for pair in PHASE_7_ROUND.pairs if LIKE_FOR_LIKE in pair.sets]
+
+        assert len(like) * len(LENSES) == 6
+        assert all(pair.baseline.is_relative_to(RECORDED / "baseline") for pair in like)
+
+    def test_phase_5s_design_reads_the_documents_it_judged(self) -> None:
+        """The refactor into designs must not have moved what Phase 5's comparisons read."""
+        for pair in PHASE_5_ROUND.pairs:
+            documents = _pair_documents(pair)
+            assert set(documents) == {PLATFORM, BASELINE}
+            assert pair.platform.exists()
+            assert pair.baseline.exists()
+
+    def test_the_seed_is_dealt_per_key(self) -> None:
+        """Two pairings sharing a platform document are two coins, not one."""
+        seed = _seed(PHASE_7_ROUND.pre_registration)
+        dealt = assign(seed=seed, subjects=[pair.key for pair in PHASE_7_ROUND.pairs])
+
+        assert [one.subject for one in dealt] == ["azn", "msft1", "msft1-september"]
+        assert {one.a for one in dealt} == {PLATFORM, BASELINE}
+
+
+class TestTheVerdictRoundsReading:
+    def _round(self, handed: dict[str, list[str]], platform_dimensions: int = 0) -> dict[str, Any]:
+        comparisons = [
+            _comparison(key, handed=side, platform_dimensions=platform_dimensions)
+            for key, sides in handed.items()
+            for side in sides
+        ]
+        return scored_by_set(comparisons, PHASE_7_ROUND)
+
+    def test_three_off_the_console_and_two_to_the_platform_is_fixed(self) -> None:
+        by_set = self._round(
+            {
+                "azn": [PLATFORM, BASELINE, BASELINE],
+                "msft1": [PLATFORM, "unreadable", BASELINE],
+                "msft1-september": [BASELINE, BASELINE, BASELINE],
+            }
+        )
+        reading = verdict_round_reading(by_set)
+
+        assert by_set[COUNTED]["comparisons"] == 6
+        assert by_set[COUNTED]["no_longer_chose_the_console"] == 3
+        assert by_set[COUNTED]["handed_to_the_platform"] == 2
+        assert reading["fixed"]
+
+    def test_three_off_the_console_with_one_to_the_platform_is_not(self) -> None:
+        by_set = self._round(
+            {
+                "azn": [PLATFORM, "unreadable", "unreadable"],
+                "msft1": [BASELINE, BASELINE, BASELINE],
+                "msft1-september": [BASELINE, BASELINE, BASELINE],
+            }
+        )
+
+        assert not verdict_round_reading(by_set)["fixed"]
+
+    def test_all_to_the_console_at_phase_5s_level_is_nothing_moved(self) -> None:
+        by_set = self._round(
+            {
+                "azn": [BASELINE] * 3,
+                "msft1": [BASELINE] * 3,
+                "msft1-september": [BASELINE] * 3,
+            }
+        )
+        reading = verdict_round_reading(by_set)
+
+        assert by_set[LIKE_FOR_LIKE]["dimension_verdicts_to_the_platform"] == 0
+        assert not reading["fixed"]
+        assert reading["nothing_moved_since_phase_5"]
+
+    def test_more_dimensions_than_phase_5_is_movement(self) -> None:
+        by_set = self._round(
+            {
+                "azn": [BASELINE] * 3,
+                "msft1": [BASELINE] * 3,
+                "msft1-september": [BASELINE] * 3,
+            },
+            platform_dimensions=1,
+        )
+
+        assert by_set[LIKE_FOR_LIKE]["dimension_verdicts_to_the_platform"] == 6
+        assert not verdict_round_reading(by_set)["nothing_moved_since_phase_5"]
+
+    def test_a_short_set_cannot_be_read(self) -> None:
+        """Fewer than six answered is a shortfall to report, not a smaller denominator."""
+        by_set = self._round(
+            {
+                "azn": [PLATFORM, PLATFORM, PLATFORM],
+                "msft1": [PLATFORM],
+                "msft1-september": [BASELINE] * 3,
+            }
+        )
+        reading = verdict_round_reading(by_set)
+
+        assert not reading["counted_six_answered"]
+        assert not reading["fixed"]

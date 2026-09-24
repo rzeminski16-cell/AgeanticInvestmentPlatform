@@ -2633,6 +2633,21 @@ found rather than as scope that was always there.
     look-back appears there; no page yet lists a company's premises across its reports
     outside the thesis pages.
 
+68. **The meter charged Sonnet 5 half as much again as the vendor does, 24 September
+    2026.** Found pricing the verdict round's fresh baseline against the official pricing
+    page. `DEFAULT_PRICES` held Sonnet 5 at the $3/$15 sticker on ADR 0015's reasoning that
+    the introductory $2/$10 would lapse on 31 August; the page now says $2/$10 *"is now the
+    standard price"* and that the rise *"will not occur"*. Every Sonnet-routed call —
+    extraction, analysis, the validators, the workhorse section writer, the peer and theme
+    proposals, the monitor, Ask's reader — was metered 50% high from 1 September, the safe
+    direction and still wrong: the monthly cap trips early and the Phase 5 round's two run
+    costs (£7.61 and £7.06) are overstated on their Sonnet lines, so the verdict round's run
+    costs are not comparable with them line for line. Fixed with ADR 0015 amended in place;
+    the same read added Opus 5.5 ($4/$20) and the two newest models' cache-read fractions
+    (a twentieth on Opus 5.5, a fortieth on Fable 5.1), which `from_input_rate` now takes as
+    an argument. Stored `costs` rows are not rewritten: they are what the meter said at the
+    time, and the fx rate on each row already shows that a row is a reading, not a bill.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

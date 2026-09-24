@@ -117,12 +117,12 @@ class TestTheApplicabilityMatrix:
 
 class TestTheEstimateIsTheCeiling:
     def test_a_twelve_k_section_costs_what_the_cost_model_says(self) -> None:
-        # §1.8: 12k in, 3k out on Sonnet ($3/$15 per Mtok) = $0.081 → £ at the rate given.
+        # §1.8: 12k in, 3k out on Sonnet ($2/$10 per Mtok) = $0.054 → £ at the rate given.
         estimate = estimate_custom_section_cost(
             model="claude-sonnet-5", token_budget=12_000, usd_to_gbp=Decimal("0.79")
         )
 
-        assert estimate == Decimal("0.0640")
+        assert estimate == Decimal("0.0427")
 
     def test_an_unknown_model_is_priced_at_the_dearest_known(self) -> None:
         cautious = estimate_custom_section_cost(

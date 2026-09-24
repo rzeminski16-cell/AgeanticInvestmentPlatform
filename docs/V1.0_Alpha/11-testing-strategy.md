@@ -454,6 +454,16 @@ of this must be true before the round is allowed to spend:**
    one halts and names it. Correcting a pre-registration *after* a result is the thing the
    hash exists to expose; correcting it before, with the reason attached, is the thing it
    exists to make safe.
+   **The verdict round's own file, 24 September 2026**:
+   [`docs/plan/phase-7-pre-registration.json`](../plan/phase-7-pre-registration.json) — the
+   delivery plan's §12 target for ISSUE 2 verbatim, three readings read in a fixed order so no
+   two can fit at once, the comparisons in two sets (the counted six, *with the fresh baseline
+   in the set*, and the like-for-like six Phase 5 judged against the same notes), and the
+   assumptions written from `audit/subjects.py`. Held by the same test.
+
+   | hash | when | what changed |
+   |---|---|---|
+   | `dd391c6f23260e95ee6ec92532e6a5169b482f58908e24f2342f25f5556a6d96` | landed, before any of the round's spend | the readings, the pairings, the comparator, the spend order and the assumptions as first written |
 9. `aer preflight` reading *Ready to run*, and `just test-live` passing — the fraction of a
    penny that proves the key, the router and the ledger work before £21 depends on them.
 

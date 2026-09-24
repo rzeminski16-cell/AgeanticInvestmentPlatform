@@ -42,12 +42,13 @@ __all__ = [
     "unknown_model_prices",
 ]
 
-# Per million tokens, in USD. Published list prices as at July 2026; they change, which is
-# why they are a table here and overridable from configuration rather than arithmetic
-# scattered through the code.
+# Per million tokens, in USD. Published list prices, verified against the official pricing
+# page on 24 September 2026; they change, which is why they are a table here and
+# overridable from configuration rather than arithmetic scattered through the code.
 #
-# The pricing shape is the same for every current Claude model: output costs five times
-# input, a cache read a tenth, a cache write a quarter more.
+# The pricing shape is nearly the same for every current Claude model: output costs five
+# times input, a cache write a quarter more, and a cache read a tenth — except on the two
+# newest, where the read is a twentieth (Opus 5.5) and a fortieth (Fable 5.1).
 _MILLION: Final = Decimal(1_000_000)
 
 
@@ -61,34 +62,44 @@ class ModelPrices:
     cache_write_usd: Decimal
 
     @classmethod
-    def from_input_rate(cls, input_usd: str | Decimal, output_usd: str | Decimal) -> ModelPrices:
+    def from_input_rate(
+        cls,
+        input_usd: str | Decimal,
+        output_usd: str | Decimal,
+        *,
+        cache_read_ratio: str | Decimal = "0.1",
+    ) -> ModelPrices:
         """Derive the cache rates from the input rate, as every current model does.
 
         Stated as a derivation rather than four literals so that the relationship is
-        visible: if a future model prices caching differently, the constructor call
-        changes and the reader sees that it did.
+        visible: when a model prices caching differently — Opus 5.5 and Fable 5.1 read the
+        cache at a twentieth and a fortieth of input — the constructor call says so, and
+        the reader sees that it did.
         """
         base = Decimal(str(input_usd))
         return cls(
             input_usd=base,
             output_usd=Decimal(str(output_usd)),
-            cache_read_usd=base / 10,
+            cache_read_usd=base * Decimal(str(cache_read_ratio)),
             cache_write_usd=base * Decimal("1.25"),
         )
 
 
 DEFAULT_PRICES: Final[dict[str, ModelPrices]] = {
-    # Sticker rates. Opus 5 ships at Opus 4.8's pricing; Sonnet 5 holds the $3/$15 sticker
-    # (an introductory $2/$10 runs to 2026-08-31, deliberately not used here — a cap fed by
-    # a promotional rate starts under-reporting on the day it lapses).
+    # Sticker rates. Opus 5 ships at Opus 4.8's pricing. Sonnet 5's $2/$10 was introductory
+    # to 2026-08-31 and deliberately not used while it was (ADR 0015: a cap fed by a
+    # promotional rate starts under-reporting on the day it lapses); the vendor has since
+    # made it the standard price and cancelled the rise to $3/$15, so the table carries it.
     "claude-opus-5": ModelPrices.from_input_rate("5.00", "25.00"),
-    "claude-sonnet-5": ModelPrices.from_input_rate("3.00", "15.00"),
+    "claude-sonnet-5": ModelPrices.from_input_rate("2.00", "10.00"),
     "claude-haiku-4-5": ModelPrices.from_input_rate("1.00", "5.00"),
+    # The next Opus, which no route names yet: priced so a baseline or a route that does
+    # is metered at its own rate rather than at the dearest model's.
+    "claude-opus-5-5": ModelPrices.from_input_rate("4.00", "20.00", cache_read_ratio="0.05"),
     # The tier above Opus, which the provider already accepts as a route. Listed so the
     # unknown-model fallback below overstates rather than halves a Fable bill (readiness
-    # audit 2026-09). The cache-read rate derived here ($1.00) overstates the published
-    # $0.25, which is the safe direction.
-    "claude-fable-5-1": ModelPrices.from_input_rate("10.00", "50.00"),
+    # audit 2026-09).
+    "claude-fable-5-1": ModelPrices.from_input_rate("10.00", "50.00", cache_read_ratio="0.025"),
     "claude-fable-5": ModelPrices.from_input_rate("10.00", "50.00"),
 }
 

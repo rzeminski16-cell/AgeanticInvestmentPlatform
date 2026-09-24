@@ -4,15 +4,19 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
+
 from audit.driver.policy import (
     SPINE_KEYS,
     FinalGateFacts,
+    GateVerdict,
     decide_assumptions,
     decide_final,
     decide_peer_set,
     decide_plan,
     decide_sector,
     decide_unmapped,
+    override_final,
 )
 from audit.subjects import subject_for
 
@@ -222,3 +226,51 @@ class TestTheFinalGate:
             failed_metrics=("citation_accuracy",),
         )
         assert decide_final(facts).stop_reason == "failed metrics"
+
+
+class TestTheOperatorsOverride:
+    """A final gate the policy stops at on failed checks can be approved by the operator's
+    decision, with the reason on the row; nothing else it stops at can."""
+
+    def _stopped(
+        self, *, lost: int = 0, failed_metrics: tuple[str, ...] = ("presentation_integrity",)
+    ) -> GateVerdict:
+        sections = tuple(
+            {"key": f"s{i}", "status": "failed" if i < lost else "generated", "note": None}
+            for i in range(18)
+        )
+        return decide_final(
+            FinalGateFacts(
+                sections=sections,
+                triggers=(),
+                escalations=(),
+                revisions=(),
+                failed_metrics=failed_metrics,
+            )
+        )
+
+    def test_failed_checks_are_approved_with_both_reasons_on_the_row(self) -> None:
+        verdict = override_final(self._stopped(), "Published so the round has its document.")
+
+        assert verdict.approve
+        assert verdict.rationale.startswith(
+            "Operator override: Published so the round has its document."
+        )
+        assert "presentation_integrity" in verdict.rationale
+        assert verdict.findings[-1] == "approved against the policy's stop, by the operator"
+
+    def test_a_draft_that_lost_sections_is_not_overridden(self) -> None:
+        stopped = self._stopped(lost=2, failed_metrics=())
+
+        with pytest.raises(ValueError, match="no reason answers"):
+            override_final(stopped, "Publish it anyway.")
+
+    def test_a_blank_reason_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="a click"):
+            override_final(self._stopped(), "  ")
+
+    def test_an_approved_verdict_passes_through_untouched(self) -> None:
+        approved = self._stopped(failed_metrics=())
+
+        assert approved.approve
+        assert override_final(approved, "Not needed.") is approved

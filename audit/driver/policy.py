@@ -338,6 +338,35 @@ class FinalGateFacts:
     failed_metrics: tuple[str, ...] = field(default_factory=tuple)
 
 
+def override_final(verdict: GateVerdict, reason: str) -> GateVerdict:
+    """The operator's decision to approve a final gate the policy stopped at.
+
+    Only a stop for failed checks can be overridden: a draft with sections still pending or
+    too many lost is not a document to judge, and approving it would publish the gap. The
+    operator's reason leads the rationale and the policy's own reason for stopping follows
+    it, so the approval row says both what was decided and what it was decided against.
+
+    Raises:
+        ValueError: If the reason is blank, or the stop is not one a reason can answer.
+    """
+    if not reason.strip():
+        message = "An override is a decision, and a decision with no reason is a click."
+        raise ValueError(message)
+    if verdict.approve:
+        return verdict
+    if verdict.stop_reason != "failed metrics":
+        message = f"The final gate stopped on {verdict.stop_reason!r}, which no reason answers."
+        raise ValueError(message)
+    return GateVerdict(
+        approve=True,
+        rationale=(
+            f"Operator override: {reason.strip()} The policy stopped here because: "
+            f"{verdict.rationale}"
+        ),
+        findings=(*verdict.findings, "approved against the policy's stop, by the operator"),
+    )
+
+
 def decide_final(facts: FinalGateFacts) -> GateVerdict:
     """Approve a draft that is whole and passed its own checks; stop on anything else."""
     generated = [s for s in facts.sections if str(s.get("status", "")).lower() == "generated"]

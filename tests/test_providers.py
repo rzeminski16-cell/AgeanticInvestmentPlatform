@@ -156,19 +156,22 @@ class TestPricing:
     """Arithmetic against published rates, stated as literals rather than derived."""
 
     def test_a_million_input_tokens_of_sonnet_costs_the_published_rate(self) -> None:
+        """$2, the standard price since the vendor cancelled the rise to $3 it had
+        scheduled for 1 September 2026. The table held $3 until 24 September, which
+        overstated every Sonnet call by half."""
         usage = Usage(input_tokens=MILLION, output_tokens=0, model="claude-sonnet-5")
         lines = price_usage(usage, provider="anthropic", usd_to_gbp=Decimal(1))
 
         assert len(lines) == 1
         assert lines[0].category is CostCategory.LLM_INPUT
-        assert lines[0].amount_usd == Decimal("3.00")
+        assert lines[0].amount_usd == Decimal("2.00")
 
     def test_a_million_output_tokens_of_sonnet_costs_the_published_rate(self) -> None:
         usage = Usage(input_tokens=0, output_tokens=MILLION, model="claude-sonnet-5")
         lines = price_usage(usage, provider="anthropic", usd_to_gbp=Decimal(1))
 
         assert lines[0].category is CostCategory.LLM_OUTPUT
-        assert lines[0].amount_usd == Decimal("15.00")
+        assert lines[0].amount_usd == Decimal("10.00")
 
     def test_cache_reads_and_writes_are_priced_apart_from_input(self) -> None:
         """Folding them into input would misreport a cached run by an order of magnitude."""
@@ -184,9 +187,9 @@ class TestPricing:
             for line in price_usage(usage, provider="anthropic", usd_to_gbp=Decimal(1))
         }
 
-        assert by_category[CostCategory.LLM_INPUT] == Decimal("3.00")
-        assert by_category[CostCategory.CACHE_READ] == Decimal("0.30")
-        assert by_category[CostCategory.CACHE_WRITE] == Decimal("3.75")
+        assert by_category[CostCategory.LLM_INPUT] == Decimal("2.00")
+        assert by_category[CostCategory.CACHE_READ] == Decimal("0.20")
+        assert by_category[CostCategory.CACHE_WRITE] == Decimal("2.50")
 
     def test_a_zero_category_produces_no_line(self) -> None:
         usage = Usage(input_tokens=10, output_tokens=0, model="claude-sonnet-5")
@@ -199,7 +202,7 @@ class TestPricing:
         usage = Usage(input_tokens=MILLION, output_tokens=0, model="claude-sonnet-5")
         line = price_usage(usage, provider="anthropic", usd_to_gbp=Decimal("0.79"))[0]
 
-        assert line.amount_gbp == Decimal("3.00") * Decimal("0.79")
+        assert line.amount_gbp == Decimal("2.00") * Decimal("0.79")
         # On the row, so last month's costs stay reconcilable when the rate changes.
         assert line.fx_rate == Decimal("0.79")
 
@@ -219,6 +222,18 @@ class TestPricing:
         assert price_usage(usage, provider="a", usd_to_gbp=Decimal(1))[0].amount_usd == Decimal(
             "50.00"
         )
+
+    def test_the_two_newest_models_read_the_cache_at_their_own_fraction(self) -> None:
+        """Published literals: Opus 5.5 reads the cache at $0.20, a twentieth of its input
+        rate, and Fable 5.1 at $0.25, a fortieth. A tenth would overstate both."""
+        opus = DEFAULT_PRICES["claude-opus-5-5"]
+        fable = DEFAULT_PRICES["claude-fable-5-1"]
+
+        assert (opus.input_usd, opus.output_usd) == (Decimal("4.00"), Decimal("20.00"))
+        assert opus.cache_read_usd == Decimal("0.20")
+        assert opus.cache_write_usd == Decimal("5.00")
+        assert fable.cache_read_usd == Decimal("0.25")
+        assert fable.cache_write_usd == Decimal("12.50")
 
     def test_an_unknown_model_is_priced_at_the_dearest_known_one(self) -> None:
         """Overstating pauses a run for a decision; understating spends money nobody agreed to."""

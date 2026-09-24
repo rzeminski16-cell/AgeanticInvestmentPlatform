@@ -2,11 +2,17 @@
 
     uv run python -m audit.driver.run msft1 --cap 10 --executor worker
     uv run python -m audit.driver.run msft2 --kill-at draft --kill-after 150
+    uv run python -m audit.driver.run msft1 --refresh-of <report-id> --raise-to 2 \\
+        --label msft1-refresh
 
 Stops for the operator on anything the policy will not decide: a failed blocking metric, a
 post-approval pause it cannot reseal, a monthly-cap stop, an outstanding assumption nobody
-stated, a third failure. Every stop is a line in ``audit/out/<subject>/driver.jsonl`` with
-its reason.
+stated, a third failure. Every stop is a line in ``audit/out/<label>/driver.jsonl`` with
+its reason; the label is the subject's key unless one is given.
+
+A refresh (F4, ADR 0131) is commissioned the way the report page's control commissions it —
+:func:`aer.services.refresh.start_refresh`, which records the priced go-ahead as the new
+job's plan approval — and then driven like any other run.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ from aer.errors import ValidationError
 from aer.queue import worker_health
 from aer.runtime import Registers
 from aer.services import approvals as approval_service
+from aer.services import refresh as refresh_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services.acceptance import acceptance_readout
@@ -70,6 +77,7 @@ async def drive(
     existing_job_id: uuid.UUID | None = None,
     already_queued: bool = False,
     registers: Registers | None = None,
+    final_override: str | None = None,
 ) -> dict[str, Any]:
     """Commission a subject and drive it to a terminal state, recording everything.
 
@@ -79,6 +87,9 @@ async def drive(
             driver's own settings, because a driver that skipped the check could start runs
             the product refuses at its own front door — and this one spends money. A scene
             with no business reaching a register passes its own, as the smoke harness does.
+        final_override: The operator's reason for approving a final gate the policy stops
+            at on failed checks. Given only when the operator has decided to publish the
+            document anyway; the approval row carries it (:func:`clear_pending_gate`).
 
     A refused subject returns a summary whose ``status`` is ``REFUSED`` and whose
     ``refusal`` is the sentence an operator would read. No job exists to drive, and none is
@@ -246,6 +257,7 @@ async def drive(
                         actor=await runtime.operator(session),
                         cap_gbp=raise_to_gbp,
                         recorder=recorder,
+                        final_override=final_override,
                     )
                 if outcome.not_waiting:
                     # A stale read: the worker already took the job. Poll on without
@@ -453,6 +465,37 @@ async def _job(session: Any, job_id: uuid.UUID) -> Job:
     return cast("Job", job)
 
 
+async def start_refresh_of(
+    report_id: uuid.UUID, *, runtime: AuditRuntime | None = None
+) -> uuid.UUID:
+    """Commission a refresh of a report through the product's own service, and name its run.
+
+    What the report page's *Refresh* control does, less the browser: the service refuses a
+    report that is not current, one whose request has a run going and one that is not the
+    operator's, and on success records the priced go-ahead as the new run's plan approval.
+    The run is left queued for :func:`drive` to enqueue once, as it does any queued run.
+    """
+    opened_here = runtime is None
+    runtime = runtime or await AuditRuntime.open()
+    try:
+        async with runtime.session() as session:
+            report = await session.get(Report, report_id)
+            if report is None:
+                message = f"No report {report_id}."
+                raise RuntimeError(message)
+            job = await refresh_service.start_refresh(
+                session,
+                report=report,
+                actor=await runtime.operator(session),
+                settings=runtime.resolved,
+            )
+            await session.commit()
+            return job.id
+    finally:
+        if opened_here:
+            await runtime.close()
+
+
 async def _resume_stranded(
     runtime: AuditRuntime,
     session: AsyncSession,
@@ -620,7 +663,26 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="the resumed job was continued through the product and is already on the queue",
     )
+    parser.add_argument(
+        "--refresh-of",
+        type=uuid.UUID,
+        default=None,
+        help="commission a refresh of this report through the product, then drive it",
+    )
+    parser.add_argument(
+        "--label", default=None, help="the output folder's name, when not the subject's key"
+    )
+    parser.add_argument(
+        "--override-final",
+        default=None,
+        help="the operator's reason for approving a final gate the policy stops at on failed checks",
+    )
     args = parser.parse_args(argv)
+    if args.refresh_of is not None and args.resume_job is not None:
+        parser.error("pass at most one of --refresh-of and --resume-job")
+    existing = args.resume_job
+    if args.refresh_of is not None:
+        existing = asyncio.run(start_refresh_of(args.refresh_of))
     summary = asyncio.run(
         drive(
             subject_for(args.subject),
@@ -631,8 +693,10 @@ def main(argv: list[str] | None = None) -> int:
             kill_after_seconds=args.kill_after,
             analysis_mode=AnalysisMode(args.mode),
             screenshots=args.screenshots,
-            existing_job_id=args.resume_job,
+            existing_job_id=existing,
             already_queued=args.already_queued,
+            label=args.label,
+            final_override=args.override_final,
         )
     )
     print(json.dumps(summary, indent=2, default=str))

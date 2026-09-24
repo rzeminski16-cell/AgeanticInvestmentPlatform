@@ -36,6 +36,7 @@ from audit.driver.policy import (
     decide_sector,
     decide_theme_set,
     decide_unmapped,
+    override_final,
 )
 from audit.driver.recorder import Recorder
 from audit.subjects import Subject
@@ -89,8 +90,14 @@ async def clear_pending_gate(
     actor: User,
     cap_gbp: Decimal,
     recorder: Recorder,
+    final_override: str | None = None,
 ) -> GateOutcome:
-    """Decide the gate the run is waiting at, as the policy says, and write it down."""
+    """Decide the gate the run is waiting at, as the policy says, and write it down.
+
+    ``final_override`` is the operator's reason for approving a final gate the policy stops
+    at on failed checks (:func:`~audit.driver.policy.override_final`). It is read at the final
+    gate only, and the approval carries it ahead of the policy's own reason.
+    """
     paused = await _paused_step(session, job.id)
     if paused is None:
         # `pending_gate` would fall back to the gate order and name a gate the run is not
@@ -159,6 +166,16 @@ async def clear_pending_gate(
     verdict = await _decide(
         session, gate=gate, payload=payload, subject=subject, job=job, cap_gbp=cap_gbp
     )
+    if gate is GateKind.FINAL and final_override is not None and not verdict.approve:
+        stopped = verdict
+        verdict = override_final(verdict, final_override)
+        recorder.event(
+            "gate.overridden",
+            gate=gate.value,
+            reason=final_override,
+            policy_stop=stopped.stop_reason,
+            policy_rationale=stopped.rationale,
+        )
 
     if gate is GateKind.ASSUMPTIONS and verdict.approve:
         for row in (*verdict.supply, *verdict.amend):
