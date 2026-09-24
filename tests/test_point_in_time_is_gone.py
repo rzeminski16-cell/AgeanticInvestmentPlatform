@@ -94,6 +94,10 @@ DOC_ALLOWED: Final = (
     # the platform behaves. A record of what a model said is not such a document, and it is
     # not the rule growing back.
     "docs/plan/phase-5-round-2026-09/",
+    # The verdict round's records, on the same reasoning. The fresh console note wrote *"This
+    # mixes a point-in-time run-rate with a fiscal-year figure"* — the ordinary sense, in a
+    # model's prose about its own estimate — and CI run 551 caught it on the day it was filed.
+    "docs/plan/phase-7-round-2026-09/",
     "docs/plan/ROADMAP.md",
     "docs/V1.0_Alpha/",
     # The index names ADR 0113 by its title, and the knowledge map's invariant table records
