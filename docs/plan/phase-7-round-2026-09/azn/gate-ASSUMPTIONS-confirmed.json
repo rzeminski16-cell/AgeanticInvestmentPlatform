@@ -1,0 +1,100 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.300000000000",
+        "unit": "pure",
+        "justification": "Audit policy: the proposed 0.276718562037 lies outside the 0.3-2.0 band; amended to the nearest bound by the operator's standing policy.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.033377000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0292, 0.0246, 0.0297, 0.0356, 0.0478.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.114739000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.142147000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "11.500000000000",
+        "unit": "pure",
+        "justification": "Low-double-digit EV/EBITDA for large-cap pharma is my prior, not a fact in this run's evidence \u2014 treat it as a proposal for verification against a peer set. What the evidence does support: EBIT margin rising 2.8% to 23.4%, D&A of ~11.5% of revenue (largely Alexion-era amortisation) making EBITDA margin far above EBIT, and genuine franchise diversification. I discounted from a growth rating because the derivation holds 11.9% revenue growth flat, likely overstating terminal EBITDA. Of the two, I prefer the exit multiple as the terminal value estimate: the discount rate is undetermined, and a perpetuity would capitalise a D&A-over-capex wedge (11.5% vs 3.3% of revenue) that cannot persist for ever.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.45
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.119346000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.049600000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 4.96% on 2026-09-22, as published by 2026-09-24 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.0496.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.200000000000",
+        "unit": "pure",
+        "justification": "Effective tax rate near 20 % (20-F). Stated by the operator because the platform derived nothing for it; recorded as a completeness finding.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken as below a cost of capital of at least ~7% (risk-free 4.96% plus any ordinary equity premium for a large-cap pharma; the actual discount rate is unconfirmed), so it sits safely under the rate and under the 0.04 cap. Grounded in the evidence of a five-therapy-area, four-region portfolio with no single-blockbuster dependence and active Phase III readouts \u2014 that supports growth continuing, but perpetual loss-of-exclusivity erosion and payer price pressure prevent a pharma major compounding above nominal GDP for ever. Raise toward 0.03 if pipeline replacement is judged durable; cut toward 0.02 if US pricing policy or the Forxiga patent proceedings are expected to bite.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "-0.035125000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": [
+      "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+    ]
+  },
+  "hash": "a155558980f4da05f00ebdfec169ce1825c29cb0295cddd503bacd68bb984542"
+}

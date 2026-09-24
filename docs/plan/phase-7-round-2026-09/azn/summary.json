@@ -1,0 +1,28 @@
+{
+  "subject": "azn",
+  "label": "azn-round7",
+  "started_at": "2026-09-24T12:57:29.470813+00:00",
+  "request_id": "a6248ff8-f87b-442a-873e-4823d25059d9",
+  "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a",
+  "as_of_date": "2026-09-24",
+  "cap_gbp": "10.50",
+  "resumed_by_driver": true,
+  "stop_reason": null,
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-24T12:57:47.352234+00:00",
+  "status": "SUCCEEDED",
+  "spend_gbp": "6.166906",
+  "acceptance_passed": false,
+  "replay": {
+    "calculations_checked": 961,
+    "citations_checked": 47,
+    "artefacts_checked": 16,
+    "model_calls_checked": 53
+  },
+  "report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5",
+  "report_hash": "2894f3e7f1eaeae87f78f0b26a9d991deab4809e8f30b422348bd6000fee25fa",
+  "report_immutable": true,
+  "report_words": 17065
+}

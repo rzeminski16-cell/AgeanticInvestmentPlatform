@@ -1,0 +1,11 @@
+{
+  "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a",
+  "calculations_checked": 961,
+  "calculations_diverged": [],
+  "citations_checked": 47,
+  "citations_failed": [],
+  "artefacts_checked": 16,
+  "artefacts_unreadable": [],
+  "model_calls_checked": 53,
+  "model_calls_unarchived": []
+}

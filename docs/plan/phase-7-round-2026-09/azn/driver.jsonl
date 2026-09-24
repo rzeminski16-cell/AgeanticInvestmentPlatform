@@ -1,0 +1,222 @@
+{"at": "2026-09-24T12:18:07.314868+00:00", "event": "ledger.before", "platform_gbp": "42.594677", "baseline_gbp": "0", "other_gbp": "6.33348530", "total_gbp": "48.92816230", "ceiling_gbp": "100.00", "remaining_gbp": "51.07183770"}
+{"at": "2026-09-24T12:18:07.832746+00:00", "event": "commissioned", "subject": "azn", "label": "azn-round7", "request_id": "a6248ff8-f87b-442a-873e-4823d25059d9", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "as_of_date": "2026-09-24", "cap_gbp": "10.50"}
+{"at": "2026-09-24T12:18:09.838417+00:00", "event": "worker.started", "pid": 15351, "after_seconds": 2.0}
+{"at": "2026-09-24T12:18:09.851322+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "5a1cd9d21af447468ef40729100d8147"}
+{"at": "2026-09-24T12:21:10.391053+00:00", "event": "worker.never_took_the_job", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "status": "QUEUED"}
+{"at": "2026-09-24T12:21:10.391348+00:00", "event": "advanced", "status": "QUEUED", "elapsed_seconds": 180.5, "killed_at": null, "worker_dead": true}
+{"at": "2026-09-24T12:21:10.398641+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "37bb1a2c15c246be8e7026f5323aa1d4"}
+{"at": "2026-09-24T12:24:10.957946+00:00", "event": "worker.never_took_the_job", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "status": "QUEUED"}
+{"at": "2026-09-24T12:24:10.958691+00:00", "event": "advanced", "status": "QUEUED", "elapsed_seconds": 180.6, "killed_at": null, "worker_dead": true}
+{"at": "2026-09-24T12:24:10.964104+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "212bccf5641644be96b5cf002b53aeb8"}
+{"at": "2026-09-24T12:27:11.490811+00:00", "event": "worker.never_took_the_job", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "status": "QUEUED"}
+{"at": "2026-09-24T12:27:11.491068+00:00", "event": "advanced", "status": "QUEUED", "elapsed_seconds": 180.5, "killed_at": null, "worker_dead": true}
+{"at": "2026-09-24T12:27:11.496474+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "40a2730517934e769e2343716367f3ab"}
+{"at": "2026-09-24T12:28:26.727545+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:30:06.950415+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:30:06.950691+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:32:32.279684+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:32:32.279947+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:32:32.280443+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 320.8, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:32:32.308980+00:00", "event": "gate.decided", "gate": "PLAN", "approved": true, "rationale": "Audit policy: spine 18/18 listed, filings named among 19 planned sources, estimate \u00a39.2694 against cap \u00a312.00.", "findings": [], "stop_reason": null, "payload_hash": "05d33aefafd7006562094ffdd69fe9a5137e05fdf673ddbe96e1c4bd019f5fcd"}
+{"at": "2026-09-24T12:32:32.323452+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "4cbd5257efe84892942b3c49cecd241b"}
+{"at": "2026-09-24T12:32:32.327203+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:32:32.327326+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:32:32.327403+00:00", "event": "step", "step": "gate_plan", "attempt": 1, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:32:37.341884+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:32:37.342084+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:07.412870+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:07.413160+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:12.421475+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:12.421654+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:12.421708+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:12.421748+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.443560+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:33:22.443818+00:00", "event": "step", "step": "gate_peer_set", "attempt": 2, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.444604+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 50.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:33:22.458153+00:00", "event": "gate.decided", "gate": "PEER_SET", "approved": true, "rationale": "Audit policy: 8 peer(s) proposed by 'aer.agents.peers': 0000078003, 0001114448, 0000310158, 0000014272, 0001131399, 0001121404, 0000059478, 0000200406.", "findings": [], "stop_reason": null, "payload_hash": "aad4a04dd3b9c8d85667ff6a1c2f9db7be2728419fe0045bcb6cfb796e6d4c65"}
+{"at": "2026-09-24T12:33:22.472406+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "a49e9828106c42bb911efef1612d092f"}
+{"at": "2026-09-24T12:33:22.475834+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:33:22.475982+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:33:22.476060+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.476128+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.476220+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.476291+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.476355+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:22.476420+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:33:22.476486+00:00", "event": "step", "step": "gate_peer_set", "attempt": 2, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:27.495882+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:27.496133+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.513063+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:33:32.513282+00:00", "event": "step", "step": "gate_theme_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.513846+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 10.0, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:33:32.527266+00:00", "event": "gate.decided", "gate": "THEME_SET", "approved": true, "rationale": "Audit policy: 5 theme(s) proposed for AZN: Oncology and biologics pipeline race, Patent cliff and biosimilar/generic erosion, China pharmaceutical market volume-based procurement exposure, Drug pricing policy and government reimbursement reform, GLP-1 and metabolic disease demand surge.", "findings": [], "stop_reason": null, "payload_hash": "bfefb0716dc8b743d2b2349aef02014c23d36c2f4464c13fefd0e12be342bdb5"}
+{"at": "2026-09-24T12:33:32.541968+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "f84e8eb1b22f4bbb9845f528a42ab361"}
+{"at": "2026-09-24T12:33:32.545822+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:33:32.545953+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:33:32.546036+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546143+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546215+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546282+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546348+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546414+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:33:32.546486+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:32.546551+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:33:32.546617+00:00", "event": "step", "step": "gate_theme_set", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:37.558330+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:33:37.558512+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.630604+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.630906+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.631800+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 35.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:34:07.663395+00:00", "event": "gate.decided", "gate": "UNMAPPED_CONCEPTS", "approved": true, "rationale": "Audit policy for AZN: 312 unmapped tag(s), 0 refused, 1178 mapped concept(s), 4171 fact(s) chosen; gaps recorded as completeness findings.", "findings": ["unmapped ifrs-full:NoncurrentAssetsOtherThanFinancialInstrumentsDeferredTaxAssetsPostemploymentBenefitAssetsAndRightsArisingUnderInsuranceContracts at 127% of its reference line", "unmapped ifrs-full:RevenueFromSaleOfGoods at 95% of its reference line", "unmapped ifrs-full:NetAssetsLiabilities at 83% of its reference line", "unmapped ifrs-full:SharePremium at 60% of its reference line", "unmapped ifrs-full:FinancialLiabilitiesAtFairValue at 57% of its reference line", "unmapped ifrs-full:FinancialLiabilities at 52% of its reference line", "unmapped ifrs-full:LiabilitiesArisingFromFinancingActivities at 52% of its reference line", "unmapped ifrs-full:IssueOfEquity at 46% of its reference line", "unmapped ifrs-full:NetDebt at 45% of its reference line", "unmapped ifrs-full:ChangesInEquity at 40% of its reference line", "unmapped ifrs-full:CashFlowsFromUsedInOperations at 32% of its reference line", "unmapped ifrs-full:CashAndCashEquivalentsIfDifferentFromStatementOfFinancialPosition at 26% of its reference line", "unmapped ifrs-full:EmployeeBenefitsExpense at 25% of its reference line", "unmapped ifrs-full:DefinedBenefitObligationAtPresentValue at 24% of its reference line", "unmapped ifrs-full:ComprehensiveIncome at 22% of its reference line", "unmapped ifrs-full:ComprehensiveIncomeAttributableToOwnersOfParent at 22% of its reference line", "unmapped ifrs-full:AccountingProfit at 21% of its reference line", "unmapped ifrs-full:WagesAndSalaries at 19% of its reference line", "unmapped ifrs-full:PlanAssetsAtFairValue at 18% of its reference line", "unmapped ifrs-full:ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity at 17% of its reference line", "unmapped ifrs-full:CostOfInventoriesRecognisedAsExpenseDuringPeriod at 16% of its reference line", "unmapped ifrs-full:UndrawnBorrowingFacilities at 16% of its reference line", "unmapped ifrs-full:NoncurrentPayables at 16% of its reference line", "unmapped ifrs-full:NetDeferredTaxLiabilities at 16% of its reference line", "unmapped ifrs-full:TemporaryDifferencesAssociatedWithInvestmentsInSubsidiariesBranchesAndAssociatesAndInterestsInJointVentures at 14% of its reference line", "unmapped ifrs-full:NetDeferredTaxAssets at 14% of its reference line", "unmapped ifrs-full:FinancialAssets at 13% of its reference line", "unmapped ifrs-full:BalancesWithBanks at 13% of its reference line", "unmapped ifrs-full:IncreaseDecreaseInCashAndCashEquivalentsBeforeEffectOfExchangeRateChanges at 13% of its reference line", "unmapped ifrs-full:IncreaseDecreaseThroughFinancingCashFlowsLiabilitiesArisingFromFinancingActivities at 13% of its reference line", "unmapped ifrs-full:AccrualsClassifiedAsCurrent at 12% of its reference line", "unmapped ifrs-full:ContingentLiabilitiesRecognisedInBusinessCombination at 12% of its reference line", "unmapped ifrs-full:AdjustmentsForDepreciationAndAmortisationExpenseAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss at 11% of its reference line", "unmapped ifrs-full:ShorttermDepositsClassifiedAsCashEquivalents at 11% of its reference line", "unmapped ifrs-full:DeferredTaxAssets at 11% of its reference line", "unmapped ifrs-full:DeferredTaxLiabilities at 11% of its reference line", "unmapped ifrs-full:WorkInProgress at 9% of its reference line", "unmapped ifrs-full:CurrentPortionOfLongtermBorrowings at 8% of its reference line", "unmapped ifrs-full:DividendsPaidOrdinaryShares at 8% of its reference line", "unmapped ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParent at 8% of its reference line", "unmapped ifrs-full:IncreaseDecreaseThroughBusinessCombinationsDeferredTaxLiabilityAsset at 7% of its reference line", "unmapped ifrs-full:AdjustmentsForDecreaseIncreaseInInventories at 7% of its reference line", "unmapped ifrs-full:TradeAndOtherCurrentPayablesToTradeSuppliers at 7% of its reference line", "unmapped ifrs-full:ProceedsFromIssuingShares at 6% of its reference line", "unmapped ifrs-full:DividendsRecognisedAsDistributionsToOwnersOfParentRelatingToPriorYears at 6% of its reference line", "unmapped ifrs-full:NoncurrentRecognisedLiabilitiesDefinedBenefitPlan at 5% of its reference line", "unmapped ifrs-full:SurplusDeficitInPlan at 5% of its reference line", "unmapped ifrs-full:TaxExpenseIncomeAtApplicableTaxRate at 5% of its reference line", "unmapped ifrs-full:PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities at 5% of its reference line"], "stop_reason": null, "payload_hash": "0c377ccb1e6de5685802f4f28a9187eede3fb72905d7a6a389f9ca287459f34d"}
+{"at": "2026-09-24T12:34:07.682888+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "f3cd0c908c4f4b4c91abb7b125bbdfe4"}
+{"at": "2026-09-24T12:34:07.699395+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:34:07.699627+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:34:07.699765+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.699839+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.699925+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.699977+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.700037+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.700110+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:34:07.700177+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.701943+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:34:07.702139+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.702243+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:07.702343+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.731646+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.731854+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.731918+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.731959+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.732033+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.732107+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.732175+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:34:12.732247+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:35:02.885803+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2310"}
+{"at": "2026-09-24T12:35:02.886043+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2810"}
+{"at": "2026-09-24T12:35:48.036907+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2234"}
+{"at": "2026-09-24T12:36:03.091189+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2657"}
+{"at": "2026-09-24T12:36:28.166850+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2403"}
+{"at": "2026-09-24T12:36:28.167099+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:28.167155+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.269444+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0631"}
+{"at": "2026-09-24T12:36:58.269664+00:00", "event": "step", "step": "gate_assumptions", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.270549+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 170.6, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:36:58.327585+00:00", "event": "gate.decided", "gate": "ASSUMPTIONS", "approved": true, "rationale": "Audit policy: 9 row(s) on the gate, 2 supplied by the operator, 1 amended to a bound, 0 refused by the platform, 1 skipped.", "findings": ["outstanding tax_rate: supplied by the operator (Tax rate could not be derived: at least one period is negative, so a trailing av\u2026)", "outstanding equity_risk_premium: supplied by the operator (The equity risk premium is a judgement with no series behind it, and no role in \u2026)", "beta proposed at 0.276718562037 by 'aer.services.prices', outside 0.3-2.0; amended to 0.3"], "stop_reason": null, "payload_hash": "a155558980f4da05f00ebdfec169ce1825c29cb0295cddd503bacd68bb984542"}
+{"at": "2026-09-24T12:36:58.350001+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "75ddeefa1833476a92507c90cc4fd0e0"}
+{"at": "2026-09-24T12:36:58.359687+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:36:58.359869+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:36:58.359918+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.359985+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360050+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360119+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360187+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360253+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:36:58.360318+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360385+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:36:58.360452+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360518+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360595+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360698+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360820+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.360891+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2657"}
+{"at": "2026-09-24T12:36:58.360958+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2310"}
+{"at": "2026-09-24T12:36:58.361024+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2810"}
+{"at": "2026-09-24T12:36:58.361090+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2234"}
+{"at": "2026-09-24T12:36:58.361158+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2403"}
+{"at": "2026-09-24T12:36:58.361223+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:36:58.361290+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0631"}
+{"at": "2026-09-24T12:36:58.361357+00:00", "event": "step", "step": "gate_assumptions", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:37:03.387220+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:37:03.387437+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:37:03.387491+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:44:19.890616+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.9535"}
+{"at": "2026-09-24T12:44:19.890831+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:44:24.907638+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:44:24.907855+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:47:20.511105+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3526"}
+{"at": "2026-09-24T12:47:20.511378+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:55:37.275010+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.0403"}
+{"at": "2026-09-24T12:55:37.275201+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0026"}
+{"at": "2026-09-24T12:55:37.275308+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:56:42.504284+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0251"}
+{"at": "2026-09-24T12:56:42.504473+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:56:47.525571+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:56:47.527056+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 1189.2, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:56:48.076708+00:00", "event": "gate.decided", "gate": "FINAL", "approved": false, "rationale": "Blocking metric(s) failed: cited_figure_agreement.", "findings": ["section key_risks generated: One or more sentences were removed because their figures could not be traced to a recorded source."], "stop_reason": "failed metrics", "payload_hash": "16af3caf32faaa01c1de9a617ed2250d7298400d25e9782bc02bcee246023437"}
+{"at": "2026-09-24T12:56:52.280565+00:00", "event": "run.finished", "stop_reason": "failed metrics", "status": "AWAITING_APPROVAL", "spend_gbp": "6.166906"}
+{"at": "2026-09-24T12:56:53.399403+00:00", "event": "worker.stopped", "pid": 15351, "hard": false, "returncode": 0}
+{"at": "2026-09-24T12:57:29.478420+00:00", "event": "ledger.before", "platform_gbp": "48.761583", "baseline_gbp": "0", "other_gbp": "6.33348530", "total_gbp": "55.09506830", "ceiling_gbp": "100.00", "remaining_gbp": "44.90493170"}
+{"at": "2026-09-24T12:57:29.513148+00:00", "event": "resumed_existing", "status": "AWAITING_APPROVAL", "subject": "azn", "label": "azn-round7", "request_id": "a6248ff8-f87b-442a-873e-4823d25059d9", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "as_of_date": "2026-09-24", "cap_gbp": "10.50", "resumed_by_driver": true}
+{"at": "2026-09-24T12:57:31.522439+00:00", "event": "worker.started", "pid": 17709, "after_seconds": 2.0}
+{"at": "2026-09-24T12:57:31.547120+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:57:31.547263+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:57:31.547307+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547344+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547388+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547425+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547478+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547538+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:57:31.547598+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547637+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:57:31.547668+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547698+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547728+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547757+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547787+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.547816+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2657"}
+{"at": "2026-09-24T12:57:31.547846+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2310"}
+{"at": "2026-09-24T12:57:31.547875+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2810"}
+{"at": "2026-09-24T12:57:31.547905+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2234"}
+{"at": "2026-09-24T12:57:31.547934+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2403"}
+{"at": "2026-09-24T12:57:31.547963+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.548049+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0631"}
+{"at": "2026-09-24T12:57:31.548090+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.548122+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.548154+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.9535"}
+{"at": "2026-09-24T12:57:31.548183+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.548214+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3526"}
+{"at": "2026-09-24T12:57:31.548244+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.0403"}
+{"at": "2026-09-24T12:57:31.548273+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0026"}
+{"at": "2026-09-24T12:57:31.548311+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0251"}
+{"at": "2026-09-24T12:57:31.548342+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:31.549096+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 0.0, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:57:32.238032+00:00", "event": "gate.overridden", "gate": "FINAL", "reason": "Approved under the verdict round's pre-registered rule for a refused final gate (docs/plan/phase-7-pre-registration.json, round.final_gate_refused), so the round has its document. Every comparison it enters says the platform would not have published it, and ISSUE 1 counts this run as rescued. Measured at this gate: cited_figure_agreement 1 against at most 0 - one of 42 cited figures disagrees with its calculation (the executive summary states the change in working capital as 386.6 where the calculation it cites is -386,552,205.83 USD). Every other blocking check passed: citation_accuracy 1.00, source_coverage 1.00, presentation_integrity 0, hallucinated_citation_rate 0, numerical_consistency 0, figure_plausibility 0, assumption_completeness 1.00, primary_source_ratio 0.954.", "policy_stop": "failed metrics", "policy_rationale": "Blocking metric(s) failed: cited_figure_agreement."}
+{"at": "2026-09-24T12:57:32.238160+00:00", "event": "gate.decided", "gate": "FINAL", "approved": true, "rationale": "Operator override: Approved under the verdict round's pre-registered rule for a refused final gate (docs/plan/phase-7-pre-registration.json, round.final_gate_refused), so the round has its document. Every comparison it enters says the platform would not have published it, and ISSUE 1 counts this run as rescued. Measured at this gate: cited_figure_agreement 1 against at most 0 - one of 42 cited figures disagrees with its calculation (the executive summary states the change in working capital as 386.6 where the calculation it cites is -386,552,205.83 USD). Every other blocking check passed: citation_accuracy 1.00, source_coverage 1.00, presentation_integrity 0, hallucinated_citation_rate 0, numerical_consistency 0, figure_plausibility 0, assumption_completeness 1.00, primary_source_ratio 0.954. The policy stopped here because: Blocking metric(s) failed: cited_figure_agreement.", "findings": ["section key_risks generated: One or more sentences were removed because their figures could not be traced to a recorded source.", "approved against the policy's stop, by the operator"], "stop_reason": null, "payload_hash": "16af3caf32faaa01c1de9a617ed2250d7298400d25e9782bc02bcee246023437"}
+{"at": "2026-09-24T12:57:32.262254+00:00", "event": "run.enqueued", "job_id": "42653530-2cab-4e33-adf9-b6a0c9fa075a", "task": "be7820063fec45d5861d475bb9712698"}
+{"at": "2026-09-24T12:57:32.271107+00:00", "event": "step", "step": "plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.1594"}
+{"at": "2026-09-24T12:57:32.271291+00:00", "event": "step", "step": "critique_plan", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3123"}
+{"at": "2026-09-24T12:57:32.271344+00:00", "event": "step", "step": "gate_plan", "attempt": 2, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271387+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271419+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271451+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271482+00:00", "event": "step", "step": "gate_sector_specialist", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271513+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0083"}
+{"at": "2026-09-24T12:57:32.271544+00:00", "event": "step", "step": "gate_peer_set", "attempt": 3, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271575+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0084"}
+{"at": "2026-09-24T12:57:32.271607+00:00", "event": "step", "step": "gate_theme_set", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271638+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271667+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271710+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271740+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.271771+00:00", "event": "step", "step": "research_company", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2657"}
+{"at": "2026-09-24T12:57:32.271801+00:00", "event": "step", "step": "research_industry", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2310"}
+{"at": "2026-09-24T12:57:32.271832+00:00", "event": "step", "step": "research_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2810"}
+{"at": "2026-09-24T12:57:32.271875+00:00", "event": "step", "step": "research_recent_developments", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2234"}
+{"at": "2026-09-24T12:57:32.271908+00:00", "event": "step", "step": "research_technical_context", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.2403"}
+{"at": "2026-09-24T12:57:32.271944+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.272023+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0631"}
+{"at": "2026-09-24T12:57:32.272070+00:00", "event": "step", "step": "gate_assumptions", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.272104+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.272135+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "2.9535"}
+{"at": "2026-09-24T12:57:32.272166+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:32.272199+00:00", "event": "step", "step": "red_team", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.3526"}
+{"at": "2026-09-24T12:57:32.272229+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.0403"}
+{"at": "2026-09-24T12:57:32.272259+00:00", "event": "step", "step": "verdict", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0026"}
+{"at": "2026-09-24T12:57:32.272288+00:00", "event": "step", "step": "brief_challenges", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0.0251"}
+{"at": "2026-09-24T12:57:32.272318+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:37.300833+00:00", "event": "step", "step": "gate_final", "attempt": 1, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:42.337905+00:00", "event": "step", "step": "gate_final", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:42.338070+00:00", "event": "step", "step": "render", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:47.351193+00:00", "event": "step", "step": "render", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-24T12:57:47.352120+00:00", "event": "advanced", "status": "SUCCEEDED", "elapsed_seconds": 15.1, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-24T12:57:51.278531+00:00", "event": "run.finished", "stop_reason": null, "status": "SUCCEEDED", "spend_gbp": "6.166906"}
+{"at": "2026-09-24T12:57:52.547797+00:00", "event": "worker.stopped", "pid": 17709, "hard": false, "returncode": 0}
