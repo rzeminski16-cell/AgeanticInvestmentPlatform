@@ -181,6 +181,22 @@ class Resolution:
     missing: tuple[str, ...] = ()
     # What the question named that the record does hold, for the tier-2 sentence.
     held: tuple[str, ...] = ()
+    # The other tier-1 shape (ADR 0122 §2): which of the operator's positions rest on the
+    # same premise as this company's. Answered from the theses and the book; nothing is
+    # recomputed, and the record's contents do not move the tier.
+    belief: bool = False
+
+
+# The words a person uses to ask what else rests on a belief. Narrow enough that a question
+# about the *company's* margin or growth is not caught: it needs the same-ness, the resting,
+# or the positions themselves.
+_BELIEF: Final = re.compile(
+    r"\b(?:same|shared)\s+(?:belief|beliefs|premise|premises|assumption|assumptions)\b"
+    r"|\b(?:rest|rests|resting|depend|depends|depending)\s+on\s+"
+    r"(?:the\s+same|(?:this|that)\s+(?:belief|premise|assumption))\b"
+    r"|\bwhich\s+(?:of\s+my\s+)?(?:other\s+)?(?:positions|holdings)\b"
+    r"|\bload[- ]bearing\b"
+)
 
 
 def resolve(question: str, record: HeldRecord) -> Resolution:
@@ -188,6 +204,15 @@ def resolve(question: str, record: HeldRecord) -> Resolution:
     text = _normalised(question)
     if not text:
         return Resolution(Tier.RESEARCH, "An empty question names nothing the record could answer.")
+
+    if _BELIEF.search(text):
+        return Resolution(
+            Tier.RECOMPUTE,
+            "Which of your positions rest on the same premises is answered from the theses "
+            "you hold and the book — the record, and nothing else. Nothing is re-read, nothing "
+            "is fetched and nothing is spent.",
+            belief=True,
+        )
 
     change = _tier_one(text, record)
     if change is not None:

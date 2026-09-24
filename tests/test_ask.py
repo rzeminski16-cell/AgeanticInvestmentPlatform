@@ -108,6 +108,10 @@ CORPUS: tuple[tuple[str, Tier], ...] = (
     ("What is the share price today?", Tier.RESEARCH),
     ("Any news since the last results?", Tier.RESEARCH),
     ("", Tier.RESEARCH),
+    # The other tier-1 shape (ADR 0122 §2): answered from the theses and the book.
+    ("Which of my positions rest on the same belief?", Tier.RECOMPUTE),
+    ("Which holdings depend on the same premise?", Tier.RECOMPUTE),
+    ("Where else is this premise load-bearing?", Tier.RECOMPUTE),
 )
 
 

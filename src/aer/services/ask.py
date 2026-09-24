@@ -85,7 +85,7 @@ from aer.errors import AerError, BudgetExceededError, ConflictError, ValidationE
 from aer.extract import extract_text
 from aer.providers.costs import estimate_gbp, price_web_search
 from aer.render import display
-from aer.services import configuration, provenance
+from aer.services import configuration, provenance, shared_premises
 from aer.services.analysis import ANNUAL, analyse_company
 from aer.services.assumptions import confirmed_values
 from aer.services.calculations import indexed_calculations, new_context, persist_context
@@ -397,7 +397,9 @@ async def ask(
     session.add(question)
     await session.flush()
 
-    if resolution.tier is Tier.RECOMPUTE and resolution.change is not None and report is not None:
+    if resolution.belief:
+        await _shared_belief(session, user=user, company=company, question=question)
+    elif resolution.tier is Tier.RECOMPUTE and resolution.change is not None and report is not None:
         await _recompute(
             session,
             settings=settings,
@@ -602,6 +604,73 @@ async def _recompute(
     question.actual_cost_gbp = Decimal(0)
     await _succeed(
         session, order=order, job=job, step=step, cost=Decimal(0), output=question.content
+    )
+
+
+async def _shared_belief(
+    session: AsyncSession, *, user: User, company: Company, question: Question
+) -> None:
+    """The other tier-1 shape (ADR 0122 §2): which held positions rest on the same premises
+    as this company's theses. Read from the theses and the book; nothing is recomputed, and
+    the answer is rows before it is a sentence."""
+    beliefs = await shared_premises.shared_beliefs(session, user_id=user.id, company_id=company.id)
+    shared = [belief for belief in beliefs if belief.others]
+    plural = "" if len(beliefs) == 1 else "s"
+    if not beliefs:
+        answer = (
+            f"{company.name}'s theses assert no premise code can test, so nothing else can be "
+            "said to rest on one. A premise written as a metric against a threshold gives this "
+            "question an answer."
+        )
+    elif not shared:
+        answer = (
+            f"None of the {len(beliefs)} testable premise{plural} {company.name}'s theses "
+            "assert is asserted on another position you hold."
+        )
+    else:
+        parts = [
+            f"{belief.premise.statement} — also "
+            + ", ".join(
+                sorted({other.company.ticker or other.company.name for other in belief.others})
+            )
+            for belief in shared
+        ]
+        answer = (
+            f"Of the {len(beliefs)} testable premise{plural} {company.name}'s theses assert, "
+            f"{len(shared)} {'is' if len(shared) == 1 else 'are'} asserted on other positions "
+            f"you hold: {'; '.join(parts)}. Read from the theses and the book; nothing was "
+            "re-read or fetched."
+        )
+    question.content = {
+        "kind": "shared_belief",
+        "beliefs": [
+            {
+                "statement": belief.premise.statement,
+                "metric": belief.metric,
+                "thesis": belief.thesis.title,
+                "others": [
+                    {
+                        "ticker": other.company.ticker or other.company.name,
+                        "company": other.company.name,
+                        "thesis": other.thesis.title,
+                        "statement": other.premise.statement,
+                        "state": other.state,
+                        "href": f"/theses/{other.thesis.id}",
+                    }
+                    for other in belief.others
+                ],
+            }
+            for belief in beliefs
+        ],
+    }
+    question.answer = answer
+    question.answered_at = datetime.now(UTC)
+    question.actual_cost_gbp = Decimal(0)
+    _log.info(
+        "ask.shared_belief",
+        question_id=str(question.id),
+        beliefs=len(beliefs),
+        shared=len(shared),
     )
 
 

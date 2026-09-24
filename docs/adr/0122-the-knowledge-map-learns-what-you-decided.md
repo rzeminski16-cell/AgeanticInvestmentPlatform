@@ -191,3 +191,26 @@ from this first version. Nothing is backfilled.
 
 Status stays *Proposed*: §2's four surfaces are Phase 6b.2 and 6b.3, and this record is
 Accepted when the last of them lands.
+
+## Amended 24 September 2026, on building §2's first two surfaces (ROADMAP §3.19, item 66)
+
+**The monitor's surfacing is narrow, as *what is given up* asked; Ask's is wide, because the
+operator asked.** A reading that resolves a premise surfaces, on its own page, the other held
+positions whose thesis asserts a premise on the same metric *and* whose company shares a
+confirmed theme or sector with the reading's (`aer.services.shared_premises`). Ask's *which
+positions rest on this belief?* answers over the metric alone: a person asking wants the whole
+list and can judge the noise. Both read theses, premises, the monitor's latest readings, the
+book's held positions and the confirmed relations, and nothing else; a retired thesis, a
+withdrawn premise and a position sold are in neither answer.
+
+**"The same premise" means the same metric.** Two premises are one belief where the monitor
+resolves their metrics to one key or, where it cannot, where their words are the same once
+normalised. A premise nothing can test is in neither answer: nothing can rest on it.
+
+**Tier 1 gains a second shape.** The resolver sends the belief question to tier 1 whatever the
+record holds — the theses are the record it reads — and the answer is rows before it is a
+sentence; nothing is recomputed and nothing is spent. Page specification §12 and §13 are
+corrected.
+
+The two remaining surfaces of §2 — the refresh's materiality and the methodology library —
+are Phase 6b.3, with the proof that none of this is evidence.

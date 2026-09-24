@@ -44,6 +44,31 @@
         {% endfor %}
       </div>
     {% endcall %}
+  {% elif kind == "shared_belief" and state == "answered" %}
+    {% call ui.sheet("The answer", subtitle="Read from the record — the theses you hold and the book's positions — and nothing else. Two positions share a belief where their theses assert a premise on the same metric; the reading beside each is the monitor's latest, never re-measured here.", id="answer") %}
+      <p class="max-w-prose type-body text-ink" id="answer-text">{{ question.answer }}</p>
+      <ol class="mt-6 flex flex-col gap-4" id="beliefs">
+        {% for belief in content.get("beliefs", []) %}
+          <li class="border-t border-line pt-4" data-belief="{{ loop.index }}">
+            <p class="type-body-strong text-ink">{{ belief.statement }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">{{ belief.metric }} &middot; {{ belief.thesis }}</p>
+            {% if belief.others %}
+              <ul class="mt-2 flex flex-col gap-1" aria-label="Positions resting on the same premise">
+                {% for other in belief.others %}
+                  <li class="type-body-sm text-ink" data-other="{{ other.ticker }}">
+                    <a href="{{ other.href }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ other.ticker }}</a>
+                    <span class="text-ink-muted">&middot;</span> {{ other.statement }}
+                    <span class="text-ink-muted">&middot; {{ other.state }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="mt-2 type-body-sm text-ink-muted">No other position you hold rests on this.</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% endcall %}
   {% elif kind in ("re_read", "research") and state == "answered" %}
     {% if kind == "research" and content.get("outcome") == "nothing_useful" %}
       {% call ui.sheet("The answer", subtitle="What was fetched was read and kept; none of it, nor the record, could carry an answer.", id="answer") %}

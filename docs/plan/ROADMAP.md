@@ -2597,6 +2597,19 @@ found rather than as scope that was always there.
     knowledge-graph plan), so the ADR's amendment is its record. Nothing is backfilled:
     the layer starts empty and fills as the loop is used.
 
+66. **Phase 6b.2: a broken premise is load-bearing elsewhere, and Ask says where, 24
+    September 2026.** ADR 0122 §2's first two surfaces. `aer.services.shared_premises`
+    answers two questions over the same rows. The monitor's, unsolicited and narrow as the
+    ADR's own *what is given up* asked: a reading's page names the other held positions
+    whose thesis asserts a premise on the same metric and whose company shares a confirmed
+    theme or sector with the reading's, each with the monitor's latest reading of it. Ask's,
+    asked deliberately and wide: *which of my positions rest on the same belief?* resolves
+    to tier 1 whatever the record holds, since the theses are the record it reads, and
+    answers with the positions sharing the metric alone — rows with a sentence over them,
+    for nothing. A retired thesis, a withdrawn premise, a premise nothing can test and a
+    position sold are in neither. Page specification §12 and §13 corrected; ADR 0122
+    amended in place, and Accepted waits for 6b.3.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

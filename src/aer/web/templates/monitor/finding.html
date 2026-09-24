@@ -155,6 +155,24 @@
       </ul>
     {% endif %}
   {% endcall %}
+
+  {% if item.has_premise %}
+    {% call ui.sheet("Load-bearing elsewhere", subtitle="Other positions you hold whose thesis asserts a premise on the same metric, where the company shares a confirmed theme or sector with this one — so a break here is a question there. Deliberately narrow: two holdings sharing revenue growth share almost nothing.", id="elsewhere") %}
+      {% if elsewhere %}
+        <ul class="flex flex-col" aria-label="Positions resting on the same premise">
+          {% for row in elsewhere %}
+            <li class="border-t border-line py-3" data-elsewhere="{{ row.ticker }}">
+              <p class="type-eyebrow text-ink-muted">{{ row.ticker }} &middot; {{ row.thesis }}</p>
+              <p class="type-body-strong text-ink">{{ row.statement }}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">{{ row.state }} &middot; shares {{ row.shares }} &middot; <a href="{{ row.href }}" class="text-verification underline underline-offset-[3px]">Open the thesis</a></p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="type-body text-ink-muted" data-field="elsewhere-none">No other position you hold rests on this premise where the companies share a theme or a sector.</p>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
   {% endif %}
 
   {% if item.gate_is_decidable %}

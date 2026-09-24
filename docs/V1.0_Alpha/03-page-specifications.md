@@ -660,6 +660,14 @@ on Settings. Of the three actions, *record a decision* carries the listing into 
 form and *dismiss with a reason* is the finding's ordinary resolution; *open the company* waits
 for the Company page (§5), which does not exist yet, and the finding shows the listing instead.
 
+**Corrected 24 September 2026, on building ADR 0122 §2.** A reading gains a sheet the
+specification did not have, *Load-bearing elsewhere*: the other positions you hold whose thesis
+asserts a premise on the same metric, where the company shares a confirmed theme or sector
+with this one — each with the monitor's latest reading of it and a link to its thesis.
+Deliberately narrow, because two holdings sharing *revenue growth* share almost nothing; the
+wider question is Ask's to answer when asked (§13). A price move carries no such sheet: a
+price is not a premise.
+
 ---
 
 ## 13. Ask
@@ -691,6 +699,13 @@ On tier 3, before running: *"This needs new material. About £1.40, and {n} new 
 added to {company}'s record. Go ahead?"*
 
 **Must not.** Answer from the model's own knowledge. Guess at a tier. Hide the cost until after.
+
+**Corrected 24 September 2026, on building ADR 0122 §2.** Tier 1 has a second shape beside the
+recompute: a question about what else rests on a belief — *which of my positions rest on the
+same premise?* — is answered from the theses and the book, for nothing, and the answer is the
+positions as rows, each with the monitor's latest reading of its premise, under one sentence.
+It resolves to tier 1 whatever the record holds, because the theses are the record it reads;
+the indicator is tier 1's, and the rationale says which of the two shapes the question took.
 
 ---
 

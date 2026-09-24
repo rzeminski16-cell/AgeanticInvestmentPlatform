@@ -45,6 +45,7 @@ __all__ = [
     "PremiseView",
     "ThesisView",
     "judgement_views",
+    "latest_reading",
     "thesis_subjects",
     "version_at",
 ]
@@ -133,7 +134,7 @@ async def judgement_views(
     for thesis in await session.scalars(query):
         premises: list[PremiseView] = []
         for premise in sorted(thesis.premises, key=lambda row: row.position):
-            reading = await _latest_reading(session, premise)
+            reading = await latest_reading(session, premise)
             premises.append(PremiseView(premise=premise, reading=reading))
         verdicts = tuple(
             await session.scalars(
@@ -164,7 +165,8 @@ async def judgement_views(
     return tuple(views)
 
 
-async def _latest_reading(session: AsyncSession, premise: Premise) -> Finding | None:
+async def latest_reading(session: AsyncSession, premise: Premise) -> Finding | None:
+    """The monitor's newest reading of a premise, or none while nothing has been read."""
     found: Finding | None = await session.scalar(
         select(Finding)
         .where(Finding.judgement_id == premise.judgement_id, Finding.kind == FindingKind.READING)

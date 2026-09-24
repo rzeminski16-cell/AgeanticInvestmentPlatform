@@ -34,7 +34,7 @@ from aer.core.enums import Decision, FindingAction, FindingKind, GateKind
 from aer.db.models import Finding, SourceDocument
 from aer.errors import AerError
 from aer.queue import enqueue_monitor
-from aer.services import price_alerts, thesis_monitor
+from aer.services import price_alerts, shared_premises, thesis_monitor
 from aer.services import theses as thesis_service
 from aer.services.approvals import payload_hash_for
 from aer.web import figures, vocabulary
@@ -422,6 +422,12 @@ async def finding_page(
                 else "/decisions"
             ),
             "sources": await _sources(session, finding),
+            # ADR 0122 §2: what else rests on this premise, narrowly — a shared metric and a
+            # shared theme or sector — so a break here is a question there.
+            "elsewhere": [
+                _elsewhere_row(row)
+                for row in await shared_premises.load_bearing_elsewhere(session, finding=finding)
+            ],
             "gate_words": vocabulary.GATES[GateKind.THESIS],
             "gate_consequence": CONSEQUENCES[GateKind.THESIS],
             "payload_hash": payload_hash_for(thesis_monitor.finding_payload(finding)),
@@ -512,6 +518,29 @@ async def resolve_finding(
 
 
 # -- Reading ----------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ElsewhereRow:
+    """Another held position resting on the same premise, as the page shows it."""
+
+    ticker: str
+    thesis: str
+    statement: str
+    state: str
+    shares: str
+    href: str
+
+
+def _elsewhere_row(row: shared_premises.Related) -> ElsewhereRow:
+    return ElsewhereRow(
+        ticker=row.company.ticker or row.company.name,
+        thesis=row.thesis.title,
+        statement=row.premise.statement,
+        state=row.state,
+        shares=" and ".join(row.shares),
+        href=f"/theses/{row.thesis.id}",
+    )
 
 
 async def _subject(session: Any, finding: Finding) -> str:
