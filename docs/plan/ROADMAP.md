@@ -2554,6 +2554,49 @@ found rather than as scope that was always there.
     remains — the service's read and the test's a few microseconds apart — is the one no
     test of "today" can close, and it is not the one that fired.
 
+64. **Phase 6b is measured before it is built, 24 September 2026.** ADR 0122 says the map
+    records what you researched and knows nothing about what you decided; item 48's rule
+    is to read the code before believing a document, so here is what the code says.
+
+    | Surface | Measured state |
+    |---|---|
+    | The vault (`obsidian/export.py`) | Writes company, run, industry, catalyst, theme and index notes. **No thesis, premise, decision or review note.** Its "thesis references" are a run's catalyst references, a different thing |
+    | The link graph (`obsidian/graph.py`) | Company, run, catalyst, theme and industry views; peer and theme edges. **No judgement view** |
+    | The in-app graph (`services/graph_view.py`) | Two node kinds, `company` and `theme`; two edge kinds. **No legend, no filter** |
+    | The statistics (`services/knowledge.py`) | Counts companies, runs, industries, catalysts, sources, themes. **Counts no judgement** |
+    | The monitor (`services/thesis_monitor.py`) | Resolves and measures one premise at a time. **Nothing traverses a theme or a sector on a finding** |
+    | Ask, tier 1 (`services/ask.py`) | Recomputes a valuation from the record. **No question over premises** |
+    | The refresh (`services/refresh.py`) | **Already reads the premises**: a predicate the new figure crosses is material however small the move (ADR 0131 §5). No smaller threshold for a section that feeds a premise |
+    | Outcomes (`calc/outcomes.py`) | Measures a confirmed assumption against the year it forecast, and an episode's cost, proceeds and return. **Nothing over methods** |
+    | "A decision points at a thesis version" | ADRs 0102 and 0104 never say *version*. `decisions.thesis_id` points at the thesis; the version is the premises as they stood at `held_at`, which the premises' own clocks (`recorded_at`, `withdrawn_at`) reconstruct. To be defined in ADR 0122's dated amendment, not stored twice |
+
+    *So the order is:* **6b.1** the map's four node kinds and five edges — the views, the
+    vault notes under the same closure rule, the statistics, and the in-app graph with a
+    legend and a filter by kind from its first version; **6b.2** the monitor surfacing a
+    broken premise against every other held position sharing its metric *and* a theme or
+    sector, and Ask's free question *which positions rest on this belief*; **6b.3** the
+    refresh's smaller threshold for a premise-fed section, the outcome measurement run
+    over methods, the second half of `prior_research_comparison`, and the proof that a
+    seeded claim citing a premise, a decision or a verdict is refused — then ADR 0122
+    Accepted with what building it corrected. Nothing is backfilled: the map's judgement
+    side starts empty and fills as the loop is used, which is also the test.
+
+65. **Phase 6b.1: the map's judgement layer, 24 September 2026.** ADR 0122 §1, built as
+    item 64 measured it. `aer.obsidian.judgements` reads the theses over a set of companies
+    with what hangs off each — premises carrying the monitor's latest reading, decisions
+    pinned to the premises as they stood when held (reconstructed from the judgements' own
+    clocks; no version is stored), and the confirmed reviews that scored them, resolved by
+    the episode's window. The vault gains `60-Theses/`, one note per thesis of the report's
+    owner, the company note a *Theses* section, and every link still resolves. The
+    statistics count theses, premises, decisions and verdicts, and a company somebody holds
+    a thesis on is in the map as a stub whether or not it was ever researched. The in-app
+    graph draws six kinds with a legend that counts them and a filter by kind, because the
+    judgement nodes will outnumber the research nodes within a year of use. ADR 0122 is
+    amended in place with what building §1 settled, and stays Proposed until §2 lands.
+    The graph page has no section in the page specification (it is K4b of the archived
+    knowledge-graph plan), so the ADR's amendment is its record. Nothing is backfilled:
+    the layer starts empty and fills as the loop is used.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

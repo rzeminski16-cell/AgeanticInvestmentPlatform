@@ -39,6 +39,7 @@ from aer.db.models import (
     Theme,
     ThemeMembership,
 )
+from aer.obsidian.judgements import ThesisView, judgement_views
 from aer.services.catalyst_resolutions import resolutions_for
 from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.history import (
@@ -144,12 +145,21 @@ class LinkGraph:
     subject_industry: SectorProfile | None = None
     subject_peer_ids: tuple[uuid.UUID, ...] = ()
     theme_views: tuple[ThemeView, ...] = ()
+    # The judgement layer over the component's companies (ADR 0122 §1): one person's,
+    # because the vault is one operator's projection. Empty when no person was named.
+    thesis_views: tuple[ThesisView, ...] = ()
 
 
 async def build_graph(
-    session: AsyncSession, *, job: Job, report: Report, company: Company | None
+    session: AsyncSession,
+    *,
+    job: Job,
+    report: Report,
+    company: Company | None,
+    user_id: uuid.UUID | None = None,
 ) -> LinkGraph:
-    """The connected component of the peer relation around the exported report."""
+    """The connected component of the peer relation around the exported report, and — when
+    ``user_id`` names the operator — their theses on every company in it."""
     edges = await peer_edges(session)
     themed = await theme_edges(session)
     subject_peer_ids = await _confirmed_peers(session, job)
@@ -203,6 +213,13 @@ async def build_graph(
 
     members = await _industry_members(session, companies, industries)
     themes = await _theme_views(session, component=set(companies), rows=rows)
+    theses = (
+        await judgement_views(
+            session, companies={key: rows[key] for key in companies}, user_id=user_id
+        )
+        if user_id is not None
+        else ()
+    )
 
     _log.info(
         "obsidian.graph_built",
@@ -211,6 +228,7 @@ async def build_graph(
         catalyst_count=len(catalyst_views),
         industries=sorted(industries),
         themes=[view.key for view in themes],
+        theses=len(theses),
     )
     return LinkGraph(
         companies=companies,
@@ -221,6 +239,7 @@ async def build_graph(
         subject_industry=subject_industry,
         subject_peer_ids=tuple(peer for peer in subject_peer_ids if peer in component),
         theme_views=themes,
+        thesis_views=theses,
     )
 
 

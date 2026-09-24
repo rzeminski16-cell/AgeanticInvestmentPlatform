@@ -23,6 +23,7 @@ __all__ = [
     "RunNoteMeta",
     "SourceNoteMeta",
     "ThemeNoteMeta",
+    "ThesisNoteMeta",
     "render_note",
 ]
 
@@ -87,6 +88,33 @@ class CompanyNoteMeta(_NoteMeta):
     industry_note: str | None = None
     competitors: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)
+    theses: list[str] = Field(default_factory=list)
+
+
+class ThesisNoteMeta(_NoteMeta):
+    """A thesis note: what one person believes about a company, as premises with the tests
+    that would defeat them, the decisions taken on it and the verdicts that scored them
+    (ADR 0122 §1).
+
+    The frontmatter counts rather than repeats. The body holds the words; a query over the
+    vault wants to know how many premises are held and whether the thesis is retired, not
+    to parse prose. ``evidence_policy`` says the one thing a reader of this note must
+    never forget: it cites nothing and may be cited by nothing.
+    """
+
+    aer_kind: Literal["thesis"] = "thesis"
+    thesis_id: str
+    company: str
+    ticker: str
+    title: str
+    company_note: str
+    written_on: date | None = None
+    retired: bool = False
+    premises_held: int = 0
+    premises_withdrawn: int = 0
+    decisions: int = 0
+    verdicts: int = 0
+    evidence_policy: str = "operator's own judgement; cites nothing and may be cited by nothing"
 
 
 class ThemeNoteMeta(_NoteMeta):

@@ -2,13 +2,35 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  The knowledge graph drawn (docs/archive/knowledge-graph.md, K4b). Every coordinate was
-  computed server-side from confirmed rows; the SVG is static and monochrome —
-  currentColor follows the page's own text colour, so the picture needs no stylesheet of
-  its own and no script. No pan, no zoom, no drag: the design review declined the
-  JavaScript island, and the relation list beneath the drawing is what makes the topology
-  readable without perceiving it.
+  The knowledge graph drawn (docs/archive/knowledge-graph.md, K4b; ADR 0122). Every
+  coordinate was computed server-side from confirmed rows; the SVG is static and
+  monochrome — currentColor follows the page's own text colour, so the picture needs no
+  stylesheet of its own and no script. No pan, no zoom, no drag: the design review
+  declined the JavaScript island, and the relation list beneath the drawing is what makes
+  the topology readable without perceiving it.
+
+  Six kinds of node since the judgement layer joined the map, and a filter by kind from
+  the first version: the theses, premises, decisions and verdicts will outnumber the
+  companies within a year of ordinary use, and a drawing nobody can narrow is a drawing
+  nobody reads.
 #}
+
+{% set kind_words = {
+  "company": ("Companies", "a filled circle is researched, a hollow one is a stub named as a comparable or believed about, never researched itself"),
+  "theme": ("Themes", "a hollow diamond, confirmed at a gate"),
+  "thesis": ("Theses", "a hollow square, what you believe about a company"),
+  "premise": ("Premises", "a small dot, one thing a thesis asserts, carrying the monitor's latest reading"),
+  "decision": ("Decisions", "a triangle, recorded before the outcome"),
+  "verdict": ("Verdicts", "a filled square, a review you confirmed"),
+} %}
+{% set edge_words = {
+  "comparable": "is comparable to",
+  "membership": "is a member of",
+  "holds": "holds the thesis",
+  "asserts": "asserts",
+  "acts_on": "acted on",
+  "scores": "scored",
+} %}
 
 {% block title %}Knowledge graph{% endblock %}
 
@@ -16,26 +38,46 @@
   {{ ui.page_header(
     "Knowledge graph",
     eyebrow="PLATFORM KNOWLEDGE",
-    identity=(picture.nodes | length) ~ " nodes and " ~ (picture.edges | length) ~ " confirmed relations, from every approved report in this database.",
+    identity=(picture.nodes | length) ~ " nodes and " ~ (picture.edges | length) ~ " confirmed relations, from every approved report and every judgement in this database.",
     breadcrumbs=[{"href": "/knowledge", "label": "Knowledge"}],
   ) }}
 
   <p class="max-w-prose type-body-sm text-ink-muted">
-    A filled circle is a researched company, a hollow one a stub named as a comparable and
-    never researched itself, a diamond a confirmed theme. Solid lines are confirmed
-    comparable relations; dashed lines are theme memberships. Only confirmed state is
-    drawn &mdash; a proposal nobody approved is not an edge here, exactly as it is not one
-    in the vault.
+    Solid lines are confirmed comparable relations; dashed lines are theme memberships;
+    dotted lines join the judgement layer &mdash; a company to the thesis held on it, a
+    thesis to what it asserts, a decision to the thesis it acted on, a verdict to the
+    decision it scored. Only confirmed state is drawn &mdash; a proposal nobody approved is
+    not an edge here, exactly as it is not one in the vault, and a reviewer's draft nobody
+    confirmed is nobody's verdict.
   </p>
+
+  {% call ui.sheet("What is drawn", subtitle="Every kind the map holds, with its count in the record. Untick a kind to leave it out of the drawing; an edge needs both its ends.", id="graph-legend") %}
+    <form method="get" action="/knowledge/graph" id="graph-filter" class="flex flex-col gap-3">
+      <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {% for kind, count in picture.counts.items() %}
+          <li class="flex items-start gap-3" data-legend="{{ kind }}">
+            <input type="checkbox" name="kind" value="{{ kind }}" id="kind-{{ kind }}" class="mt-1 size-4 accent-verification" {% if kind in picture.shown %}checked{% endif %} />
+            <label for="kind-{{ kind }}" class="flex flex-col">
+              <span class="type-label text-ink">{{ kind_words[kind][0] }} <span class="type-data-sm text-ink-muted" data-count="{{ kind }}">{{ count }}</span></span>
+              <span class="type-body-sm text-ink-muted">{{ kind_words[kind][1] }}</span>
+            </label>
+          </li>
+        {% endfor %}
+      </ul>
+      <div>
+        <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Redraw</button>
+      </div>
+    </form>
+  {% endcall %}
 
   {% if picture.nodes and not picture.edges %}
     {#
       Nodes and no relation between them is a drawing of dots. Common on a young
       installation, and worth saying rather than leaving the reader to wonder whether the
-      picture failed: the edges come from what is confirmed at the gates.
+      picture failed: the edges come from what is confirmed at the gates and written down.
     #}
     <div id="graph-sparse">
-      {{ ui.callout("info", "Too sparse to read yet", (picture.nodes | length) ~ " node" ~ ("" if picture.nodes | length == 1 else "s") ~ " and no confirmed relation between them. Relations come from the comparables and themes you confirm at the gates; the drawing becomes a map as they accumulate.") }}
+      {{ ui.callout("info", "Too sparse to read yet", (picture.nodes | length) ~ " node" ~ ("" if picture.nodes | length == 1 else "s") ~ " and no confirmed relation between them. Relations come from the comparables and themes you confirm at the gates, and from the theses, decisions and reviews you write; the drawing becomes a map as they accumulate.") }}
     </div>
   {% endif %}
 
@@ -48,7 +90,7 @@
           width="{{ picture.width }}"
           height="{{ picture.height }}"
           role="img"
-          aria-label="The knowledge graph: companies and themes joined by confirmed relations"
+          aria-label="The knowledge graph: companies, themes and judgements joined by confirmed relations"
           class="text-ink"
         >
           {% for edge in picture.edges %}
@@ -57,16 +99,19 @@
               stroke="currentColor" stroke-width="1.5"
               {% if edge.kind == "membership" %}
                 stroke-opacity="0.35" stroke-dasharray="5 4" class="edge-membership"
-              {% else %}
+              {% elif edge.kind == "comparable" %}
                 stroke-opacity="0.55" class="edge-comparable"
+              {% else %}
+                stroke-opacity="0.45" stroke-dasharray="2 3" class="edge-judgement" data-edge="{{ edge.kind }}"
               {% endif %}
-            ><title>{{ edge.a_label }} &mdash; {{ "member of" if edge.kind == "membership" else "comparable to" }} &mdash; {{ edge.b_label }}</title></line>
+            ><title>{{ edge.a_label }} &mdash; {{ edge_words[edge.kind] }} &mdash; {{ edge.b_label }}</title></line>
           {% endfor %}
           {% for placed in picture.nodes %}
-            {% if placed.node.kind == "company" %}
-              <a href="{{ placed.node.href }}" class="node-company">
-                <title>{{ placed.node.title }}</title>
-                {% if placed.node.researched %}
+            {% set node = placed.node %}
+            {% if node.kind == "company" %}
+              <a href="{{ node.href }}" class="node-company">
+                <title>{{ node.title }}</title>
+                {% if node.researched %}
                   <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="9" fill="currentColor" />
                 {% else %}
                   <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="8" fill="none"
@@ -74,17 +119,36 @@
                 {% endif %}
                 <text x="{{ placed.x }}" y="{{ placed.y + 25 }}" text-anchor="middle"
                       font-size="11" font-family="ui-monospace, monospace"
-                      fill="currentColor">{{ placed.node.label }}</text>
+                      fill="currentColor">{{ node.label }}</text>
               </a>
-            {% else %}
+            {% elif node.kind == "theme" %}
               <g class="node-theme">
-                <title>{{ placed.node.title }}</title>
+                <title>{{ node.title }}</title>
                 <rect x="{{ placed.x - 8 }}" y="{{ placed.y - 8 }}" width="16" height="16"
                       transform="rotate(45 {{ placed.x }} {{ placed.y }})" fill="none"
                       stroke="currentColor" stroke-width="2" />
                 <text x="{{ placed.x }}" y="{{ placed.y + 27 }}" text-anchor="middle"
-                      font-size="11" fill="currentColor">{{ placed.node.label }}</text>
+                      font-size="11" fill="currentColor">{{ node.label }}</text>
               </g>
+            {% else %}
+              <a href="{{ node.href }}" class="node-{{ node.kind }}" data-state="{{ node.state }}">
+                <title>{{ node.title }}</title>
+                {% if node.kind == "thesis" %}
+                  <rect x="{{ placed.x - 8 }}" y="{{ placed.y - 8 }}" width="16" height="16" fill="none"
+                        stroke="currentColor" stroke-width="2" {% if not node.researched %}stroke-dasharray="3 2"{% endif %} />
+                {% elif node.kind == "premise" %}
+                  <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="4.5"
+                          fill="{{ 'none' if not node.researched else 'currentColor' }}"
+                          stroke="currentColor" stroke-width="1.5" />
+                {% elif node.kind == "decision" %}
+                  <polygon points="{{ placed.x }},{{ placed.y - 9 }} {{ placed.x + 9 }},{{ placed.y + 7 }} {{ placed.x - 9 }},{{ placed.y + 7 }}"
+                           fill="none" stroke="currentColor" stroke-width="2" />
+                {% else %}
+                  <rect x="{{ placed.x - 7 }}" y="{{ placed.y - 7 }}" width="14" height="14" fill="currentColor" />
+                {% endif %}
+                <text x="{{ placed.x }}" y="{{ placed.y + 25 }}" text-anchor="middle"
+                      font-size="11" fill="currentColor">{{ node.label }}</text>
+              </a>
             {% endif %}
           {% endfor %}
         </svg>
@@ -96,7 +160,7 @@
         {% for edge in picture.edges %}
           <li class="type-body-sm text-ink">
             <span class="type-data-sm">{{ edge.a_label }}</span>
-            <span class="text-ink-muted">{{ "is a member of" if edge.kind == "membership" else "is comparable to" }}</span>
+            <span class="text-ink-muted">{{ edge_words[edge.kind] }}</span>
             <span class="type-data-sm">{{ edge.b_label }}</span>
           </li>
         {% endfor %}
@@ -106,7 +170,7 @@
     <div id="graph-empty">
       {{ ui.empty(
         "Nothing to draw yet",
-        "The graph grows one approved report at a time — once a run is approved, its company, its confirmed comparables and its confirmed themes appear here.",
+        "The graph grows one approved report and one written thesis at a time — once a run is approved, its company, its confirmed comparables and its confirmed themes appear here; once a thesis is written, so does what you believe.",
       ) }}
     </div>
   {% endif %}

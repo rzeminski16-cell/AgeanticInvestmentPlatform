@@ -579,6 +579,7 @@ _NOT_UTILITIES: frozenset[str] = frozenset(
         "restore-request",
         "edge-comparable",
         "edge-membership",
+        "edge-judgement",
         "node-company",
         "node-theme",
         # The two spans a button carries so htmx can swap its label for the gerund. With

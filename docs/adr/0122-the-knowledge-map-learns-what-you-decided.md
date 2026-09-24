@@ -161,3 +161,33 @@ nothing, and the citation verifier refuses it today precisely so that nobody has
 **Do it before the judgement layer exists.** Nothing to record. It is sequenced after F9, F10
 and F14 for the same reason ADR 0115's adversary is sequenced after ADR 0117's view: you cannot
 connect what has not been written.
+
+## Amended 24 September 2026, on building §1 (ROADMAP §3.19, item 65)
+
+Four things the code settled that this record left open.
+
+**The thesis version is reconstructed, not stored.** A decision points at the premises as they
+stood when it was held: those whose own `held_at` is not after the decision's and which had
+not been withdrawn by then, read from the judgements' clocks (`aer.obsidian.judgements`). ADRs
+0102 and 0104 never say *version*, and storing one beside the premises would be the same fact
+twice; the copy that drifts is the one a review would read.
+
+**The monitor's reading is the premise's state, not a node.** *Premise ← finding* is carried as
+the premise's latest reading — its status in ADR 0079's words — on the premise node and in the
+thesis note. A node per reading would outnumber every other kind within a quarter of ordinary
+use, and the finding pages hold the rest.
+
+**A verdict scores the decisions of its episode.** *Verdict → decision* is resolved by the
+window: a confirmed review names a security and the dates its position opened and closed, and
+scores each decision on that security held inside them. A pass names no security and is scored
+by nothing.
+
+**Where it lives.** The vault gains `60-Theses/`, one note per thesis of the report's owner
+over the exported component, linked from the company note and linking back to it and to the run
+it was written against; every link still resolves within the export. A company somebody holds a
+thesis on is in the map whether or not it was ever researched, as a stub. The statistics count
+the four kinds; the in-app graph draws them with a legend that counts them and a filter by kind
+from this first version. Nothing is backfilled.
+
+Status stays *Proposed*: §2's four surfaces are Phase 6b.2 and 6b.3, and this record is
+Accepted when the last of them lands.

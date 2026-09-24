@@ -3221,9 +3221,10 @@ async def knowledge_graph_page(
 
     Unscoped for the same reason the measurements are, and drawn entirely in Python — the
     page carries coordinates, not a script, so what the browser shows is exactly what the
-    rows say.
+    rows say. ``?kind=`` narrows the drawing to those node kinds (ADR 0122: the judgement
+    nodes will outnumber the research nodes, so the filter is here from the first version).
     """
-    picture = await graph_picture(session)
+    picture = await graph_picture(session, kinds=request.query_params.getlist("kind") or None)
     page: Response = render(request, "knowledge/graph.html", {"picture": picture})
     return page
 

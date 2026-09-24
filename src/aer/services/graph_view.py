@@ -23,17 +23,21 @@ from __future__ import annotations
 
 import math
 import uuid
-from dataclasses import dataclass
-from typing import Literal
+from collections.abc import Iterable
+from dataclasses import dataclass, field, replace
+from typing import Final, Literal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.db.models import Company, Report, Theme, ThemeMembership
 from aer.obsidian.graph import peer_edges, reachable_from
+from aer.obsidian.judgements import judgement_views, thesis_subjects
+from aer.services.decisions import ACTION_WORDS
 from aer.services.knowledge import researched_companies
 
 __all__ = [
+    "KINDS",
     "GraphEdge",
     "GraphNode",
     "GraphPicture",
@@ -43,8 +47,22 @@ __all__ = [
     "place",
 ]
 
-NodeKind = Literal["company", "theme"]
-EdgeKind = Literal["comparable", "membership"]
+NodeKind = Literal["company", "theme", "thesis", "premise", "decision", "verdict"]
+EdgeKind = Literal["comparable", "membership", "holds", "asserts", "acts_on", "scores"]
+
+# Every kind the picture can draw, in the order the legend lists them and the layout
+# ranks them: what the platform researched first, then what the operator decided (ADR
+# 0122). The page filters by kind from its first version, because the judgement nodes
+# outnumber the research nodes within a year of ordinary use.
+KINDS: Final[tuple[NodeKind, ...]] = (
+    "company",
+    "theme",
+    "thesis",
+    "premise",
+    "decision",
+    "verdict",
+)
+_RANK: Final[dict[str, int]] = {kind: index for index, kind in enumerate(KINDS)}
 
 # Arc length per node on a component's circle: enough for a marker and a label below it.
 _NODE_SPACING = 96.0
@@ -52,6 +70,8 @@ _MIN_RADIUS = 70.0
 # Margin around each component's circle, so labels never cross into the neighbour's box.
 _BOX_PADDING = 56.0
 _MAX_ROW_WIDTH = 1180.0
+# A label is a handle, not the text: a premise is a sentence, and the sentence is the title.
+_LABEL_WIDTH = 28
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +84,10 @@ class GraphNode:
     title: str
     researched: bool
     href: str | None
+    # What state the node is in, in the record's own words: a premise's latest reading
+    # (or "withdrawn"), a decision's action, a verdict's process quality, a thesis held or
+    # retired. Empty for the research kinds, whose state is `researched`.
+    state: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,12 +129,20 @@ class GraphPicture:
     height: float
     nodes: tuple[PlacedNode, ...]
     edges: tuple[PlacedEdge, ...]
+    # How many nodes of each kind the rows hold, before any filter — the legend's numbers —
+    # and which kinds this drawing shows.
+    counts: dict[str, int] = field(default_factory=dict)
+    shown: tuple[str, ...] = KINDS
 
 
 def _sort_key(node: GraphNode) -> tuple[int, str, str]:
-    # Companies before themes, then by label; the id breaks a duplicate-label tie so the
-    # order — and therefore the whole drawing — never depends on set iteration.
-    return (0 if node.kind == "company" else 1, node.label.casefold(), str(node.id))
+    # Kinds in the legend's order, then by label; the id breaks a duplicate-label tie so
+    # the order — and therefore the whole drawing — never depends on set iteration.
+    return (_RANK[node.kind], node.label.casefold(), str(node.id))
+
+
+def _short(text: str) -> str:
+    return text if len(text) <= _LABEL_WIDTH else text[: _LABEL_WIDTH - 1].rstrip() + "…"
 
 
 def place(nodes: list[GraphNode], edges: list[GraphEdge]) -> GraphPicture:
@@ -197,26 +229,31 @@ def place(nodes: list[GraphNode], edges: list[GraphEdge]) -> GraphPicture:
     )
 
 
-async def graph_picture(session: AsyncSession) -> GraphPicture:
+async def graph_picture(
+    session: AsyncSession, *, kinds: Iterable[str] | None = None
+) -> GraphPicture:
     """Assemble the drawing from rows: confirmed relations only, like every projection.
 
     A proposed-but-unapproved peer set, a theme membership through a draft report, a
     company nobody confirmed anything about — none of them appear, for the same reason
-    they produce no vault note and no statistic.
+    they produce no vault note and no statistic. ``kinds`` narrows what is drawn to those
+    node kinds (an edge needs both its ends); the counts in the legend are of everything.
     """
     peers = await peer_edges(session)
     researched = await researched_companies(session)
-    company_ids = set(peers) | set(researched)
+    # A company somebody holds a thesis on is in the map (ADR 0122), researched or not.
+    subjects = await thesis_subjects(session)
+    company_ids = set(peers) | set(researched) | set(subjects)
 
-    stub_ids = company_ids - set(researched)
-    stubs: dict[uuid.UUID, Company] = {}
+    known: dict[uuid.UUID, Company] = {**subjects, **researched}
+    stub_ids = company_ids - set(known)
     if stub_ids:
         rows = await session.scalars(select(Company).where(Company.id.in_(stub_ids)))
-        stubs = {row.id: row for row in rows}
+        known.update({row.id: row for row in rows})
 
     nodes: list[GraphNode] = []
     for company_id in company_ids:
-        company = researched.get(company_id) or stubs[company_id]
+        company = known[company_id]
         nodes.append(
             GraphNode(
                 id=company.id,
@@ -261,4 +298,88 @@ async def graph_picture(session: AsyncSession) -> GraphPicture:
         GraphEdge(a=theme_id, b=member_id, kind="membership") for theme_id, member_id in spokes
     )
 
-    return place(sorted(nodes, key=_sort_key), edges)
+    # The judgement layer (ADR 0122 §1): four kinds and four edges, the installation's
+    # like everything else drawn here. A premise carries its latest reading as its state
+    # rather than a node per finding; a verdict is a review the operator confirmed.
+    for view in await judgement_views(session, companies=known):
+        thesis = view.thesis
+        nodes.append(
+            GraphNode(
+                id=thesis.id,
+                kind="thesis",
+                label=_short(thesis.title),
+                title=thesis.title,
+                researched=not thesis.is_retired,
+                href=f"/theses/{thesis.id}",
+                state="retired" if thesis.is_retired else "held",
+            )
+        )
+        edges.append(GraphEdge(a=view.company.id, b=thesis.id, kind="holds"))
+        for premise_view in view.premises:
+            premise = premise_view.premise
+            reading = premise_view.reading
+            if premise_view.is_withdrawn:
+                state = "withdrawn"
+            elif reading is not None and reading.status is not None:
+                state = reading.status.value
+            else:
+                state = "unread"
+            nodes.append(
+                GraphNode(
+                    id=premise.judgement_id,
+                    kind="premise",
+                    label=_short(premise.statement),
+                    title=premise.statement,
+                    researched=not premise_view.is_withdrawn,
+                    href=f"/theses/{thesis.id}",
+                    state=state,
+                )
+            )
+            edges.append(GraphEdge(a=thesis.id, b=premise.judgement_id, kind="asserts"))
+        for decision_view in view.decisions:
+            decision = decision_view.decision
+            nodes.append(
+                GraphNode(
+                    id=decision.judgement_id,
+                    kind="decision",
+                    label=ACTION_WORDS[decision.action],
+                    title=(
+                        f"{decision.judgement.held_at.date().isoformat()}: {decision.statement}"
+                    ),
+                    researched=decision.judgement.withdrawn_at is None,
+                    href=f"/decisions/{decision.judgement_id}",
+                    state=decision.action.value,
+                )
+            )
+            edges.append(GraphEdge(a=decision.judgement_id, b=thesis.id, kind="acts_on"))
+            if decision_view.verdict is not None:
+                edges.append(
+                    GraphEdge(
+                        a=decision_view.verdict.judgement_id,
+                        b=decision.judgement_id,
+                        kind="scores",
+                    )
+                )
+        nodes.extend(
+            GraphNode(
+                id=review.judgement_id,
+                kind="verdict",
+                label=f"{review.process_quality.value} process",
+                title=f"Closed {review.closed_on.isoformat()}: {review.judgement.basis}",
+                researched=True,
+                href=f"/review/{review.judgement_id}",
+                state=review.process_quality.value,
+            )
+            for review in view.verdicts
+        )
+
+    counts: dict[str, int] = {kind: sum(1 for node in nodes if node.kind == kind) for kind in KINDS}
+    wanted = set(kinds) if kinds is not None else set(KINDS)
+    shown = tuple(kind for kind in KINDS if kind in wanted) or KINDS
+    if shown != KINDS:
+        keep = {node.id for node in nodes if node.kind in shown}
+        nodes = [node for node in nodes if node.id in keep]
+        edges = [edge for edge in edges if edge.a in keep and edge.b in keep]
+
+    picture = place(sorted(nodes, key=_sort_key), edges)
+    return replace(picture, counts=counts, shown=shown)

@@ -41,11 +41,13 @@ from aer.db.models import (
     Report,
     ReportSection,
     ResearchRequest,
+    Review,
     SectionDefinition,
     SourceDocument,
 )
 from aer.errors import AerError
 from aer.obsidian.graph import CompanyView, LinkGraph, RunView, ThemeView, build_graph
+from aer.obsidian.judgements import DecisionView, PremiseView, ThesisView
 from aer.obsidian.notes import (
     CatalystNoteMeta,
     CompanyNoteMeta,
@@ -53,10 +55,13 @@ from aer.obsidian.notes import (
     RunNoteMeta,
     SourceNoteMeta,
     ThemeNoteMeta,
+    ThesisNoteMeta,
     render_note,
 )
 from aer.obsidian.vault import VaultWriter
+from aer.services.decisions import ACTION_WORDS
 from aer.services.history import report_view
+from aer.services.thesis_monitor import predicate_sentence
 from aer.version import version
 
 __all__ = ["ObsidianExportError", "export_report"]
@@ -131,7 +136,11 @@ async def export_report(
 
     stamp = report.approved_at.astimezone(UTC)
     generator = f"tracework-aer@{version()}"
-    graph = await build_graph(session, job=job, report=report, company=company)
+    # The judgement layer is the operator's own, so the graph carries the theses of the
+    # person whose research this is — the vault is one person's projection (ADR 0122).
+    graph = await build_graph(
+        session, job=job, report=report, company=company, user_id=request.work_order.user_id
+    )
     catalyst_links = _catalyst_links_by_report(graph)
 
     written: list[str] = []
@@ -191,6 +200,7 @@ async def export_report(
     written.extend(_write_catalyst_notes(writer, graph, stamp=stamp, generator=generator))
     written.extend(_write_industry_notes(writer, graph, stamp=stamp, generator=generator))
     written.extend(_write_theme_notes(writer, graph, stamp=stamp, generator=generator))
+    written.extend(_write_thesis_notes(writer, graph, stamp=stamp, generator=generator))
 
     current_titles = {_company_title(view.company) for view in graph.companies.values()}
     current_titles.add(subject_title)
@@ -437,6 +447,7 @@ def _company_generated(
     run_links = [f"[[{_run_note_title(run.request)}]]" for run in view.runs]
     competitors = _peer_links(graph, view.competitor_ids)
     theme_links = _company_theme_links(graph).get(company.id, [])
+    thesis_links = _company_thesis_links(graph).get(company.id, [])
     industry_link = (
         f"[[{_industry_note_title(view.industry)}]]" if view.industry is not None else None
     )
@@ -453,6 +464,7 @@ def _company_generated(
         industry_note=industry_link,
         competitors=competitors,
         themes=theme_links,
+        theses=thesis_links,
     )
 
     if not view.runs:
@@ -484,6 +496,10 @@ def _company_generated(
         body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
     if theme_links:
         body_lines.extend(["## Themes", "", *[f"- {link}" for link in theme_links], ""])
+    if thesis_links:
+        # What the operator believes about the company, beside what the research found:
+        # the map's judgement layer (ADR 0122), linked and never quoted as evidence.
+        body_lines.extend(["## Theses", "", *[f"- {link}" for link in thesis_links], ""])
     if view.driver_accuracy:
         # K3: how the confirmed forecast drivers held up, measured against the first
         # filed year after each prior run. Deltas, not verdicts — whether a miss mattered
@@ -776,6 +792,164 @@ def _write_theme_notes(
         writer.regenerate(relative, render_note(meta, "\n".join(body_lines)))
         written.append(relative)
     return written
+
+
+def _company_thesis_links(graph: LinkGraph) -> dict[uuid.UUID, list[str]]:
+    """Which thesis notes each company note links, oldest thesis first."""
+    links: dict[uuid.UUID, list[str]] = {}
+    for view in graph.thesis_views:
+        links.setdefault(view.company.id, []).append(f"[[{_thesis_note_title(view)}]]")
+    return links
+
+
+def _write_thesis_notes(
+    writer: VaultWriter, graph: LinkGraph, *, stamp: datetime, generator: str
+) -> list[str]:
+    """One note per thesis in the component: the operator's judgement, projected and never
+    read back (ADR 0122 §1 and §4). Regenerated whole on every export, like a run note —
+    a thesis is a record, and the vault is not where it is edited."""
+    written: list[str] = []
+    for view in graph.thesis_views:
+        thesis = view.thesis
+        held = [row for row in view.premises if not row.is_withdrawn]
+        meta = ThesisNoteMeta(
+            aer_id=f"thesis-{thesis.id}",
+            generated_at=stamp,
+            generator=generator,
+            tags=["aer/thesis", "aer/retired" if thesis.is_retired else "aer/held"],
+            thesis_id=str(thesis.id),
+            company=view.company.name,
+            ticker=view.company.ticker,
+            title=thesis.title,
+            company_note=f"[[{_company_title(view.company)}]]",
+            written_on=(thesis.written_at or thesis.created_at).date(),
+            retired=thesis.is_retired,
+            premises_held=len(held),
+            premises_withdrawn=len(view.premises) - len(held),
+            decisions=len(view.decisions),
+            verdicts=len(view.verdicts),
+        )
+        relative = f"60-Theses/{_thesis_note_title(view)}.md"
+        writer.write(relative, render_note(meta, _thesis_body(view, graph)))
+        written.append(relative)
+    return written
+
+
+def _thesis_body(view: ThesisView, graph: LinkGraph) -> str:
+    thesis = view.thesis
+    company_view = graph.companies.get(view.company.id)
+    against = "no report; the view was formed before the platform researched the company"
+    if thesis.report_id is not None:
+        run = next(
+            (
+                run
+                for run in (company_view.runs if company_view is not None else ())
+                if run.report.id == thesis.report_id
+            ),
+            None,
+        )
+        against = (
+            f"[[{_run_note_title(run.request)}]]"
+            if run is not None
+            else "a report this vault does not hold"
+        )
+    lines = [
+        f"# {thesis.title}",
+        "",
+        f"What {view.company.name} is believed to do, as premises with the tests that would "
+        "defeat them. The operator's own judgement: it cites nothing, and nothing may cite "
+        "it (ADR 0122).",
+        "",
+        f"- Company: [[{_company_title(view.company)}]]",
+        f"- Written: {(thesis.written_at or thesis.created_at).date().isoformat()}",
+        f"- Against: {against}",
+    ]
+    if thesis.retired_at is not None:
+        lines.append(
+            f"- Retired {thesis.retired_at.date().isoformat()}: {thesis.retirement_reason}"
+        )
+    numbered = {row.premise.judgement_id: index for index, row in enumerate(view.premises, 1)}
+    lines.extend(["", "## Premises", ""])
+    lines.extend(
+        [_premise_line(index, row) for index, row in enumerate(view.premises, 1)]
+        or ["No premise yet: nothing for the monitor to test."]
+    )
+    lines.extend(["", "## Decisions", ""])
+    lines.extend(
+        [_decision_line(row, numbered) for row in view.decisions]
+        or ["No decision recorded on this thesis."]
+    )
+    if view.verdicts:
+        lines.extend(["", "## Verdicts", ""])
+        lines.extend(_verdict_line(review) for review in view.verdicts)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _premise_line(index: int, row: PremiseView) -> str:
+    premise = row.premise
+    if premise.has_predicate:
+        test = predicate_sentence(premise)
+    elif premise.review_by is not None:
+        test = f"a person reviews it by {premise.review_by.isoformat()}"
+    else:
+        test = "nothing tests it"
+    line = (
+        f"{index}. {premise.statement} — {test} — held since "
+        f"{premise.judgement.held_at.date().isoformat()}"
+    )
+    if premise.judgement.withdrawn_at is not None:
+        line += (
+            f" — withdrawn {premise.judgement.withdrawn_at.date().isoformat()}: "
+            f"{premise.judgement.withdrawn_reason}"
+        )
+    if row.reading is not None and row.reading.status is not None:
+        line += (
+            f" — last read {row.reading.created_at.date().isoformat()}: "
+            f"{row.reading.status.value.replace('_', ' ')}"
+        )
+    return line
+
+
+def _decision_line(row: DecisionView, numbered: dict[uuid.UUID, int]) -> str:
+    decision = row.decision
+    line = (
+        f"- {decision.judgement.held_at.date().isoformat()}: "
+        f"{ACTION_WORDS[decision.action]} — {decision.statement}"
+    )
+    if decision.size_statement:
+        line += f" · {decision.size_statement}"
+    if decision.horizon_months:
+        line += f" · over {decision.horizon_months} months"
+    if decision.exit_plan:
+        line += f" · exit: {decision.exit_plan}"
+    version = ", ".join(str(numbered[premise.judgement_id]) for premise in row.version)
+    line += f" — on premises {version} as they stood" if version else " — before any premise"
+    if decision.judgement.withdrawn_at is not None:
+        line += (
+            f" — withdrawn {decision.judgement.withdrawn_at.date().isoformat()}: "
+            f"{decision.judgement.withdrawn_reason}"
+        )
+    if row.verdict is not None:
+        line += (
+            f" — scored {row.verdict.process_quality.value} on {row.verdict.closed_on.isoformat()}"
+        )
+    return line
+
+
+def _verdict_line(review: Review) -> str:
+    line = (
+        f"- Closed {review.closed_on.isoformat()}: {review.process_quality.value} process — "
+        f"{review.judgement.basis}"
+    )
+    if review.lessons:
+        line += f" Lessons: {review.lessons}"
+    return line
+
+
+def _thesis_note_title(view: ThesisView) -> str:
+    # The short id keeps two same-titled theses on one company apart; a title is prose.
+    return _safe(f"{view.company.ticker} - Thesis - {view.thesis.title} - {view.thesis.id.hex[:8]}")
 
 
 async def _moc_generated(session: AsyncSession, current_titles: set[str]) -> str:

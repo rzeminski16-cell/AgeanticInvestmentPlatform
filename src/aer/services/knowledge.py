@@ -35,14 +35,19 @@ from aer.config import Settings
 from aer.core.sectors import ModelNotPermittedError
 from aer.db.models import (
     Company,
+    Decision,
     Job,
     ObsidianExport,
+    Premise,
     Report,
     ResearchRequest,
+    Review,
     SourceDocument,
     ThemeMembership,
+    Thesis,
 )
 from aer.obsidian.graph import peer_edges, reachable_from
+from aer.obsidian.judgements import thesis_subjects
 from aer.services.catalyst_resolutions import resolutions_for
 from aer.services.history import (
     approved_reports_for,
@@ -83,6 +88,7 @@ _GENERATED_DIRECTORIES: Final[tuple[str, ...]] = (
     "30-Industries",
     "40-Themes",
     "50-Catalysts",
+    "60-Theses",
     "90-Sources",
 )
 
@@ -107,6 +113,13 @@ class GraphSize:
     theme_nodes: int
     catalyst_nodes: int
     sources: int
+    # The judgement layer (ADR 0122): what the operator decided, counted beside what the
+    # platform researched. Every row counts — a withdrawn premise or a retired thesis is
+    # a record, not an absence — and a verdict is a review the operator confirmed.
+    thesis_nodes: int = 0
+    premise_nodes: int = 0
+    decision_nodes: int = 0
+    verdict_nodes: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -118,6 +131,10 @@ class GraphSize:
             "theme_nodes": self.theme_nodes,
             "catalyst_nodes": self.catalyst_nodes,
             "sources": self.sources,
+            "thesis_nodes": self.thesis_nodes,
+            "premise_nodes": self.premise_nodes,
+            "decision_nodes": self.decision_nodes,
+            "verdict_nodes": self.verdict_nodes,
         }
 
 
@@ -328,7 +345,8 @@ async def knowledge_stats(
     today = as_of or datetime.now(UTC).date()
     edges = await peer_edges(session)
     researched = await researched_companies(session)
-    nodes = set(edges) | set(researched)
+    # A company somebody holds a thesis on is in the map (ADR 0122), researched or not.
+    nodes = set(edges) | set(researched) | set(await thesis_subjects(session))
 
     size = await _size(session, nodes=nodes, researched=researched, today=today)
     shape = _shape(nodes=nodes, edges=edges)
@@ -406,6 +424,10 @@ async def _size(
         .join(Report, Report.request_id == ResearchRequest.id)
         .where(Report.immutable.is_(True))
     )
+    theses = await session.scalar(select(func.count(Thesis.id)))
+    premises = await session.scalar(select(func.count(Premise.judgement_id)))
+    decisions = await session.scalar(select(func.count(Decision.judgement_id)))
+    verdicts = await session.scalar(select(func.count(Review.judgement_id)))
     return GraphSize(
         companies=len(nodes),
         researched=len(researched),
@@ -417,6 +439,10 @@ async def _size(
         theme_nodes=int(themes or 0),
         catalyst_nodes=len(catalyst_keys),
         sources=int(sources or 0),
+        thesis_nodes=int(theses or 0),
+        premise_nodes=int(premises or 0),
+        decision_nodes=int(decisions or 0),
+        verdict_nodes=int(verdicts or 0),
     )
 
 
