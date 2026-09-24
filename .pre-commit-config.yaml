@@ -26,6 +26,8 @@ repos:
       # report or a console note is what the run or the model wrote, and a document that cites
       # it cites those bytes. The hand-written notes beside them (README, source map) are
       # still checked. Found on 24 September 2026, when `just hooks` rewrote eighty-five of them.
+      # The size limit steps aside for the same files and no others: a run's export is committed
+      # whole or the record is not the run, and the ones already here run to 2.5 MB.
       - id: end-of-file-fixer
         exclude: ^docs/(plan/[^/]+-20\d\d-\d\d/(.+\.(json|jsonl|html)|(.+/)?(report|note)\.md)|V1\.0_Alpha/design/screens/.+\.(json|html))$
       - id: trailing-whitespace
@@ -34,6 +36,7 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
+        exclude: ^docs/(plan/[^/]+-20\d\d-\d\d/(.+\.(json|jsonl|html)|(.+/)?(report|note)\.md)|V1\.0_Alpha/design/screens/.+\.(json|html))$
       - id: check-toml
       - id: check-yaml
       - id: check-json
