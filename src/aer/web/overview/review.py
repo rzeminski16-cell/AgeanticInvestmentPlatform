@@ -83,6 +83,8 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
         if state.proposal is not None and state.proposal.status is JobStatus.FAILED
     )
 
+    # A position deferred to a date is not here until the date passes (F14): the operator
+    # decided, and the feed's job is to show what nobody has decided about.
     unreviewed = [state for state in states if state.state == "unreviewed"]
     collected.extend(
         Attention(
@@ -90,10 +92,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             tool=TOOL,
             severity=Severity.IDLE,
             title=f"{state.episode.security.ticker} closed and has not been reviewed",
-            detail=(
-                f"Closed on {state.episode.closed_on:%d %B %Y}. A review scores the decision "
-                "against the process, not the result, and this one has not been scored."
-            ),
+            detail=_unreviewed_detail(state),
             href="/review",
             action="Open the review list",
             waited=figures.waited_for(
@@ -115,3 +114,16 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             )
         )
     return collected
+
+
+def _unreviewed_detail(state: post_trade.EpisodeState) -> str:
+    closed = f"Closed on {state.episode.closed_on:%d %B %Y}."
+    if state.has_lapsed and state.deferral is not None:
+        closed += (
+            f" You deferred its review to {state.deferral.review_by:%d %B %Y}, and that date "
+            "has passed."
+        )
+    return (
+        f"{closed} A review scores the decision against the process, not the result, and "
+        "this one has not been scored."
+    )

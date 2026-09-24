@@ -49,6 +49,7 @@ from aer.db.models import (
     Judgement,
     Portfolio,
     Review,
+    ReviewDeferral,
     ReviewVerdict,
     Security,
     Transaction,
@@ -65,6 +66,7 @@ from aer.services import theses as thesis_service
 from aer.services.calculations import new_context
 from aer.storage.local import LocalArtefactStore
 from aer.web.overview import review as review_feed
+from aer.web.overview import suggestions as suggestion_band
 from aer.web.overview.attention import Severity
 from tests.api_fixtures import build_app, client_for
 from tests.portfolio_fixtures import trade
@@ -1181,6 +1183,194 @@ class TestTheWorkList:
         assert await review_feed.items(db_session, user_id=scene["user"].id) == []
 
 
+# -- Deferrals ---------------------------------------------------------------------------------
+
+
+REVIEW_BY = date(2026, 12, 31)
+DEFERRED_ON = date(2026, 9, 24)
+
+
+async def _defer(
+    scene: dict[str, Any],
+    *,
+    review_by: date = REVIEW_BY,
+    reason: str = "The FY26 accounts are not filed yet.",
+    today: date | None = DEFERRED_ON,
+) -> ReviewDeferral:
+    return await post_trade.defer_review(
+        scene["session"],
+        user=scene["user"],
+        episode=await _episode(scene),
+        review_by=review_by,
+        reason=reason,
+        today=today,
+    )
+
+
+class TestADeferral:
+    """F14's other decision: not now, by then, because — and what it does to the queue."""
+
+    async def test_a_deferral_puts_the_position_off_to_a_date(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+
+        row = await _defer(scene, reason="  The FY26 accounts are not filed yet.  ")
+
+        assert row.reason == "The FY26 accounts are not filed yet."
+        assert row.created_at is not None
+        [state] = await post_trade.states_for(
+            db_session, portfolio=scene["portfolio"], today=DEFERRED_ON
+        )
+        assert state.state == "deferred"
+        assert state.deferral is row
+        assert not state.has_lapsed
+
+    async def test_on_its_own_date_a_deferral_still_holds(self, db_session: AsyncSession) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        await _defer(scene)
+
+        [state] = await post_trade.states_for(
+            db_session, portfolio=scene["portfolio"], today=REVIEW_BY
+        )
+
+        assert state.state == "deferred"
+
+    async def test_a_lapsed_deferral_is_unreviewed_again_and_says_so(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        await _defer(scene)
+
+        [state] = await post_trade.states_for(
+            db_session, portfolio=scene["portfolio"], today=REVIEW_BY + timedelta(days=1)
+        )
+
+        assert state.state == "unreviewed"
+        assert state.has_lapsed
+        assert state.deferral is not None
+        assert state.deferral.review_by == REVIEW_BY
+
+    async def test_a_deferral_needs_a_reason_and_a_date_after_today(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+
+        with pytest.raises(ValidationError, match="says why"):
+            await _defer(scene, reason="   ")
+        with pytest.raises(ValidationError, match="after today"):
+            await _defer(scene, review_by=DEFERRED_ON)
+
+        assert (
+            await post_trade.latest_deferral_for(db_session, episode=await _episode(scene)) is None
+        )
+
+    async def test_a_reviewed_position_has_nothing_to_defer(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        job = await _run(scene, tmp_path, provider=_provider(_draft(scene["premise"].judgement_id)))
+        await _confirm(scene, await _proposal(scene, job))
+
+        with pytest.raises(ConflictError, match="already reviewed"):
+            await _defer(scene)
+
+    async def test_a_waiting_proposal_is_for_a_person_not_a_date(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        await _run(scene, tmp_path, provider=_provider(_draft(scene["premise"].judgement_id)))
+
+        with pytest.raises(ConflictError, match="waiting for you"):
+            await _defer(scene)
+
+    async def test_a_stopped_pass_is_no_bar(self, db_session: AsyncSession, tmp_path: Path) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        await _run(
+            scene,
+            tmp_path,
+            provider=_provider(_draft(scene["premise"].judgement_id)),
+            per_run_budget_gbp=Decimal("0.01"),
+        )
+
+        await _defer(scene, reason="Run it again once the accounts are in.")
+
+        [state] = await post_trade.states_for(
+            db_session, portfolio=scene["portfolio"], today=DEFERRED_ON
+        )
+        assert state.state == "deferred"
+        # The stopped pass stays on the record beneath the deferral.
+        assert state.proposal is not None
+
+    async def test_another_persons_book_cannot_be_deferred(self, db_session: AsyncSession) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        stranger = User(
+            email="stranger@example.invalid", display_name="Stranger", role=UserRole.OWNER
+        )
+        db_session.add(stranger)
+        await db_session.flush()
+
+        with pytest.raises(ConflictError, match="whose book"):
+            await post_trade.defer_review(
+                db_session,
+                user=stranger,
+                episode=await _episode(scene),
+                review_by=REVIEW_BY,
+                reason="Not mine to say, but.",
+                today=DEFERRED_ON,
+            )
+
+    async def test_deferring_again_appends_and_the_latest_governs(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+
+        first = await _defer(scene)
+        second = await _defer(scene, review_by=date(2027, 3, 31), reason="Still not filed.")
+
+        latest = await post_trade.latest_deferral_for(db_session, episode=await _episode(scene))
+        assert latest is not None
+        assert latest.id == second.id
+        assert first.review_by == REVIEW_BY
+        assert len(list(await db_session.scalars(select(ReviewDeferral)))) == 2
+
+    async def test_the_feed_asks_nothing_while_a_deferral_holds(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        await _defer(scene, review_by=date(2030, 1, 31), today=None)
+
+        assert await review_feed.items(db_session, user_id=scene["user"].id) == []
+        cards = await suggestion_band.suggestions_for(db_session, user=scene["user"])
+        assert [card for card in cards if card.kind == "review"] == []
+
+    async def test_the_feed_asks_again_once_a_deferral_has_lapsed(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        # Deferred in June to July; it is later than that now, so the date has passed.
+        await _defer(scene, review_by=date(2026, 7, 1), today=date(2026, 6, 20))
+
+        [item] = await review_feed.items(db_session, user_id=scene["user"].id)
+        assert item.severity is Severity.IDLE
+        assert "has not been reviewed" in item.title
+        assert "01 July 2026, and that date has passed" in item.detail
+        cards = await suggestion_band.suggestions_for(db_session, user=scene["user"])
+        [card] = [card for card in cards if card.kind == "review"]
+        assert "which has passed" in card.justification
+
+
 # -- Structure ---------------------------------------------------------------------------------
 
 
@@ -1395,3 +1585,69 @@ class TestThePages:
 
         assert response.status_code == 404
         assert "No such closed position" in response.text
+
+
+class TestDeferringFromThePage:
+    async def test_a_closed_position_is_deferred_to_a_date(self, api: Any, committed: Any) -> None:
+        page = await api.get("/review")
+        assert 'action="/review/defer"' in page.text
+
+        response = await api.post(
+            "/review/defer",
+            data={
+                "csrf_token": _csrf(page.text),
+                "portfolio_id": str(committed["portfolio"].id),
+                "security_id": str(committed["barc"].id),
+                "closed_on": CLOSED_ON.isoformat(),
+                "review_by": "2030-01-31",
+                "reason": "The FY26 accounts are not filed yet.",
+            },
+        )
+        assert response.status_code == 303, response.text
+        assert response.headers["location"] == "/review"
+
+        listed = (await api.get("/review")).text
+        assert 'data-state="deferred"' in listed
+        assert 'data-state="unreviewed"' not in listed
+        assert "31 January 2030" in listed
+        assert "The FY26 accounts are not filed yet." in listed
+        assert "closed position is deferred to a date you chose" in listed
+
+        # Today stops asking: the operator decided.
+        today = (await api.get("/")).text
+        assert "has not been reviewed" not in today
+
+    async def test_a_deferral_without_a_reason_is_refused(self, api: Any, committed: Any) -> None:
+        page = await api.get("/review")
+        response = await api.post(
+            "/review/defer",
+            data={
+                "csrf_token": _csrf(page.text),
+                "portfolio_id": str(committed["portfolio"].id),
+                "security_id": str(committed["barc"].id),
+                "closed_on": CLOSED_ON.isoformat(),
+                "review_by": "2030-01-31",
+                "reason": "   ",
+            },
+        )
+
+        assert response.status_code == ValidationError.http_status, response.text
+        assert "says why" in response.text
+        assert 'data-state="deferred"' not in (await api.get("/review")).text
+
+    async def test_a_deferral_needs_a_date(self, api: Any, committed: Any) -> None:
+        page = await api.get("/review")
+        response = await api.post(
+            "/review/defer",
+            data={
+                "csrf_token": _csrf(page.text),
+                "portfolio_id": str(committed["portfolio"].id),
+                "security_id": str(committed["barc"].id),
+                "closed_on": CLOSED_ON.isoformat(),
+                "review_by": "soon",
+                "reason": "Not yet.",
+            },
+        )
+
+        assert response.status_code == 400, response.text
+        assert "must be a date" in response.text

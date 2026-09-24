@@ -197,17 +197,28 @@ async def _held_without_a_thesis(
 async def _closed_and_unreviewed(
     session: AsyncSession, *, user: User, now: datetime
 ) -> list[Suggestion]:
-    """A position closed more than thirty days ago that nobody has reviewed."""
+    """A position closed more than thirty days ago that nobody has reviewed — and nobody
+    has deferred to a date still to come (F14). A lapsed deferral is due from its date."""
     books = await session.scalars(
         select(Portfolio).where(Portfolio.user_id == user.id, Portfolio.archived_at.is_(None))
     )
     found: list[Suggestion] = []
     for book in books:
-        for state in await post_trade.states_for(session, portfolio=book):
+        for state in await post_trade.states_for(session, portfolio=book, today=now.date()):
             if state.state != "unreviewed":
                 continue
             closed = datetime.combine(state.episode.closed_on, datetime.min.time(), tzinfo=UTC)
-            if now - closed < QUIET_FOR:
+            due = closed + QUIET_FOR
+            lapsed = ""
+            if state.has_lapsed and state.deferral is not None:
+                review_by = datetime.combine(
+                    state.deferral.review_by, datetime.min.time(), tzinfo=UTC
+                )
+                due = max(due, review_by)
+                lapsed = (
+                    f" You deferred it to {state.deferral.review_by:%d %B %Y}, which has passed."
+                )
+            if now < due:
                 continue
             found.append(
                 Suggestion(
@@ -215,9 +226,10 @@ async def _closed_and_unreviewed(
                     title=f"Review the {state.episode.security.ticker} position",
                     justification=(
                         f"Closed on {state.episode.closed_on:%d %B %Y}, more than thirty days "
-                        "ago, and not yet scored against the process it was meant to follow."
+                        f"ago, and not yet scored against the process it was meant to follow."
+                        f"{lapsed}"
                     ),
-                    condition_met_at=closed + QUIET_FOR,
+                    condition_met_at=due,
                     action_href="/review",
                     action_label="Review it",
                 )

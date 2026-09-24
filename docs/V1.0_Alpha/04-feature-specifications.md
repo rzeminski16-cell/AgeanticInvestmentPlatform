@@ -445,6 +445,15 @@ that express it, so the model is thesis → many decisions → many transactions
 **Done when.** A decision is recorded in under three minutes; a pass is as easy to record as a
 buy; and no decision exists without a thesis and a report behind it.
 
+**Corrected 24 September 2026, on verifying it against the code.** *No decision exists without
+a thesis and a report behind it* is half true by design. A decision requires a thesis
+(`decisions.thesis_id`, not null); the report is the thesis's own link, nullable and severed if
+the report goes (ADR 0102's shape), because a view may be formed before the platform has
+researched the company — Today's *held with no thesis* card leads to writing exactly such a
+thesis. Requiring a report at decision time would forbid recording a decision about a holding
+nobody has researched, which is the decision most worth recording. The "done when" reads: no
+decision exists without a thesis behind it, and the thesis names its report where one exists.
+
 ---
 
 ## F11 · The monitor
@@ -582,6 +591,14 @@ finding linking to the decisions behind it.
 
 **Done when.** Every closed position is reviewed or explicitly deferred with a date, and the
 analytics page shows no statistic on a sample that cannot support one.
+
+**Verified 24 September 2026, against the code.** The analytics half held: every proportion
+below the minimum sample is withheld. The deferral half did not exist — no service, no control,
+no record — so the queue could not distinguish a position nobody was ready to review from one
+nobody had decided about. Built as `review_deferrals` (a date to review by and a reason,
+append-only, and not a judgement: it asserts nothing about the company), a control on each
+unreviewed row, a *Deferred* group on the page, and Today reading the state (page specification
+§15's correction of the same date; ROADMAP §3.19 item 62).
 
 ---
 

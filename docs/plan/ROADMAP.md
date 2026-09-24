@@ -2520,6 +2520,32 @@ found rather than as scope that was always there.
     abandoned-connection guard it named as the candidate answers a signature this failure
     never showed, and stays unbuilt.
 
+62. **Phase 6a's five built features, verified against their own "done when", 24 September
+    2026.** Item 48 measured F9, F10, F11, F13 and F14 as built and said they became
+    verification rather than construction. Read against the code: F9 holds (a premise
+    nothing can test takes a review date, and the history is sentences); F11 by items 44
+    and 45 and its own dated correction; F12 by item 43; F13's composed half by Phase 4.4,
+    the authored half out of scope twice over. Two did not hold as written.
+
+    *F14: "reviewed or explicitly deferred with a date."* No deferral existed — not in the
+    service, the page, ADRs 0081 and 0105 or page specification §15 — so the queue could not
+    tell a position nobody was ready to review from one nobody had decided about, and Today
+    nagged about both alike. Built: `review_deferrals` (migration 0087), a date a person
+    will review the position by and a reason, append-only, and not a judgement since it
+    asserts nothing about the company; `post_trade.defer_review`; a *Defer to a date*
+    control beside *Run the reviewer*; a *Deferred* group on the page; and `EpisodeState`
+    reading five states in a stated precedence — a review over everything, a proposal
+    waiting for a person over a deferral waiting for a date, a deferral in force over a
+    stopped pass and over *unreviewed*, which the position becomes again the day the date
+    passes. Today's feed and the *Review it* card read the same state. §15 and F14 are
+    corrected in place.
+
+    *F10: "no decision exists without a thesis and a report behind it."* Half true by
+    design: the thesis is required (`decisions.thesis_id`, not null); the report is the
+    thesis's own nullable link (ADR 0102's shape), because a view may be formed before the
+    platform has researched the company — item 60's *held with no thesis* card leads to
+    writing exactly such a thesis. The code stands and the clause is corrected in F10.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

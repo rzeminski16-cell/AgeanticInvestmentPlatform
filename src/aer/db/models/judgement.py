@@ -81,7 +81,15 @@ if TYPE_CHECKING:
     from aer.db.models.security import Security
     from aer.db.models.user import User
 
-__all__ = ["Decision", "Judgement", "Premise", "Review", "ReviewVerdict", "Thesis"]
+__all__ = [
+    "Decision",
+    "Judgement",
+    "Premise",
+    "Review",
+    "ReviewDeferral",
+    "ReviewVerdict",
+    "Thesis",
+]
 
 
 def _enum(kind: type, name: str) -> SaEnum:
@@ -492,3 +500,65 @@ class ReviewVerdict(Base):
         UniqueConstraint("review_id", "position", name="uq_review_verdicts_position"),
         Index("ix_review_verdicts_premise_id", "premise_id"),
     )
+
+
+class ReviewDeferral(Base):
+    """A closed position the operator has chosen to review later, by a date, for a reason.
+
+    F14's rule is that every closed position is reviewed or explicitly deferred with a
+    date, so the review queue cannot fill with positions nobody has decided anything about.
+    A deferral is that other decision. It is **not a judgement**: it asserts nothing about
+    the company or the trade, only when a person will look, which is why it has a table of
+    its own rather than a fourth ``JudgementKind`` — a judgement carries a basis and can be
+    superseded or withdrawn, and a date to look again by needs neither.
+
+    **Append-only.** Deferring again writes a new row; the latest governs, and the earlier
+    ones stay as the record of how long the position was put off. A deferral whose date has
+    passed with no review lapses on its own: the position is *unreviewed* again, with the
+    lapsed date beside it, and nothing here is deleted or edited to make that so.
+    """
+
+    __tablename__ = "review_deferrals"
+
+    id: Mapped[UuidPk]
+
+    user_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # The closed position, as `reviews` names it. RESTRICT on the security for the reason
+    # `reviews.security_id` gives; CASCADE on the book, whose deferrals go with it.
+    portfolio_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False
+    )
+    security_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("securities.id", ondelete="RESTRICT"), nullable=False
+    )
+    closed_on: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # The date by which a person will look — the premise's own word for the same promise
+    # (`premises.review_by`) — and why the review waits until then.
+    review_by: Mapped[date] = mapped_column(Date, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # The statement's clock rather than the transaction's (`now()` is the latter): two
+    # deferrals written in one transaction — a test's, or a batch's — must still have an
+    # order, because the latest one governs.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("clock_timestamp()")
+    )
+
+    __table_args__ = (
+        CheckConstraint("review_by > closed_on", name="review_deferral_is_after_the_close"),
+        CheckConstraint("char_length(btrim(reason)) > 0", name="review_deferral_says_why"),
+        Index(
+            "ix_review_deferrals_position_created_at",
+            "portfolio_id",
+            "security_id",
+            "closed_on",
+            text("created_at DESC"),
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ReviewDeferral of {self.security_id} closed {self.closed_on} to {self.review_by}>"

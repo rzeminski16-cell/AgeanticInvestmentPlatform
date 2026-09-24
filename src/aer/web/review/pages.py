@@ -88,6 +88,11 @@ class EpisodeRow:
     pass_id: uuid.UUID | None
     review_id: uuid.UUID | None
     reason: str
+    review_by: str = ""
+    """The date a deferral in force runs to, rendered; empty otherwise."""
+    deferral_reason: str = ""
+    lapsed_by: str = ""
+    """The date a lapsed deferral ran to, rendered, on a row that is unreviewed again."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +217,8 @@ def _episode_row(state: post_trade.EpisodeState) -> EpisodeRow:
     reason = ""
     if state.state == "stopped" and state.proposal is not None:
         reason = str((state.proposal.error or {}).get("message") or "The pass recorded no reason.")
+    deferral = state.deferral
+    in_force = deferral is not None and state.state == "deferred"
     return EpisodeRow(
         key=episode.key,
         portfolio_id=episode.portfolio.id,
@@ -227,6 +234,11 @@ def _episode_row(state: post_trade.EpisodeState) -> EpisodeRow:
         pass_id=state.proposal.id if state.proposal is not None else None,
         review_id=state.review.judgement_id if state.review is not None else None,
         reason=reason,
+        review_by=f"{deferral.review_by:%d %B %Y}" if deferral is not None and in_force else "",
+        deferral_reason=deferral.reason if deferral is not None and in_force else "",
+        lapsed_by=(
+            f"{deferral.review_by:%d %B %Y}" if deferral is not None and state.has_lapsed else ""
+        ),
     )
 
 
@@ -295,7 +307,7 @@ def _money(raw: str, currency: str) -> str:
 def _review_verdict(states: list[EpisodeRow]) -> verdicts.Verdict:
     counted = {
         name: sum(1 for row in states if row.state == name)
-        for name in ("proposed", "unreviewed", "stopped", "reviewed")
+        for name in ("proposed", "unreviewed", "deferred", "stopped", "reviewed")
     }
     clauses: list[verdicts.Count | str] = [
         verdicts.Count(
@@ -307,6 +319,11 @@ def _review_verdict(states: list[EpisodeRow]) -> verdicts.Verdict:
             counted["unreviewed"],
             "closed position has not been reviewed",
             "closed positions have not been reviewed",
+        ),
+        verdicts.Count(
+            counted["deferred"],
+            "closed position is deferred to a date you chose",
+            "closed positions are deferred to dates you chose",
         ),
         verdicts.Count(
             counted["stopped"], "pass stopped at its ceiling", "passes stopped at their ceiling"
@@ -348,6 +365,7 @@ async def review_page(
             "verdict": _review_verdict(rows),
             "proposed": [row for row in rows if row.state == "proposed"],
             "unreviewed": [row for row in rows if row.state == "unreviewed"],
+            "deferred": [row for row in rows if row.state == "deferred"],
             "stopped": [row for row in rows if row.state == "stopped"],
             "reviewed": [row for row in rows if row.state == "reviewed"],
             "has_books": bool(books),
@@ -373,28 +391,10 @@ async def run_review(  # noqa: PLR0917 -- the service bundle, spelt out
     submitted = await _submitted(request)
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was run.")
-
-    portfolio_id = _uuid_or_none(submitted.get("portfolio_id", ""))
-    security_id = _uuid_or_none(submitted.get("security_id", ""))
     try:
-        closed_on = date.fromisoformat(submitted.get("closed_on", ""))
-    except ValueError:
-        closed_on = None
-    if portfolio_id is None or security_id is None or closed_on is None:
-        return _problem(request, "That does not name a closed position.", status=400)
-
-    book = await session.scalar(
-        select(Portfolio).where(Portfolio.id == portfolio_id, Portfolio.user_id == user.id)
-    )
-    if book is None:
-        return _problem(request, "No such book.")
-    episode = post_trade.episode_of(
-        await post_trade.closed_episodes(session, portfolio=book),
-        security_id=security_id,
-        closed_on=closed_on,
-    )
-    if episode is None:
-        return _problem(request, "No such closed position.")
+        episode = await _episode_named(session, user, submitted)
+    except _NotAPositionError as missing:
+        return _problem(request, missing.message, status=missing.status)
 
     try:
         job = await post_trade.run_review(
@@ -413,6 +413,81 @@ async def run_review(  # noqa: PLR0917 -- the service bundle, spelt out
 
     _log.info("review.run", job_id=str(job.id), status=job.status.value)
     return RedirectResponse(f"/review/passes/{job.id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/review/defer", summary="Defer a closed position's review to a date")
+async def defer_review(
+    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
+) -> Response:
+    """The other decision a closed position can carry (F14): not now, by then, because."""
+    submitted = await _submitted(request)
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _refused(request, "Nothing was deferred.")
+    try:
+        episode = await _episode_named(session, user, submitted)
+    except _NotAPositionError as missing:
+        return _problem(request, missing.message, status=missing.status)
+    try:
+        review_by = date.fromisoformat(submitted.get("review_by", "").strip())
+    except ValueError:
+        return _problem(
+            request, "The date to review by must be a date, such as 2027-01-31.", status=400
+        )
+
+    try:
+        await post_trade.defer_review(
+            session,
+            user=user,
+            episode=episode,
+            review_by=review_by,
+            reason=submitted.get("reason", ""),
+        )
+        await session.commit()
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+
+    return RedirectResponse("/review", status_code=HTTP_303_SEE_OTHER)
+
+
+class _NotAPositionError(Exception):
+    """A form that does not name a closed position in this person's books."""
+
+    def __init__(self, message: str, status: int) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status = status
+
+
+async def _episode_named(
+    session: DbSession, user: CurrentUser, submitted: dict[str, str]
+) -> post_trade.Episode:
+    """The closed position a form names, or why it names none."""
+    portfolio_id = _uuid_or_none(submitted.get("portfolio_id", ""))
+    security_id = _uuid_or_none(submitted.get("security_id", ""))
+    try:
+        closed_on = date.fromisoformat(submitted.get("closed_on", ""))
+    except ValueError:
+        closed_on = None
+    if portfolio_id is None or security_id is None or closed_on is None:
+        message = "That does not name a closed position."
+        raise _NotAPositionError(message, 400)
+
+    book = await session.scalar(
+        select(Portfolio).where(Portfolio.id == portfolio_id, Portfolio.user_id == user.id)
+    )
+    if book is None:
+        message = "No such book."
+        raise _NotAPositionError(message, HTTP_404_NOT_FOUND)
+    episode = post_trade.episode_of(
+        await post_trade.closed_episodes(session, portfolio=book),
+        security_id=security_id,
+        closed_on=closed_on,
+    )
+    if episode is None:
+        message = "No such closed position."
+        raise _NotAPositionError(message, HTTP_404_NOT_FOUND)
+    return episode
 
 
 # -- The proposal -----------------------------------------------------------------------------

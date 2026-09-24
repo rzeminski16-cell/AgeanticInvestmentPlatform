@@ -31,7 +31,15 @@ from aer.db.models.fx import FxRateRow
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
-from aer.db.models.judgement import Decision, Judgement, Premise, Review, ReviewVerdict, Thesis
+from aer.db.models.judgement import (
+    Decision,
+    Judgement,
+    Premise,
+    Review,
+    ReviewDeferral,
+    ReviewVerdict,
+    Thesis,
+)
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.operator_slate import OperatorPeer, OperatorTheme
@@ -110,6 +118,7 @@ __all__ = [
     "ResearchPlan",
     "ResearchRequest",
     "Review",
+    "ReviewDeferral",
     "ReviewVerdict",
     "RevisionNote",
     "RiskScenario",

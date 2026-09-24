@@ -732,6 +732,18 @@ learning from**, and the page says so.
 
 **Must not.** Score a decision by its outcome alone.
 
+**Corrected 24 September 2026, on verifying F14 against its "done when".** *Every closed
+position is reviewed or explicitly deferred with a date* — and the page had no way to defer
+one, so a position nobody was ready to review sat in the queue and on Today indefinitely,
+looking the same as one nobody had decided about. Each unreviewed row now carries a second
+control beside *Run the reviewer*: **Defer to a date**, taking the date a person will review it
+by and a reason. A deferred position moves to a *Deferred* group with its date and reason,
+leaves Today's *Not reviewed* rows and the *Review it* card until the date, and comes back the
+day after it with the lapsed date beside it. The reviewer can still be run over a deferred
+position; a proposal waiting to be confirmed cannot be deferred, because it is waiting for a
+person rather than for a date. Nothing is deleted: deferring again appends, and the earlier
+dates stay as the record of how long it was put off.
+
 ---
 
 ## 16. Decision analytics

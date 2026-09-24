@@ -5,13 +5,46 @@
   The review list: every closed position, with where its review stands.
 
   A position closes when a holding returns to nil (ADR 0105), and that is the only
-  condition under which the reviewer reads it. Four groups, and the grouping is the state:
-  a proposal waiting to be confirmed, a position nobody has reviewed, a pass that stopped at
-  its ceiling, and the reviews that stand. Nothing here is a figure the reader acts on: the
-  outcome is on the proposal, linked to its formula.
+  condition under which the reviewer reads it. Five groups, and the grouping is the state:
+  a proposal waiting to be confirmed, a position nobody has reviewed, one deferred to a
+  date the operator chose (F14's other decision: not now, by then, because), a pass that
+  stopped at its ceiling, and the reviews that stand. Nothing here is a figure the reader
+  acts on: the outcome is on the proposal, linked to its formula.
 #}
 
 {% block title %}Post-trade review &middot; Tracework{% endblock %}
+
+{% macro defer_form(row, label) %}
+  <form method="post" action="/review/defer" class="flex flex-wrap items-end gap-2" data-defer="{{ row.key }}">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
+    <input type="hidden" name="security_id" value="{{ row.security_id }}" />
+    <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
+    <label class="flex flex-col gap-1 type-label text-ink-muted">
+      Review by
+      <input type="date" name="review_by" required class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+    </label>
+    <label class="flex flex-col gap-1 type-label text-ink-muted">
+      Because
+      <input type="text" name="reason" required maxlength="500" placeholder="Why it waits" class="min-h-11 w-56 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+    </label>
+    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">{{ label }}</button>
+  </form>
+{% endmacro %}
+
+{% macro run_form(row, label, primary=True) %}
+  <form method="post" action="/review/run" class="flex items-center">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
+    <input type="hidden" name="security_id" value="{{ row.security_id }}" />
+    <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
+    {% if primary %}
+      <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" data-run="{{ row.key }}">{{ label }}</button>
+    {% else %}
+      <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected" data-run="{{ row.key }}">{{ label }}</button>
+    {% endif %}
+  </form>
+{% endmacro %}
 
 {% block content %}
   {% call ui.page_header("Post-trade review", eyebrow="WHAT THE RECORD SAYS") %}
@@ -39,22 +72,22 @@
     {% endif %}
   {% endcall %}
 
-  {% call ui.sheet("Not yet reviewed", subtitle="Closed positions the reviewer has not read. One pass per position, in this process, over the decisions written before the outcome, the premises as they stand, and what the monitor said while it was open.", id="unreviewed") %}
+  {% call ui.sheet("Not yet reviewed", subtitle="Closed positions the reviewer has not read. One pass per position, in this process, over the decisions written before the outcome, the premises as they stand, and what the monitor said while it was open. Not ready to review one? Put it off to a date, with a reason, and it leaves Today until then.", id="unreviewed") %}
     {% if unreviewed %}
       {% call ui.record_list("Closed positions not reviewed") %}
         {% for row in unreviewed %}
-          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="unreviewed">
+          <li class="grid grid-cols-1 gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="unreviewed">
             <div class="min-w-0">
               <p class="type-subheading text-ink">{{ row.ticker }} · {{ row.book }}</p>
               <p class="mt-1 type-data-sm text-ink-muted">Held {{ row.opened_on }} to {{ row.closed_on }} · {{ row.trades }} trade{{ "" if row.trades == 1 else "s" }}</p>
+              {% if row.lapsed_by %}
+                <p class="mt-1 type-body-sm text-ink-muted" data-field="lapsed">You deferred this to {{ row.lapsed_by }}; that date has passed.</p>
+              {% endif %}
             </div>
-            <form method="post" action="/review/run" class="flex items-center">
-              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-              <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
-              <input type="hidden" name="security_id" value="{{ row.security_id }}" />
-              <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
-              <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" data-run="{{ row.key }}">Run the reviewer</button>
-            </form>
+            <div class="flex flex-col gap-2 sm:items-end">
+              {{ run_form(row, "Run the reviewer") }}
+              {{ defer_form(row, "Defer to a date") }}
+            </div>
           </li>
         {% endfor %}
       {% endcall %}
@@ -65,22 +98,39 @@
     {% endif %}
   {% endcall %}
 
+  {% if deferred %}
+    {% call ui.sheet("Deferred", subtitle="Closed positions you chose to review later, each by a date and for a reason. A deferral lapses on its own the day after its date, and the position is unreviewed again; the reviewer can still be run over it before then.", id="deferred") %}
+      {% call ui.record_list("Deferred positions") %}
+        {% for row in deferred %}
+          <li class="grid grid-cols-1 gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="deferred">
+            <div class="min-w-0">
+              <p class="type-subheading text-ink">{{ row.ticker }} · {{ row.book }}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">Held {{ row.opened_on }} to {{ row.closed_on }} · review by <span data-field="review-by">{{ row.review_by }}</span></p>
+              <p class="mt-1 type-body-sm text-ink" data-field="deferral-reason">{{ row.deferral_reason }}</p>
+            </div>
+            <div class="flex flex-col gap-2 sm:items-end">
+              {{ run_form(row, "Run the reviewer anyway", primary=False) }}
+              {{ defer_form(row, "Defer again") }}
+            </div>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% endcall %}
+  {% endif %}
+
   {% if stopped %}
-    {% call ui.sheet("Stopped at a ceiling", subtitle="A pass that would have crossed a spending cap stopped before making the call. Nothing was proposed; the position can be run again.", id="stopped") %}
+    {% call ui.sheet("Stopped at a ceiling", subtitle="A pass that would have crossed a spending cap stopped before making the call. Nothing was proposed; the position can be run again, or put off to a date.", id="stopped") %}
       {% call ui.record_list("Stopped passes") %}
         {% for row in stopped %}
-          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="stopped">
+          <li class="grid grid-cols-1 gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="stopped">
             <div class="min-w-0">
               <a href="/review/passes/{{ row.pass_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.ticker }} · {{ row.book }}</a>
               <p class="mt-1 type-body-sm text-ink-muted">{{ row.reason }}</p>
             </div>
-            <form method="post" action="/review/run" class="flex items-center">
-              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-              <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
-              <input type="hidden" name="security_id" value="{{ row.security_id }}" />
-              <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
-              <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Run it again</button>
-            </form>
+            <div class="flex flex-col gap-2 sm:items-end">
+              {{ run_form(row, "Run it again", primary=False) }}
+              {{ defer_form(row, "Defer to a date") }}
+            </div>
           </li>
         {% endfor %}
       {% endcall %}

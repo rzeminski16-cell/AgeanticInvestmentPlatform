@@ -39,8 +39,9 @@ from tests.workflow_fixtures import the_only_user
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
 
-async def _seed(database_url: str, tmp_path: Path) -> None:
-    """A book with one closed position, a decision behind it, and the reviewer's proposal."""
+async def _seed(database_url: str, tmp_path: Path, *, propose: bool = True) -> None:
+    """A book with one closed position, a decision behind it, and — unless told otherwise —
+    the reviewer's proposal."""
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -120,37 +121,39 @@ async def _seed(database_url: str, tmp_path: Path) -> None:
                 session, transaction=transaction, decision=decision, actor=user
             )
 
-            settings = Settings(
-                http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
-            )
-            [episode] = await post_trade.closed_episodes(session, portfolio=book)
-            await post_trade.run_review(
-                session,
-                settings=settings,
-                provider=FakeProvider(
-                    {
-                        "ReviewDraft": ReviewDraft(
-                            verdicts=[
-                                PremiseVerdictDraft(
-                                    premise_id=str(premise.judgement_id),
-                                    verdict=PremiseVerdict.HELD,
-                                    note="The buyback continued through the half.",
-                                )
-                            ],
-                            process_quality=ProcessQuality.SOUND,
-                            basis="The decision was written first, sized, and carried out.",
-                            lessons="The exit came at four months against twenty-four.",
-                        )
-                    },
-                    inspect_schema=refuse_unanswerable_schema,
-                ),
-                router=Router(settings),
-                store=LocalArtefactStore(
-                    settings.artefact_root, max_bytes=settings.max_artefact_bytes
-                ),
-                user=user,
-                episode=episode,
-            )
+            if propose:
+                settings = Settings(
+                    http_user_agent="Test test@example.invalid",
+                    artefact_root=tmp_path / "artefacts",
+                )
+                [episode] = await post_trade.closed_episodes(session, portfolio=book)
+                await post_trade.run_review(
+                    session,
+                    settings=settings,
+                    provider=FakeProvider(
+                        {
+                            "ReviewDraft": ReviewDraft(
+                                verdicts=[
+                                    PremiseVerdictDraft(
+                                        premise_id=str(premise.judgement_id),
+                                        verdict=PremiseVerdict.HELD,
+                                        note="The buyback continued through the half.",
+                                    )
+                                ],
+                                process_quality=ProcessQuality.SOUND,
+                                basis="The decision was written first, sized, and carried out.",
+                                lessons="The exit came at four months against twenty-four.",
+                            )
+                        },
+                        inspect_schema=refuse_unanswerable_schema,
+                    ),
+                    router=Router(settings),
+                    store=LocalArtefactStore(
+                        settings.artefact_root, max_bytes=settings.max_artefact_bytes
+                    ),
+                    user=user,
+                    episode=episode,
+                )
             await session.commit()
     finally:
         await engine.dispose()
@@ -199,5 +202,32 @@ class TestAReviewFromTheWorkList:
         # The list shows it reviewed, and the work list asks nothing more.
         page.goto(f"{live_server}/review")
         expect(page.locator('[data-state="reviewed"]')).to_have_count(1)
+        page.goto(live_server)
+        expect(page.locator('[data-tool="review"][data-attention]')).to_have_count(0)
+
+
+class TestAReviewIsDeferredToADate:
+    def test_a_deferred_position_leaves_the_queue_and_today(
+        self, page: Page, live_server: str, database_url: str, tmp_path: Path
+    ) -> None:
+        """F14's other decision: not now, by then, because — and Today stops asking."""
+        run_async(_seed(database_url, tmp_path, propose=False))
+
+        page.goto(f"{live_server}/review")
+        row = page.locator('[data-state="unreviewed"]')
+        expect(row).to_have_count(1)
+        form = row.locator('form[action="/review/defer"]')
+        form.locator('input[name="review_by"]').fill("2030-01-31")
+        form.locator('input[name="reason"]').fill("The FY26 accounts are not filed yet.")
+        form.get_by_role("button", name="Defer to a date").click()
+        page.wait_for_url("**/review")
+
+        deferred = page.locator('[data-state="deferred"]')
+        expect(deferred).to_have_count(1)
+        expect(deferred).to_contain_text("31 January 2030")
+        expect(deferred).to_contain_text("The FY26 accounts are not filed yet.")
+        expect(page.locator('[data-state="unreviewed"]')).to_have_count(0)
+
+        # The operator decided, and a decision is not something Today nags about.
         page.goto(live_server)
         expect(page.locator('[data-tool="review"][data-attention]')).to_have_count(0)

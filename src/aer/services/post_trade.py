@@ -76,6 +76,7 @@ from aer.db.models import (
     Portfolio,
     Premise,
     Review,
+    ReviewDeferral,
     ReviewVerdict,
     Security,
     Thesis,
@@ -120,7 +121,9 @@ __all__ = [
     "analytics_for",
     "closed_episodes",
     "confirm_review",
+    "defer_review",
     "episode_of",
+    "latest_deferral_for",
     "latest_pass_for",
     "outcome_for",
     "positions_of",
@@ -1019,18 +1022,134 @@ async def review_for_episode(session: AsyncSession, *, episode: Episode) -> Revi
     return found
 
 
+# -- Deferrals ---------------------------------------------------------------------------------
+
+
+async def latest_deferral_for(session: AsyncSession, *, episode: Episode) -> ReviewDeferral | None:
+    """The newest deferral of this position, in force or lapsed. The earlier ones are the
+    record of how long it was put off, and nothing reads them but the audit."""
+    found: ReviewDeferral | None = await session.scalar(
+        select(ReviewDeferral)
+        .where(
+            ReviewDeferral.portfolio_id == episode.portfolio.id,
+            ReviewDeferral.security_id == episode.security.id,
+            ReviewDeferral.closed_on == episode.closed_on,
+        )
+        .order_by(ReviewDeferral.created_at.desc(), ReviewDeferral.id.desc())
+        .limit(1)
+    )
+    return found
+
+
+async def defer_review(
+    session: AsyncSession,
+    *,
+    user: User,
+    episode: Episode,
+    review_by: date,
+    reason: str,
+    today: date | None = None,
+) -> ReviewDeferral:
+    """Put a closed position's review off to a date, for a reason (F14).
+
+    The queue is meant to hold nothing nobody has decided about, and this is the other
+    decision it can carry: not now, by then, because. Refused where there is nothing to
+    defer — the position is reviewed — and where the reviewer's proposal is waiting, which
+    is for a person to confirm rather than for a date. A pass that stopped at its ceiling
+    is no bar: the position is still unreviewed, and putting it off is a fair answer.
+
+    Raises:
+        ValidationError: A blank reason, or a date that is not after today.
+        ConflictError: Not this person's book, already reviewed, or a proposal waiting.
+    """
+    if episode.portfolio.user_id != user.id:
+        message = "A position is deferred by the person whose book it is in."
+        raise ConflictError(message, context={"security_id": str(episode.security.id)})
+    if not reason.strip():
+        message = "A deferral says why. Give the reason a person will read when the date comes."
+        raise ValidationError(message, context={"field": "reason"})
+    as_of = today or datetime.now(UTC).date()
+    if review_by <= as_of:
+        message = f"The date to review by must be after today, {as_of:%d %B %Y}."
+        raise ValidationError(message, context={"field": "review_by"})
+    if await review_for_episode(session, episode=episode) is not None:
+        message = "This position was already reviewed, and the review stands."
+        raise ConflictError(message, context={"security_id": str(episode.security.id)})
+    latest = await latest_pass_for(session, episode=episode)
+    if latest is not None and latest.status is not JobStatus.FAILED:
+        message = (
+            "The reviewer has read this position and its proposal is waiting for you. "
+            "Confirm it, amending anything, rather than putting the review off."
+        )
+        raise ConflictError(message, context={"job_id": str(latest.id)})
+    row = ReviewDeferral(
+        user_id=user.id,
+        portfolio_id=episode.portfolio.id,
+        security_id=episode.security.id,
+        closed_on=episode.closed_on,
+        review_by=review_by,
+        reason=reason.strip(),
+    )
+    session.add(row)
+    await session.flush()
+    # The database stamps `created_at`; read it back now rather than lazily later, where an
+    # async session would refuse.
+    await session.refresh(row)
+    _log.info(
+        "review.deferred",
+        security_id=str(episode.security.id),
+        closed_on=episode.closed_on.isoformat(),
+        review_by=review_by.isoformat(),
+    )
+    return row
+
+
+# -- Where a review stands ---------------------------------------------------------------------
+
+
 @dataclass(frozen=True, slots=True)
 class EpisodeState:
-    """An episode and where its review stands."""
+    """An episode and where its review stands.
+
+    Five states, and the order below is the precedence. A review stands over everything. A
+    proposal waiting to be confirmed stands over a deferral, because it is waiting for a
+    person rather than for a date. A deferral in force — its date not yet reached, as at
+    ``as_of`` — stands over a pass that stopped and over *unreviewed*, which is what a
+    position becomes again the day the date passes: the deferral lapses on its own, and
+    the row says that it did.
+    """
 
     episode: Episode
     review: Review | None
     proposal: Job | None
+    deferral: ReviewDeferral | None = None
+    as_of: date | None = None
+
+    @property
+    def is_deferred(self) -> bool:
+        """A deferral in force: its date has not passed, and no proposal is waiting."""
+        if self.deferral is None or self.review is not None:
+            return False
+        if self.as_of is not None and self.deferral.review_by < self.as_of:
+            return False
+        return self.proposal is None or self.proposal.status is JobStatus.FAILED
+
+    @property
+    def has_lapsed(self) -> bool:
+        """A deferral whose date passed with no review: unreviewed again, and it says so."""
+        return (
+            self.deferral is not None
+            and self.review is None
+            and self.as_of is not None
+            and self.deferral.review_by < self.as_of
+        )
 
     @property
     def state(self) -> str:
         if self.review is not None:
             return "reviewed"
+        if self.is_deferred:
+            return "deferred"
         if self.proposal is None:
             return "unreviewed"
         if self.proposal.status is JobStatus.FAILED:
@@ -1038,13 +1157,24 @@ class EpisodeState:
         return "proposed"
 
 
-async def states_for(session: AsyncSession, *, portfolio: Portfolio) -> list[EpisodeState]:
-    """Every closed position with its review, its latest pass, or neither."""
+async def states_for(
+    session: AsyncSession, *, portfolio: Portfolio, today: date | None = None
+) -> list[EpisodeState]:
+    """Every closed position with its review, its latest pass, its latest deferral, or
+    none of them. ``today`` decides whether a deferral is in force or has lapsed."""
+    as_of = today or datetime.now(UTC).date()
     states: list[EpisodeState] = []
     for episode in await closed_episodes(session, portfolio=portfolio):
         review = await review_for_episode(session, episode=episode)
         proposal = None if review is not None else await latest_pass_for(session, episode=episode)
-        states.append(EpisodeState(episode=episode, review=review, proposal=proposal))
+        deferral = (
+            None if review is not None else await latest_deferral_for(session, episode=episode)
+        )
+        states.append(
+            EpisodeState(
+                episode=episode, review=review, proposal=proposal, deferral=deferral, as_of=as_of
+            )
+        )
     return states
 
 
