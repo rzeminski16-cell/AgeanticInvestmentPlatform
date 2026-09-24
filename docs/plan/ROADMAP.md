@@ -2546,6 +2546,14 @@ found rather than as scope that was always there.
     platform has researched the company — item 60's *held with no thesis* card leads to
     writing exactly such a thesis. The code stands and the clause is corrected in F10.
 
+63. **Three watchlist tests read the day when the module was imported, 24 September
+    2026.** Found by a suite that started at 23:28 UTC and finished at 00:17: the module
+    held `TODAY` from collection time and compared it with the day the service read when
+    the test ran, so a commission made after midnight was dated tomorrow by the test's
+    reckoning. The three tests now read the clock beside the assertion. The window that
+    remains — the service's read and the test's a few microseconds apart — is the one no
+    test of "today" can close, and it is not the one that fired.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

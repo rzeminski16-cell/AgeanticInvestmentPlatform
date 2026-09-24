@@ -47,7 +47,12 @@ from tests.db_cleanup import empty_the_database
 
 pytestmark = pytest.mark.integration
 
-TODAY = datetime.now(UTC).date()
+
+def _today() -> date:
+    """The day, read beside the comparison that needs it. A module-level constant read
+    at collection is the day the suite *started*, and a suite that crosses midnight then
+    dates every commission a day early (ROADMAP §3.19, item 63)."""
+    return datetime.now(UTC).date()
 
 
 async def _user(session: AsyncSession, email: str = "follower@example.invalid") -> User:
@@ -229,7 +234,7 @@ class TestTheStandingBudget:
         assert budget.room_gbp == Decimal("30.00")
         assert budget.fits == 2
         assert budget.affords(Decimal("12.00"))
-        assert budget.month_start == TODAY.replace(day=1)
+        assert budget.month_start == _today().replace(day=1)
 
     async def test_a_live_run_reserves_its_cap(
         self, db_session: AsyncSession, tmp_path: Path
@@ -348,12 +353,12 @@ class TestCommissioning:
         )
         assert request.analysis_mode is AnalysisMode.STANDARD
         assert request.investment_horizon_months == 12
-        assert request.work_order.as_of_date == TODAY
+        assert request.work_order.as_of_date == _today()
         assert request.work_order.max_cost_gbp == Decimal("12.00")
         assert request.work_order.user_id == user.id
         assert job.work_order_id == request.id
         assert job.status is JobStatus.QUEUED
-        assert row.as_of_date == TODAY
+        assert row.as_of_date == _today()
         assert row.cap_gbp == Decimal("12.00")
         assert row.commissioned_by == user.email
         state = await watchlist_service.state_of(db_session, entry)
@@ -386,8 +391,8 @@ class TestCommissioning:
 
         request = await db_session.get(ResearchRequest, row.request_id)
         assert request is not None
-        assert request.work_order.as_of_date == TODAY
-        assert row.as_of_date == TODAY
+        assert request.work_order.as_of_date == _today()
+        assert row.as_of_date == _today()
 
     async def test_a_live_run_is_not_commissioned_twice(
         self, db_session: AsyncSession, tmp_path: Path
@@ -464,7 +469,7 @@ class TestCommissioning:
             Report(
                 job_id=job.id,
                 request_id=row.request_id,
-                as_of_date=TODAY,
+                as_of_date=_today(),
                 content={},
                 content_hash="a" * 64,
             )
@@ -681,7 +686,7 @@ class TestThePages:
 
         commissioned = await api.post(
             f"/watchlist/{entry_id}/commission",
-            data={"csrf_token": _csrf(body), "as_of": TODAY.isoformat()},
+            data={"csrf_token": _csrf(body), "as_of": _today().isoformat()},
         )
         assert commissioned.status_code == 303, commissioned.text
         assert commissioned.headers["location"].startswith("/runs/")
@@ -777,7 +782,7 @@ class TestThePages:
         body = (await api.get("/watchlist")).text
         assert f'data-history="{entry_id}"' in body
         assert "Every commission, 2 so far" in body
-        newest = body.index(f'data-commission-as-of="{TODAY:%d %B %Y}"')
+        newest = body.index(f'data-commission-as-of="{_today():%d %B %Y}"')
         older = body.index('data-commission-as-of="30 June 2026"')
         assert newest < older, "newest first"
         assert body.count("/requests/") >= 2
