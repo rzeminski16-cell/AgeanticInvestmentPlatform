@@ -19,12 +19,14 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.changes import Movement
+from aer.calc.comps import Audience
 from aer.db.models import Job, ResearchRequest
 from aer.sections.consequences import instructions_found
 from aer.services import refresh as refresh_service
 
 __all__ = [
     "WHAT_CHANGED_TITLE",
+    "summary_for_audience",
     "what_changed_block",
     "what_changed_note",
     "what_changed_only",
@@ -32,6 +34,49 @@ __all__ = [
 ]
 
 WHAT_CHANGED_TITLE = "What changed"
+
+# What a watched row's sentence says after the move, and what the copy that leaves does not.
+_FEEDS_A_PREMISE = " It feeds a premise you hold, and is material at half the ordinary threshold."
+
+
+def summary_for_audience(content: dict[str, Any], audience: Audience) -> dict[str, Any]:
+    """The change summary as one audience may have it (ADR 0122 §3, in ADR 0129's shape).
+
+    The rows that name a premise — what broke, and why a watched figure was material at a
+    smaller move — are the operator's own judgements read back. The operator's copy keeps
+    them; the copy that leaves keeps every move as a move, drops the premise crossings into
+    one sentence on the basis line, and loses the clause that says what a watched figure
+    feeds. The contract admits no other key, so the sentence goes where the basis is.
+    """
+    broke = list(content.get("broke") or [])
+    moved = list(content.get("moved") or [])
+    watched = [
+        row
+        for row in moved
+        if isinstance(row, dict) and str(row.get("movement") or "") == Movement.WATCHED.value
+    ]
+    if audience is Audience.INTERNAL or not (broke or watched):
+        return content
+    shown = dict(content)
+    if broke:
+        count = len(broke)
+        crossed = (
+            f" {count} premise{'' if count == 1 else 's'} the operator holds crossed "
+            f"{'its' if count == 1 else 'their'} threshold; which {'one' if count == 1 else 'ones'}"
+            " is withheld from this copy, because a premise is its holder's own view."
+        )
+        shown["basis"] = f"{str(content.get('basis') or '').rstrip()}{crossed}".strip()
+        shown["broke"] = []
+    if watched:
+        shown["moved"] = [
+            (
+                {**row, "narrative": str(row.get("narrative") or "").replace(_FEEDS_A_PREMISE, "")}
+                if row in watched
+                else row
+            )
+            for row in moved
+        ]
+    return shown
 
 
 async def what_changed_block(

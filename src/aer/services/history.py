@@ -23,6 +23,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.comps import Audience
 from aer.calc.dcf import TerminalMethod
 from aer.calc.engine import CalculationContext
 from aer.calc.outcomes import (
@@ -45,6 +46,7 @@ from aer.db.models import (
 )
 from aer.services.analysis import annual_facts, quantities_of
 from aer.services.calculations import new_context, persist_context
+from aer.services.premise_outcomes import lookback_rows, premise_outcomes_for
 from aer.services.subject import name_of
 
 __all__ = [
@@ -58,6 +60,7 @@ __all__ = [
     "assumption_outcomes_for",
     "catalyst_outcomes_for",
     "company_for_user",
+    "comparison_for_audience",
     "driver_accuracy_for",
     "prior_comparison_content",
     "prior_digest_for",
@@ -681,13 +684,26 @@ async def prior_comparison_content(
     if outcome_context.records:
         await persist_context(session, outcome_context, job_id=job_id)
 
+    # The second half (ADR 0122): the premises this person held against each prior report,
+    # and what the record says became of them. Kept apart from the comparisons because they
+    # are the operator's own views — the operator's copy shows them in the one table and the
+    # copy that leaves withholds them (`comparison_for_audience`); the contract does not
+    # declare the key, so the renderer shows nothing under it on its own.
+    premises: list[dict[str, str]] = []
+    for prior in priors:
+        outcomes = await premise_outcomes_for(
+            session, report=prior, user_id=request.work_order.user_id
+        )
+        premises.extend(lookback_rows(outcomes))
+
     _log.info(
         "history.comparison_built",
         job_id=str(job_id),
         priors=len(priors),
         rows=len(comparisons),
+        premises=len(premises),
     )
-    return {
+    content: dict[str, Any] = {
         "commentary": (
             f"{len(priors)} prior approved report(s) exist for {subject} "
             f"({request.ticker}); the most recent is as of {latest.as_of_date.isoformat()}. "
@@ -695,6 +711,36 @@ async def prior_comparison_content(
         ),
         "comparisons": comparisons,
     }
+    if premises:
+        content["premises"] = premises
+    return content
+
+
+def comparison_for_audience(content: dict[str, Any], audience: Audience) -> dict[str, Any]:
+    """The comparison section as one audience may have it (ADR 0122 §3, in ADR 0129's shape).
+
+    The operator's own copy shows the premises they held against the prior research beside
+    the prior view, in the one table. A copy that leaves the machine keeps the research half
+    — a prior view, a catalyst, a risk, a confirmed assumption are the platform's conclusions
+    — and withholds the judgement half with a sentence that says so: a premise is what its
+    holder believes, and the evidence pack carries none of it.
+    """
+    premises = list(content.get("premises") or [])
+    if not premises:
+        return content
+    shown = {key: value for key, value in content.items() if key != "premises"}
+    if audience is Audience.INTERNAL:
+        shown["comparisons"] = [*(content.get("comparisons") or []), *premises]
+        return shown
+    count = len(premises)
+    withheld = (
+        f"{count} premise{'' if count == 1 else 's'} held against the prior research, and what "
+        f"became of {'it' if count == 1 else 'them'}, {'is' if count == 1 else 'are'} withheld "
+        "from this copy: a premise is its holder's own view, and the document that leaves "
+        "carries none."
+    )
+    shown["commentary"] = f"{str(content.get('commentary') or '').rstrip()} {withheld}".strip()
+    return shown
 
 
 def _assumption_row(outcome: AssumptionOutcome) -> dict[str, str]:

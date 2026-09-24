@@ -492,6 +492,16 @@ rule and what is missing — never a blank or a zero.
 **Must not.** Let a footnote resolve to an identifier a reader cannot use. Show a figure with no
 marker.
 
+**Corrected 24 September 2026, on building ADR 0122 §2 and §3.** Two sections read the
+operator's own judgements back, and both take §8.4's shape: shown in full on this page, which
+is the operator's copy, and withheld with a sentence that says so from every copy that leaves
+— export, print, the evidence pack. The prior research comparison gains a second half, the
+premises you held against the prior report and what the record says became of each (the
+monitor's latest reading, a withdrawal and its reason, the verdicts a review filed), joined to
+the one table here. The change summary's *what broke* rows are yours alone: a copy that leaves
+carries the count and not the premise. Under *Actions*, *refresh* now treats a figure a premise
+you hold reads as material at one per cent, half the ordinary threshold (ADR 0131, amended).
+
 ---
 
 ## 9. Report library
@@ -792,6 +802,15 @@ words.
 
 **Must not.** Run a method that has not passed the corpus. Show the corpus as a pass/fail count
 without naming what was attempted.
+
+**Corrected 24 September 2026, on building ADR 0122 §2.** Each method's row carries its record
+where it has one, in a sentence: the approved reports your runs pinned it in, how far their
+confirmed drivers landed from what was later filed, and what became of the theses written
+against those reports — the decisions, the reviews' process grades, the verdicts on the
+premises. A method pinned only on runs that never reached an approved report has no record,
+and the row says nothing rather than a zero. The record is read from your own runs and never
+from anybody else's, and it is a reading of the record, not a source: nothing on this page can
+be cited.
 
 ---
 

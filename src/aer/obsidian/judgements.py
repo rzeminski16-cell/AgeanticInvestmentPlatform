@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from aer.core.enums import FindingKind
 from aer.db.models import Company, Decision, Finding, Premise, Review, Thesis
+from aer.services.theses import latest_reading
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -163,17 +163,6 @@ async def judgement_views(
             )
         )
     return tuple(views)
-
-
-async def latest_reading(session: AsyncSession, premise: Premise) -> Finding | None:
-    """The monitor's newest reading of a premise, or none while nothing has been read."""
-    found: Finding | None = await session.scalar(
-        select(Finding)
-        .where(Finding.judgement_id == premise.judgement_id, Finding.kind == FindingKind.READING)
-        .order_by(Finding.created_at.desc(), Finding.id.desc())
-        .limit(1)
-    )
-    return found
 
 
 def _verdict_of(decision: Decision, verdicts: Sequence[Review]) -> Review | None:

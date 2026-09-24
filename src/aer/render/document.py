@@ -629,11 +629,25 @@ async def assemble_document(
         )
         raise ValidationError(message)
 
-    # The closing section's key is spelled in the deterministic registry and nowhere else
-    # in code (the section-key scan), and the registry reaches the evaluation service, which
-    # assembles documents: a cycle at import time and none at call time, so the name is
-    # read here.
-    from aer.sections.deterministic import CONSEQUENCES_KEY  # noqa: PLC0415
+    # The keys of the three sections an audience transforms are spelled in the deterministic
+    # registry and nowhere else in code (the section-key scan), and the registry reaches the
+    # evaluation service, which assembles documents: a cycle at import time and none at call
+    # time, so the names and the two transforms that live beside them are read here.
+    from aer.sections.deterministic import (  # noqa: PLC0415
+        CHANGE_SUMMARY_KEY,
+        CONSEQUENCES_KEY,
+        PRIOR_COMPARISON_KEY,
+    )
+    from aer.sections.what_changed import summary_for_audience  # noqa: PLC0415
+    from aer.services.history import comparison_for_audience  # noqa: PLC0415
+
+    # ADR 0129's shape, applied to the three sections that read the operator's own book or
+    # judgements: the operator's copy in full, the copy that leaves without them.
+    transforms = {
+        CONSEQUENCES_KEY: consequences_for_audience,
+        PRIOR_COMPARISON_KEY: comparison_for_audience,
+        CHANGE_SUMMARY_KEY: summary_for_audience,
+    }
 
     sections = await sections_for_job(session, job.id)
     definitions = await _definitions_for(session, sections)
@@ -688,8 +702,8 @@ async def assemble_document(
             title=definition.title if definition else section.section_key,
             contract=(definition.output_contract if definition else {}),
             content=(
-                consequences_for_audience(section.content, audience)
-                if section.section_key == CONSEQUENCES_KEY and section.content
+                transforms[section.section_key](section.content, audience)
+                if section.section_key in transforms and section.content
                 else section.content
             ),
             # Numbering continues across the document, so a reader chasing marker 3

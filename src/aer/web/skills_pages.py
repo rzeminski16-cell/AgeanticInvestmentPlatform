@@ -41,6 +41,7 @@ from aer.errors import AerError
 from aer.services import runs as run_service
 from aer.services import skills as skill_service
 from aer.services.mandate import mandate_of
+from aer.services.method_outcomes import method_records
 from aer.services.skill_authoring import import_diff, validate_skill_source
 from aer.services.skill_dry_run import DRY_RUN_WORKFLOW, dry_run_skill
 from aer.skills.frontmatter import SkillFileError
@@ -86,13 +87,16 @@ async def skills_library(
     request: Request,
     session: DbSession,
     settings: SettingsDep,
-    user: CurrentUser,  # noqa: ARG001 -- the auth dependency, needed whether or not read
+    user: CurrentUser,
 ) -> Response:
-    """Every saved skill, its current version, and whether runs will pick it up."""
+    """Every saved skill, its current version, whether runs will pick it up, and — for one
+    that shaped an approved report of the caller's — its record (ADR 0122 §2)."""
     rows = await skill_service.list_skills(session)
+    records = await method_records(session, user_id=user.id)
     listed = []
     for skill in rows:
         latest = await skill_service.current_version(session, key=skill.key)
+        record = records.get(skill.key)
         listed.append(
             {
                 "key": skill.key,
@@ -101,6 +105,7 @@ async def skills_library(
                 "title": latest.title if latest else "",
                 "version": latest.version if latest else None,
                 "content_hash": latest.content_hash if latest else "",
+                "record": record.sentence if record is not None else "",
             }
         )
 

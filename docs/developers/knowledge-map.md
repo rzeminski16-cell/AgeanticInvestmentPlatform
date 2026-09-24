@@ -246,7 +246,10 @@ ones — read the ADR before touching its territory:
   is measured over the weights the book holds now, and a scenario is a shock the operator
   states), 0107 (a watchlist is followed continuously and researched as at a date), 0108 (a
   methodology skill composes into the roles that plan and write, and into no role that
-  judges).
+  judges), 0122 (the knowledge map learns what you decided — thesis, premise, decision and
+  verdict as nodes under the confirmed-only rule, read back by the monitor, Ask, the refresh
+  and the methodology library — and is evidence for nothing: no claim can name a judgement,
+  and the copy that leaves carries none).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

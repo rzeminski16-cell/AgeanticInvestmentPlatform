@@ -26,7 +26,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.changes import Change, Figure, Movement, diff_figures
+from aer.calc.changes import Change, Crossing, Figure, Movement, diff_figures
 from aer.calc.dcf import SENSITIVITY_CASE
 from aer.calc.units import Quantity, Unit, UnitMismatchError
 from aer.core.enums import Decision, GateKind, JobStatus, PremiseComparator
@@ -64,12 +64,14 @@ __all__ = [
     "WORKFLOW_VERSION",
     "DiffOutcome",
     "Estimate",
+    "Watch",
     "calculation_remap",
     "changes_for_job",
     "diff_runs",
     "estimate_refresh",
     "figures_named_by_sections",
     "mark_changes_read",
+    "premise_watch",
     "refusal_to_refresh",
     "start_refresh",
     "summary_block",
@@ -264,11 +266,17 @@ class DiffOutcome:
     def broke(self) -> tuple[Change, ...]:
         return tuple(change for change in self.material if change.movement is Movement.PREMISE)
 
+    @property
+    def watched(self) -> tuple[Change, ...]:
+        """The moves material only because a premise the operator holds reads the figure."""
+        return tuple(change for change in self.material if change.movement is Movement.WATCHED)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "material": len(self.material),
             "unchanged": self.unchanged,
             "broke": len(self.broke),
+            "watched": len(self.watched),
             "new_documents": len(self.new_documents),
             "rows_written": self.rows_written,
             "moved": sorted(f"{kind}:{name}" for kind, name in self.moved_keys),
@@ -288,8 +296,8 @@ async def diff_runs(
         *await _calculation_figures(session, job.id),
         *await _fact_figures(session, company_id, until=None),
     ]
-    crossings = await _crossings(session, request)
-    changes = diff_figures(prior_figures, new_figures, crossed=crossings)
+    watch = await premise_watch(session, request)
+    changes = diff_figures(prior_figures, new_figures, crossed=watch.crossed, watched=watch.keys)
     documents = await _documents_read_first(session, job.id)
 
     written = 0
@@ -415,16 +423,28 @@ async def _documents_read_first(session: AsyncSession, job_id: uuid.UUID) -> lis
     return [dict(item) for item in filings if isinstance(item, dict)]
 
 
-async def _crossings(session: AsyncSession, request: ResearchRequest) -> Any:
-    """A judge of premise crossings over this company's theses, for the pure diff.
+@dataclass(frozen=True, slots=True)
+class Watch:
+    """What this operator's premises on the company read, for the pure diff: the figures
+    they name (material at half the threshold, ADR 0122 §2) and the judge of crossings."""
 
-    Reads the premises once, resolves each metric to the figure name the ledger or the
-    fact store records it under, and answers the diff's question with the monitor's own
+    keys: frozenset[tuple[str, str]]
+    crossed: Crossing | None
+
+
+async def premise_watch(session: AsyncSession, request: ResearchRequest) -> Watch:
+    """The premises the refresh reads, resolved to the figures the ledger records.
+
+    Reads the premises once — this person's, on this company, on a thesis still held and
+    not withdrawn — resolves each metric to the figure name the ledger or the fact store
+    records it under, and answers the diff's two questions from them: which figures a held
+    premise reads, and whether a move crossed one, decided with the monitor's own
     ``predicate_holds`` — a premise crossed is one whose verdict differs between the prior
     figure and the new. A unit the threshold cannot meet is not a crossing.
     """
+    nothing = Watch(keys=frozenset(), crossed=None)
     if request.company_id is None:
-        return None
+        return nothing
     premises = list(
         await session.scalars(
             select(Premise)
@@ -434,6 +454,7 @@ async def _crossings(session: AsyncSession, request: ResearchRequest) -> Any:
                 Thesis.subject_kind == "company",
                 Thesis.subject_id == request.company_id,
                 Thesis.user_id == request.work_order.user_id,
+                Thesis.retired_at.is_(None),
                 Judgement.withdrawn_at.is_(None),
             )
         )
@@ -448,7 +469,7 @@ async def _crossings(session: AsyncSession, request: ResearchRequest) -> Any:
         key = ("fact", resolved.key) if resolved.kind == "level" else ("calculation", resolved.key)
         watched.setdefault(key, []).append(premise)
     if not watched:
-        return None
+        return nothing
 
     def crossed(prior: Figure, new: Figure) -> str | None:
         for premise in watched.get((new.kind, new.name), []):
@@ -468,7 +489,7 @@ async def _crossings(session: AsyncSession, request: ResearchRequest) -> Any:
                 return f"the premise {premise.statement!r}"
         return None
 
-    return crossed
+    return Watch(keys=frozenset(watched), crossed=crossed)
 
 
 # -- Reading a refresh back --------------------------------------------------------------------

@@ -70,6 +70,7 @@ __all__ = [
     "BUILDERS",
     "CHANGE_SUMMARY_KEY",
     "CONSEQUENCES_KEY",
+    "PRIOR_COMPARISON_KEY",
     "SectionAugmenter",
     "SectionStage",
     "fill_deterministic_sections",
@@ -452,8 +453,13 @@ def _disagreement_blocks(row: Disagreement) -> list[dict[str, str]]:
     return blocks
 
 
+# The prior research comparison (position 900), whose second half — the premises held
+# against the prior report and what became of them (ADR 0122) — the renderer shows on the
+# operator's copy alone, so the renderer imports the name rather than spelling it.
+PRIOR_COMPARISON_KEY: Final = "prior_research_comparison"
+
 BUILDERS: dict[str, DeterministicSection] = {
-    "prior_research_comparison": DeterministicSection(
+    PRIOR_COMPARISON_KEY: DeterministicSection(
         stage=SectionStage.DRAFT, build=_prior_research_comparison
     ),
     "validation_disagreements": DeterministicSection(

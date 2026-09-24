@@ -35,10 +35,11 @@ from aer.db.models import (
     ThemeMembership,
     Thesis,
 )
-from aer.obsidian.judgements import SUBJECT_COMPANY, latest_reading
+from aer.obsidian.judgements import SUBJECT_COMPANY
 from aer.services.history import approved_reports_for
 from aer.services.post_trade import positions_of
 from aer.services.sectors import confirmed_classification
+from aer.services.theses import latest_reading
 from aer.services.thesis_monitor import resolve_metric
 
 if TYPE_CHECKING:

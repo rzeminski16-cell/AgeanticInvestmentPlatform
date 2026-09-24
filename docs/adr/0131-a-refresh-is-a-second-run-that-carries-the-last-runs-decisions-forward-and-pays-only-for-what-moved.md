@@ -185,3 +185,20 @@ stand on the prior report; a refresh that re-argued the case would not be one.
 - The report page gains the priced control; the library already groups by company and shows
   the state.
 - Open: the Today band's "review a completed refresh" row, with the absent surfaces.
+
+## Amended 24 September 2026, under ADR 0122 §2 and §3 (ROADMAP §3.19, item 67)
+
+**§5 has a seventh row.** A figure a premise the operator holds reads is material at half the
+relative threshold — one per cent — however small the section it feeds: materiality is a
+property of the figure and of *this operator's* position. The premises read are this
+person's, on this company, on a thesis still held and not withdrawn, resolved to the ledger's
+names the way the crossing already was; the crossing judge and the watched set are one read
+(`aer.services.refresh.premise_watch`). A retired thesis's premises had been counted as
+crossings, and are not: a retired thesis is not held.
+
+**§7's rows are the operator's copy's where they name a premise.** The change summary is a
+section of a document that leaves, and *what broke* named the operator's premises in the
+first section of every export. On the shareable copy a crossing is now a count on the basis
+line and a watched figure's row loses the clause that says what it feeds; the operator's copy
+is unchanged. The same audience switch ADR 0129 introduced, applied at render, so the stored
+rows and the export are untouched.

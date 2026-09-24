@@ -115,6 +115,12 @@ the code from the text above:
 - **§1.6's first row is the engine's own rule** (a failed step fails the run and the prior report
   stays current); the ceiling row is enforced before each section in the draft step, and a
   section it will not carry is carried stale, which the summary and the step's record say.
+- **§1.4's table has a seventh row since 24 September 2026 (ADR 0122 §2).** A figure a premise
+  the operator holds reads is material at **half** the relative threshold — one per cent —
+  whatever section it feeds; the premises read are the operator's own, on a thesis still held.
+  And §1.5's *what broke* is the operator's copy's alone: on a copy that leaves, a crossing is a
+  count on the basis line and a watched figure's row loses the clause naming what it feeds
+  (ADR 0131, amended).
 
 ---
 

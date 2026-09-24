@@ -10,6 +10,7 @@ by the mechanism's table (`08-mechanisms.md` §1.4) rather than by anybody's rea
 | An anchor figure | any change: the figures a report rests on |
 | A sign change | any |
 | A premise threshold crossed | any, however small |
+| A figure a held premise reads | half the relative threshold (ADR 0122 §2) |
 | Appearance or disappearance | a figure that now exists, or no longer does |
 | ``prior = 0`` and ``new ≠ 0`` | relative change is undefined; material |
 
@@ -29,6 +30,7 @@ from typing import Final
 __all__ = [
     "ANCHORS",
     "MATERIAL_RELATIVE_CHANGE",
+    "WATCHED_RELATIVE_CHANGE",
     "Change",
     "Figure",
     "Movement",
@@ -39,6 +41,12 @@ __all__ = [
 MATERIAL_RELATIVE_CHANGE: Final = Decimal("0.02")
 """The audit's own matcher treats more than two per cent as a contradiction rather than a
 rounding difference, so the refresh treats it as a move."""
+
+WATCHED_RELATIVE_CHANGE: Final = MATERIAL_RELATIVE_CHANGE / 2
+"""Half the ordinary threshold, for a figure a premise the operator holds reads (ADR 0122
+§2). Materiality is a property of the figure and of *this operator's* position: a one per
+cent move in a figure a premise rests on is a move its holder would want to see, and the
+same move in a figure nothing rests on is within the noise."""
 
 # The figures a report rests on, by the name the ledger or the fact store records them
 # under. Any change at all is material: a share count that moved by a tenth of a per cent
@@ -70,6 +78,7 @@ class Movement(StrEnum):
     DISAPPEARED = "disappeared"
     FROM_ZERO = "from_zero"
     PREMISE = "premise"
+    WATCHED = "watched"
     UNCHANGED = "unchanged"
 
 
@@ -141,19 +150,29 @@ def diff_figures(
     anchors: frozenset[str] = ANCHORS,
     threshold: Decimal = MATERIAL_RELATIVE_CHANGE,
     crossed: Crossing | None = None,
+    watched: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[Change, ...]:
     """Every figure present in either run, judged by the table, in the runs' own order.
 
     A key present in both is one change; a key in one only is an appearance or a
     disappearance. Two rows sharing a key within one run — a ledger written twice — keep
     the last, which is the row a reader of that run's page is shown.
+
+    ``watched`` names the ``(kind, name)`` pairs a premise the operator holds reads; each
+    is material at half the relative threshold (ADR 0122 §2). Supplied by the caller that
+    holds the premises, as ``crossed`` is; the diff stays pure.
     """
     before = {figure.key: figure for figure in prior}
     after = {figure.key: figure for figure in new}
     keys = list(dict.fromkeys([*before, *after]))
     return tuple(
         _judge(
-            before.get(key), after.get(key), anchors=anchors, threshold=threshold, crossed=crossed
+            before.get(key),
+            after.get(key),
+            anchors=anchors,
+            threshold=threshold,
+            crossed=crossed,
+            watched=watched,
         )
         for key in keys
     )
@@ -166,12 +185,13 @@ def _judge(
     anchors: frozenset[str],
     threshold: Decimal,
     crossed: Crossing | None,
+    watched: frozenset[tuple[str, str]],
 ) -> Change:
     if prior is None or new is None:
         return _one_sided(prior, new)
     ratio = relative_change(prior.value, new.value)
     movement, narrative = _movement(
-        prior, new, ratio, anchors=anchors, threshold=threshold, crossed=crossed
+        prior, new, ratio, anchors=anchors, threshold=threshold, crossed=crossed, watched=watched
     )
     return _change(
         prior, new, ratio, movement, narrative, material=movement is not Movement.UNCHANGED
@@ -208,11 +228,17 @@ def _movement(
     anchors: frozenset[str],
     threshold: Decimal,
     crossed: Crossing | None,
+    watched: frozenset[tuple[str, str]],
 ) -> tuple[Movement, str]:
     """The table, top to bottom: the first row that holds is the movement."""
     premise = crossed(prior, new) if crossed is not None else None
     moved = _moved(prior, new, ratio)
     unchanged = prior.value == new.value
+    # Above the ordinary relative row, so a watched figure's row says what it feeds however
+    # far it moved; the move itself is in the sentence either way.
+    feeds_a_premise = (
+        (new.kind, new.name) in watched and ratio is not None and abs(ratio) >= threshold / 2
+    )
     rows: tuple[tuple[bool, Movement, str], ...] = (
         (premise is not None, Movement.PREMISE, f"{moved} It crosses {premise}."),
         (
@@ -229,6 +255,11 @@ def _movement(
             prior.name in anchors and not unchanged,
             Movement.ANCHOR,
             f"{moved} It anchors the report.",
+        ),
+        (
+            feeds_a_premise,
+            Movement.WATCHED,
+            f"{moved} It feeds a premise you hold, and is material at half the ordinary threshold.",
         ),
         (ratio is not None and abs(ratio) >= threshold, Movement.RELATIVE, moved),
         (unchanged, Movement.UNCHANGED, f"{_words(new)} is unchanged at {_plain(new)}."),

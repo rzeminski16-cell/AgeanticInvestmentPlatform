@@ -1,6 +1,7 @@
 # ADR 0122 — The knowledge map learns what you decided, and still never becomes evidence
 
-**Status.** Proposed — V1.0_Alpha. Accepted when the change it argues lands.
+**Status.** Accepted — 24 September 2026, when the last of §2's surfaces landed (ROADMAP §3.19,
+items 65 to 67). Proposed from 14 September 2026.
 **Date.** 2026-09-14
 **Extends.** ADR 0064 (prior research may shape the questions, never the answers) and ADR 0065
 (themes are the connective tissue), whose confirmed-only rule this reuses unchanged.
@@ -214,3 +215,52 @@ corrected.
 
 The two remaining surfaces of §2 — the refresh's materiality and the methodology library —
 are Phase 6b.3, with the proof that none of this is evidence.
+
+## Amended 24 September 2026, on building §2's last two surfaces and §3's proof (ROADMAP §3.19, item 67)
+
+**The refresh's materiality is a seventh row in the table, not a section flag.** A figure a
+premise the operator holds reads — this person's, on this company, on a thesis still held and
+not withdrawn, resolved to the ledger's name the way the monitor resolves it — is material at
+half the ordinary relative threshold, one per cent (`aer.calc.changes`, `Movement.WATCHED`;
+ADR 0131 §5 amended). A section is re-drafted when a material row names a figure among its
+claims, so the section that feeds the premise moves at the smaller threshold and the rest do
+not; §2's *section* is that consequence, and the code judges the figure. The same read
+corrected one thing the refresh already did: its crossings had counted a retired thesis's
+premises, and a retired thesis is not held.
+
+**The methodology library's outcome is a record per method, read from rows.** For each skill a
+person's runs pinned as planned, over the approved reports it shaped: how far the confirmed
+drivers landed from what was later filed (`calc/outcomes.py`'s own measurement, through a
+context that is thrown away as the company note's is), and what became of the theses written
+against those reports — the decisions, the reviews' process grades, the verdicts on the
+premises (`aer.services.method_outcomes`). A skill pinned only on runs that never reached an
+approved report has no record, and the Methods page says nothing rather than a zero. *Which
+approach produced which outcome* is answered from the operator's own runs and nobody else's.
+
+**`prior_research_comparison` has its second half, on the operator's copy alone.** The premises
+this person held against each prior report, each with when it was held and what would defeat
+it, and what the record says became of it — the thesis's retirement, a withdrawal and its
+reason, the monitor's latest reading, every verdict a review filed
+(`aer.services.premise_outcomes`) — are stored apart from the research rows and joined to the
+one table on the operator's copy. The copy that leaves keeps the research half and says in
+one sentence what it withholds: ADR 0129's shape, applied by the same audience switch. The
+change summary was brought under the same rule (ADR 0131 §7 amended): a premise crossing
+leaves as a count on the basis line and a watched figure's row loses the clause that says
+what it feeds, because a refreshed document that named the operator's premises in its first
+section would have carried the judgement layer into every export.
+
+**§3 is a test, not a sentence.** The schema walk shows the judgement family is referenced by
+itself, by the monitor's findings and by the trade a decision was carried out by, and by
+nothing a claim, a citation or a calculation reads; a claim or a citation handed a premise is
+refused by the type, because there is no field. The one prompt that reads a premise — the
+monitor's — now reads the statement and the basis as quoted data under ADR 0119's containment
+rule, labelled as the holder's own words, with an id the window never holds so a reading that
+cites it is dropped as a guessed document id is; a premise that tries to close its own
+quotation is escaped, not deleted. `Provider.INTERNAL_PRIOR_RUN` stays hard-rejected, pinned
+where it was.
+
+**Still narrow, still empty on day one.** The monitor's surfacing keeps §2's first cut and
+widens only on evidence; the watched threshold is one number, half the ordinary one, and a
+different fraction is a change to this record. Nothing is backfilled: every surface here shows
+the operator what their own loop has written, and the three stored reports have written none of
+it.

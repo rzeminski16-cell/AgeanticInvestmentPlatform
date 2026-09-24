@@ -18,12 +18,15 @@ from hypothesis import strategies as st
 from aer.calc.changes import (
     ANCHORS,
     MATERIAL_RELATIVE_CHANGE,
+    WATCHED_RELATIVE_CHANGE,
     Change,
     Figure,
     Movement,
     diff_figures,
     relative_change,
 )
+
+WATCHED = frozenset({("calculation", "net_margin")})
 
 values = st.decimals(
     min_value=-1_000_000, max_value=1_000_000, places=4, allow_nan=False, allow_infinity=False
@@ -238,6 +241,77 @@ class TestTheProperties:
         change = _one(_figure(value=str(prior)), _figure(value=str(new)))
 
         assert change.change_pct == (new - prior) / abs(prior)
+
+
+class TestAWatchedFigure:
+    """ADR 0122 §2: a figure a premise the operator holds reads is material at half the
+    threshold, whatever it feeds. The caller names the figures, as it names the crossing;
+    the diff stays pure."""
+
+    def test_a_one_per_cent_move_is_material_when_a_premise_reads_the_figure(self) -> None:
+        change = _one(_figure(value="0.2500"), _figure(value="0.2525"), watched=WATCHED)
+
+        assert change.material
+        assert change.movement is Movement.WATCHED
+        assert change.change_pct == Decimal("0.01")
+        assert change.narrative == (
+            "Net margin for FY 2022 moved from 0.25 to 0.2525 (+1.0%). It feeds a premise you "
+            "hold, and is material at half the ordinary threshold."
+        )
+
+    def test_the_same_move_in_a_figure_nothing_reads_is_within_the_threshold(self) -> None:
+        change = _one(
+            _figure(value="0.2500"),
+            _figure(value="0.2525"),
+            watched=frozenset({("fact", "revenue")}),
+        )
+
+        assert not change.material
+        assert change.movement is Movement.UNCHANGED
+
+    def test_under_half_the_threshold_a_watched_figure_is_unchanged(self) -> None:
+        change = _one(_figure(value="0.2500"), _figure(value="0.2520"), watched=WATCHED)
+
+        assert change.change_pct == Decimal("0.008")
+        assert not change.material
+
+    def test_past_the_ordinary_threshold_a_watched_figure_still_says_what_it_feeds(
+        self,
+    ) -> None:
+        change = _one(_figure(value="0.25"), _figure(value="0.30"), watched=WATCHED)
+
+        assert change.movement is Movement.WATCHED
+        assert "(+20.0%)" in change.narrative
+
+    def test_a_crossing_and_an_anchor_outrank_the_watch(self) -> None:
+        crossed = _one(
+            _figure(value="0.25"),
+            _figure(value="0.2525"),
+            watched=WATCHED,
+            crossed=lambda _prior, _new: "the premise 'Net margin stays above 25%'",
+        )
+        anchor = _one(
+            _figure("revenue", "100", unit="USD"),
+            _figure("revenue", "101", unit="USD"),
+            watched=frozenset({("calculation", "revenue")}),
+        )
+
+        assert crossed.movement is Movement.PREMISE
+        assert anchor.movement is Movement.ANCHOR
+
+    def test_half_the_threshold_is_one_per_cent(self) -> None:
+        assert Decimal("0.01") == WATCHED_RELATIVE_CHANGE
+        assert WATCHED_RELATIVE_CHANGE == MATERIAL_RELATIVE_CHANGE / 2
+
+    @settings(max_examples=100)
+    @given(prior=values.filter(lambda v: v != 0), new=values)
+    def test_a_watched_move_is_material_exactly_from_half_the_threshold(
+        self, prior: Decimal, new: Decimal
+    ) -> None:
+        change = _one(_figure(value=str(prior)), _figure(value=str(new)), watched=WATCHED)
+
+        ratio = (new - prior) / abs(prior)
+        assert change.material == (abs(ratio) >= WATCHED_RELATIVE_CHANGE)
 
 
 def test_the_threshold_is_the_audits_two_per_cent() -> None:

@@ -2610,6 +2610,29 @@ found rather than as scope that was always there.
     position sold are in neither. Page specification §12 and §13 corrected; ADR 0122
     amended in place, and Accepted waits for 6b.3.
 
+67. **Phase 6b.3: the refresh, the methods, the look-back, and the proof, 24 September
+    2026.** ADR 0122 §2's last two surfaces, §3 as a test, and the record Accepted. The
+    refresh's materiality table gains a seventh row: a figure a premise the operator holds
+    reads — this person's, on this company, on a thesis still held — is material at half
+    the ordinary threshold, one per cent (`Movement.WATCHED`); the crossing judge and the
+    watched set are one read, which also stopped a retired thesis's premises counting as
+    crossings. The Methods page carries a record per skill over the approved reports a
+    person's runs pinned it in: the confirmed drivers' deltas, the theses written against
+    those reports, the decisions, the reviews' grades and the verdicts on the premises
+    (`aer.services.method_outcomes`). `prior_research_comparison` has its second half —
+    the premises held against each prior report and what became of them
+    (`aer.services.premise_outcomes`) — on the operator's copy alone, and the change
+    summary's premise rows were brought under the same rule, because a refreshed
+    document's first section had been carrying the operator's premises into every export
+    (ADR 0131 amended). The proof: the judgement family is referenced by itself, the
+    findings and the trade, and by nothing a claim reads; a claim handed a premise is
+    refused by the type; the monitor's prompt reads the statement and the basis as quoted
+    data under ADR 0119's rule (`tests/test_evidence_for_nothing.py`). Page specification
+    §8 and §17 corrected; mechanisms §1.7 extended; ADR 0122 Accepted. *Found and left:*
+    the report *reader* page and the final-gate preview are the operator's copy, so the
+    look-back appears there; no page yet lists a company's premises across its reports
+    outside the thesis pages.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

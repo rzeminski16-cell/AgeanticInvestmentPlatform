@@ -28,8 +28,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from aer.core.enums import JudgementKind, PremiseComparator
-from aer.db.models import AuditEvent, Company, Judgement, Premise, Report, Thesis, User
+from aer.core.enums import FindingKind, JudgementKind, PremiseComparator
+from aer.db.models import (
+    AuditEvent,
+    Company,
+    Finding,
+    Judgement,
+    Premise,
+    Report,
+    Thesis,
+    User,
+)
 from aer.errors import ConflictError, ValidationError
 
 __all__ = [
@@ -38,6 +47,7 @@ __all__ = [
     "Predicate",
     "add_premise",
     "companies_to_write_about",
+    "latest_reading",
     "premise_of",
     "reports_to_write_against",
     "retire_thesis",
@@ -370,6 +380,22 @@ async def premise_of(
     """One premise of this thesis, or ``None``."""
     found: Premise | None = await session.scalar(
         select(Premise).where(Premise.judgement_id == judgement_id, Premise.thesis_id == thesis.id)
+    )
+    return found
+
+
+async def latest_reading(session: AsyncSession, premise: Premise) -> Finding | None:
+    """The monitor's newest reading of a premise, or none while nothing has been read.
+
+    The premise's state as every surface that shows one reads it (ADR 0122): the finding
+    pages hold the rest. Here rather than beside the monitor because the readers — the
+    vault, the map, the comparison section — must not have to import the pass to ask.
+    """
+    found: Finding | None = await session.scalar(
+        select(Finding)
+        .where(Finding.judgement_id == premise.judgement_id, Finding.kind == FindingKind.READING)
+        .order_by(Finding.created_at.desc(), Finding.id.desc())
+        .limit(1)
     )
     return found
 
