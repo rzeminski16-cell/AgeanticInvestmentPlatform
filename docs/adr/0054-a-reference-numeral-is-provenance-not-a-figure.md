@@ -124,3 +124,15 @@ closing bracket. The separator is the anchor, and the two-digit bound with no de
 separator continuing it keeps a quantity's shape out: "Phase 12.5 —" and "Step 200 —" keep
 their figures, and "Step 2 — 40 bps" excuses the 2 and keeps the 40. The counter-tests hold
 all three.
+
+## Amended 2026-09-25 — "through" joins a year range
+
+The re-measurement's MSFT run lost its earnings quality section to *"proposed adjustments
+on intercompany transfer pricing for tax years 2004 through 2013"*. The bare-list span
+joined years with a comma, "and", "or" and "to", but not "through"; the anchored span took
+"through 2013" as a year in temporal company and left the 2004 in front of it naked, so a
+range the filing itself writes cost the report a section.
+
+"through" is now a separator in both spans, as "to" already was. Every element must still be
+year-shaped, so "costs of 2,004 through 2,013 million" keeps both figures; the counter-test
+holds it.

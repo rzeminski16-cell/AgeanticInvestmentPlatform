@@ -14,8 +14,9 @@ each one is — is :mod:`aer.services.cases`'s, because it reads the record.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Final
 
@@ -27,11 +28,53 @@ __all__ = [
     "MAX_IMBALANCE",
     "PRICED_FOR_FIELD",
     "Anchor",
+    "Direction",
     "LeverKey",
     "Side",
     "case_problems",
     "levers_named",
 ]
+
+
+class Direction(StrEnum):
+    """Which way a lever moves the value per share, the two terminal methods read together.
+
+    Known before any case is drafted, because code strikes every lever on the list: the model
+    cannot see which way an input moves a valuation, and guessing is how a point came to name
+    depreciation at its heaviest as a case against the shares when the model the report
+    prints holds the operating margin and adds depreciation back, so the strike raised both
+    values.
+
+    A method the lever leaves where it was counts for neither side: a terminal lever moves
+    one method only, and moves it one way.
+    """
+
+    RAISES = "raises"
+    LOWERS = "lowers"
+    # The two methods move opposite ways, or neither moves.
+    MIXED = "mixed"
+
+    @classmethod
+    def between(cls, base: Sequence[Decimal], struck: Sequence[Decimal]) -> Direction:
+        """How ``struck`` sits against ``base``, method by method, in the same order."""
+        moves = [after - before for before, after in zip(base, struck, strict=True)]
+        moved = [move for move in moves if move != 0]
+        if moved and all(move > 0 for move in moved):
+            return cls.RAISES
+        if moved and all(move < 0 for move in moved):
+            return cls.LOWERS
+        return cls.MIXED
+
+    @property
+    def spoken(self) -> str:
+        return _DIRECTION_WORDS[self]
+
+
+_DIRECTION_WORDS: Final[dict[Direction, str]] = {
+    Direction.RAISES: "raises the value per share by every terminal method it moves",
+    Direction.LOWERS: "lowers the value per share by every terminal method it moves",
+    Direction.MIXED: "raises one terminal method's value per share and lowers the other's",
+}
 
 
 class Side(StrEnum):
@@ -49,10 +92,23 @@ class Side(StrEnum):
     def spoken(self) -> str:
         return _SIDE_WORDS[self]
 
+    def contradicted_by(self, direction: Direction) -> bool:
+        """Whether a lever moving the value this way argues the other case.
+
+        A lever whose two methods disagree argues neither, and either case may name it: the
+        table beside the case prints both figures.
+        """
+        return direction is _CONTRADICTS[self]
+
 
 _SIDE_WORDS: Final[dict[Side, str]] = {
     Side.FOR: "the case for",
     Side.AGAINST: "the case against",
+}
+
+_CONTRADICTS: Final[dict[Side, Direction]] = {
+    Side.FOR: Direction.LOWERS,
+    Side.AGAINST: Direction.RAISES,
 }
 
 # Where a point names its lever. Never rendered: the priced table is what a reader sees.
@@ -165,7 +221,11 @@ def levers_named(content: Mapping[str, Any]) -> tuple[tuple[Side, int, str, str]
 
 
 def case_problems(
-    content: Mapping[str, Any], *, offered: Mapping[str, str], none_because: str
+    content: Mapping[str, Any],
+    *,
+    offered: Mapping[str, str],
+    none_because: str,
+    directions: Mapping[str, Direction] | None = None,
 ) -> list[str]:
     """What stops a drafted pair of cases being accepted. Empty means sound.
 
@@ -173,7 +233,11 @@ def case_problems(
         offered: The levers this run's record supplies, key to words. Empty when there are
             none, in which case ``none_because`` says why and every lever named is refused
             with that reason.
+        directions: Which way each offered lever moves the value, as code struck it. A lever
+            that moves the value against its case is refused: printed beside that case, the
+            platform's own figures would argue the other one.
     """
+    moves = directions or {}
     problems: list[str] = []
 
     counts = {side: len(_points(content, side)) for side in Side}
@@ -197,6 +261,14 @@ def case_problems(
             problems.append(
                 f"{where} names the lever {key!r}, which is not on this run's list. Name one "
                 "exactly as listed, or none."
+            )
+            continue
+        direction = moves.get(key)
+        if direction is not None and side.contradicted_by(direction):
+            problems.append(
+                f"{where} names the lever {key!r}, which {direction.spoken}, so beside "
+                f"{side.spoken} the platform's own figures would argue the other case. Name a "
+                "lever that moves the value the way this case argues, or none."
             )
             continue
         if key in seen[side]:

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
@@ -41,7 +41,15 @@ from aer.calc.units import Quantity, SourceKind, SourceRef, Unit
 from aer.calc.wacc import effective_tax_rate
 from aer.config import HouseStyle
 from aer.core.assumption_scales import PLAUSIBLE_RANGE
-from aer.core.cases import DRIVERS, PRICED_FOR_FIELD, Anchor, LeverKey, Side, levers_named
+from aer.core.cases import (
+    DRIVERS,
+    PRICED_FOR_FIELD,
+    Anchor,
+    Direction,
+    LeverKey,
+    Side,
+    levers_named,
+)
 from aer.db.models import Calculation
 from aer.errors import AerError, ValidationError
 from aer.render import display
@@ -144,6 +152,9 @@ class LeverOption:
     value: Decimal
     # The fiscal year a driver's observation belongs to; empty for a terminal lever.
     period: str = ""
+    # Which way code's strike of it moved the value per share. ``None`` only in a list
+    # carried in a block written before directions were struck.
+    direction: Direction | None = None
 
     @property
     def label(self) -> str:
@@ -166,6 +177,11 @@ class LeverList:
     def offered(self) -> dict[str, str]:
         return {option.key: option.words for option in self.options}
 
+    def directions(self) -> dict[str, Direction]:
+        return {
+            option.key: option.direction for option in self.options if option.direction is not None
+        }
+
     def as_block(self) -> dict[str, Any]:
         """The list as the writer's block carries it: JSON, with nothing it cannot hold."""
         return {
@@ -177,6 +193,7 @@ class LeverList:
                     "words": option.words,
                     "value": str(option.value),
                     "period": option.period,
+                    "direction": option.direction.value if option.direction else "",
                 }
                 for option in self.options
             ],
@@ -193,6 +210,7 @@ class LeverList:
                 words=str(item["words"]),
                 value=Decimal(str(item["value"])),
                 period=str(item.get("period") or ""),
+                direction=Direction(item["direction"]) if item.get("direction") else None,
             )
             for item in block.get("options") or []
             if isinstance(item, Mapping)
@@ -209,6 +227,7 @@ class LeverList:
         active = style if style is not None else HouseStyle()
         listed = "\n".join(
             f"- {option.key}: {option.label} ({option.shown(style=active)})"
+            + (f"; struck, it {option.direction.spoken}" if option.direction else "")
             for option in self.options
         )
         return (
@@ -216,7 +235,9 @@ class LeverList:
             "exactly as written. The platform strikes the report's discounted cash flow with "
             "that one input moved and prints what it gives beside the case, so write no "
             "figure for the lever yourself. Name a lever only where the point's argument is "
-            "about that input; a point may name none.\n" + listed
+            "about that input; a point may name none. Each lever says which way the "
+            "platform's strike of it moved the value: the case for may not name one that "
+            "lowers it, nor the case against one that raises it.\n" + listed
         )
 
 
@@ -317,7 +338,7 @@ def _options(
                 period=chosen.label,
             )
             if _admissible(option, held, wacc=wacc):
-                options.append(option)
+                options.extend(_directed(option, chosen.quantity, basis, held, base))
 
     implied_growth = base.result.exit_multiple.implied_terminal_growth
     implied_multiple = base.result.gordon.implied_exit_multiple
@@ -335,8 +356,45 @@ def _options(
             value=figure.value,
         )
         if _admissible(option, held, wacc=wacc):
-            options.append(option)
+            options.extend(_directed(option, figure, basis, held, base))
     return tuple(options)
+
+
+def _directed(
+    option: LeverOption,
+    quantity: Quantity,
+    basis: ValuationBasis,
+    held: Mapping[str, Quantity],
+    base: Preview,
+) -> tuple[LeverOption, ...]:
+    """The option with the way its strike moves the value, or nothing if it cannot be struck.
+
+    Struck on a ledger that is thrown away, the same arithmetic the priced table's strike
+    will record, so the direction the writer is told is the one the table will print. A
+    lever the arithmetic refuses is not offered: it would price nothing beside its point.
+    """
+    try:
+        struck = _preview(basis, _moved(held, option.input, quantity))
+    except AerError:
+        return ()
+    direction = Direction.between(_per_share(base.result), _per_share(struck.result))
+    return (replace(option, direction=direction),)
+
+
+def _moved(held: Mapping[str, Quantity], name: str, quantity: Quantity) -> dict[str, Quantity]:
+    """The confirmed values with one input moved, in every year it is confirmed for.
+
+    As Ask's recompute moves one (ADR 0130 §3): a per-year path the operator entered would
+    otherwise outrank the flat value moved here.
+    """
+    moved = dict(held)
+    for key in _held_keys(held, name) or [name]:
+        moved[key] = quantity
+    return moved
+
+
+def _per_share(result: DcfResult) -> tuple[Decimal, Decimal]:
+    return result.gordon.value_per_share.value, result.exit_multiple.value_per_share.value
 
 
 def _admissible(option: LeverOption, held: Mapping[str, Quantity], *, wacc: Decimal) -> bool:
@@ -510,6 +568,12 @@ async def _strike_named(
             # it. The point stands in words.
             _log.info("cases.lever_not_offered", job_id=str(job.id), key=key, point=number)
             continue
+        if option.direction is not None and side.contradicted_by(option.direction):
+            # Refused at the draft too; reachable from a refresh whose own base case moves
+            # the lever the other way. The point stands in words rather than beside figures
+            # that argue the other case.
+            _log.info("cases.lever_contradicts", job_id=str(job.id), key=key, point=number)
+            continue
         if key not in results:
             try:
                 results[key] = _strike(ledger, basis, held, option, recorded=recorded)
@@ -538,11 +602,7 @@ def _strike(
     from aer.services.preview import strike_into  # noqa: PLC0415 -- see `_basis`
 
     anchor = _anchor(ledger, basis, held, option, recorded=recorded)
-    moved = dict(held)
-    # Every year the input is confirmed for, as Ask's recompute moves one (ADR 0130 §3): a
-    # per-year path the operator entered would otherwise outrank the flat value moved here.
-    for key in _held_keys(held, option.input) or [option.input]:
-        moved[key] = anchor
+    moved = _moved(held, option.input, anchor)
     return anchor, strike_into(ledger, basis, moved, case=ARGUED_CASE).result
 
 

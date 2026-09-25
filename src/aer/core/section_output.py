@@ -229,7 +229,7 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             # which reads naturally in front of a quantity.
             r"\b(?:in|by|since|until|through|throughout|during|before|after|between|"
             r"around|calendar|year|early|late|mid)[\s-](?:19|20)\d{2}(?:/\d{2,4})?"
-            r"(?:\s*(?:,|and|or|to|[-\u2013\u2014])\s*(?:19|20)\d{2}(?:/\d{2,4})?)*\b",
+            r"(?:\s*(?:,|and|or|to|through|[-\u2013\u2014])\s*(?:19|20)\d{2}(?:/\d{2,4})?)*\b",
             # A year-to-year range on its own: "2019-2024", hyphen or en/em dash.
             r"\b(?:19|20)\d{2}\s*[-\u2013\u2014]\s*(?:19|20)\d{2}\b",
             # A fiscal split year is reference-shaped by itself: "2014/15", "2024/2025".
@@ -239,8 +239,12 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             # A bare pair or list of years \u2014 "2014 and 2024", "2019, 2021 and 2023" \u2014
             # where every element is year-shaped. A money amount cannot back into this
             # form: written with separators ("2,014") it does not match the year atom,
-            # and a single bare year is deliberately not excused.
-            r"\b(?:19|20)\d{2}(?:\s*(?:,|and|or|to)\s*(?:19|20)\d{2})+\b",
+            # and a single bare year is deliberately not excused. "through" joins a range as
+            # "to" does, and its absence was worse than none: the anchored alternative
+            # above took "through 2013" and left the 2004 in front of it naked, which is
+            # how "tax years 2004 through 2013" cost a live MSFT run its earnings quality
+            # section (ADR 0054, amended 2026-09-25).
+            r"\b(?:19|20)\d{2}(?:\s*(?:,|and|or|to|through)\s*(?:19|20)\d{2})+\b",
             # A year the sentence itself marks as one: "the 2026 fiscal year".
             r"\b(?:19|20)\d{2}\s+(?:fiscal|financial|calendar)\b",
             # A year naming the document or the meeting it belongs to: "the 2025 proxy

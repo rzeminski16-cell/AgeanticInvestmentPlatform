@@ -3104,6 +3104,17 @@ found rather than as scope that was always there.
     - **Not re-rendered.** The six reports are approved and immutable. Their claims stand as
       published, and this item is where they are corrected. The re-measurement's fresh runs
       are the first drafted from the corrected index.
+78. **A year range joined by "through" cost a section, 25 September 2026.** The
+    re-measurement's MSFT run lost Earnings Quality to *"tax years 2004 through 2013"*. The
+    year eraser took "through 2013" as a year in temporal company and left the 2004 in front
+    of it naked. "through" now joins a year range as "to" does (ADR 0054, amended). A money
+    amount still cannot use the form, and the counter-test holds it.
+79. **A lever argued against its own case, 25 September 2026.** In the same run the case
+    against named depreciation at its heaviest share of revenue. The strike beside it raised
+    both values, because the model holds the operating margin and adds depreciation back.
+    Code now strikes every lever when the list is built and tells the writer which way each
+    moves the value, in words. The check refuses a lever that argues the other case, and
+    pricing never prints one (ADR 0135, amended).
 
 ### Before this leaves one machine
 

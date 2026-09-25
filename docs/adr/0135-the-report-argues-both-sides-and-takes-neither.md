@@ -186,3 +186,32 @@ again.
 - **The model's reply.** It carries no figure for a lever, and a lever that is not on the
   run's list is refused like any other refusal, with the list in the retry.
 - **The re-measurement.** Its three fresh runs are the first real reports drafted this way.
+
+## Amended 2026-09-25 — a lever says which way it moves the value
+
+The re-measurement's first run, MSFT, priced five levers. Four moved the value the way their
+case argued. The fifth did not. The case against named *depreciation at its heaviest share of
+revenue*, arguing that the build's depreciation would compress the margin. The strike raised
+the value by both methods, to $253.99 and $439.64 against the base case's $222.34 and
+$411.23. That is right for the model the report prints: it holds the operating margin as its
+own driver and adds depreciation back, so more depreciation is more cash flow and a higher
+EBITDA to capitalise. The writer could not see that. Nothing told it which way a lever moves a
+valuation, and it guessed from the words. Printed beside the case against, the platform's own
+figures argued the case for.
+
+The model still does no arithmetic. **Code strikes every lever on the list once when the
+list is built**, on a ledger it throws away, with the same arithmetic the priced table
+records. It then tells the writer in words whether the lever raises the value per share,
+lowers it, or moves the two methods apart. A method the lever leaves where it was counts for
+neither side: a terminal lever moves one method only. The check then refuses:
+- a point of the case for that names a lever which lowers the value;
+- a point of the case against that names one which raises it.
+
+Each refusal says why, and the writer's retry carries the list. A lever that moves the two
+methods apart argues neither case, so either may name it. A lever the arithmetic refuses is
+no longer offered, because it would price nothing beside its point. Pricing never prints a
+lever beside the case it argues against. A refresh can carry a drafted argument onto a base
+case where the lever moves the other way, and then the point stands in words.
+
+On MSFT's own record the list reads as the report should have been told: depreciation at
+its heaviest raises the value, and the operating margin at its lowest lowers it.

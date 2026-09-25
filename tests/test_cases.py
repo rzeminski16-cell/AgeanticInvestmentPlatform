@@ -29,6 +29,7 @@ from aer.core.cases import (
     LEVER_FIELD,
     PRICED_FOR_FIELD,
     Anchor,
+    Direction,
     LeverKey,
     Side,
     case_problems,
@@ -149,6 +150,58 @@ class TestWhatADraftMustSatisfy:
             [_point("C", "ebit_margin:lowest"), _point("D")],
         )
         assert case_problems(content, offered=OFFERED, none_because="") == []
+
+    def test_a_lever_that_argues_the_other_case_is_refused(self) -> None:
+        """The MSFT re-measurement of 25 September 2026: the case against named depreciation
+        at its heaviest, and the strike beside it raised both values, because the model holds
+        the operating margin and adds depreciation back."""
+        directions = {
+            "ebit_margin:lowest": Direction.LOWERS,
+            "revenue_growth:highest": Direction.RAISES,
+        }
+        content = _cases(
+            [_point("A", "ebit_margin:lowest"), _point("B")],
+            [_point("C", "revenue_growth:highest"), _point("D")],
+        )
+        problems = case_problems(content, offered=OFFERED, none_because="", directions=directions)
+        assert len(problems) == 2
+        assert problems[0].startswith(
+            "Point 1 of the case for names the lever 'ebit_margin:lowest', which lowers"
+        )
+        assert problems[1].startswith(
+            "Point 1 of the case against names the lever 'revenue_growth:highest', which raises"
+        )
+
+        aligned = _cases(
+            [_point("A", "revenue_growth:highest"), _point("B")],
+            [_point("C", "ebit_margin:lowest"), _point("D")],
+        )
+        assert case_problems(aligned, offered=OFFERED, none_because="", directions=directions) == []
+
+    def test_a_lever_that_moves_the_methods_apart_argues_neither_case(self) -> None:
+        mixed = dict.fromkeys(OFFERED, Direction.MIXED)
+        content = _cases(
+            [_point("A", "ebit_margin:lowest"), _point("B")],
+            [_point("C", "ebit_margin:lowest"), _point("D")],
+        )
+        assert case_problems(content, offered=OFFERED, none_because="", directions=mixed) == []
+
+    @pytest.mark.parametrize(
+        ("base", "struck", "expected"),
+        [
+            ((Decimal(100), Decimal(200)), (Decimal(110), Decimal(210)), Direction.RAISES),
+            ((Decimal(100), Decimal(200)), (Decimal(90), Decimal(190)), Direction.LOWERS),
+            ((Decimal(100), Decimal(200)), (Decimal(110), Decimal(190)), Direction.MIXED),
+            # A terminal lever moves one method only, and it counts one way.
+            ((Decimal(100), Decimal(200)), (Decimal(90), Decimal(200)), Direction.LOWERS),
+            ((Decimal(100), Decimal(200)), (Decimal(100), Decimal(210)), Direction.RAISES),
+            ((Decimal(100), Decimal(200)), (Decimal(100), Decimal(200)), Direction.MIXED),
+        ],
+    )
+    def test_a_direction_reads_every_method_that_moved(
+        self, base: tuple[Decimal, ...], struck: tuple[Decimal, ...], expected: Direction
+    ) -> None:
+        assert Direction.between(base, struck) is expected
 
     def test_levers_are_listed_by_side_and_point(self) -> None:
         content = _cases(
@@ -271,6 +324,10 @@ async def _section(scene: dict[str, Any], content: dict[str, Any]) -> ReportSect
     return section
 
 
+def _places(value: Decimal | str) -> Decimal:
+    return Decimal(value).quantize(Decimal("1e-9"))
+
+
 async def _rows(session: AsyncSession) -> int:
     return int(await session.scalar(select(func.count()).select_from(Calculation)) or 0)
 
@@ -379,6 +436,74 @@ class TestTheListIsTheRecords:
 
         assert augmenter.check(accepted, block) == []
         assert augmenter.check(refused, block)
+
+    async def test_every_lever_carries_the_direction_its_strike_prints(
+        self, valued: dict[str, Any]
+    ) -> None:
+        """The direction the writer is told is the one the priced table will show: both are
+        the same arithmetic over the same inputs."""
+        session: AsyncSession = valued["session"]
+        levers = await lever_list(session, job=valued["job"])
+        base = await _base_per_share(session, valued["job"].id)
+        section = await _section(valued, _cases([_point("A"), _point("B")], [_point("C")] * 2))
+
+        assert levers.options
+        for option in levers.options:
+            assert option.direction is not None, option.key
+            side = Side.AGAINST if option.direction is Direction.LOWERS else Side.FOR
+            points = [_point("Priced", option.key), _point("Other")]
+            others = [_point("C"), _point("D")]
+            section.content = _cases(points, others) if side is Side.FOR else _cases(others, points)
+            await price_the_cases(session, job=valued["job"], section=section, force=True)
+
+            rows = section.content[side.priced_field]
+            # The recorded base is stored at the ledger's twelve places and the row keeps
+            # every digit, so a method the lever leaves alone differs in the thirteenth.
+            struck = (_places(rows[1]["value"]), _places(rows[2]["value"]))
+            recorded = (_places(base["gordon_growth"]), _places(base["exit_multiple"]))
+            assert Direction.between(recorded, struck) is option.direction, option.key
+
+    async def test_the_margin_levers_point_the_way_their_words_do(
+        self, valued: dict[str, Any]
+    ) -> None:
+        levers = await lever_list(valued["session"], job=valued["job"])
+        directions = levers.directions()
+
+        assert directions["ebit_margin:lowest"] is Direction.LOWERS
+        assert directions["ebit_margin:highest"] is Direction.RAISES
+        assert "- ebit_margin:lowest: The operating margin at its lowest" in levers.note()
+        assert "struck, it lowers the value per share" in levers.note()
+
+    async def test_the_check_refuses_a_lever_that_argues_the_other_case(
+        self, valued: dict[str, Any]
+    ) -> None:
+        block = {LEVERS_BLOCK: (await lever_list(valued["session"], job=valued["job"])).as_block()}
+        backwards = _cases(
+            [_point("Margins revert", "ebit_margin:lowest"), _point("B")],
+            [_point("Margins hold", "ebit_margin:highest"), _point("D")],
+        )
+
+        problems = AUGMENTERS[CASES_KEY].check(backwards, block)
+
+        assert len(problems) == 2
+        assert all("would argue the other case" in problem for problem in problems)
+
+    async def test_pricing_never_prints_a_lever_beside_the_case_it_argues_against(
+        self, valued: dict[str, Any]
+    ) -> None:
+        """A refresh carries a drafted argument onto its own base case, where a lever can
+        come to move the other way: the point then stands in words."""
+        session: AsyncSession = valued["session"]
+        section = await _section(
+            valued,
+            _cases(
+                [_point("Margins revert", "ebit_margin:lowest"), _point("B")], [_point("C")] * 2
+            ),
+        )
+
+        await price_the_cases(session, job=valued["job"], section=section, force=True)
+
+        assert section.content[Side.FOR.priced_field] == []
 
 
 @pytest.mark.integration
@@ -557,6 +682,13 @@ def test_a_lever_list_survives_the_block_round_trip() -> None:
                 words="the operating margin at its lowest in the record",
                 value=Decimal("0.24"),
                 period="FY2022",
+                direction=Direction.LOWERS,
+            ),
+            LeverOption(
+                key="exit_multiple:growth_implies",
+                input="exit_multiple",
+                words="the exit multiple the perpetuity method implies",
+                value=Decimal("9.5"),
             ),
         )
     )

@@ -571,7 +571,12 @@ def _cases_check(content: dict[str, Any], block: dict[str, Any]) -> list[str]:
     from aer.services.cases import LEVERS_BLOCK, LeverList  # noqa: PLC0415 -- see above
 
     levers = LeverList.from_block(block.get(LEVERS_BLOCK))
-    return case_problems(content, offered=levers.offered(), none_because=levers.reason)
+    return case_problems(
+        content,
+        offered=levers.offered(),
+        none_because=levers.reason,
+        directions=levers.directions(),
+    )
 
 
 def _cases_note(block: dict[str, Any]) -> str:

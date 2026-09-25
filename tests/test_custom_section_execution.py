@@ -528,6 +528,26 @@ class TestAReferenceIsNotAFigure:
         )
         assert unsourced_numerals({"s": "Comparing 2014 and 2024 shows the shift."}, []) == []
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # The live MSFT sentence of 25 September 2026, which cost a whole section: the
+            # anchored alternative took "through 2013" and left the 2004 naked.
+            "Proposed adjustments for tax years 2004 through 2013 seek additional tax.",
+            "Audits for tax years 2004 to 2013 remain open.",
+            # An anchored list continued by "through" is excused whole, as "to" is.
+            "Filed in 2014 through 2016 and again later.",
+        ],
+    )
+    def test_a_year_range_joined_by_through_is_a_reference(self, text: str) -> None:
+        assert unsourced_numerals({"s": text}, []) == [], text
+
+    def test_through_joins_years_and_never_a_quantity(self) -> None:
+        """Every element must still be year-shaped: a money amount cannot use the form."""
+        problems = unsourced_numerals({"s": "Costs of 2,004 through 2,013 million."}, [])
+        assert any("2004" in p for p in problems)
+        assert any("2013" in p for p in problems)
+
     def test_a_fiscal_split_year_is_a_reference(self) -> None:
         assert unsourced_numerals({"s": "The 2014/15 financial year was transitional."}, []) == []
         # The anchored form too, whole.
