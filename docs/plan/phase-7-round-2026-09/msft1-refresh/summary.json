@@ -1,0 +1,24 @@
+{
+  "subject": "msft1",
+  "label": "msft1-refresh-round7",
+  "started_at": "2026-09-25T00:09:37.043913+00:00",
+  "request_id": "09ecfb14-7a55-454c-8f1d-7278b888db1d",
+  "job_id": "062d95cd-8b06-47d7-aad0-77ba31e43a56",
+  "as_of_date": "2026-09-25",
+  "cap_gbp": "10.50",
+  "resumed_by_driver": true,
+  "stop_reason": "failed metrics",
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-25T00:25:41.718028+00:00",
+  "status": "AWAITING_APPROVAL",
+  "spend_gbp": "1.664769",
+  "acceptance_passed": false,
+  "replay": {
+    "calculations_checked": 242,
+    "citations_checked": 45,
+    "artefacts_checked": 2,
+    "model_calls_checked": 9
+  }
+}

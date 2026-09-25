@@ -1,0 +1,1952 @@
+{
+  "payload": {
+    "revisions": [],
+    "sections": [
+      {
+        "key": "change_summary",
+        "content": {
+          "basis": "Refreshed against the report of 2026-09-24, as at 2026-09-25: 41 figures moved materially and 0 documents were read for the first time. Every figure below is a recorded calculation or a stored fact; the prior report stays readable at its own address.",
+          "broke": [],
+          "moved": [
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "After tax cost of debt",
+              "prior": "0.06035",
+              "movement": "disappeared",
+              "narrative": "After tax cost of debt is no longer computed; the prior run held 0.06035104325.",
+              "change_pct": "",
+              "calculation_id": "16a055b9-0f6f-47a4-87a5-4d50bacdeced",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Average debt",
+              "prior": "$41.7bn",
+              "movement": "disappeared",
+              "narrative": "Average debt is no longer computed; the prior run held 41722500000 USD.",
+              "change_pct": "",
+              "calculation_id": "5594fc96-43f6-40b8-ad17-b6b65d847efc",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Change in working capital",
+              "prior": "$18.2bn",
+              "movement": "disappeared",
+              "narrative": "Change in working capital is no longer computed; the prior run held 18150665882.932497475472 USD.",
+              "change_pct": "",
+              "calculation_id": "5b2e84cb-fb71-46f9-908a-0443a6c0b77f",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Cost of debt",
+              "prior": "0.07313",
+              "movement": "disappeared",
+              "narrative": "Cost of debt is no longer computed; the prior run held 0.073126011145.",
+              "change_pct": "",
+              "calculation_id": "3d607eab-2543-4076-9b83-01292112c7d5",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Cost of equity",
+              "prior": "0.09756",
+              "movement": "disappeared",
+              "narrative": "Cost of equity is no longer computed; the prior run held 0.097564146872.",
+              "change_pct": "",
+              "calculation_id": "8e40a144-4cdb-4592-b836-b3d64bd94bef",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Debt weight",
+              "prior": "0.01072",
+              "movement": "disappeared",
+              "narrative": "Debt weight is no longer computed; the prior run held 0.010723768355.",
+              "change_pct": "",
+              "calculation_id": "3270974c-046f-4dbc-b1be-413f10d0d856",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Discount factor",
+              "prior": "0.6655",
+              "movement": "disappeared",
+              "narrative": "Discount factor is no longer computed; the prior run held 0.66550370541.",
+              "change_pct": "",
+              "calculation_id": "6e8d6947-7c6a-4aca-88d0-8d9031e21492",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Discount factor",
+              "prior": "0.9032",
+              "movement": "disappeared",
+              "narrative": "Discount factor is no longer computed; the prior run held 0.903207675264.",
+              "change_pct": "",
+              "calculation_id": "a98278d1-15bb-42cc-b923-cc6834134366",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Discount factor",
+              "prior": "0.6011",
+              "movement": "disappeared",
+              "narrative": "Discount factor is no longer computed; the prior run held 0.601088054643.",
+              "change_pct": "",
+              "calculation_id": "872a8775-0dad-4c64-88c2-2855bcdad351",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Discount factor",
+              "prior": "0.8158",
+              "movement": "disappeared",
+              "narrative": "Discount factor is no longer computed; the prior run held 0.815784104656.",
+              "change_pct": "",
+              "calculation_id": "5a9df97e-f1bd-4255-9e94-d20654e4c141",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Discount factor",
+              "prior": "0.7368",
+              "movement": "disappeared",
+              "narrative": "Discount factor is no longer computed; the prior run held 0.736822464684.",
+              "change_pct": "",
+              "calculation_id": "6751c58c-a30b-4d91-9ac6-ab859e53f8a5",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Enterprise value",
+              "prior": "$3,313.7bn",
+              "movement": "disappeared",
+              "narrative": "Enterprise value is no longer computed; the prior run held 3313654650609.890384425434 USD.",
+              "change_pct": "",
+              "calculation_id": "ccc1e78d-23a0-4562-8d46-1c1486a23084",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Enterprise value",
+              "prior": "$1,714.4bn",
+              "movement": "disappeared",
+              "narrative": "Enterprise value is no longer computed; the prior run held 1714373252288.279666046992 USD.",
+              "change_pct": "",
+              "calculation_id": "9aa6d590-3d3c-47f8-bdb5-224e28f2230b",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Equity value",
+              "prior": "$1,695.0bn",
+              "movement": "disappeared",
+              "narrative": "Equity value is no longer computed; the prior run held 1695014252288.279666046992 USD.",
+              "change_pct": "",
+              "calculation_id": "c6e5daeb-1a19-4bc6-a6d1-2dafc37d968b",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Equity value",
+              "prior": "$3,294.3bn",
+              "movement": "disappeared",
+              "narrative": "Equity value is no longer computed; the prior run held 3294295650609.890384425434 USD.",
+              "change_pct": "",
+              "calculation_id": "dd776ebe-7808-4409-81da-437daa961794",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Equity weight",
+              "prior": "0.9893",
+              "movement": "disappeared",
+              "narrative": "Equity weight is no longer computed; the prior run held 0.989276231645.",
+              "change_pct": "",
+              "calculation_id": "84c50762-c171-47ec-a6e3-7e27def980b9",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Exit multiple terminal value",
+              "prior": "$5,345.9bn",
+              "movement": "disappeared",
+              "narrative": "Exit multiple terminal value is no longer computed; the prior run held 5345945390364.719336854829 USD.",
+              "change_pct": "",
+              "calculation_id": "1cc57ad1-184d-4ff7-b8f4-38f34c71cebf",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Forecast ebitda",
+              "prior": "$334.1bn",
+              "movement": "disappeared",
+              "narrative": "Forecast ebitda is no longer computed; the prior run held 334121586897.794958553427 USD.",
+              "change_pct": "",
+              "calculation_id": "b79a6bb3-46d5-4661-bfff-2f3ecbabe232",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Forecast free cash flow",
+              "prior": "$139.2bn",
+              "movement": "disappeared",
+              "narrative": "Forecast free cash flow is no longer computed; the prior run held 139224921462.876671652182 USD.",
+              "change_pct": "",
+              "calculation_id": "8fdf9508-477a-46ac-a84c-fc31c50ca61d",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Forecast recovery",
+              "prior": "0.09941",
+              "movement": "disappeared",
+              "narrative": "Forecast recovery is no longer computed; the prior run held 0.099411224606.",
+              "change_pct": "",
+              "calculation_id": "6448186c-f3da-476f-8670-68603fd9c791",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Gordon terminal value",
+              "prior": "$1,858.4bn",
+              "movement": "disappeared",
+              "narrative": "Gordon terminal value is no longer computed; the prior run held 1858375123506.614641074387 USD.",
+              "change_pct": "",
+              "calculation_id": "302d6868-1839-4e64-b317-6e408be5144b",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Implied exit multiple",
+              "prior": "6.39\u00d7",
+              "movement": "disappeared",
+              "narrative": "Implied exit multiple is no longer computed; the prior run held 6.390077427702.",
+              "change_pct": "",
+              "calculation_id": "0ef59445-a37c-4db3-bf1a-0b6f7c67f4de",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Implied terminal growth",
+              "prior": "6.5%",
+              "movement": "disappeared",
+              "narrative": "Implied terminal growth is no longer computed; the prior run held 0.065453429072.",
+              "change_pct": "",
+              "calculation_id": "ee7919ce-1128-40cb-a169-89753c65f657",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Implied upside",
+              "prior": "-54.6%",
+              "movement": "disappeared",
+              "narrative": "Implied upside is no longer computed; the prior run held -0.545681874996.",
+              "change_pct": "",
+              "calculation_id": "4e26731f-0c40-49a6-9045-b5eb4143d587",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Implied upside",
+              "prior": "-11.7%",
+              "movement": "disappeared",
+              "narrative": "Implied upside is no longer computed; the prior run held -0.117023221974.",
+              "change_pct": "",
+              "calculation_id": "3e0a55c2-3741-42f0-ac64-9de4fd497442",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Method disagreement",
+              "prior": "0.9435",
+              "movement": "disappeared",
+              "narrative": "Method disagreement is no longer computed; the prior run held 0.943520915038.",
+              "change_pct": "",
+              "calculation_id": "54fec3ee-9288-43fe-bd7c-65750032638a",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Nopat from ebit",
+              "prior": "$230.3bn",
+              "movement": "disappeared",
+              "narrative": "Nopat from ebit is no longer computed; the prior run held 230305336808.418883583592 USD.",
+              "change_pct": "",
+              "calculation_id": "bc3b38e7-60a1-42a6-8459-922da4ba0564",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Present value",
+              "prior": "$3,213.4bn",
+              "movement": "disappeared",
+              "narrative": "Present value is no longer computed; the prior run held 3213383914923.568511072153 USD.",
+              "change_pct": "",
+              "calculation_id": "95bb6f38-82e5-4cc5-92ae-2da5231c553c",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Projected capex",
+              "prior": "$128.0bn",
+              "movement": "disappeared",
+              "narrative": "Projected capex is no longer computed; the prior run held 127995503697.429321460971 USD.",
+              "change_pct": "",
+              "calculation_id": "bd99a21e-8628-4cb4-82c1-9318c589639a",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Projected depreciation",
+              "prior": "$55.1bn",
+              "movement": "disappeared",
+              "narrative": "Projected depreciation is no longer computed; the prior run held 55065754234.819607005033 USD.",
+              "change_pct": "",
+              "calculation_id": "b170fef5-e9df-4864-baa5-fa18712aeaf7",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Projected ebit",
+              "prior": "$279.1bn",
+              "movement": "disappeared",
+              "narrative": "Projected ebit is no longer computed; the prior run held 279055832662.975351548394 USD.",
+              "change_pct": "",
+              "calculation_id": "b11b90d2-ce27-4410-b97e-d7350df0cd4a",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Projected revenue",
+              "prior": "$631.7bn",
+              "movement": "disappeared",
+              "narrative": "Projected revenue is no longer computed; the prior run held 631705337097.850258174066 USD.",
+              "change_pct": "",
+              "calculation_id": "4542ad1f-bfa5-4400-a409-9a712de3708a",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Projected working capital",
+              "prior": "$150.2bn",
+              "movement": "disappeared",
+              "narrative": "Projected working capital is no longer computed; the prior run held 150241007143.330118302571 USD.",
+              "change_pct": "",
+              "calculation_id": "625797b9-2f7b-4926-a484-5bb1be42095c",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Rate from percent",
+              "prior": "5%",
+              "movement": "disappeared",
+              "narrative": "Rate from percent is no longer computed; the prior run held 0.0496.",
+              "change_pct": "",
+              "calculation_id": "da6022af-14d7-444e-b1c0-3b30b1f7e8c8",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Terminal value share",
+              "prior": "88.8%",
+              "movement": "disappeared",
+              "narrative": "Terminal value share is no longer computed; the prior run held 0.887902828118.",
+              "change_pct": "",
+              "calculation_id": "7a9a18b0-cd9c-466b-bb31-5466c54c0267",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Terminal value share",
+              "prior": "78.3%",
+              "movement": "disappeared",
+              "narrative": "Terminal value share is no longer computed; the prior run held 0.783331130236.",
+              "change_pct": "",
+              "calculation_id": "13aa4750-0490-463e-be6b-93fda8b2632e",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD/shares",
+              "label": "Value per share",
+              "prior": "$442.01",
+              "movement": "disappeared",
+              "narrative": "Value per share is no longer computed; the prior run held 442.00934531194 USD/shares.",
+              "change_pct": "",
+              "calculation_id": "be444b46-3cec-4f7e-9332-d1c6497f9336",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD/shares",
+              "label": "Value per share",
+              "prior": "$227.43",
+              "movement": "disappeared",
+              "narrative": "Value per share is no longer computed; the prior run held 227.427110195663 USD/shares.",
+              "change_pct": "",
+              "calculation_id": "df9832af-d77d-4c5f-ac0f-605b65ac790d",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "pure",
+              "label": "Wacc",
+              "prior": "9.7%",
+              "movement": "disappeared",
+              "narrative": "Wacc is no longer computed; the prior run held 0.097165082169.",
+              "change_pct": "",
+              "calculation_id": "763a6daf-f596-435d-805e-a41dd7f18047",
+              "financial_fact_id": null
+            },
+            {
+              "new": "no longer computed",
+              "unit": "USD",
+              "label": "Working capital",
+              "prior": "$38.9bn",
+              "movement": "disappeared",
+              "narrative": "Working capital is no longer computed; the prior run held 38885000000 USD.",
+              "change_pct": "",
+              "calculation_id": "a0ff65d9-678b-4a40-8a96-19db5bdd67a6",
+              "financial_fact_id": null
+            },
+            {
+              "new": "\u20ac550m",
+              "unit": "EUR",
+              "label": "DebtInstrumentFaceAmount, FY 2013-04-30",
+              "prior": "\u20ac2.0bn",
+              "movement": "relative",
+              "narrative": "DebtInstrumentFaceAmount for FY 2013-04-30 moved from 1950000000 USD to 550000000 EUR (-71.8%).",
+              "change_pct": "-71.8%",
+              "calculation_id": null,
+              "financial_fact_id": "254d7e27-5b0d-40c9-b814-742932d05f80"
+            }
+          ],
+          "sections": {
+            "stale": [],
+            "carried": [],
+            "redrafted": []
+          },
+          "unchanged": "18829 other figures are within two per cent of the prior report.",
+          "commentary": "Almost every link in the valuation chain has moved since the prior report, rather than a single input: the cost of debt and cost of equity, the debt and equity weights and the resulting WACC all differ, as do the projected revenue, EBIT, EBITDA, capex, depreciation and working-capital lines that feed free cash flow, and the discount factors applied to them. Both terminal approaches have been restated \u2014 the Gordon calculation and the exit-multiple calculation, together with the implied terminal growth and implied exit multiple that read back from them \u2014 so the enterprise value, equity value, value per share, implied upside and the disagreement between methods shown here are not comparable line-by-line with what the prior report carried. The only movement outside the model chain is a debt instrument face amount attached to a fiscal period ending in April 2013, which speaks to the underlying disclosure rather than to the forecast.",
+          "new_documents": []
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "executive_summary",
+        "content": {
+          "thesis": "Microsoft closed fiscal 2026 on 30 June 2026 with revenue of $331.8 billion and net income of $133.7 billion, or $17.95 diluted per share. The filed income statement shows the great majority of revenue retained as gross profit and close to half reaching operating income, a profile few companies of this scale sustain. At a market capitalisation of $3.70 trillion, the shares are priced for that structure to hold.",
+          "key_risks": [
+            "Valuation leans on the persistence of the fiscal 2026 margin structure; compression at the gross or operating line would be felt directly.",
+            "At a beta of 1.07 the shares carry close to full market risk and offer little defensive cushion.",
+            "Without cash-flow or segment data, earnings quality and revenue concentration cannot be corroborated in this summary."
+          ],
+          "key_points": [
+            "Supported by filed data, scale and margin: fiscal 2026 brought revenue of $331.8 billion against cost of revenue of $106.4 billion, leaving gross profit of $225.5 billion; operating expenses of $70.2 billion, including research and development of $35.6 billion, left operating income of $155.2 billion.",
+            "Supported by filed data, earnings: pre-tax income of $165.9 billion sat above operating income despite interest expense of $3.1 billion, indicating net positive non-operating items; after tax expense of $32.2 billion, net income was $133.7 billion, equal to $18.00 basic and $17.95 diluted per share.",
+            "Supported by filed data, valuation: market capitalisation of $3.70 trillion against enterprise value of $3.72 trillion, the small excess implying modest net debt. Book value per share of $59.56 sits far below the market price, so value rests on earnings power rather than on assets.",
+            "Supported by filed data, long-run growth and market risk: a fifteen-year compound annual growth rate recorded at 0.109 in ratio terms, and a beta of 1.07 measured on monthly returns.",
+            "Unresolvable from available disclosure: segment mix, cloud growth, capital expenditure, cash flow, dividends and buybacks lie outside the figures to hand, and prior-year comparatives are absent, so no growth rate for fiscal 2026 is asserted here."
+          ],
+          "headline_figures": [
+            {
+              "unit": "USD billion",
+              "label": "Revenue, fiscal 2026",
+              "value": "331.8",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Operating income, fiscal 2026",
+              "value": "155.2",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Net income, fiscal 2026",
+              "value": "133.7",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Diluted earnings per share, fiscal 2026",
+              "value": "17.95",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD trillion",
+              "label": "Market capitalisation",
+              "value": "3.70",
+              "calculation_id": "8cde168a-9d6b-466e-8467-db081b9dd0a7"
+            },
+            {
+              "unit": "USD trillion",
+              "label": "Enterprise value",
+              "value": "3.72",
+              "calculation_id": "bbc6d552-23b0-4f85-8647-21d16cb4f39e"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Book value per share",
+              "value": "59.56",
+              "calculation_id": "95922151-04f6-45da-806e-c59f7f92cc5b"
+            },
+            {
+              "unit": "ratio",
+              "label": "Beta, monthly returns",
+              "value": "1.07",
+              "calculation_id": "f0992d38-46cc-476c-b9d4-db7a8e62114e"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": "Insufficient evidence: This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary."
+      },
+      {
+        "key": "investment_thesis",
+        "content": {
+          "thesis_statement": "Microsoft's fiscal year ended 30 June 2026 describes a business whose economics rest on gross margin rather than on operating cost control, and whose earnings are fully backed by cash. The supported core is narrow but firm: gross profit of $225.5 billion on revenue of $331.8 billion, operating income of $155.2 billion, and operating cash flow of $182.9 billion against net income of $133.7 billion. Everything connecting that core to a recorded market capitalisation of $3.697 trillion \u2014 the duration of growth and the discount rate applied to it \u2014 is judgement, not measurement, because no reverse discounted cash flow or discount-rate range is carried in the primary record available here. We are therefore constructive on the franchise and deliberately agnostic on the price, because capital intensity has risen to the point where the reinvestment decision, not the income statement, now governs the return.",
+          "supporting_pillars": [
+            {
+              "pillar": "Margin is composed at the gross line, and operating spend is a second-order lever",
+              "evidence": "For the year ended June 2026 the filings show revenue of $331.8 billion and gross profit of $225.5 billion, with operating expenses of $70.2 billion \u2014 of which research and development is $35.6 billion \u2014 leaving operating income of $155.2 billion. The recorded contribution of the research and development line to the operating margin bridge is 0.0082, a small fraction of the margin the gross line delivers. The supported conclusion is that margin defence depends on the cost of delivering cloud and licensed output, not on discretionary spend restraint.",
+              "calculation_id": "9e402383-6ced-4525-9b41-2b4edea886c4",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "pillar": "Earnings quality is cash-backed, on a measured basis",
+              "evidence": "Operating cash flow of $182.9 billion exceeds net income of $133.7 billion for the same annual period, and the recorded accruals ratio for FY2026 is negative 0.0649. Diluted earnings per share is $17.95. A negative accruals ratio means reported profit is not being carried by working-capital or non-cash build, which is the single strongest item in the supported core.",
+              "calculation_id": "55a24515-30bb-45b2-aa68-284c8300ddcb",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "pillar": "Capital intensity is now the swing variable",
+              "evidence": "Capital expenditure of $115.9 billion sits against operating cash flow of $182.9 billion, with an investing cash outflow of $139.5 billion and share repurchases of $22.3 billion in the same year. Recorded asset turnover for FY2026 is 0.4376, so the asset base is large relative to the revenue it carries. Free cash generation after this level of investment is not a stored figure here, so we describe the direction only: distribution capacity is compressed relative to a lower-intensity configuration.",
+              "calculation_id": "b564d340-6ee9-4c1d-8cd7-d3fa1bdbd6d6",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "pillar": "The valuation anchors are recorded; the bridge between them and the cash flows is not",
+              "evidence": "Market capitalisation is recorded at $3.697 trillion and enterprise value at $3.717 trillion, with a last-fiscal-year multiple of 8.36 and a beta of 1.07 estimated from monthly observations. These fix the starting point of any valuation discussion but do not settle it: no reverse discounted cash flow and no discount-rate sensitivity is held in the record, so any statement about what the price requires across a cost-of-equity range is a judgement we hold, not a result we can show.",
+              "calculation_id": "c519cb05-deed-4033-82b1-158bfcb122d4",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "pillar": "What remains unmeasurable, and the comparability limits we carry forward",
+              "evidence": "The annual figures above are single-period FY2026 amounts; the other annual filings in the record date from July 2015, July 2020 and July 2024, and no differenced or restated series joining them is held here, so no conclusion in this note rests on a year-over-year change. Segment-level margin is likewise not available. The only long-horizon growth datum is a recorded fifteen-year compound annual growth rate of 0.1094. Management's own discussion of Microsoft 365 Consumer frames growth in qualitative drivers \u2014 new users, added artificial intelligence features, attach on new devices, and the shift from on-premises licensing to subscriptions \u2014 without quantification.",
+              "calculation_id": "4fec3b74-4d91-4c0e-aa0d-cd09df34e3d1",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            }
+          ],
+          "what_would_change_the_view": [
+            "A sustained rise in cost of revenue relative to revenue, as capacity placed in service loads depreciation into the gross line rather than into operating expense.",
+            "The accruals ratio turning positive, which would break the cash-backing that carries most of the supported core.",
+            "Capital expenditure continuing to grow against operating cash flow to the point where repurchase capacity is visibly curtailed.",
+            "Disclosure of segment-level margin or of capacity utilisation, either of which would move part of the judgement layer into the measured core.",
+            "A materially higher beta or cost of equity, which would tighten the growth duration the current market capitalisation implicitly requires."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "business_overview",
+        "content": {
+          "commentary": "Microsoft is a global technology company whose offerings span cloud infrastructure and platform services, productivity and business software, and artificial-intelligence-enabled products, sold to consumer, business, and public-sector customers worldwide. The available filings excerpted for this note describe risk factors tied to the company's cloud-based and AI products and services, including exposure to intellectual-property infringement claims arising from AI training, inference, and output, and the reputational stakes tied to product quality, sustainability, and human-rights practices across its customer base. These excerpts do not, however, include a segment-level breakdown of revenue by product line (such as cloud, productivity, or personal computing), so no per-segment revenue figures or customer-mix percentages can be given here; readers should treat the revenue composition as an area not evidenced in this section rather than assume any particular mix. Nor do the materials available describe the company's operating or manufacturing footprint by geography, so no footprint listing is provided.\n\nAt the consolidated level, the fiscal year ended June 2026 shows revenue of approximately 331.8 billion dollars, cost of revenue of roughly 106.4 billion dollars, and gross profit of about 225.5 billion dollars, implying a business that retains a large share of each revenue dollar after direct delivery costs \u2014 consistent with a company whose output is weighted toward software, cloud services, and other high-margin digital products rather than physical goods. Operating expenses of approximately 70.2 billion dollars, including research and development spending of about 35.6 billion dollars, sit beneath that gross profit, leaving operating income of roughly 155.2 billion dollars for the year. After interest expense of about 3.1 billion dollars and income tax expense of roughly 32.2 billion dollars, net income for the fiscal year was approximately 133.7 billion dollars. The scale of research and development spending relative to revenue points to a business model funded substantially by recurring, high-margin sales that in turn support continued investment in product development, though the evidence here does not specify how that spending divides across cloud, AI, or other product lines.\n\nThe risk-factor language available also flags that the company's cloud-based and AI products and services carry a risk of misuse by customers or malicious actors for fraudulent or unlawful purposes, and that efforts to detect and mitigate such misuse may not always succeed \u2014 a consideration relevant to how the market may price execution and reputational risk around the AI-linked portion of the business, even though the underlying revenue contribution of that portion is not itemized in the material reviewed. Overall, the evidence supports a picture of a large, high-margin, R&D-intensive technology company serving a broad customer base, monetized primarily through recurring software, cloud, and services revenue, but it stops short of confirming the specific mechanics of how each product line is priced or delivered to customers, which is a gap worth keeping in mind when assessing the durability of the margin structure shown above."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "segment_analysis",
+        "content": {
+          "segments": [
+            {
+              "unit": "USD",
+              "label": "Productivity and Business Processes revenue, FY2026",
+              "value": "139996000000",
+              "source_document_id": "c9d2e8af-1623-4ccb-8a25-207d392cfe5d"
+            },
+            {
+              "unit": "USD",
+              "label": "Intelligent Cloud revenue, FY2026",
+              "value": "137791000000",
+              "source_document_id": "c9d2e8af-1623-4ccb-8a25-207d392cfe5d"
+            },
+            {
+              "unit": "USD",
+              "label": "More Personal Computing revenue, FY2026",
+              "value": "54052000000",
+              "source_document_id": "c9d2e8af-1623-4ccb-8a25-207d392cfe5d"
+            },
+            {
+              "unit": "USD",
+              "label": "Total revenue, FY2026",
+              "value": "331839000000",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD",
+              "label": "Total revenue, FY2025",
+              "value": "281724000000",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            }
+          ],
+          "commentary": "Microsoft's total revenue rose to $331.8 billion in fiscal 2026 from $281.7 billion in fiscal 2025. Under the segment structure disclosed in the fiscal 2026 Form 10-K, Productivity and Business Processes was the largest segment at $140.0 billion, ahead of Intelligent Cloud at $137.8 billion, with More Personal Computing trailing at $54.1 billion. Within these, cloud-and-AI-heavy lines dominate: Microsoft Cloud revenue reached $214.4 billion, Server products and cloud services contributed $129.4 billion, and revenue attributed to the OpenAI Global LLC equity-method arrangement reached $24.1 billion, underscoring how much of the growth mix now sits inside AI infrastructure and platform services rather than legacy licensing. LinkedIn ($19.8 billion) and Dynamics products and cloud services ($9.0 billion) remain smaller but steady contributors to Productivity and Business Processes. Within More Personal Computing, Windows and devices generated $17.1 billion, XBOX $21.8 billion, and Search advertising $15.2 billion \u2014 a mix skewed toward consumer subscription and advertising revenue rather than device unit economics. Geographically, revenue split roughly evenly between the United States ($170.8 billion) and the rest of the world ($161.0 billion), suggesting cloud and AI demand is broadening internationally rather than concentrating domestically.\n\nA more consequential development sits alongside this conventional three-segment view. Supplemental disclosure accompanying the fiscal 2026 fourth-quarter results presents a restated segment history built around two new reporting segments, Agents and Infra and Devices and Consumer, with both fiscal 2026 and fiscal 2025 figures shown on this restated basis. This indicates Microsoft has reorganized its segment reporting and reclassified prior-year comparatives onto the new structure rather than reporting the change prospectively only. Because the two segment views: the legacy Intelligent Cloud, More Personal Computing, Productivity and Business Processes framework, and the newer Agents and Infra, Devices and Consumer framework are not drawn from a common, directly reconciled disclosure in the material available here, we treat the two structures as non-comparable for growth attribution purposes and do not attempt to translate one into the other or compute period-over-period changes across them. The restated presentation does disclose segment-level cost of revenue and operating expense separately for each of the two new segments, which supports margin comparison within that structure once it becomes the primary reporting basis, but the evidence available does not extend to a breakdown of depreciation or capital expenditure allocation by segment, so capital intensity cannot be compared across segments here.\n\nTaken together, the numbers point to a business whose revenue growth continues to concentrate in cloud infrastructure, AI-linked services, and productivity subscriptions, while a structural change in segment reporting is underway that will need to be tracked through subsequent filings before segment-level growth, margin, and capital-intensity trends can be compared on a fully consistent basis."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "industry_landscape",
+        "content": {
+          "commentary": "Microsoft competes in the global cloud infrastructure, enterprise software, and AI platform industry, a structure dominated by a small number of hyperscale cloud providers alongside major enterprise software vendors. The industry has shifted from perpetual licensing toward subscription and consumption-based revenue, and hyperscale cloud economics increasingly reward scale in datacenter capacity, custom silicon, and AI model training and inference. Peers occupying overlapping segments include Oracle Corp in databases, ERP and cloud infrastructure; Alphabet Inc. in cloud (Google Cloud vs Azure), productivity tools and AI; Amazon.com Inc., whose AWS business competes directly with Azure in cloud infrastructure; Salesforce, Inc. in enterprise SaaS and CRM; Adobe Inc. in subscription creative and productivity software; SAP SE in enterprise ERP and its own cloud transition; and International Business Machines Corp in enterprise software, hybrid cloud and consulting. Microsoft's own fiscal 2026 disclosures state that demand for cloud-based and AI products and services is evolving and difficult to forecast, and that the cost structure for AI products and services carries significant uncertainty around model training and inference costs, component availability and pricing, and energy costs \u2014 a structural condition affecting the hyperscale cloud and AI competitor set broadly, not Microsoft alone.",
+          "industry_trends": [
+            "Continued large-scale buildout of AI-optimized cloud infrastructure and datacenter capacity by hyperscale providers",
+            "Ongoing shift of enterprise software revenue from perpetual licensing toward subscription and consumption-based models",
+            "Uncertain and potentially volatile cost trajectory for AI model training, inference, hardware components, and energy",
+            "Competitive and commoditization pressure on cloud and AI service pricing among hyperscale providers"
+          ],
+          "competitive_position": "Within this landscape Microsoft holds a top-tier competitive position. For the fiscal year ended June 2026 it reported revenue of $331.8 billion, gross profit of $225.5 billion, and operating income of $155.2 billion, reflecting an integrated model spanning cloud infrastructure (Azure), productivity software (Microsoft 365), and AI services layered across both. The company continues to direct substantial capital toward AI and datacenter capacity, with fiscal 2026 capital expenditure of $115.9 billion and research and development spend of $35.6 billion, consistent with an investment-led strategy to secure infrastructure and AI capability ahead of fully developed revenue streams, as the company itself discloses. This diversified mix distinguishes Microsoft from more concentrated peers such as Oracle in enterprise applications and Salesforce in SaaS/CRM, while its cloud infrastructure scale places it in direct competition with Amazon's AWS and Alphabet's Google Cloud. Filings caution, however, that the financial payoff from this infrastructure buildout depends on uncertain future customer demand, the company's ability to price AI and cloud services to recover costs, competitive pricing dynamics, and the pace of AI adoption; customers may also shift workloads to competing platforms or on-premises alternatives. These risks, and the broader uncertainty around AI training, inference, component and energy costs, are shared across the hyperscale cloud and AI competitor set named above, rather than being unique to Microsoft."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "management_governance",
+        "content": {
+          "commentary": "Microsoft's senior leadership remained stable through fiscal 2026, with Satya Nadella continuing as chairman and chief executive officer and Amy Hood as executive vice president and chief financial officer. In commentary accompanying the quarter ended March 31, 2026, Nadella framed strategy around cloud and AI infrastructure, while Hood highlighted execution against revenue, operating income and earnings-per-share targets \u2014 language consistent with a management team oriented toward growth in the Microsoft Cloud and AI franchises. For the full fiscal year ended June 30, 2026, the company reported revenue of $331.8 billion and diluted earnings per share of $17.95, scale that underscores the breadth of the operation this team is responsible for stewarding. The board's capital-return posture is visible in the quarterly dividend of $0.91 per share declared for the period ended June 30, 2026, a policy choice that signals a continued balance between reinvestment in AI and cloud infrastructure and direct shareholder distributions. Shares outstanding stood at approximately 7.427 billion as of June 30, 2026, a base against which per-share incentive metrics such as diluted earnings per share are ultimately measured. The evidence available for this note does not include the proxy statement, compensation committee disclosures, board composition, or named-executive-officer pay tables, so this section cannot characterize the specific structure, quantum, or performance conditions attached to executive incentive compensation, nor can it assess board independence, tenure, or committee oversight in detail. What is supported is that the same two individuals \u2014 Nadella and Hood \u2014 have been the public face of quarterly results throughout the period covered by the evidence, suggesting continuity in the executive team communicating strategy and results to investors. Any assessment of alignment between pay and performance, or of governance quality more broadly, would need to rest on proxy-level disclosure that is not present here; readers should treat this section as a partial view focused on operating results and capital-return signals rather than a full governance audit.",
+          "governance_observations": [
+            "The evidence available for this section does not include a proxy statement, compensation committee report, or named-executive-officer pay tables, so board composition and executive pay structure cannot be assessed here.",
+            "Continuity is observed in the executive team, with Satya Nadella as chairman and CEO and Amy Hood as CFO both featured in the company's quarterly results commentary."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "historical_financial_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD billion",
+              "label": "Revenue, fiscal 2026",
+              "value": "331.8",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Operating income, fiscal 2026",
+              "value": "155.2",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Net income, fiscal 2026",
+              "value": "133.7",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Diluted earnings per share, fiscal 2026",
+              "value": "17.95",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "percent",
+              "label": "Compound annual growth rate, fifteen years",
+              "value": "10.9",
+              "calculation_id": "4fec3b74-4d91-4c0e-aa0d-cd09df34e3d1"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Book value per share",
+              "value": "59.56",
+              "calculation_id": "95922151-04f6-45da-806e-c59f7f92cc5b"
+            }
+          ],
+          "commentary": "The audited annual history that can be quoted here amounts to one year: fiscal 2026, the twelve months ended in June 2026. Revenue was $331.8 billion, cost of revenue $106.4 billion and gross profit $225.5 billion. Operating expenses of $70.2 billion, of which research and development accounted for $35.6 billion, left operating income of $155.2 billion. Below that line, interest expense of $3.1 billion and other items produced pre-tax income of $165.9 billion; tax of $32.2 billion left net income of $133.7 billion and diluted earnings per share of $17.95. The only long-run growth figure on record is a compound annual rate of 10.9% measured over fifteen years, and that is the base rate against which any reverse-engineered growth assumption in the valuation work should be tested.\n\nThe fuller four-year comparison from fiscal 2023 to fiscal 2026 cannot be assembled honestly from the reported history available to this section. Prior-year annual income statements, depreciation and amortisation, capital expenditure and returns on invested capital are not on record as quotable annual series, and we do not reconstruct them from partial disclosure. The direction of travel is nonetheless documented rather than inferred. The fiscal 2026 annual report's management discussion attributes a sharp increase in cost of revenue to investments in AI infrastructure made to support growing customer demand, and states that gross margin percentage decreased, driven by those continued investments and by sales mix shift toward Azure, offset in part by efficiency gains in Azure. Operating expense growth is attributed to research and development compute capacity, AI talent and data supporting product development across the portfolio. Gross margin dollars grew while the gross margin percentage fell: a change in the shape of the profit and loss account rather than a loss of profitability.\n\nSegment history does not form one continuous series and is not presented as one. Segment results were recast in September 2026 onto two reportable segments, Agents and Infra and Devices and Consumer, with quarterly and full-year revenue, cost of revenue, operating expenses and operating income shown on the restated basis for fiscal 2026 and the immediately preceding year. Segment lines drawn on the earlier reporting basis therefore stand as separate stubs; chaining them to the restated series would create a trend that was never reported. Consolidated revenue, cost of revenue, operating expenses and operating income are the lines that carry across the restatement, and they are the lines used above.\n\nThe balance sheet at the end of fiscal 2026 shows total assets of $758.4 billion, within which property, plant and equipment stood at $313.1 billion and goodwill at $119.7 billion. Liquidity sat in cash and equivalents of $20.9 billion alongside short-term investments of $55.9 billion. Current assets of $207.7 billion stood against current liabilities of $168.8 billion, the latter including deferred revenue of $72.965 billion, which is customer cash already collected against services still to be delivered rather than a cash claim. Book value per share on record is $59.56. The weight of property, plant and equipment against the total asset base is the clearest single marker of how the infrastructure build has reshaped the balance sheet, and it is consistent with the cost-of-revenue commentary in the annual report.\n\nFor the analysis that follows, fiscal 2026 revenue is the denominator for the AI-growth work, fiscal 2026 operating income the anchor for margin assumptions, and the fifteen-year compound growth rate the long-run base rate. Where a multi-year margin, capital expenditure or return series would ordinarily frame those anchors, the reported history available here supports a base-year reading only, and the commentary is deliberately confined to it.",
+          "financials": [
+            {
+              "label": "Revenue",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "331.8",
+                  "period": "FY2026",
+                  "financial_fact_id": "c76624b4-ed1b-4794-8ed8-8c5fde95e678",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Cost of revenue",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "106.4",
+                  "period": "FY2026",
+                  "financial_fact_id": "c3aaf4dd-e975-468b-9bf6-14dbb1ce2e7f",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Gross profit",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "225.5",
+                  "period": "FY2026",
+                  "financial_fact_id": "2130b81d-f9f9-4d88-b2e2-3214fb7e2689",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Operating expenses",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "70.2",
+                  "period": "FY2026",
+                  "financial_fact_id": "a35bb76b-4418-4e4b-ba51-e8c9c37803f8",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Research and development",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "35.6",
+                  "period": "FY2026",
+                  "financial_fact_id": "966c595f-eb8a-49c4-bc26-acf6d114a918",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Operating income",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "155.2",
+                  "period": "FY2026",
+                  "financial_fact_id": "0fad82db-ca7d-4441-a2a5-267f62373485",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Net income",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "133.7",
+                  "period": "FY2026",
+                  "financial_fact_id": "4d144f4b-3e0f-4dfc-aa6b-36729afad410",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Diluted earnings per share",
+              "values": [
+                {
+                  "unit": "USD per share",
+                  "value": "17.95",
+                  "period": "FY2026",
+                  "financial_fact_id": "d93684d1-5815-4942-978e-e8672ba686c9",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Total assets",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "758.4",
+                  "period": "FY2026",
+                  "financial_fact_id": "4a01c5c7-353f-4c9a-9094-3fe0637a2771",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Property, plant and equipment",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "313.1",
+                  "period": "FY2026",
+                  "financial_fact_id": "80e337c1-5af1-47c7-a4e1-7ec111aafb74",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Current assets",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "207.7",
+                  "period": "FY2026",
+                  "financial_fact_id": "61828793-abad-4c29-b116-9fefdf04a992",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Current liabilities",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "168.8",
+                  "period": "FY2026",
+                  "financial_fact_id": "74818b6b-4b60-4660-b7c2-4ae909d5145c",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "earnings_quality",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD million",
+              "label": "Operating cash flow (FY2026)",
+              "value": "182,935",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD million",
+              "label": "Net income (FY2026)",
+              "value": "133,749",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD million",
+              "label": "Capital expenditure (FY2026)",
+              "value": "115,948",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "ratio",
+              "label": "Accruals ratio (FY2026)",
+              "value": "-0.0649",
+              "calculation_id": "55a24515-30bb-45b2-aa68-284c8300ddcb"
+            },
+            {
+              "unit": "USD million",
+              "label": "Share-based compensation (FY2026)",
+              "value": "12,405",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            }
+          ],
+          "red_flags": [
+            "Capital expenditure of a scale comparable to operating cash flow, with no depreciation, gross property and equipment, or construction-in-progress detail available to test whether reported margin benefits from assets not yet depreciating \u2014 unsized.",
+            "No disclosure reviewed of changes in estimated useful lives for server and network equipment, and no sized earnings effect \u2014 unsized.",
+            "Finance versus operating lease classification, leases commencing mid-year, and capitalised internal-use software amortisation are not evidenced \u2014 unsized.",
+            "Most of the fiscal 2026 operating margin movement sits in an unattributed residual rather than in cost of revenue or research and development.",
+            "A prior-year comparable in Microsoft 365 Commercial cloud benefited from in-period revenue recognition, flattering the reported growth rate.",
+            "Unresolved IRS transfer pricing adjustments for tax years 2004 to 2013 remain outstanding."
+          ],
+          "commentary": "Fiscal 2026 earnings converted into cash at a high rate. Operating cash flow of $182,935 million for the year ended 30 June 2026 ran above reported net income of $133,749 million, and the fiscal 2026 accruals ratio is negative at -0.0649 \u2014 cash generation ahead of accounting earnings, the direction a conservative reader prefers. The balance-sheet items available show no obvious working-capital strain: inventory of $1,397 million is immaterial against revenue of $331,839 million, leaving receivables of $80,876 million as the working-capital item that matters.\n\nThe harder question is capitalisation rather than accrual reversal. Capital expenditure of $115,948 million is of the same order as operating cash flow for the year, so a large and rising share of cost enters the balance sheet before it reaches the income statement, and reported operating income of $155,237 million is correspondingly sensitive to depreciation policy. Depreciation and amortisation, gross property and equipment, construction in progress not yet depreciating, finance versus operating lease classification, and capitalised internal-use software with its amortisation are not among the figures available here; the material reviewed also discloses no change in the estimated useful lives of server and network equipment and sizes no earnings effect from one. On this record the depreciation and capitalisation policies are unsized, and the proposition that margin expansion is supported by cash economics rather than by lengthening asset lives cannot be tested directly. D&A growth against gross PP&E growth is likewise not evidenced.\n\nWhat the margin decomposition does show is that the fiscal 2026 operating margin movement is not explained by the two lines most exposed to capitalisation choices: cost of revenue contributes -0.0088 and research and development +0.0082, leaving an unattributed residual of +0.0122. The gross margin bridge, by contrast, has a residual of 0.000 and is fully attributed to cost of revenue. Equity-method and other-income items tied to investees, which sit outside operating income, are not separately evidenced here.\n\nOn revenue recognition, the July 2026 results commentary notes that Microsoft 365 Commercial cloud growth was adjusted for a prior-year comparable that benefited from in-period revenue recognition \u2014 a reminder that reported growth rates in that line require adjustment before use.\n\nNon-cash share-based compensation of $12,405 million supports operating cash flow; against it, share repurchases of $22,271 million and dividends of $26,445 million contributed to a net decrease in cash of $9,307 million. Finally, the annual report discloses unresolved Notices of Proposed Adjustment from the IRS for tax years 2004 to 2013 concerning intercompany transfer pricing, against a fiscal 2026 income tax expense of $32,185 million; resolution could differ from amounts recorded."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD bn",
+              "label": "Cash and cash equivalents",
+              "value": "20.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Short-term investments",
+              "value": "55.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Long-term debt",
+              "value": "31.1",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Total equity",
+              "value": "442.4",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Operating cash flow",
+              "value": "182.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD",
+              "label": "Book value per share",
+              "value": "59.56",
+              "calculation_id": "95922151-04f6-45da-806e-c59f7f92cc5b"
+            }
+          ],
+          "commentary": "Microsoft closed fiscal 2026 (year ended June 2026) with a balance sheet carrying very little financial leverage relative to its size. Total liabilities of $316.0 billion sit against equity of $442.4 billion on an asset base of $758.4 billion, and the borrowed component within those liabilities is small: short-term debt of $9.2 billion and long-term debt of $31.1 billion, plus $16.5 billion of lease liabilities. Equity is overwhelmingly earned rather than contributed, with retained earnings of $328.3 billion, and book value per share stands at $59.56.\n\nLiabilities are dominated by operating items rather than borrowings. Current liabilities of $168.8 billion include deferred revenue of $73.0 billion, an obligation discharged largely through service delivery rather than cash. Current assets of $207.7 billion exceed current liabilities, but the composition matters: cash of $20.9 billion and short-term investments of $55.9 billion are together smaller than receivables of $80.9 billion, so near-term coverage leans on collection rather than on a large on-hand cash pile. The cash balance is modest against the scale of the company's annual commitments.\n\nWhat underwrites liquidity is internal cash generation rather than the cash stock. Operating cash flow of $182.9 billion in fiscal 2026 must cover capital expenditure of $115.9 billion, share repurchases of $22.3 billion and dividends of $26.4 billion. Net investing cash flow of -$139.5 billion absorbed the bulk of the operating inflow, with a further -$52.5 billion of net financing cash flow. Management attributes the step-up in investing chiefly to additions to property and equipment and to outlays facilitating component purchases; property and equipment of $313.1 billion is now the single largest asset on the balance sheet, exceeding the entire current asset base. The company also describes issuing debt opportunistically when pricing and liquidity in the debt markets are favourable, with proceeds applied to general corporate purposes including capital expenditure and buybacks.\n\nThe practical conclusion is that solvency is not in question while the funding mix is shifting. An infrastructure build of this scale, set against a cash and short-term investment position that is small relative to it, makes the durability of operating cash flow \u2014 not the balance sheet \u2014 the binding constraint on the shareholder return programme. The detailed maturity ladder of outstanding debt is not visible in the evidence available here, so we do not characterise the timing of near-term repayments. Management states it expects existing cash, cash equivalents, short-term investments, cash flows from operations and access to capital markets to be sufficient to fund operating activities and cash commitments for at least the coming year and thereafter for the foreseeable future.",
+          "financials": [
+            {
+              "label": "Cash and cash equivalents",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "20.9",
+                  "period": "FY2026",
+                  "financial_fact_id": "4b25a337-5abd-4301-84dc-a6e11e6400f8",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Short-term investments",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "55.9",
+                  "period": "FY2026",
+                  "financial_fact_id": "a76bde7a-5dcc-44cf-9ea3-6761612a4ee1",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Accounts receivable",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "80.9",
+                  "period": "FY2026",
+                  "financial_fact_id": "bddd6bcb-c5ad-4d5b-a519-0e3a72eccac2",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Total current assets",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "207.7",
+                  "period": "FY2026",
+                  "financial_fact_id": "61828793-abad-4c29-b116-9fefdf04a992",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Total current liabilities",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "168.8",
+                  "period": "FY2026",
+                  "financial_fact_id": "74818b6b-4b60-4660-b7c2-4ae909d5145c",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Deferred revenue",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "73.0",
+                  "period": "FY2026",
+                  "financial_fact_id": "1cd8ecd1-a6a2-4b2f-b4fa-f422c48c6bb1",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Short-term debt",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "9.2",
+                  "period": "FY2026",
+                  "financial_fact_id": "db96a44d-a565-4678-96ba-e72763de2ad1",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Long-term debt",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "31.1",
+                  "period": "FY2026",
+                  "financial_fact_id": "021bd734-db63-4659-bb31-2c641f8c9942",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Lease liabilities",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "16.5",
+                  "period": "FY2026",
+                  "financial_fact_id": "43619a30-8c49-4f80-8ca8-93db896de83f",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Total liabilities",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "316.0",
+                  "period": "FY2026",
+                  "financial_fact_id": "4672c68c-01b6-4a28-8964-399fbe3595c5",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Total equity",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "442.4",
+                  "period": "FY2026",
+                  "financial_fact_id": "31934999-1fc2-43e7-89a7-2016d883f731",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Operating cash flow",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "182.9",
+                  "period": "FY2026",
+                  "financial_fact_id": "b6abddd3-1e2b-4f87-a364-ae97da14d286",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            },
+            {
+              "label": "Capital expenditure",
+              "values": [
+                {
+                  "unit": "USD bn",
+                  "value": "115.9",
+                  "period": "FY2026",
+                  "financial_fact_id": "dd64bebf-9164-4550-beab-63512071d13e",
+                  "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+                }
+              ]
+            }
+          ],
+          "observations": [
+            "Leverage is nominal: $9.2 billion of short-term debt and $31.1 billion of long-term debt against $442.4 billion of equity.",
+            "Liquidity rests on operating cash flow of $182.9 billion rather than on the $20.9 billion cash balance.",
+            "Capital expenditure of $115.9 billion is the dominant claim on cash and the swing factor for the funding position.",
+            "The debt maturity schedule is not covered by the evidence reviewed here."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "cash_flow_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD million",
+              "label": "Operating cash flow",
+              "value": "182,935",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD million",
+              "label": "Capital expenditure",
+              "value": "115,948",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD million",
+              "label": "Share-based compensation",
+              "value": "12,405",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD million",
+              "label": "Net change in cash",
+              "value": "-9,307",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "pure",
+              "label": "Accruals ratio",
+              "value": "-0.065",
+              "calculation_id": "55a24515-30bb-45b2-aa68-284c8300ddcb"
+            }
+          ],
+          "commentary": "Microsoft's fiscal 2026 cash statement sets an operating engine of unusual scale against an infrastructure build that absorbs most of it. Operations generated 182,935 million dollars in the year to June 2026, comfortably above reported net income of 133,749 million dollars. The gap is the ordinary signature of a cloud model \u2014 depreciation on a fast-growing asset base, stock compensation, and customer cash collected ahead of recognition \u2014 and the accruals ratio of -0.065 says the same from the other side: earnings were backed by cash rather than accrual build. The depreciation and deferred revenue lines behind that bridge, the quarterly capital spending path and finance lease principal payments are not available in the material here, so the composition of the add-backs is directional rather than itemised.\n\nShare-based compensation of 12,405 million dollars is the largest discretionary non-cash add-back inside operating cash flow. Treated as a real economic cost \u2014 the more conservative reading, since it is settled in shares the company then repurchases \u2014 free cash flow is lower by that amount than the capital-expenditure bridge alone implies. Repurchases of 22,271 million dollars exceeded the charge, so dilution was more than offset in cash.\n\nThe build is the dominant use. Additions to property and equipment of 115,948 million dollars absorbed the majority of operating cash flow, leaving free cash flow positive but a fraction of the operating figure and well below net income. Investing outflows of -139,500 million dollars were larger still, so capital expenditure does not account for all of investing. Depreciation is not separable here, but spending at this scale points to a widening capex-to-depreciation gap and a rising future depreciation load.\n\nFinancing absorbed -52,546 million dollars, of which dividends of 26,445 million dollars and repurchases form the bulk; debt issuance and repayment are not separately visible. The residual is a net decrease in cash of -9,307 million dollars, leaving cash of 20,935 million dollars beside short-term investments of 55,908 million dollars. On this evidence the build was funded from operations, with the liquidity cushion drawn down modestly; shareholder distribution, not capital spending, is what tips the year to a net cash outflow.\n\nManagement states that existing cash, short-term investments, operating cash flows and access to capital markets should be sufficient to fund operating activities and commitments \u2014 dividends, share repurchases, debt maturities and material capital expenditures \u2014 for at least the coming year and thereafter. It also discloses that AI-related investments are being made at accelerated scale ahead of fully developed revenue streams, with funding dependent on generating sufficient cash flow and obtaining financing on acceptable terms. Receivables of 80,876 million dollars are the largest visible working capital swing factor.",
+          "financials": [
+            {
+              "label": "Net income",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "133,749",
+                  "period": "FY2026",
+                  "financial_fact_id": "4d144f4b-3e0f-4dfc-aa6b-36729afad410"
+                }
+              ]
+            },
+            {
+              "label": "Operating cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "182,935",
+                  "period": "FY2026",
+                  "financial_fact_id": "b6abddd3-1e2b-4f87-a364-ae97da14d286"
+                }
+              ]
+            },
+            {
+              "label": "Share-based compensation",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "12,405",
+                  "period": "FY2026",
+                  "financial_fact_id": "1e91a1b6-25ad-4165-8fc3-fcb6d6382655"
+                }
+              ]
+            },
+            {
+              "label": "Capital expenditure",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "115,948",
+                  "period": "FY2026",
+                  "financial_fact_id": "dd64bebf-9164-4550-beab-63512071d13e"
+                }
+              ]
+            },
+            {
+              "label": "Investing cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "-139,500",
+                  "period": "FY2026",
+                  "financial_fact_id": "2900872b-357e-49f9-a881-e5eb207e6db7"
+                }
+              ]
+            },
+            {
+              "label": "Financing cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "-52,546",
+                  "period": "FY2026",
+                  "financial_fact_id": "b1483d52-4a6b-42d6-999e-4f7acf82127a"
+                }
+              ]
+            },
+            {
+              "label": "Dividends paid",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "26,445",
+                  "period": "FY2026",
+                  "financial_fact_id": "a6f0f6bf-e6d7-4b79-90df-f846ce6930f9"
+                }
+              ]
+            },
+            {
+              "label": "Share repurchases",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "22,271",
+                  "period": "FY2026",
+                  "financial_fact_id": "4c116ab6-ab38-4e40-a534-9ef5cb814842"
+                }
+              ]
+            },
+            {
+              "label": "Net change in cash",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "-9,307",
+                  "period": "FY2026",
+                  "financial_fact_id": "e79c5845-a512-4ee9-a731-502a1a828426"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "capital_allocation",
+        "content": {
+          "figures": [
+            {
+              "unit": "billion USD",
+              "label": "Operating cash flow, FY2026",
+              "value": "182.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Investing cash flow, FY2026",
+              "value": "-139.5",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Financing cash flow, FY2026",
+              "value": "-52.5",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Capital expenditure, FY2026",
+              "value": "115.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Share repurchases, FY2026",
+              "value": "22.3",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Dividends paid, FY2026",
+              "value": "26.4",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Share-based compensation, FY2026",
+              "value": "12.4",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "billion USD",
+              "label": "Net change in cash, FY2026",
+              "value": "-9.3",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            }
+          ],
+          "commentary": "Microsoft's fiscal 2026 cash flow statement shows operating cash flow of 182.9 billion dollars for the year ended June 2026, against investing outflows of 139.5 billion dollars and financing outflows of 52.5 billion dollars, leaving a net cash decline of 9.3 billion dollars for the period. Capital expenditure of 115.9 billion dollars dominates the investing line, consistent with continued build-out of data center and AI infrastructure; the evidence available does not break out finance lease additions, acquisitions, or strategic investments separately, so the split between owned capex and leased capacity, and any acquisition or investment spending within the investing total, cannot be quantified here. Share-based compensation expense of 12.4 billion dollars for the year is well below the repurchase figure, suggesting buybacks in fiscal 2026 did more than offset dilution from equity compensation, though the shares outstanding figures on record \u2014 roughly 7.427 billion at fiscal year end versus 7.428 billion in the prior quarter and 7.426 billion shortly after year end \u2014 show only marginal net change, and diluted shares outstanding of approximately 7.453 billion versus basic shares outstanding of approximately 7.429 billion indicate the count has not shrunk materially despite the repurchase spend. This pattern is consistent with buybacks running near a dilution-offset pace rather than a share-base-shrinking pace, though a single year's data cannot establish whether that pace changed as infrastructure investment accelerated; a multi-year comparison would be needed to assess that trend and none is available in the evidence at hand. Dividends per share were disclosed at 0.91 dollars for the quarter shown. No finance lease commitment schedule, acquisition detail, or disclosed purchase and construction obligation figures are present in the evidence, so forward claims on cash from those sources cannot be assessed here; readers should treat the capital return picture as a single-year snapshot pending fuller five-year detail.",
+          "uses_of_capital": [
+            "Capital expenditure on data center and infrastructure build-out",
+            "Share repurchases",
+            "Dividend payments",
+            "Unspecified investing outflows (acquisitions/strategic investments not separately disclosed in available evidence)"
+          ]
+        },
+        "status": "generated",
+        "note": "One or more sentences were removed because their figures could not be traced to a recorded source."
+      },
+      {
+        "key": "growth_outlook",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD billions",
+              "label": "Revenue, fiscal year ended June 2026",
+              "value": "331.8",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Capital expenditure, fiscal year ended June 2026",
+              "value": "115.9",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "unit": "percent",
+              "label": "Compound annual growth rate, fifteen-year window",
+              "value": "10.9",
+              "calculation_id": "4fec3b74-4d91-4c0e-aa0d-cd09df34e3d1"
+            }
+          ],
+          "commentary": [
+            {
+              "text": "The fiscal year ended June 2026 closed on revenue of $331.8 billion, with research and development spending of $35.6 billion and capital expenditure of $115.9 billion set against operating cash flow of $182.9 billion. Compound annual growth measured over the fifteen-year window runs at 10.9%. The reinvestment rate, rather than the headline growth rate, is the more informative signal here: capacity spending now absorbs the larger part of cash generated from operations, which is what a capacity-constrained demand story looks like from the outside. It is also the principal risk, since that spend must convert into recognised cloud revenue within its depreciation life.",
+              "lead_in": "Where growth stands"
+            },
+            {
+              "text": "The September 2026 filing sets out a revised segment structure for fiscal 2027, with metric changes and restated historical financials. The disclosed metric set introduces an Agents and Infra grouping, adds an industry solutions cloud revenue growth metric, and narrows the prior Azure and other cloud services metric to an Azure revenue growth metric. None of this is an AI revenue line. The reorganisation renames and regroups existing reporting; it does not disaggregate AI-derived revenue from anything else.",
+              "lead_in": "Test one: a new disclosed line"
+            },
+            {
+              "text": "The annual report describes consumer productivity growth as depending on reaching new users and adding value to the core product set with new features including AI tools. That is directional language with no growth-rate points assigned to AI, and it is recorded here as management assertion rather than measurement. No attribution of a quantified share of growth to AI services is available from the filed material before us.",
+              "lead_in": "Test two: attributed growth points"
+            },
+            {
+              "text": "Commercial remaining performance obligation is a named investor metric under both the current and the revised metric sets, which is the right place to look for an upper bound on contracted AI revenue. But the metric is disclosed as a single company-wide amount and is not split by workload, so even paired with a recognition duration it would bound total contracted revenue, not the AI-attributable portion.",
+              "lead_in": "Test three: contracted backlog as a cap"
+            },
+            {
+              "text": "AI revenue is not separable from primary disclosure on this evidence. Separating it would require one of three things: a disaggregated revenue line or revenue-disaggregation note identifying AI services; a remaining performance obligation amount with an expected recognition period broken out by workload; or management discussion attributing growth-rate points to AI. Until one exists, any AI revenue figure for this issuer is a modelled estimate, and should be presented as such.",
+              "lead_in": "The answer"
+            },
+            {
+              "text": "Growth from here most plausibly rests on the same disclosed engines the metric set retains \u2014 commercial cloud infrastructure, commercial productivity cloud revenue and seat growth, consumer subscriptions, advertising and gaming \u2014 with the capacity programme as the swing factor. That judgement rests on the composition of the disclosed metrics and on the scale of capital expenditure relative to operating cash flow, not on any quantified AI contribution, which the disclosure does not provide.",
+              "lead_in": "Base case"
+            }
+          ],
+          "growth_drivers": [
+            "Commercial cloud infrastructure, retained as a headline investor metric under the revised fiscal 2027 structure",
+            "Commercial productivity cloud revenue growth and commercial seat growth, reported as separate metrics",
+            "Consumer productivity subscriptions, driven by attach on new devices and the continued shift from on-premises licensing",
+            "Search and advertising revenue excluding traffic acquisition costs, and gaming content and services",
+            "Capacity investment: the capital expenditure programme, durable only to the extent it converts into recognised cloud revenue"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "valuation_dcf",
+        "content": {
+          "method_note": "No discounted cash flow was produced, so there is no method to describe. The discount rate needs the beta, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms."
+        },
+        "status": "generated",
+        "note": "No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis."
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "content": {
+          "commentary": [
+            {
+              "text": "No discounted-cash-flow model, discount-rate range, terminal-growth assumption or sensitivity grid sits among the figures available for this note. The cases below are therefore described by direction and by the reported quantities that would drive them; no implied per-share values or grid outcomes are offered, and none should be inferred. The useful-life and depreciation-schedule axis is the weakest-covered of all: the only amortisation figure available is amortisation of intangibles of 4.7 billion dollars for the fiscal year ended June 2026, with no depreciation charge or asset-life disclosure alongside it.",
+              "lead_in": "What the evidence supports"
+            },
+            {
+              "text": "Capital expenditure of 115.9 billion dollars in fiscal 2026 sits against revenue of 331.8 billion dollars, and asset turnover for the year is recorded at 0.438. That combination is the crux of the downside: if datacentre capacity enters service faster than contracted revenue absorbs it, depreciation and operating costs begin before the associated revenue arrives, and turnover falls further before it recovers. Microsoft's own risk discussion supports the mechanism, noting that expansion of vertically-integrated capabilities, including proprietary hardware, infrastructure and artificial-intelligence models, could increase its cost structure, reduce margins and expose it to operational risks. Cost of revenue already detracts from the operating margin bridge, contributing -0.0088 for fiscal 2026.",
+              "lead_in": "Bear case: capacity ahead of absorption"
+            },
+            {
+              "text": "If committed cloud work converts broadly in line with its contracted timing, the fiscal 2026 structure is the reference point: operating income of 155.2 billion dollars on revenue of 331.8 billion, with an unexplained residual of 0.0122 in the operating margin bridge, and operating cash flow of 182.9 billion dollars standing well above the year's capital expenditure. The accruals ratio of -0.0649 indicates earnings backed by cash rather than by accrual build. The evidence available here carries no remaining performance obligation figure, so the conversion schedule itself cannot be sized.",
+              "lead_in": "Base case: obligations convert on schedule"
+            },
+            {
+              "text": "The upside rests on penetration rather than price: management describes Microsoft 365 Consumer growth as depending on reaching new users and adding value to the core product set with new features including AI tools, and on the continued shift from on-premises licensing to subscriptions. A fifteen-year compound annual growth rate of 0.109 is the recorded long-run reference. Enterprise value stands at roughly 3.72 trillion dollars, so the bull case requires capacity spending to convert into durable subscription revenue rather than merely into installed capacity.",
+              "lead_in": "Bull case"
+            }
+          ],
+          "sensitivity_commentary": "Ranked by judgement rather than by a computed grid: cloud operating margin and capital expenditure intensity dominate, because capital expenditure of 115.9 billion dollars in fiscal 2026 is large relative to operating income of 155.2 billion, so a modest shift in how quickly capacity is absorbed moves earnings more than a comparable shift in revenue growth. Useful life and the depreciation schedule rank next and are the least observable here. Discount rate and terminal growth would ordinarily rank alongside them; the only anchor available is an equity beta of 1.07 on 72 monthly observations, which is insufficient to bound a discount-rate range, and no terminal-growth assumption is recorded. Quantified elasticities are not stated because no valuation grid underlies them."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "key_risks",
+        "content": {
+          "risks": [
+            {
+              "risk": "Fixed depreciation and lease charges run against demand that is not contracted",
+              "early_warning": "Deferred revenue of $72,965 million is the closest disclosed proxy for booked demand; a flattening there while capacity additions continue would be the first warning.",
+              "why_it_matters": "Property, plant and equipment of $313,076 million and lease liabilities of $16,532 million at the June 2026 year end translate into depreciation and rent that do not flex with utilisation, set against FY2026 revenue of $331,839 million. The depreciation charge itself is not among the figures available here, so the annual drag is unsized. In our judgement, if new capacity fills later or prices lower than planned, margin compression would appear before any revenue shortfall is visible.",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "risk": "Concentration that the disclosures reviewed do not disaggregate",
+              "early_warning": "Any future disclosure of customer or workload concentration, or of related-party commitments, would allow this to be sized for the first time.",
+              "why_it_matters": "Unsized. The material available for this section gives consolidated revenue only, with no breakdown by customer, partner or AI workload. Exposure to a small number of large cloud and AI counterparties therefore cannot be tested from disclosure, and any inference about it is judgement rather than measurement.",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "risk": "Antitrust scrutiny and cloud-licensing remedies",
+              "early_warning": "Disclosure of a new proceeding, an accrued loss contingency, or a change in cloud licensing terms for competing infrastructure.",
+              "why_it_matters": "Unsized. Nothing in the material reviewed here quantifies a competition proceeding, a licensing remedy or a related provision. We flag it because remedies in this area typically bite on pricing and bundling terms rather than on a one-off charge, which makes the effect recurring and hard to reverse once conceded.",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "risk": "AI model liability and emerging AI regulation",
+              "early_warning": "First quantified legal provision tied to an AI product, or licensing conditions imposed by a major regulator.",
+              "why_it_matters": "The annual report states that customers control the company's products and services, including its AI products, within their environments and may deploy them in high-risk scenarios or use them inappropriately, and that legal claims or enforcement actions may follow if products do not work as intended, violate the law, or harm individuals or businesses. It separately heads a risk factor on issues in the development, deployment and use of AI causing reputational or competitive harm or liability. No provision is quantified in the material available, so the exposure is unsized.",
+              "source_document_id": "8bd79ce9-336c-4b60-89f9-07788bb0d83c"
+            },
+            {
+              "risk": "Goodwill and intangible carrying values",
+              "early_warning": "Reporting-unit growth assumptions being revised down, or a rising discount rate applied to acquired businesses.",
+              "why_it_matters": "Goodwill of $119,651 million and intangible assets of $18,609 million sit within total assets of $758,376 million and against equity of $442,387 million. Goodwill is a substantial fraction of the equity base, so an impairment triggered by a slower-growing acquired business would hit reported earnings and book equity together without any cash effect. No impairment is disclosed in the material available.",
+              "source_document_id": "83550236-c3c4-41e8-bf17-df81c44f0d5e"
+            },
+            {
+              "risk": "Competition and execution in cloud and AI services",
+              "early_warning": "Pricing concessions on cloud commitments, or a widening gap between capacity spending and commercial bookings.",
+              "why_it_matters": "The company's own cautionary language identifies intense competition in all of its markets as capable of adversely affecting results, and identifies its focus on cloud-based and AI services as presenting execution and competitive risks. This is the company's framing rather than a measured quantity, and it is unsized here; it matters mainly as the mechanism by which the fixed-cost risk above would be realised.",
+              "source_document_id": "75c9334d-cf2a-4493-94b7-d1b28734c048"
+            }
+          ],
+          "commentary": "Three of the risks below can be sized from the June 2026 balance sheet; the rest are genuine but unsized on the material available, and we mark them as such rather than attach a spurious figure. The dominant exposure is operating leverage: property, plant and equipment of $313,076 million and lease liabilities of $16,532 million convert into depreciation and rent that continue whether or not the capacity behind them is contracted. AI liability and regulation compound it, since the same build-out carries the AI products the annual report describes as deployed inside customer environments and outside the company's control. Balance-sheet capacity absorbs shocks rather than amplifying them: cash of $20,935 million and short-term investments of $55,908 million sit against long-term debt of $31,067 million and short-term debt of $9,227 million, so these are margin and multiple risks, not solvency risks. An estimated equity beta of 1.07 leaves the valuation sensitive to discount-rate moves in its own right."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "catalysts",
+        "content": {
+          "catalysts": [],
+          "commentary": "The evidence set includes Microsoft's quarterly earnings releases (most recently the FY2026 Q3 announcement dated July 2026 and the September 2026 release) and the FY2026 10-K, but none of the excerpts names a scheduled FY2027 earnings date, an annual meeting date, a DEF 14A proxy voting item, or a dated regulatory decision. The July 2026 release states only that Microsoft will provide guidance on its earnings call without naming that call's date, and no subsequent-event or legal-proceedings excerpt discloses a decision deadline. A dated catalysts list for the next twelve months would require disclosure of the investor-relations events calendar giving the FY2027 quarterly reporting dates, the notice of annual meeting in a DEF 14A setting the shareholder vote date, or a legal or regulatory filing naming a decision date \u2014 none of which appears in what is available here. Absent those disclosures, the only forward-looking observation the evidence supports is that the next quarterly filing will be the first to reflect a full period of depreciation following the FY2026 capital expenditure run-rate, but the evidence does not date that filing and a periodic filing's mere occurrence is not itself a catalyst."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "prior_research_comparison",
+        "content": {
+          "commentary": "3 prior approved report(s) exist for MICROSOFT CORP (MSFT); the most recent is as of 2026-09-24. Every row below was read from one of them, and the run's export names which.",
+          "comparisons": [
+            {
+              "prior": "no view reached",
+              "aspect": "Non-binding view",
+              "current": "Recorded at this run's approval.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "not recorded",
+              "aspect": "Confidence",
+              "current": "Recorded at this run's approval.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "not recorded",
+              "aspect": "Valuation range",
+              "current": "Not computed at the time this section was drafted.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Property, plant and equipment of $313,076 million and lease liabilities of $16,532 million at the June 2026 year end translate into depreciation and rent that do not flex with utilisation, set against FY2026 revenue of $331,839 million. The depreciation charge itself is not among the figures available here, so the annual drag is unsized. In our judgement, if new capacity fills later or prices lower than planned, margin compression would appear before any revenue shortfall is visible.",
+              "aspect": "Risk \u2014 Fixed depreciation and lease charges run against demand that is not contracted",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Unsized. The material available for this section gives consolidated revenue only, with no breakdown by customer, partner or AI workload. Exposure to a small number of large cloud and AI counterparties therefore cannot be tested from disclosure, and any inference about it is judgement rather than measurement.",
+              "aspect": "Risk \u2014 Concentration that the disclosures reviewed do not disaggregate",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Unsized. Nothing in the material reviewed here quantifies a competition proceeding, a licensing remedy or a related provision. We flag it because remedies in this area typically bite on pricing and bundling terms rather than on a one-off charge, which makes the effect recurring and hard to reverse once conceded.",
+              "aspect": "Risk \u2014 Antitrust scrutiny and cloud-licensing remedies",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "The annual report states that customers control the company's products and services, including its AI products, within their environments and may deploy them in high-risk scenarios or use them inappropriately, and that legal claims or enforcement actions may follow if products do not work as intended, violate the law, or harm individuals or businesses. It separately heads a risk factor on issues in the development, deployment and use of AI causing reputational or competitive harm or liability. No provision is quantified in the material available, so the exposure is unsized.",
+              "aspect": "Risk \u2014 AI model liability and emerging AI regulation",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Goodwill of $119,651 million and intangible assets of $18,609 million sit within total assets of $758,376 million and against equity of $442,387 million. Goodwill is a substantial fraction of the equity base, so an impairment triggered by a slower-growing acquired business would hit reported earnings and book equity together without any cash effect. No impairment is disclosed in the material available.",
+              "aspect": "Risk \u2014 Goodwill and intangible carrying values",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "The company's own cautionary language identifies intense competition in all of its markets as capable of adversely affecting results, and identifies its focus on cloud-based and AI services as presenting execution and competitive risks. This is the company's framing rather than a measured quantity, and it is unsized here; it matters mainly as the mechanism by which the fixed-cost risk above would be realised.",
+              "aspect": "Risk \u2014 Competition and execution in cloud and AI services",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.137411, held flat across the forecast.",
+              "aspect": "Assumption \u2014 revenue growth",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.44175, held flat across the forecast.",
+              "aspect": "Assumption \u2014 ebit margin",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.202619, held flat across the forecast.",
+              "aspect": "Assumption \u2014 capex intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.08717, held flat across the forecast.",
+              "aspect": "Assumption \u2014 depreciation intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.237834, held flat across the forecast.",
+              "aspect": "Assumption \u2014 working capital intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.174698, held flat across the forecast.",
+              "aspect": "Assumption \u2014 tax rate",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.045, held flat across the forecast.",
+              "aspect": "Assumption \u2014 equity risk premium",
+              "current": "Cannot be measured from filings: an equity risk premium is a market-wide judgement about the future, and no filing states one.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 14, held flat across the forecast.",
+              "aspect": "Assumption \u2014 exit multiple",
+              "current": "Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.0496, held flat across the forecast.",
+              "aspect": "Assumption \u2014 risk free rate",
+              "current": "Cannot be measured from filings: a risk-free rate is a market yield on a date, and filings carry no market rates.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Confirmed at 0.03, held flat across the forecast.",
+              "aspect": "Assumption \u2014 terminal growth",
+              "current": "Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it.",
+              "prior_report_id": "363a6d18-ff48-4483-82e6-450683ee27be"
+            },
+            {
+              "prior": "Property and equipment of $313.1 billion and lease liabilities of $16.5 billion are spent or contracted ahead of the revenue meant to absorb them. Depreciation and lease expense are fixed for years; only the deferred revenue balance of $73.0 billion is contracted forward. A demand path slower than the build plan compresses margin before it compresses capital spending. Unsized in the filings: no disclosure quantifies a shortfall scenario.",
+              "aspect": "Risk \u2014 Committed capacity charges outrunning cloud and AI demand",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Cloud and AI revenue growth is widely understood to depend on a small number of very large customers and on partners whose own spending is supported by the company's investment. The material available to us does not break revenue out on either basis, so the exposure cannot be measured. Accounts receivable stand at $80.9 billion. We treat this as unsized and unverified rather than as a quantified risk.",
+              "aspect": "Risk \u2014 Customer and funded-partner concentration that the filings do not disaggregate",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "The FY2026 annual report states that a wide range of laws covering user privacy, cybersecurity, data storage and protection, advertising and online safety could adversely affect results, and that laws in several jurisdictions, including EU Member State laws under the European Electronic Communications Code, increasingly define certain services as regulated services. The disclosure is qualitative and unsized. Specific antitrust and cloud-licensing proceedings are not described in the material before us.",
+              "aspect": "Risk \u2014 Evolving legal and regulatory requirements, including antitrust and cloud-licensing remedies",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "The risk language available to us covers digital safety, online safety and data protection obligations generically and does not attach an amount or a named proceeding to AI model outputs, training data or copyright. Liability here would arrive as claims and compliance cost against a cost base already fixed by the capacity build. Unsized on the evidence before us, and we flag it as a judgement rather than a disclosed exposure.",
+              "aspect": "Risk \u2014 AI model liability and emerging AI-specific regulation",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Operating leverage works in reverse when enterprise IT budgets tighten. Balance sheet resilience is strong: current assets of $207.7 billion against current liabilities of $168.8 billion, cash of $20.9 billion, short-term investments of $55.9 billion and long-term debt of $31.1 billion. The risk is therefore to earnings and returns on the recent build, not to solvency.",
+              "aspect": "Risk \u2014 Macro demand weakness against a cost base set in advance",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Goodwill of $119.7 billion and intangible assets of $18.6 billion sit on the balance sheet against acquired businesses whose performance the filings do not separately size. Against an estimated enterprise value of $3.32 trillion, with beta of 1.07 and cost of equity of 9.7%, a modest change in the discount rate or in long-run growth moves value more than any single disclosed contingency plausibly would.",
+              "aspect": "Risk \u2014 Carrying value and valuation sensitivity",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.137411, held flat across the forecast.",
+              "aspect": "Assumption \u2014 revenue growth",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.44175, held flat across the forecast.",
+              "aspect": "Assumption \u2014 ebit margin",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.202619, held flat across the forecast.",
+              "aspect": "Assumption \u2014 capex intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.08717, held flat across the forecast.",
+              "aspect": "Assumption \u2014 depreciation intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.237834, held flat across the forecast.",
+              "aspect": "Assumption \u2014 working capital intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.174698, held flat across the forecast.",
+              "aspect": "Assumption \u2014 tax rate",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 1.067513930704, held flat across the forecast.",
+              "aspect": "Assumption \u2014 beta",
+              "current": "Cannot be measured from filings: beta is estimated from price history against an index; no filing reports a company's beta.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.045, held flat across the forecast.",
+              "aspect": "Assumption \u2014 equity risk premium",
+              "current": "Cannot be measured from filings: an equity risk premium is a market-wide judgement about the future, and no filing states one.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 14, held flat across the forecast.",
+              "aspect": "Assumption \u2014 exit multiple",
+              "current": "Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.0494, held flat across the forecast.",
+              "aspect": "Assumption \u2014 risk free rate",
+              "current": "Cannot be measured from filings: a risk-free rate is a market yield on a date, and filings carry no market rates.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Confirmed at 0.03, held flat across the forecast.",
+              "aspect": "Assumption \u2014 terminal growth",
+              "current": "Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it.",
+              "prior_report_id": "7be6078a-ce0b-47d4-a2b5-79b166001787"
+            },
+            {
+              "prior": "Expected 2026 annual shareholder meeting: Reid Hoffman's decision not to stand for re-election at the 2026 annual shareholder meeting means the board's composition will be confirmed at that meeting; the filing states no disagreement with management underlies the departure, limiting the governance signal to routine board renewal rather than a strategic inflection.",
+              "aspect": "Catalyst \u2014 2026 Annual Shareholder Meeting - board composition finalized",
+              "current": "No calendar date could be read from the stated timing.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Depreciation begins when capacity is placed in service, not when it is sold. Property, plant and equipment of $313.1 billion and lease liabilities of $16.5 billion fix a large charge ahead of the demand meant to fund it, so margin expansion driven by rising utilisation can invert within a few quarters.",
+              "aspect": "Risk \u2014 Depreciation and lease charges from capacity entering service reverse margin gains",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Management states that AI is becoming an increasing part of the business and that greater scale amplifies the risk of flawed models, biased or inaccurate data and harmful outputs, with possible legal liability, regulatory action and reputational harm, compounded by new laws emerging globally and increased scrutiny from regulators and lawmakers.",
+              "aspect": "Risk \u2014 AI model failure, liability and the regulation that follows",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Receivables of $80.9 billion and deferred revenue of $73.0 billion point to a book weighted towards large contracted commitments, but the filings reviewed do not break revenue out by customer or isolate spend by partners the company itself finances. Concentration is therefore unresolved rather than excluded.",
+              "aspect": "Risk \u2014 Concentration of cloud and AI revenue in a few customers or funded partners",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Scrutiny is described as increasing and the legal landscape as evolving globally, but individual proceedings are not detailed in the material reviewed, and the fiscal 2026 commitments note is not among it, leaving loss accruals and purchase and construction obligations unsized. Remedies touching bundling, cloud licensing terms or data use would strike the highest-margin parts of the mix.",
+              "aspect": "Risk \u2014 Antitrust, other regulatory proceedings and unsized contingencies",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "The markets for software, devices and cloud services are described as dynamic and highly competitive, with rivals deploying competing cloud offerings, and aggregate demand as correlated to global macroeconomic and geopolitical factors. Demand sensitivity bites harder now that a large part of the cost base is being fixed in advance of it.",
+              "aspect": "Risk \u2014 Competitive intensity and macroeconomic demand",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "An equity value of $3.21 trillion rests on a cost of equity of 9.05% and on far-year discounting at a factor of 0.627, so much of the value lies in periods well beyond current visibility. A modest rise in the required return, or a delayed AI revenue ramp, costs more than a near-term earnings miss.",
+              "aspect": "Risk \u2014 Valuation sits in distant cash flows",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Cash of $20.9 billion and short-term investments of $55.9 billion sit against current liabilities of $168.8 billion, with a modelled working capital absorption of $18.2 billion, so the capacity build is funded by operating cash flow and continued market access rather than by balance-sheet slack.",
+              "aspect": "Risk \u2014 Liquidity is thinner than headline scale suggests",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.137411, held flat across the forecast.",
+              "aspect": "Assumption \u2014 revenue growth",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.44175, held flat across the forecast.",
+              "aspect": "Assumption \u2014 ebit margin",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.202619, held flat across the forecast.",
+              "aspect": "Assumption \u2014 capex intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.08717, held flat across the forecast.",
+              "aspect": "Assumption \u2014 depreciation intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.237834, held flat across the forecast.",
+              "aspect": "Assumption \u2014 working capital intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.174698, held flat across the forecast.",
+              "aspect": "Assumption \u2014 tax rate",
+              "current": "Not yet observable: no full fiscal year after 2026-09-17 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.9, held flat across the forecast.",
+              "aspect": "Assumption \u2014 beta",
+              "current": "Cannot be measured from filings: beta is estimated from price history against an index; no filing reports a company's beta.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.045, held flat across the forecast.",
+              "aspect": "Assumption \u2014 equity risk premium",
+              "current": "Cannot be measured from filings: an equity risk premium is a market-wide judgement about the future, and no filing states one.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 13, held flat across the forecast.",
+              "aspect": "Assumption \u2014 exit multiple",
+              "current": "Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.05, held flat across the forecast.",
+              "aspect": "Assumption \u2014 risk free rate",
+              "current": "Cannot be measured from filings: a risk-free rate is a market yield on a date, and filings carry no market rates.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            },
+            {
+              "prior": "Confirmed at 0.03, held flat across the forecast.",
+              "aspect": "Assumption \u2014 terminal growth",
+              "current": "Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it.",
+              "prior_report_id": "6b3eb46b-77ba-48ca-95e2-3c58e49775c3"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "validation_disagreements",
+        "content": {
+          "summary": "The run's validators measured 9 metric(s): 7 passed, 1 failed, 1 not exercised. The corpus metrics \u2014 custom section contract conformance, injection resistance, skill privilege containment and unit integrity \u2014 are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. This run recorded 1 place(s) where this report disagreed with itself, and 1 of them are open at approval, with both sides published.",
+          "validations": [
+            {
+              "score": "\u2014",
+              "metric": "assumption completeness",
+              "verdict": "not exercised",
+              "threshold": "at least 1"
+            },
+            {
+              "score": "1",
+              "metric": "citation accuracy",
+              "verdict": "pass",
+              "threshold": "at least 0.98"
+            },
+            {
+              "score": "0",
+              "metric": "cited figure agreement",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "figure plausibility",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "hallucinated citation rate",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "numerical consistency",
+              "verdict": "pass",
+              "threshold": "at most 0.005"
+            },
+            {
+              "score": "1",
+              "metric": "presentation integrity",
+              "verdict": "fail",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0.9785",
+              "metric": "primary source ratio",
+              "verdict": "pass",
+              "threshold": "at least 0.6"
+            },
+            {
+              "score": "1",
+              "metric": "source coverage",
+              "verdict": "pass",
+              "threshold": "at least 0.9"
+            }
+          ],
+          "disagreements": [
+            {
+              "text": "Earnings Quality (denies it) states: \"Capital expenditure of a scale comparable to operating cash flow, with no depreciation, gross property and equipment, or construction-in-progress detail available to test whether reported margin benefits from assets not yet depreciating\" \u2014 while this report publishes capital expenditure in Balance Sheet & Liquidity as 115948000000.000000 USD in capital expenditure filed 2026-07-29 (10-K). A document that denies a figure it prints tells its reader not to believe either place.",
+              "lead_in": "capital expenditure is denied and printed (self contradiction)"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            }
+          ],
+          "failed_check_findings": [
+            {
+              "metric": "presentation integrity",
+              "finding": "`unformatted integer '18829'`"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      }
+    ],
+    "escalations": [
+      {
+        "id": "f52295d6-109b-45fe-a416-8eb48442dc32",
+        "topic": "capital expenditure is denied and printed",
+        "kind": "self_contradiction",
+        "rule": "document_contradicts_itself",
+        "rationale": "Earnings Quality (denies it) states: \"Capital expenditure of a scale comparable to operating cash flow, with no depreciation, gross property and equipment, or construction-in-progress detail available to test whether reported margin benefits from assets not yet depreciating\" \u2014 while this report publishes capital expenditure in Balance Sheet & Liquidity as 115948000000.000000 USD in capital expenditure filed 2026-07-29 (10-K). A document that denies a figure it prints tells its reader not to believe either place.",
+        "detail": null,
+        "material": true,
+        "position_a": {
+          "tier": "T6_UNVERIFIED",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Earnings Quality (denies it)",
+          "scale": 0,
+          "value": "0",
+          "computed": true,
+          "reference": "denial:earnings_quality:6dcfbcf534cc",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "USD",
+          "basis": "as_reported",
+          "label": "capital expenditure filed 2026-07-29 (10-K)",
+          "scale": 0,
+          "value": "115948000000.000000",
+          "computed": false,
+          "reference": "dd64bebf-9164-4550-beab-63512071d13e",
+          "filed_date": "2026-07-29"
+        }
+      }
+    ],
+    "triggers": [
+      {
+        "kind": "high_model_uncertainty",
+        "message": "The run is unsure of its own work: a section rates itself below the confidence floor, or an advisory validator disputes a recorded verdict.",
+        "evidence": [
+          "Executive Summary rates its own confidence 0.30"
+        ]
+      },
+      {
+        "kind": "cost_above_threshold",
+        "message": "This run is close to its \u00a310.50 cost cap. The hard cap still stops the run in code; this banner is the warning before it does.",
+        "evidence": [
+          "estimated \u00a39.2857 exceeds \u00a38.400 (80% of cap)"
+        ]
+      }
+    ]
+  },
+  "hash": "c171d30974e383fb937ff20582c8285233d8141d4f75b840baa2c37e7c29a192",
+  "pause_context": {
+    "gate": "FINAL",
+    "job_id": "062d95cd-8b06-47d7-aad0-77ba31e43a56",
+    "reason": "final_triggers_fired",
+    "triggers": [
+      "high_model_uncertainty",
+      "cost_above_threshold"
+    ]
+  }
+}

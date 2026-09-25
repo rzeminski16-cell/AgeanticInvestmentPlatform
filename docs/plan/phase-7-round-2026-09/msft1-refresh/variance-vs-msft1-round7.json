@@ -1,0 +1,576 @@
+{
+  "first": {
+    "label": "msft1-round7",
+    "job_id": "10b6e9b5-c2b6-41b6-9dcb-39050c2dcac6",
+    "code_version": "24e4c3ba3dee94a6de628f103f582bd185d41066",
+    "as_of": "2026-09-24"
+  },
+  "second": {
+    "label": "msft1-refresh-round7",
+    "job_id": "062d95cd-8b06-47d7-aad0-77ba31e43a56",
+    "code_version": "0b1fc2f737803503184c7209ce079d6f4aa32025",
+    "as_of": "2026-09-25"
+  },
+  "calculations": {
+    "first": 223,
+    "second": 192,
+    "rows": [
+      962,
+      242
+    ],
+    "rows_compared": 242,
+    "rows_differing": 11,
+    "shared": 192,
+    "only_first": [
+      [
+        "after_tax_cost_of_debt",
+        "None",
+        ""
+      ],
+      [
+        "average_debt",
+        "None",
+        ""
+      ],
+      [
+        "change_in_working_capital",
+        "None",
+        ""
+      ],
+      [
+        "cost_of_debt",
+        "None",
+        ""
+      ],
+      [
+        "cost_of_equity",
+        "None",
+        ""
+      ],
+      [
+        "debt_weight",
+        "None",
+        ""
+      ],
+      [
+        "discount_factor",
+        "None",
+        ""
+      ],
+      [
+        "enterprise_value",
+        "None",
+        ""
+      ],
+      [
+        "equity_value",
+        "None",
+        ""
+      ],
+      [
+        "equity_weight",
+        "None",
+        ""
+      ],
+      [
+        "exit_multiple_terminal_value",
+        "None",
+        ""
+      ],
+      [
+        "forecast_ebitda",
+        "None",
+        ""
+      ],
+      [
+        "forecast_free_cash_flow",
+        "None",
+        ""
+      ],
+      [
+        "forecast_recovery",
+        "None",
+        ""
+      ],
+      [
+        "gordon_terminal_value",
+        "None",
+        ""
+      ],
+      [
+        "implied_exit_multiple",
+        "None",
+        ""
+      ],
+      [
+        "implied_terminal_growth",
+        "None",
+        ""
+      ],
+      [
+        "implied_upside",
+        "None",
+        ""
+      ],
+      [
+        "method_disagreement",
+        "None",
+        ""
+      ],
+      [
+        "nopat_from_ebit",
+        "None",
+        ""
+      ],
+      [
+        "present_value",
+        "None",
+        ""
+      ],
+      [
+        "projected_capex",
+        "None",
+        ""
+      ],
+      [
+        "projected_depreciation",
+        "None",
+        ""
+      ],
+      [
+        "projected_ebit",
+        "None",
+        ""
+      ],
+      [
+        "projected_revenue",
+        "None",
+        ""
+      ],
+      [
+        "projected_working_capital",
+        "None",
+        ""
+      ],
+      [
+        "rate_from_percent",
+        "None",
+        ""
+      ],
+      [
+        "terminal_value_share",
+        "None",
+        ""
+      ],
+      [
+        "value_per_share",
+        "None",
+        ""
+      ],
+      [
+        "wacc",
+        "None",
+        ""
+      ],
+      [
+        "working_capital",
+        "None",
+        ""
+      ]
+    ],
+    "only_second": [],
+    "differing": [
+      {
+        "key": [
+          "beta",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1.065869930496",
+            "second": "1.066268282372"
+          }
+        ]
+      },
+      {
+        "key": [
+          "covariance",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.002082391404",
+            "second": "0.002083244482"
+          }
+        ]
+      },
+      {
+        "key": [
+          "market_capitalisation",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "3717153817339.690000000000",
+            "second": "3697401866333.630000000000"
+          }
+        ]
+      },
+      {
+        "key": [
+          "market_enterprise_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          2,
+          1
+        ],
+        "rows_differing": 2,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "3736512817339.690000000000",
+            "second": "3716760866333.630000000000"
+          }
+        ]
+      },
+      {
+        "key": [
+          "multiple",
+          "None",
+          ""
+        ],
+        "rows": [
+          4,
+          4
+        ],
+        "rows_differing": 4,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "11.260017108717",
+            "second": "11.200494415465"
+          },
+          {
+            "first": "19.236874629137",
+            "second": "19.135184678170"
+          },
+          {
+            "first": "27.888022284123",
+            "second": "27.739832869081"
+          }
+        ]
+      },
+      {
+        "key": [
+          "net_debt",
+          "None",
+          ""
+        ],
+        "rows": [
+          2,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": []
+      },
+      {
+        "key": [
+          "variance",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.001953701239",
+            "second": "0.001953771407"
+          }
+        ]
+      }
+    ],
+    "identical": 185
+  },
+  "facts": {
+    "chosen": [
+      18610,
+      18610
+    ],
+    "rejected": [
+      14061,
+      14061
+    ],
+    "written": [
+      0,
+      0
+    ],
+    "unmapped_tags": [
+      496,
+      496
+    ]
+  },
+  "classification": [
+    "",
+    ""
+  ],
+  "assumptions": {
+    "beta": {
+      "first": "1.065869930496",
+      "second": "1.065869930496",
+      "delta": "0E-12"
+    },
+    "capex_intensity": {
+      "first": "0.202619000000",
+      "second": "0.202619000000",
+      "delta": "0E-12"
+    },
+    "depreciation_intensity": {
+      "first": "0.087170000000",
+      "second": "0.087170000000",
+      "delta": "0E-12"
+    },
+    "ebit_margin": {
+      "first": "0.441750000000",
+      "second": "0.441750000000",
+      "delta": "0E-12"
+    },
+    "exit_multiple": {
+      "first": "14.000000000000",
+      "second": "14.000000000000",
+      "delta": "0E-12"
+    },
+    "revenue_growth": {
+      "first": "0.137411000000",
+      "second": "0.137411000000",
+      "delta": "0E-12"
+    },
+    "risk_free_rate": {
+      "first": "0.049600000000",
+      "second": "0.049600000000",
+      "delta": "0E-12"
+    },
+    "tax_rate": {
+      "first": "0.174698000000",
+      "second": "0.174698000000",
+      "delta": "0E-12"
+    },
+    "terminal_growth": {
+      "first": "0.030000000000",
+      "second": "0.030000000000",
+      "delta": "0E-12"
+    },
+    "working_capital_intensity": {
+      "first": "0.237834000000",
+      "second": "0.237834000000",
+      "delta": "0E-12"
+    }
+  },
+  "plan": {
+    "prior_research_seen": [
+      true,
+      true
+    ],
+    "planned_sources": [
+      20,
+      20
+    ],
+    "estimated_cost_gbp": [
+      "9.2857",
+      "9.2857"
+    ]
+  },
+  "sections": {
+    "balance_sheet_liquidity": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "business_overview": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "capital_allocation": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "cash_flow_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "catalysts": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "change_summary": {
+      "first": null,
+      "second": "generated",
+      "confidence": [
+        null,
+        0.5
+      ]
+    },
+    "earnings_quality": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "executive_summary": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.3,
+        0.3
+      ]
+    },
+    "growth_outlook": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "historical_financial_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "industry_landscape": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "investment_thesis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "key_risks": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "management_governance": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "prior_research_comparison": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        null,
+        null
+      ]
+    },
+    "scenarios_sensitivities": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "segment_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "validation_disagreements": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        null,
+        null
+      ]
+    },
+    "valuation_dcf": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        null
+      ]
+    }
+  },
+  "red_team": {
+    "first": 7,
+    "second": 1
+  },
+  "spend_gbp": [
+    "5.880474",
+    "1.664769"
+  ],
+  "model_calls": [
+    56,
+    9
+  ]
+}

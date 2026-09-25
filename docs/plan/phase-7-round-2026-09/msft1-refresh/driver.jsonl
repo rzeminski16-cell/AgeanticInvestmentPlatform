@@ -1,0 +1,31 @@
+{"at": "2026-09-25T00:09:38.263165+00:00", "event": "ledger.before", "platform_gbp": "54.642057", "baseline_gbp": "12.8153", "other_gbp": "6.33348530", "total_gbp": "73.79084230", "ceiling_gbp": "100.00", "remaining_gbp": "26.20915770"}
+{"at": "2026-09-25T00:09:38.309792+00:00", "event": "resumed_existing", "status": "QUEUED", "subject": "msft1", "label": "msft1-refresh-round7", "request_id": "09ecfb14-7a55-454c-8f1d-7278b888db1d", "job_id": "062d95cd-8b06-47d7-aad0-77ba31e43a56", "as_of_date": "2026-09-25", "cap_gbp": "10.50", "resumed_by_driver": true}
+{"at": "2026-09-25T00:09:41.319428+00:00", "event": "worker.started", "pid": 438, "after_seconds": 3.0}
+{"at": "2026-09-25T00:09:41.726831+00:00", "event": "run.enqueued", "job_id": "062d95cd-8b06-47d7-aad0-77ba31e43a56", "task": "5a1c63feb81c434989d7864708cea08c"}
+{"at": "2026-09-25T00:09:46.747670+00:00", "event": "step", "step": "carry_forward", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:46.747801+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762704+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762831+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762869+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762898+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762926+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:09:51.762952+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:22.094472+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:22.094656+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:22.094694+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120617+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120752+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120791+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120822+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120849+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120876+00:00", "event": "step", "step": "diff", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:12:27.120903+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T00:25:36.399517+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.6648"}
+{"at": "2026-09-25T00:25:36.400404+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T00:25:41.427363+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:25:41.427545+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T00:25:41.427630+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-25T00:25:41.429366+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 959.7, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-25T00:25:41.717229+00:00", "event": "gate.decided", "gate": "FINAL", "approved": false, "rationale": "Blocking metric(s) failed: presentation_integrity.", "findings": ["section executive_summary generated: Insufficient evidence: This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.", "section capital_allocation generated: One or more sentences were removed because their figures could not be traced to a recorded source.", "section valuation_dcf generated: No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis."], "stop_reason": "failed metrics", "payload_hash": "c171d30974e383fb937ff20582c8285233d8141d4f75b840baa2c37e7c29a192"}
+{"at": "2026-09-25T00:25:45.607482+00:00", "event": "run.finished", "stop_reason": "failed metrics", "status": "AWAITING_APPROVAL", "spend_gbp": "1.664769"}
+{"at": "2026-09-25T00:25:46.173175+00:00", "event": "worker.stopped", "pid": 438, "hard": false, "returncode": 0}

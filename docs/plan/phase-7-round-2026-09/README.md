@@ -139,3 +139,109 @@ all nine comparisons, as the pre-registration says it does.
 
 The corpus was backed up straight after (`var/backup-2026-09-24-day1`: schema 0087, 1,202
 artefacts, 253.6 MiB, verified).
+
+---
+
+## Day two — 25 September 2026
+
+The container restarted three times between the two days and brought Postgres and Redis back
+stopped each time; they were started again, day one's reports were confirmed intact, and
+nothing was lost. The refresh was commissioned at 00:09 UTC on a freshly started machine,
+through the report page's own service — its priced go-ahead said £1.69 — as job `062d95cd`.
+
+### The refresh against F4's own test
+
+| F4's test | measured | met |
+|---|---|---|
+| costs under £2 | **£1.66**, nine model calls | yes |
+| completes in under ten minutes | **16m 05s** from the priced go-ahead to its final gate | **no** |
+| a change summary naming every material move | the rows name all 41; the commentary written from them misdescribes them | the rows, yes; the prose, no |
+| the prior report readable at its own address | day one's report is still current, because the refresh was not approved | yes |
+
+### It lost the valuation it was refreshing — a defect, and not the model's
+
+The refresh re-runs the price step, and the price step proposes beta from its regression by
+writing the request's one beta row — assumptions are unique per request and name. On a full
+run that is harmless, because the assumptions gate comes next. A refresh has no assumptions
+gate. So the write set day one's **confirmed** beta back to unconfirmed, under the refresh's
+job and a day-later value (1.066268 against the 1.065870 day one confirmed), and nothing
+confirmed it again. The value step then said, correctly, *"The discount rate needs the beta,
+and no confirmed assumption of that name exists on this request"*, and produced no DCF.
+
+Everything downstream followed from that one write. The valuation chain — 31 calculations,
+leaving 242 rows where day one had 962 — was not computed; the diff read each figure that
+vanished as a material move, which is 40 of its 41; the draft step re-drafted the seven
+sections that cited them; and the valuation section came back as a 294-character notice that
+no DCF exists.
+
+What it did not do: day one's run still replays exactly — 962 calculations, 47 citations, 19
+artefacts, 56 model calls — its confirmed beta survives in the committed gate record, and
+the other ten of its eleven confirmed assumptions are untouched. What it did do is change a confirmed row
+belonging to another run's record without anybody deciding it, which is a second defect
+beside the lost valuation.
+
+### The final gate refused it, and it was not approved
+
+The refusal was `presentation_integrity`, on the refresh's own sentence *"18829 other figures
+are within two per cent of the prior report"* — a count that never went through the display
+formatter.
+
+The pre-registered rule approves a refused run through its gate *"so the round has its
+documents"*, and excepts *"a draft that lost sections"*. This draft's valuation section is
+generated in status and empty in substance, and the refresh's document is not one the panel
+reads. Approving it would have replaced a report that passed its own gate with one that has
+no valuation. It is left at its final gate for the operator: rejecting it ends the run through
+the product (ADR 0123), and day one's report stays current either way. **Neither ISSUE 1's
+reading nor F4's changes with the choice**, which is the only reason a choice made after the
+result was acceptable here.
+
+### The change summary: the right rows and the wrong words
+
+The rows are code's and they are right: forty figures *"no longer computed; the prior run
+held …"*, and one debt face amount for a period ending in April 2013. The commentary the model
+wrote from those rows says the chain *"has moved"*, that its links *"all differ"* and that
+*"both terminal approaches have been restated"* — the opposite of what the rows say. The
+mechanism's rule is that the model writes prose from the rows and never instead of them; here
+it wrote prose against them, and nothing read the one against the other. The overnight price
+move — market value down 0.5% — was under the two per cent threshold and is correctly absent.
+
+### The variance check
+
+`audit.scoring.variance` over day one's MSFT run and the refresh
+([`msft1-refresh/variance-vs-msft1-round7.json`](msft1-refresh/variance-vs-msft1-round7.json)):
+
+| | |
+|---|---|
+| facts | identical — 18,610 chosen on both, no document read for the first time |
+| calculation keys identical | 185 |
+| differing, all price-driven | 7 — beta, covariance and variance (a day more of returns), market capitalisation, market enterprise value, the multiples, net debt |
+| only on day one | 31 — the DCF chain, the defect above |
+
+The pre-registered test — *every calculation that differs is either price-driven or a defect,
+named* — holds, with the defect named.
+
+### ISSUE 1, over the round's three runs
+
+| run | approved, rendered report | no terminal | no rescue |
+|---|---|---|---|
+| AZN | yes | yes | **no** — approved by the pre-registered rule at a refused final gate |
+| MSFT | yes | yes | yes — beside it, one failed step retried through the product's resume |
+| MSFT refresh | **no** — refused, not approved | yes | — |
+| *M&T, 17 September — the window's bank, reported beside* | yes | yes | yes |
+
+**One of three.** The target — three of three, one a bank — is not met.
+
+### Spend after day two
+
+| | |
+|---|---|
+| AZN run | £6.17 |
+| MSFT run | £5.88 |
+| fresh baseline | £12.82 |
+| MSFT refresh | £1.66 |
+| **the round so far** | **£26.53**, against £31.50 |
+
+The stop rule before the panel: £26.53 + £2.10 for the counted six + £1.05 for the three
+like-for-like MSFT comparisons is £29.68, so both are bought; the identity guess's £2.50 would
+take the round to £32.18, so it is not, unless the comparisons come in under their estimates
+by enough to make room.
