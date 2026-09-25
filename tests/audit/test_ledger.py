@@ -1,4 +1,4 @@
-"""The audit's own ceiling: it must see both halves of the spend and refuse past £100."""
+"""The audit's own ceiling: it must see both halves of the spend and refuse past it."""
 
 from __future__ import annotations
 
@@ -32,7 +32,9 @@ async def test_the_reading_sums_platform_and_baseline(tmp_path: Path) -> None:
 async def test_a_stage_that_would_breach_is_refused(tmp_path: Path) -> None:
     ledger = Ledger(tmp_path / "ledger.json")
     with pytest.raises(LedgerExceededError):
-        await ledger.assert_room(_Session(Decimal("95.00")), stage="run", needs_gbp=Decimal("12"))
+        await ledger.assert_room(
+            _Session(CEILING_GBP - Decimal("5.00")), stage="run", needs_gbp=Decimal("12")
+        )
 
 
 async def test_a_stage_that_fits_is_allowed(tmp_path: Path) -> None:

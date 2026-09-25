@@ -2,7 +2,7 @@
 
 The platform meters its own calls into the ``costs`` table and caps them in code
 (invariant 6). The baseline is not a platform call and writes no row there, so the audit's
-£100 ceiling has to be held by something that sees both: this. It reads the platform's total
+ceiling has to be held by something that sees both: this. It reads the platform's total
 from the table and the baseline's from its own file, and refuses to start a paid stage that
 would take the sum past the ceiling.
 """
@@ -24,7 +24,10 @@ from aer.errors import AerError
 
 __all__ = ["CEILING_GBP", "Ledger", "LedgerExceededError"]
 
-CEILING_GBP: Final = Decimal("100.00")
+# £100 from the readiness audit until 25 September 2026, when the operator raised it to £125
+# for the re-measurement that follows the verdict round: £78.44 was spent, the re-measurement
+# is priced at about £21, and a stop rule that works on estimates needs room above that.
+CEILING_GBP: Final = Decimal("125.00")
 OUT_DIR: Final = Path("audit/out")
 LEDGER_FILE: Final = OUT_DIR / "ledger.json"
 

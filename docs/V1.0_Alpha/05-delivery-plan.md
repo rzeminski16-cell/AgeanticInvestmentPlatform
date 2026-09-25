@@ -473,6 +473,18 @@ Written into the roadmap the same day — §2.11 and §3.16 with the numbers, th
 September, and now names §2.11; §3's names §3.16 with its narrower claim. The record is
 [`../plan/phase-7-round-2026-09/`](../plan/phase-7-round-2026-09/README.md).
 
+**After the verdict, 25 September 2026.** No phase follows Phase 7 in this plan. What does
+follow was the operator's to decide, and they decided it the same day:
+- a finish line for personal use;
+- F2 with F13's authored half, F5 and a model calculator back in V1.0;
+- the masthead relabelled, with the assumptions gate checking the two terminal assumptions
+  against each other;
+- about £21 of re-measurement.
+
+Those decisions and the running order are in the roadmap's
+[*What to do next*](../plan/ROADMAP.md#what-to-do-next), which is where scope lives. This plan
+does not restate them.
+
 ---
 
 ## 12. The targets, stated before the work

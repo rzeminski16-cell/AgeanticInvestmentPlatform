@@ -30,6 +30,49 @@ round measured one of three runs reaching an approved report without a rescue. T
 findings are ISSUE 1 work and are §3.19 items 69–74: a refresh loses the valuation it refreshes,
 an empty page fails a run, and the browser suite queues on the operator's Redis among them.
 
+**The operator's decisions of 25 September 2026, taken after the verdict.** V1.0 is finished
+for personal use when four things are true:
+1. The round's defects are fixed: §3.19 items 69–71, 73 and 74, and a refused figure gets a way
+   forward other than approving against the check, which is how AZN reached its report.
+2. Three fresh runs reach an approved report with no terminal and no rescue: a US filer, AZN
+   through its 20-F, and M&T. A refresh also has to keep its valuation.
+3. The README and the product pages claim the evidence base and the checking instrument, and no
+   more.
+4. The platform runs on the operator's own Windows machine with the corpus restored. There the
+   operator's own timed first run meets the three bars in §3.16 that nobody else can time: a
+   first report without documentation, a figure walked to its source in under 30 seconds, and
+   under fifteen minutes of attention per run.
+
+The operator also brought three features back into V1.0 that the pre-registered consequence
+left out:
+- **F2**, the adversary argues the other side. It needs **F13's authored half** first, because
+  ADR 0115's adversary argues against a stated view.
+- **F5**, the workbook.
+- **A calculator page** for the large models, the discounted cash flow first.
+
+None of the three has the platform state a view. The view is the operator's, the adversary
+argues against it, and the workbook and the calculator are the checking instrument used by hand.
+
+**The masthead stops calling the two terminal methods a view or a range.** It says what each
+method gives and why the two disagree. The assumptions gate shows that disagreement before the
+two terminal assumptions are confirmed (§3.16).
+
+Running order:
+1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
+   does.
+2. The re-measurement: about £21, approved, with the audit ledger's ceiling raised from £100 to
+   £125 to hold it.
+3. F5 and the calculator.
+4. The claim.
+5. The operator's machine.
+
+Three things happened the same day:
+- The refresh the round left at its final gate was rejected.
+- The corpus was backed up, verified, and handed to the operator. It no longer exists only in
+  a container.
+- The operator decided that the Companies House key, which went to Amazon S3 on 18 September
+  (§3.19 item 23), is rotated at the end of development rather than now.
+
 What follows is the list as it stood before V1.0, kept because its *why* is the part worth
 having.
 
@@ -983,6 +1026,17 @@ What the reading does not decide, and is the operator's: which of the unbuilt fe
 narrower claim still needs, and what the product pages and the README say it is. The caveats
 the verdict carries — a panel that is not blind, AZN published by the pre-registered rule, no
 first look for either run — are in the round's record, beside the number.
+
+**Decided 25 September 2026**, and written out under *What to do next*:
+- F2 comes back into V1.0 with F13's authored half, and F5 and a model calculator come in with
+  it, all on the operator's decision.
+- The masthead's two terminal values are relabelled rather than removed.
+- The assumptions gate checks the two terminal assumptions against each other before they are
+  confirmed.
+
+Each lands under its own ADR before its code. The pre-registered consequence named ISSUE 1
+alone; the departure is the operator's, recorded here with the reading it departs from rather
+than in place of it.
 
 **3.17 A London listing can be researched.** The product documentation has said "UK or US"
 since the first plan, and a company listed in London that files only with Companies House
