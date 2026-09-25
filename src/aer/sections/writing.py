@@ -42,7 +42,12 @@ from aer.db.models import (
     SectionStatus,
 )
 from aer.errors import ValidationError
-from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
+from aer.sections.deterministic import (
+    AUGMENTERS,
+    SectionAugmenter,
+    model_facing_contract,
+    stored_fields,
+)
 from aer.sections.evidence import (
     MAX_GENERATION_ATTEMPTS,
     Evidence,
@@ -556,8 +561,10 @@ async def execute_builtin_section(
 
     # The platform-filled fields join the model's, at the positions the stored contract
     # declares (ADR 0063). The merge is one-way: the model's schema cannot carry these
-    # keys, so nothing of the draft is overwritten.
-    section.content = {**draft.content, **block} if block else draft.content
+    # keys, so nothing of the draft is overwritten. The augmenter's own working — the cases'
+    # list of levers — is left behind (ADR 0135).
+    fields = stored_fields(block)
+    section.content = {**draft.content, **fields} if fields else draft.content
     section.status = SectionStatus.GENERATED
     # Three degradations, three ceilings (ADR 0099). A section shortened to fit is not a
     # section whose evidence fell short, and the number a reader sees has to say which.
@@ -609,7 +616,7 @@ async def _filled_from_record(
     other degradation note does, so the console and the report say why there is no
     commentary instead of leaving a reader to infer it from an absence.
     """
-    section.content = block
+    section.content = stored_fields(block)
     section.status = SectionStatus.GENERATED
     section.confidence = None
     section.low_confidence_reason = reason
@@ -650,7 +657,7 @@ def _failed(
     that is only written when a section *succeeds*.
     """
     section.status = SectionStatus.FAILED
-    section.content = block or None
+    section.content = stored_fields(block) or None
     section.confidence = None
     section.low_confidence_reason = " ".join(problems)[:2000] or None
     _log.warning(

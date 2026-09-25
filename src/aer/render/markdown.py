@@ -169,14 +169,13 @@ def _header(header: HeaderView, *, style: HouseStyle) -> list[str]:
     ]
 
     # What the valuation gives, then the view, on two lines that cannot be mistaken for
-    # each other (ADR 0132). The first is what code composed; the second is the operator's,
-    # stated rather than omitted when there is none, because a missing view and a deliberate
-    # abstention look identical unless the line says so. It says "none stated", not "no view
-    # reached": every judge of the verdict round read the old words as the document failing
-    # to conclude, above a masthead that had just called two figures a range.
+    # each other (ADR 0132). The first is what code composed. The second says the report
+    # takes no side (ADR 0135) rather than leaving the line out, because a missing view and
+    # a deliberate one look identical unless the line says so — and not "no view reached",
+    # which every judge of the verdict round read as the document failing to conclude.
     if header.method_values:
         lines.append(f"**What each method gives:** {header.method_values}  ")
-    lines.append(f"**Non-binding view:** {header.rating or 'none stated'}  ")
+    lines.append(f"**Non-binding view:** {header.view}  ")
     if header.confidence is not None:
         lines.append(f"**Confidence:** {header.confidence:.0%}  ")
 

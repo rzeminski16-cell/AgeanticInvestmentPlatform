@@ -123,3 +123,11 @@ who confirms both anyway gets the report they chose, with the reason printed in 
     was written.
   - The company page, the prior-report digest, the Obsidian export and the report page all
     say *"none stated"*.
+
+## The view line, 25 September 2026 (ADR 0135)
+
+This record left the masthead's second line reading *"Non-binding view: none stated"* until the
+operator stated one. The operator has since decided that the report states no view at all, so
+the line now reads *"Non-binding view: none — this report takes no side"*. The words say the
+report declines by design, rather than that a view is missing. The first line, what each
+method gives, is unchanged.

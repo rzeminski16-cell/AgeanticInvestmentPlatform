@@ -46,12 +46,16 @@ for personal use when four things are true:
 The operator also brought three features back into V1.0 that the pre-registered consequence
 left out:
 - **F2**, the adversary argues the other side. It needs **F13's authored half** first, because
-  ADR 0115's adversary argues against a stated view.
+  ADR 0115's adversary argues against a stated view. *(Reshaped the same day, below: the
+  report takes no side, so there is no view to argue against and the authored half is
+  withdrawn.)*
 - **F5**, the workbook.
 - **A calculator page** for the large models, the discounted cash flow first.
 
-None of the three has the platform state a view. The view is the operator's, the adversary
-argues against it, and the workbook and the calculator are the checking instrument used by hand.
+None of the three has the platform state a view. The view is the operator's, and the workbook
+and the calculator are the checking instrument used by hand. The adversary was to argue against
+the operator's view; since the operator decided the report states none, it argues both sides
+(F2, below).
 
 **The masthead stops calling the two terminal methods a view or a range.** It says what each
 method gives and why the two disagree. The assumptions gate shows that disagreement before the
@@ -140,10 +144,42 @@ Writing it found one gap: backup and restore call `pg_dump` and `pg_restore` on 
 machine even though Postgres runs in Docker, and the install guide did not say so.
 
 **Taken out of order, and why.** Steps 3 to 5 below came ahead of the last two parts of step 1,
-F13's authored half and F2. F2 waits on the operator's answer to one question: is the view
-entered at the final gate, as ADR 0117 has it, with the adversary running again? Or at a new
-stop after the draft, before the adversary, which needs an ADR amending ADR 0117? The
-re-measurement follows F2.
+F13's authored half and F2. F2 waited on the operator's answer to one question: where is the
+view entered for the adversary to argue against? The answer, on 25 September, was that it is
+not entered at all, and F2 then landed (below). The re-measurement follows F2.
+
+**F2 landed 25 September 2026 — ADR 0135.** The report argues both sides and takes neither.
+- **The operator's decision.** *"The report should not be taking sides, it should be objective,
+  similarly to the red team. The user has to make up their own view in the later
+  thesis/decisioning steps."* ADR 0117's authored half is withdrawn. The view is a thesis and a
+  decision, written after the report is read.
+- **No section asks for a view.** The executive summary's *Thesis* becomes a neutral
+  *Summary*. The investment thesis section becomes **The Case For and the Case Against**: the
+  question the two cases turn on, then each case as its advocate would argue it, two to four
+  points each and within one point of each other (migration 0090). The masthead says the report
+  takes no side.
+- **Written in the draft.** The report's writer writes the cases, so every check applies, and
+  the red team challenges them like any other section. The red team's brief no longer attacks
+  a thesis: the arithmetic is code's, and its job is the claims in either case.
+- **A point's figure is code's.** A point may name one lever from a list the record supplies:
+  - a driver's lowest, highest or latest observation in the filings, as the same ratio the
+    confirmed assumption averages;
+  - perpetual growth at the rate the exit multiple implies, or at the risk-free rate;
+  - the exit multiple the perpetuity method implies.
+
+  Once every section is drafted, code strikes the report's own model with that one input
+  moved. It records the strike under the case `argued`, which every reader of the base case or
+  a scenario passes by, and prints the lever's value and both methods' value per share beside
+  the case, footnoted.
+- **Found on the way, and fixed first.** The evidence index had been handing every writer the
+  sensitivity grid's rows as the base case's (§3.19 item 77). A lever's strike would have made
+  it worse.
+- **Also fixed on the way.** A refresh carried a section by key alone, whatever contract it
+  was written to. A report drafted under the thesis contract would have been carried into the
+  cases' and rendered empty. A section is now carried only into the version that wrote it, and
+  a carried argument's figures are struck again on the refresh's own base case.
+- **Still open.** ADR 0115 decision 4's other half is not built: approval refused while a
+  challenge is open, and a *carried* state. The re-measurement decides it.
 
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
@@ -1046,7 +1082,7 @@ authority on sequencing within this item.
 | | Feature | Needs |
 |---|---|---|
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
-| F2 | The adversary argues the opposite case | ADR 0115, F13 |
+| F2 | The adversary argues the opposite case — reshaped on 25 September 2026 to both cases, the report taking neither side | ADR 0115, ADR 0135 |
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
 | F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession. **Failed live on 25 September 2026** (§3.19 item 73): a refresh un-confirms the prior run's price-derived beta and loses its valuation. Fixed the same day, and measured live again in the finish-line round |
 | F5 | The model workbook | — |
@@ -1057,7 +1093,7 @@ authority on sequencing within this item.
 | F10 | Decisions | F9, F12 |
 | F11 | The monitor | F9, F15 — **landed 23 September 2026**: both alert kinds, the price move under ADR 0079's rule that a price is never evidence |
 | F12 | Risk and the pre-trade check | — |
-| F13 | The stated view, in two halves | ADR 0117, F9 |
+| F13 | The stated view, in two halves | ADR 0117, F9 — the composed half **landed 18 September 2026**; the authored half **withdrawn 25 September 2026** by the operator (ADR 0135) |
 | F14 | Post-trade review and decision analytics | F10 |
 | F15 | Scheduling | — **landed 23 September 2026**: one cron after the close, prices only (item 51) |
 | F16 | The evidence boundary | ADR 0119 — **landed 18 September 2026**, Accepted: the passage prints behind three gates, and a poisoned prior moves no plan |
@@ -1117,7 +1153,8 @@ first look for either run — are in the round's record, beside the number.
 
 **Decided 25 September 2026**, and written out under *What to do next*:
 - F2 comes back into V1.0 with F13's authored half, and F5 and a model calculator come in with
-  it, all on the operator's decision.
+  it, all on the operator's decision. *(The authored half was then withdrawn, and F2 landed
+  without it: ADR 0135.)*
 - The masthead's two terminal values are relabelled rather than removed.
 - The assumptions gate checks the two terminal assumptions against each other before they are
   confirmed.

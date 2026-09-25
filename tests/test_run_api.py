@@ -1768,9 +1768,9 @@ class TestTheWebPages:
         assert "Research Note" in page.text
         assert "not</strong> regulated investment advice" in page.text
         assert 'id="contents"' in page.text
-        # The draft has no view yet, and the preview says none is stated rather than
-        # inventing one — or saying none was *reached* (ADR 0132).
-        assert "none stated" in page.text
+        # The report states no view, and the preview says it takes no side rather than
+        # inventing one — or saying none was *reached* (ADR 0132, ADR 0135).
+        assert "this report takes no side" in page.text
         assert "no view reached" not in page.text
 
     async def test_a_run_with_no_sections_has_no_preview(self, api: Any, committed: dict) -> None:

@@ -17,7 +17,8 @@ The refusals matter as much: a run with no valuation has nothing for either meth
 figures as "$227.43 to $442.01 a share" above a valuation section saying they were not the
 ends of a range, and every judge of the verdict round gave that as the first reason to
 abandon. The header now says what each method gives, the block says why the two differ, and
-the view line says "none stated" until the operator states one.
+the view line says the report takes no side: the operator decided on 25 September 2026 that
+the view is theirs, in a thesis and a decision, and never the report's (ADR 0135).
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from aer.core.enums import UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel
 from aer.db.models import Calculation, User
 from aer.render import display
-from aer.render.document import CalculationFootnote, assemble_document
+from aer.render.document import NO_VIEW, CalculationFootnote, assemble_document
 from aer.render.markdown import serialise_markdown
 from aer.render.summary import summary_document
 from aer.render.view import VIEW_TITLE, view_content
@@ -270,16 +271,17 @@ class TestTheViewReachesTheDocument:
         assert " to " not in shown
         assert f"**What each method gives:** {shown}" in rendered
 
-    async def test_the_view_line_belongs_to_the_operator(self, scene: dict[str, Any]) -> None:
-        """ "Non-binding view" is the authored half's, and says when none was stated rather
-        than that none was *reached* — the words the round read as the document failing to
-        conclude."""
+    async def test_the_view_line_says_the_report_takes_no_side(self, scene: dict[str, Any]) -> None:
+        """The report states no view (ADR 0135), and the line says so as a decision rather
+        than as a view nobody reached — the words the round read as the document failing
+        to conclude."""
         await _valued(scene, price=_price("40"))
 
         rendered = serialise_markdown(await _document(scene))
 
-        assert "**Non-binding view:** none stated" in rendered
+        assert f"**Non-binding view:** {NO_VIEW}" in rendered
         assert "no view reached" not in rendered
+        assert "none stated" not in rendered
 
     async def test_a_run_with_no_valuation_states_no_figures_and_no_view(
         self, scene: dict[str, Any]
@@ -291,7 +293,7 @@ class TestTheViewReachesTheDocument:
 
         assert document.header.method_values is None
         assert "What each method gives" not in rendered
-        assert "**Non-binding view:** none stated" in rendered
+        assert f"**Non-binding view:** {NO_VIEW}" in rendered
         assert "no view reached" not in rendered
 
     async def test_the_masthead_and_the_block_cannot_disagree(self, scene: dict[str, Any]) -> None:

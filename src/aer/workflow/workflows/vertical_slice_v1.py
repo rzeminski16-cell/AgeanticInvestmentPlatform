@@ -105,7 +105,11 @@ from aer.providers.protocol import SpentButUnusableError
 from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import SectorNote, serialise_markdown
-from aer.sections.deterministic import SectionStage, fill_deterministic_sections
+from aer.sections.deterministic import (
+    SectionStage,
+    fill_deterministic_sections,
+    price_drafted_cases,
+)
 from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
@@ -2047,6 +2051,10 @@ async def _revise(context: StepContext) -> StepResult:
             focus_by_key=await _focus_by_key(context),
         )
 
+    # A revision or a redraft of the cases replaced their levers with the words around them,
+    # so they are struck again before the checks measure what the gate will show (ADR 0135).
+    # Free when the cases were not rewritten: the tables say which levers they were struck for.
+    await price_drafted_cases(context.session, job=context.job)
     await remeasure_after_revision(agent_context, job=context.job, request=request, outcome=outcome)
 
     if outcome.revised:
@@ -3964,12 +3972,17 @@ async def _draft(context: StepContext) -> StepResult:
 
     await context.session.flush()
 
+    # The cases' levers are struck once every section is drafted (ADR 0135), so no section's
+    # evidence moved while the draft was being written.
+    priced = await price_drafted_cases(context.session, job=context.job)
+
     return StepResult(
         output={
             "sections_drafted": filled,
             "deterministic_sections": deterministic,
             "builtin_sections": builtin_outcomes,
             "custom_sections": custom_outcomes,
+            "cases_priced": priced,
             # No payload hash here since task 40: the red team's challenges join the
             # gate-2 payload after drafting, so the hash the gate verifies is computed
             # by the red_team step — the last one that can change it.

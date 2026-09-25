@@ -58,7 +58,7 @@ interpretation, comparison, adversarial challenge and writing.**
 | **All arithmetic** — ratios, growth, cost of capital, discounted cash flow, comparables, scenarios | Proposing an assumption, with its justification |
 | Unit and currency handling | Judging whether a source is relevant |
 | Dates, and which filing's word stands for each period | Writing a section from facts it was handed |
-| Resolving and verifying every citation | Attacking the resulting thesis |
+| Resolving and verifying every citation | Arguing both sides, and challenging the draft |
 | Storage, rendering, cost metering | Natural-language prose |
 
 Everything else in the architecture follows from that split. A discounted cash flow here is
@@ -79,9 +79,12 @@ a recorded calculation is refused before it reaches a page.
    and earnings-quality suites, a cost of capital, a driver-based discounted cash flow with
    both terminal methods side by side, a residual-income model for banks, comparable
    companies behind a peer-set you confirm, and two sensitivity grids.
-4. **A drafted report, validated and attacked.** Citation accuracy, numerical consistency and
-   agreement between sections are checked in code. A separate red-team pass, working from its
-   own context, argues the bear case against the draft.
+4. **A drafted report that takes no side, validated and challenged.** It argues the case for
+   and the case against side by side. Each point may turn on a lever the record supplies, and
+   code prices it: one input of the report's own model moved to a value the filings already
+   hold. Citation accuracy, numerical consistency and agreement between sections are checked in
+   code. A separate red-team pass, working from its own context, challenges what the draft
+   claims in either case. The view is yours, in a thesis.
 5. **A second approval, then an immutable document.** Markdown, HTML and PDF, each frozen
    and hashed, plus optional Obsidian notes, and for a discounted cash flow a workbook of the
    model with its formulas written out.

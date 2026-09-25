@@ -36,7 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.calc.comps import Audience, CompsTable, WithheldComps
-from aer.calc.dcf import HIGH_TERMINAL_SHARE, SENSITIVITY_CASE, TerminalMethod
+from aer.calc.dcf import HIGH_TERMINAL_SHARE, PERTURBATION_CASES, TerminalMethod
 from aer.core.sectors import ValuationModel
 from aer.db.models import Calculation, Job, Sensitivity
 from aer.services.sectors import confirmed_classification
@@ -302,7 +302,7 @@ def _latest(
         # sequence the last cell of the last grid is what "most recent" returned — so the
         # page's headline was the corner of a sensitivity table on every run with grids
         # (roadmap §3.19.56). A cell is a perturbation of the base case, not a state of it.
-        and str(row.parameters.get("case", "")) != SENSITIVITY_CASE
+        and str(row.parameters.get("case", "")) not in PERTURBATION_CASES
     ]
     # The base case over a scenario's, where the ledger says which is which: a scenario is
     # a diff the report compares *against* the base, and the page's headline is the base.

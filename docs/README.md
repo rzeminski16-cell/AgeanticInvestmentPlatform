@@ -26,7 +26,7 @@ longer claims to write a better research note than a general-purpose assistant:
 | About to change the code | [`developers/knowledge-map.md`](developers/knowledge-map.md) |
 | Deciding what to build next | [`plan/ROADMAP.md`](plan/ROADMAP.md) |
 | About to design a screen | [`design/README.md`](archive/superseded-2026-09/design-requirements/README.md) |
-| Wondering why something was built that way | [`adr/`](adr/) — 100 decision records |
+| Wondering why something was built that way | [`adr/`](adr/) — 135 decision records |
 
 ---
 
@@ -155,7 +155,7 @@ the index, and states the order of authority: ADRs, then the roadmap, then `V1.0
 
 ## Reference
 
-- [`adr/`](adr/) — 128 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 135 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme. **0113–0122 were drafted Proposed** —
   the ten V1.0 features that change a recorded decision or an invariant, argued before the

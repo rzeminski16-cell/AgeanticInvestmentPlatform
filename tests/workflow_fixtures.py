@@ -694,10 +694,20 @@ def _content_for(
         elif declared in {"number", "integer"}:
             content[name] = 8
         elif declared == "array" and _items_are_objects(subschema):
-            content[name] = [_item_for(subschema, calculation=calculation, fact=fact)]
+            content[name] = [
+                _item_for(subschema, calculation=calculation, fact=fact)
+                for _ in range(_fewest(subschema))
+            ]
         elif declared == "array":
-            content[name] = ["A scripted observation with no figure in it."]
+            content[name] = ["A scripted observation with no figure in it."] * _fewest(subschema)
     return content
+
+
+def _fewest(subschema: dict[str, Any]) -> int:
+    """As many items as the contract asks for at least: the two cases want two points each
+    (ADR 0135), and a draft of one would be refused by the contract rather than exercised."""
+    stated = subschema.get("minItems")
+    return max(1, stated) if isinstance(stated, int) else 1
 
 
 def _contract_from_system(system: str) -> dict[str, Any]:

@@ -43,7 +43,7 @@ from aer.calc.dcf import METHOD_DISAGREEMENT, DcfInputs, DcfResult, discounted_c
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.calc.wacc import CostOfCapital
 from aer.core.sectors import ModelNotPermittedError, ValuationModel
-from aer.errors import AerError
+from aer.errors import AerError, ValidationError
 from aer.render import display
 from aer.services.assumption_gate import valuation_model
 from aer.services.assumptions import assumptions_for_request
@@ -68,6 +68,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from aer.calc.engine import CalculationContext
     from aer.config import HouseStyle
     from aer.db.models import Assumption, Job
 
@@ -77,6 +78,7 @@ __all__ = [
     "TerminalCheck",
     "basis_for_run",
     "strike",
+    "strike_into",
     "terminal_check",
 ]
 
@@ -86,6 +88,9 @@ _log = structlog.get_logger("aer.services.preview")
 # strikes is persisted — but `aer.calc.dcf` records a case on every row it strikes, and a
 # preview wearing "base" would be the one row that could be mistaken for the report's own.
 PREVIEW_CASE: Final = "preview"
+
+# The label only the value step's own valuation may carry.
+_BASE_CASE: Final = "base"
 
 # The steps whose records the value step reads, besides the analysis it recomputes.
 _ACQUIRE_STEP: Final = "acquire"
@@ -183,6 +188,48 @@ def strike(
         ValuationNotPossibleError: A figure the filings do not carry.
         CalculationError: Inputs the arithmetic refuses, such as growth at the discount rate.
     """
+    return _struck(new_context(), basis, values, years=years, case=PREVIEW_CASE)
+
+
+def strike_into(
+    ledger: CalculationContext,
+    basis: ValuationBasis,
+    values: Mapping[str, Quantity],
+    *,
+    case: str,
+    years: int = FORECAST_YEARS,
+) -> Preview:
+    """The base case over ``values``, struck into a ledger the caller persists.
+
+    :func:`strike`'s arithmetic on the caller's ledger, for the one caller whose strikes are
+    recorded rather than shown and thrown away: the levers a report's two cases turn on
+    (ADR 0135). The values it is given are confirmed ones with a single input moved to a
+    figure already on the record, so what it records rests on the same things the report's
+    own valuation does. ``case`` may be anything but the base case's own label, so nothing
+    struck here can be read back as the report's answer.
+
+    Raises:
+        ValidationError: ``case`` is the base case's.
+        MissingAssumptionError, ValuationNotPossibleError, CalculationError: As
+            :func:`strike`.
+    """
+    if case == _BASE_CASE:
+        message = (
+            "A recorded strike cannot carry the base case's label: every reader of the "
+            "report's answer would read it as the answer."
+        )
+        raise ValidationError(message, context={"case": case})
+    return _struck(ledger, basis, values, years=years, case=case)
+
+
+def _struck(
+    ledger: CalculationContext,
+    basis: ValuationBasis,
+    values: Mapping[str, Quantity],
+    *,
+    years: int,
+    case: str,
+) -> Preview:
     latest = latest_period(basis.analysis)
     if latest is None:
         message = (
@@ -190,7 +237,6 @@ def strike(
             "base year to forecast from."
         )
         raise ValuationNotPossibleError(message)
-    ledger = new_context()
     capital, inputs = base_case_inputs(
         ledger,
         dict(values),
@@ -199,7 +245,7 @@ def strike(
         years=years,
         market_capitalisation=basis.market_capitalisation,
     )
-    result = discounted_cash_flow(ledger, inputs, mandate=basis.mandate, case=PREVIEW_CASE)
+    result = discounted_cash_flow(ledger, inputs, mandate=basis.mandate, case=case)
     return Preview(inputs=inputs, result=result, capital=capital)
 
 

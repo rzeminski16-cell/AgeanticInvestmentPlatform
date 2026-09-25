@@ -81,6 +81,7 @@ from aer.services.extractions import printable_excerpts
 __all__ = [
     "COMPS_TITLE",
     "DISCLAIMER",
+    "NO_VIEW",
     "UNCITABLE_MULTIPLES",
     "UNDATED_MARKER",
     "UNDATED_NOTE",
@@ -110,6 +111,11 @@ DISCLAIMER = (
 # (ADR 0111) — and every section resting on one says so with this symbol by its heading,
 # explained once by the note below.
 UNDATED_MARKER = "\N{DAGGER}"
+
+# What the masthead says where a view would go (ADR 0135). The report takes no side: the
+# view is the operator's, written in a thesis and a decision after the report is read, and
+# the line says so rather than reading as a view nobody got round to stating.
+NO_VIEW = "none \N{EM DASH} this report takes no side"
 UNDATED_NOTE = (
     f"{UNDATED_MARKER} Rests in part on a source without a stated publication date. Such a "
     "source is a weaker one than a dated document, so it is used with this caveat, and "
@@ -240,6 +246,11 @@ class HeaderView:
     # every judge of the verdict round read "$227.43 to $442.01" as a view the document then
     # contradicted. ``None`` for a run that produced no valuation.
     method_values: str | None = None
+
+    @property
+    def view(self) -> str:
+        """The view line: a stated rating where one exists, which no run now writes."""
+        return self.rating or NO_VIEW
 
 
 @dataclass(frozen=True, slots=True)

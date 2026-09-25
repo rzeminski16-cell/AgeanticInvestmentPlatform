@@ -4,7 +4,7 @@
 **As-of date:** 30 June 2022  
 **Base currency:** USD  
 **Generated:** <generated>
-**Non-binding view:** none stated  
+**Non-binding view:** none — this report takes no side  
 
 > This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.
 
@@ -32,7 +32,7 @@
 
 ## Executive Summary
 
-### Thesis
+### Summary
 
 Scripted analysis from the recorded evidence; see the figures.
 
@@ -50,21 +50,23 @@ Scripted analysis from the recorded evidence; see the figures.
 |---|---|
 | Scripted label with no figure in it. | 0.1713[^4][^5] |
 
-## Investment Thesis
+## The Case For and the Case Against
 
-### Thesis Statement
+### What the Two Cases Turn On
 
 Scripted analysis from the recorded evidence; see the figures.
 
-### Supporting Pillars
+### The Case For
 
-| Pillar | Evidence |
-|---|---|
-| Scripted pillar with no figure in it. | Scripted evidence with no figure in it. |
+**Scripted lead in with no figure in it.:** Scripted text with no figure in it.
 
-### What Would Change The View
+**Scripted lead in with no figure in it.:** Scripted text with no figure in it.
 
-- A scripted observation with no figure in it.
+### The Case Against
+
+**Scripted lead in with no figure in it.:** Scripted text with no figure in it.
+
+**Scripted lead in with no figure in it.:** Scripted text with no figure in it.
 
 ## Business Overview
 

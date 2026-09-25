@@ -5,6 +5,9 @@ appendix is assembled after the settle and says what happened. Decisions 1, 2 an
 ADR 0117, because there is nothing to argue against until the report states a view. **Decision
 3 does not stand as written** and is corrected below, against a measurement of the run it was
 argued from. This record becomes Accepted outright when the remaining decisions land.
+**Amended by ADR 0135, 25 September 2026:** the report states no view, so decisions 1, 2 and 5
+land in the shape that ADR gives them, and decision 4's unbuilt half stays open. See the
+section at the end.
 **Date.** 2026-09-14
 **Amends.** ADR 0095 (an escalated challenge is briefed, never decided). The brief, its
 advisory status and its exclusion from every rendered report are untouched; what changes is
@@ -207,3 +210,28 @@ the other side; removing the adversary removes it.
 **Let the model resolve its own challenges.** It would be fast, and it would be a model
 grading its own argument at the one surface where the operator's judgement is the product.
 ADR 0095 settled this and it stays settled: briefed, never decided.
+
+## Amended by ADR 0135, 25 September 2026 — there is no view to argue against
+
+The operator decided that the report takes no side: *"the report should not be taking sides,
+it should be objective, similarly to the red team. The user has to make up their own view in
+the later thesis/decisioning steps."* ADR 0117's authored half is withdrawn with it, so the
+view this record waited for will never exist. What each decision becomes:
+
+- **Decision 1.** The first half stands and has landed. The red team's brief (prompt version
+  4) says that every figure is checked by code and re-checking arithmetic is not its job. The
+  second half is withdrawn: the red team is given no side to argue. Its brief says the draft
+  argues both sides and takes neither, and its job is to find where the claims, in either case
+  or anywhere else, rest on less than they assert.
+- **Decision 2** lands in substance. A point's figure is struck by code from a stated input
+  change. The input is a lever the record supplies, not a value the model states: a stated
+  value would be the only number in a report that nobody filed, computed or confirmed.
+- **Decision 3** is unchanged: corrected on 17 September, with its replacement rule unbuilt.
+- **Decision 4.** Its landed half stands. Its other half, approval refused while a challenge
+  is open and the *carried* state, is still unbuilt. ADR 0135 says why and what decides it.
+- **Decision 5** is amended. The body carries both cases side by side, the case for and the
+  case against, named as such. Neither is the report's.
+
+The case the adversary was to write is written in the draft, by the report's writer under an
+advocate's brief for each side. That way every check applies to it, and the red team
+challenges it like any other section.

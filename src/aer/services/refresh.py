@@ -27,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.changes import Change, Crossing, Figure, Movement, diff_figures
-from aer.calc.dcf import SENSITIVITY_CASE
+from aer.calc.dcf import PERTURBATION_CASES
 from aer.calc.units import Quantity, Unit, UnitMismatchError
 from aer.core.enums import Decision, GateKind, JobStatus, PremiseComparator
 from aer.core.hashing import canonical_json, sha256_hex
@@ -353,7 +353,7 @@ def _row(job: Job, report: Report, change: Change) -> ReportChange:
 
 
 async def _calculation_figures(session: AsyncSession, job_id: uuid.UUID) -> list[Figure]:
-    """Every calculation of a run as a figure, every period, never a sensitivity cell."""
+    """Every calculation of a run as a figure, every period, never a perturbation of it."""
     rows = await session.scalars(
         select(Calculation)
         .where(Calculation.job_id == job_id)
@@ -363,7 +363,7 @@ async def _calculation_figures(session: AsyncSession, job_id: uuid.UUID) -> list
     for row in rows:
         parameters = dict(row.parameters or {})
         case = str(parameters.pop("case", "") or "")
-        if case == SENSITIVITY_CASE:
+        if case in PERTURBATION_CASES:
             continue
         figures.append(
             Figure(

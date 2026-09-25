@@ -97,8 +97,11 @@ resumable.
 - **The validation results.** Citation accuracy, numerical consistency, source coverage and
   completeness — deterministic checks, each a number against a threshold. The model's own
   validator *advises* and cannot overrule them.
-- **The red team's bear case.** A separate pass, working from its own context rather than
-  the drafter's, attacking the thesis it was handed.
+- **The case for and the case against**, in the draft itself. The report takes no side. Each
+  case is argued as its advocate would argue it, and each lever a point names is priced by
+  code beside it (ADR 0135).
+- **The red team's challenges.** A separate pass, working from its own context rather than
+  the drafter's. It challenges what the draft claims in either case, and takes no side.
 - **A brief of each choice you are being asked to make.** For every challenge nobody has
   settled: what keeping the draft's position assumes and what the report then says, the
   same for accepting the challenge, and which way it leans with one sentence of why. It is

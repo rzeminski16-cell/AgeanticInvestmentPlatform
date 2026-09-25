@@ -41,6 +41,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from aer.calc.dcf import PERTURBATION_CASES
 from aer.db.models import Calculation, Job, Sensitivity
 
 __all__ = ["VIEW_CONTRACT", "VIEW_TITLE", "ComposedView", "view_content"]
@@ -138,9 +139,6 @@ _PER_SHARE: Final = "value_per_share"
 # The distance from the market, one row per terminal method, tagged by `measure`.
 _UPSIDE: Final = "implied_upside"
 
-# The case a sensitivity cell is tagged with. Read off the stored corpus rather than
-# assumed: 180 of the 186 per-share rows on the audited runs carry it.
-_SENSITIVITY: Final = "sensitivity"
 
 # The assumption names as a reader meets them. A lever printed as `terminal_growth` is a
 # code identifier on a page, which Phase 1.4's ratchet exists to keep out of one.
@@ -227,7 +225,10 @@ def _per_share_by_case(calculations: list[Calculation]) -> dict[str, list[Calcul
         if row.name != _PER_SHARE:
             continue
         case = (row.parameters or {}).get("case")
-        if not isinstance(case, str) or case == _SENSITIVITY:
+        # A grid cell and a case's lever perturb the base case; neither is a scenario.
+        # The grid's tag was read off the stored corpus rather than assumed: 180 of the 186
+        # per-share rows on the audited runs carry it.
+        if not isinstance(case, str) or case in PERTURBATION_CASES:
             continue
         grouped.setdefault(case, []).append(row)
     return grouped

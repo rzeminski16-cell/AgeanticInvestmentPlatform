@@ -161,7 +161,7 @@
     {% if header.method_values %}
     <dt>What each method gives</dt><dd>{{ header.method_values }}</dd>
     {% endif %}
-    <dt>Non-binding view</dt><dd>{{ header.rating or "none stated" }}</dd>
+    <dt>Non-binding view</dt><dd>{{ header.view }}</dd>
     {% if header.confidence is not none %}
     <dt>Confidence</dt><dd>{{ "%.0f%%" | format(header.confidence * 100) }}</dd>
     {% endif %}

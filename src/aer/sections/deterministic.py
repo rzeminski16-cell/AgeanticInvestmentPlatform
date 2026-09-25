@@ -24,7 +24,8 @@ operator approves already contains them.
 from __future__ import annotations
 
 import re
-from collections.abc import Awaitable, Callable
+import uuid
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Final
@@ -32,14 +33,23 @@ from typing import Any, Final
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from aer.core.cases import case_problems
 from aer.core.disagreement import (
     DisagreementKind,
     ResolutionOutcome,
     ResolvedBy,
     challenge_heading,
 )
-from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
+from aer.db.models import (
+    Disagreement,
+    Evaluation,
+    Job,
+    ReportSection,
+    ResearchRequest,
+    SectionStatus,
+)
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.eval.metrics import spoken_metric
 from aer.render.display import stored
@@ -68,6 +78,7 @@ from aer.services.history import prior_comparison_content
 __all__ = [
     "AUGMENTERS",
     "BUILDERS",
+    "CASES_KEY",
     "CHANGE_SUMMARY_KEY",
     "CONSEQUENCES_KEY",
     "PRIOR_COMPARISON_KEY",
@@ -75,6 +86,8 @@ __all__ = [
     "SectionStage",
     "fill_deterministic_sections",
     "model_facing_contract",
+    "price_drafted_cases",
+    "stored_fields",
 ]
 
 _log = structlog.get_logger("aer.sections.deterministic")
@@ -512,7 +525,90 @@ CONSEQUENCES_KEY: Final = "portfolio_consequences"
 # 0086, created by the refresh's carry step alone, filled from `report_changes` here.
 CHANGE_SUMMARY_KEY: Final = "change_summary"
 
+# The two cases' section (ADR 0135). Its key is the investment thesis's, kept because a key is
+# an identity rather than a label: every report drafted before the cases pins the version
+# that wrote it, and a refresh compares sections by key.
+CASES_KEY: Final = "investment_thesis"
+
+# An augmenter's own working, handed to its check and its note and never stored: a block key
+# that opens with this is not a field of the section.
+_PRIVATE: Final = "_"
+
+
+def stored_fields(block: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The block's platform-filled fields, without the augmenter's own working.
+
+    The cases' block carries the run's list of levers (ADR 0135): what the writer may name,
+    and what the check refuses a draft against. It is not something the section says, so it
+    never reaches the stored content.
+    """
+    return {key: value for key, value in (block or {}).items() if not key.startswith(_PRIVATE)}
+
+
+async def _cases_block(
+    session: AsyncSession,
+    *,
+    job_id: uuid.UUID,
+    request: ResearchRequest,  # noqa: ARG001 -- every augmenter is built with the request
+) -> dict[str, Any]:
+    """The levers this run's record supplies, for the check and the note.
+
+    Imported at call time: the list strikes the report's model through the preview, which
+    reads the workflow's own assembly, and the workflow reaches this module on import.
+    """
+    from aer.services.cases import LEVERS_BLOCK, LeverList, lever_list  # noqa: PLC0415
+
+    job = await session.get(Job, job_id)
+    levers = (
+        await lever_list(session, job=job)
+        if job is not None
+        else LeverList(reason="the run could not be read.")
+    )
+    return {LEVERS_BLOCK: levers.as_block()}
+
+
+def _cases_check(content: dict[str, Any], block: dict[str, Any]) -> list[str]:
+    from aer.services.cases import LEVERS_BLOCK, LeverList  # noqa: PLC0415 -- see above
+
+    levers = LeverList.from_block(block.get(LEVERS_BLOCK))
+    return case_problems(content, offered=levers.offered(), none_because=levers.reason)
+
+
+def _cases_note(block: dict[str, Any]) -> str:
+    from aer.services.cases import LEVERS_BLOCK, LeverList  # noqa: PLC0415 -- see above
+
+    return LeverList.from_block(block.get(LEVERS_BLOCK)).note()
+
+
+async def price_drafted_cases(session: AsyncSession, *, job: Job, force: bool = False) -> bool:
+    """Strike the levers the drafted cases name, once every section is drafted (ADR 0135).
+
+    Called wherever the cases may have been written or rewritten: at the end of the draft
+    step, in the revise step, and in a refresh, which passes ``force`` so a carried argument
+    is priced again on its own base case. Returns whether anything was struck.
+
+    The section is read afresh, because the draft step writes each section on a session of
+    its own. A run whose section was pinned to the thesis contract before the cases existed
+    has nothing to price.
+    """
+    from aer.services.cases import price_the_cases  # noqa: PLC0415 -- see `_cases_block`
+
+    section = await session.scalar(
+        select(ReportSection)
+        .where(ReportSection.job_id == job.id, ReportSection.section_key == CASES_KEY)
+        .options(selectinload(ReportSection.definition))
+        .execution_options(populate_existing=True)
+    )
+    if section is None or section.status is not SectionStatus.GENERATED:
+        return False
+    properties = (section.definition.output_contract or {}).get("properties") or {}
+    if "case_for" not in properties:
+        return False
+    return await price_the_cases(session, job=job, section=section, force=force)
+
+
 AUGMENTERS: dict[str, SectionAugmenter] = {
+    CASES_KEY: SectionAugmenter(build=_cases_block, check=_cases_check, note=_cases_note),
     "valuation_dcf": SectionAugmenter(
         build=valuation_method_block,
         check=commentary_problems,

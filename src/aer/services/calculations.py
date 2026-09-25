@@ -36,7 +36,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from aer.calc.dcf import SENSITIVITY_CASE
+from aer.calc.dcf import PERTURBATION_CASES
 from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.units import SourceKind, SourceTable
 from aer.db.models import (
@@ -138,7 +138,7 @@ async def indexed_calculations(
     kept: dict[tuple[str, str], Calculation] = {}
     for calc in rows:
         parameters = calc.parameters or {}
-        if str(parameters.get("case", "")) == SENSITIVITY_CASE:
+        if str(parameters.get("case", "")) in PERTURBATION_CASES:
             continue
         if calc.id in beneath_a_perturbation:
             continue

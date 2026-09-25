@@ -93,7 +93,7 @@ Full instructions, including Windows and the WeasyPrint native dependencies, are
 | Read the output properly | [`docs/users/reading-a-report.md`](docs/users/reading-a-report.md) |
 | Change the code | [`docs/developers/knowledge-map.md`](docs/developers/knowledge-map.md) |
 | Know what happens next | [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) |
-| Know why something is the way it is | [`docs/adr/`](docs/adr/) — 134 decision records |
+| Know why something is the way it is | [`docs/adr/`](docs/adr/) — 135 decision records |
 
 ## The invariants
 

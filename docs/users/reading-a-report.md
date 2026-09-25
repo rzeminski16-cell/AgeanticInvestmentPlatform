@@ -118,12 +118,42 @@ work with the report says so rather than writing confidently from three facts.
 be republished in the form requested. Derived figures may be published by your own
 determination; the underlying series may not.
 
+## The case for and the case against
+
+**The report takes no side** (ADR 0135). Its masthead says so. The view is yours, and you
+write it in a thesis and a decision once you have read the report.
+
+What the report gives you instead, near the front, is two cases side by side:
+- the question they answer differently;
+- the case for owning the shares;
+- the case against.
+
+Each case is argued as its advocate would argue it, from the run's evidence, with two to four
+points. The two are never more than one point apart in number, so neither wins by weight.
+
+**A point can turn on a lever, and the figure beside it is code's.** A lever moves one input
+of the report's discounted cash flow to a value the record already holds. It might be the
+operating margin at its lowest in the filings, or revenue growth at its fastest, or perpetual
+growth at the rate the exit multiple implies. The writer names the lever and writes no number.
+Code strikes the report's own model with that one input moved.
+
+The table under each case, headed *Priced*, shows each lever:
+- the lever's value, footnoted to the filing ratio it came from;
+- what each terminal method then gives per share, footnoted to the arithmetic.
+
+These strikes are recorded as what-ifs, never as the report's answer. Nothing else in the
+report reads them. To try a value the record does not hold, use the calculator.
+
+A bank's cases are argued in words only: its residual income model is not one this build
+strikes again.
+
 ## What the red team is for
 
-The bear case at gate 3 is not a formality and it is not a second opinion. It works from
-its own context, sees the draft rather than the drafting, and is scored for finding
-problems. It has caught real ones — including an impossible margin that every deterministic
-gate had passed.
+The red team at gate 3 is not a formality and it is not a second opinion. It works from its
+own context, sees the draft rather than the drafting, and is scored for finding problems in
+what the draft claims — in either case, or anywhere else. It takes no side, and it leaves the
+arithmetic to code. It has caught real problems, including an impossible margin that every
+deterministic gate had passed.
 
 Read it as an adversary's best attempt, and weigh it. It advises; it does not block.
 
@@ -135,9 +165,10 @@ nothing in the vault can flow back and become evidence.
 
 ## What a report does not establish
 
-- **It is not advice.** The rating is a non-binding personal view.
-- **A green validation suite is not a correct thesis.** The checks establish that the
-  document is *supported*, not that its argument is *right*.
+- **It is not advice, and it takes no side.** It sets out the case for and the case
+  against; the view is yours.
+- **A green validation suite does not make either case right.** The checks establish that
+  the document is *supported*, not that its arguments are *right*.
 - **Coverage varies by filer.** The concept map does not know every filer's vocabulary. A
   run that swept many unmapped tags produced a thinner report, and the run record says how
   many.

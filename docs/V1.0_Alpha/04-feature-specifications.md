@@ -107,6 +107,37 @@ because a challenge must now be resolved before the document is frozen.
 challenge (a figure the calculation record refutes) is caught and dropped before drafting; and
 three judges reading the output name the bear case rather than naming the appendix as a defect.
 
+> **Reshaped by the operator, 25 September 2026 (ADR 0135).** There is no conclusion to argue
+> against: *"the report should not be taking sides, it should be objective, similarly to the red
+> team. The user has to make up their own view in the later thesis/decisioning steps."* What
+> F2 is now:
+> - **The report takes no side.** The executive summary's *Thesis* becomes a neutral
+>   *Summary*. The investment thesis section becomes **The Case For and the Case Against**:
+>   the question the two cases turn on, then each case argued from the evidence as its
+>   advocate would make it, two to four points each and within one point of each other.
+> - **Written in the draft, not by the red team beside it.** Every check the report passes
+>   applies to it, and the red team challenges it like any other section. The red team's brief
+>   says the arithmetic is code's and the draft takes no side.
+> - **A point's figure is struck by code from a lever the record supplies.** The levers are:
+>   - a driver's lowest, highest or latest observation in the filings;
+>   - perpetual growth at the rate the exit multiple implies, or at the risk-free rate;
+>   - the exit multiple the perpetuity method implies.
+>
+>   The model names a lever by its key and writes no figure. Code strikes the report's own
+>   model with that one input moved, records it under the case `argued`, and prints the lever's
+>   value and the value per share by each method, each footnoted.
+> - **Step 3 stays half built.** The appendix is written after the settle and says what
+>   happened, but approval is not refused while a challenge is open. ADR 0135 says why that
+>   waits for the re-measurement.
+>
+> **Done when**, restated:
+> - a valued run's report carries both cases within one point of each other;
+> - every lever named is struck and footnoted, and none carries a model-written figure;
+> - no section's contract asks for a view, and the masthead says the report takes no side;
+> - the re-measurement's three fresh runs print both cases.
+>
+> The first three are held in `tests/test_cases.py` and the golden full run.
+
 ---
 
 ## F3 · The closing section reads the operator's own book
@@ -581,6 +612,17 @@ verdict as having two halves. This extends it to the report itself.
 
 **Done when.** A run with a valuation never prints *"no view reached"*; a run the operator
 declines to judge prints the composed half alone; and no rating string is ever model-written.
+
+> **The authored half is withdrawn, 25 September 2026 (ADR 0135).** The operator decided that
+> the report states no view. The view is theirs, in a thesis and a decision, written after the
+> report is read. What remains:
+> - The composed half, which landed on 18 September and was reworded by ADR 0132.
+> - The masthead line, which says the report takes no side.
+> - The rule that no rating string is ever model-written, now joined by the rule that no
+>   section asks for one: the two contracts that asked for *"the central view"* were replaced
+>   (migration 0090).
+>
+> F2 no longer depends on this feature.
 
 ---
 

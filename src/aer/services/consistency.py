@@ -50,7 +50,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.dcf import SENSITIVITY_CASE
+from aer.calc.dcf import PERTURBATION_CASES
 from aer.core.disagreement import (
     THESIS_UNIT,
     DisagreementKind,
@@ -321,7 +321,7 @@ async def _compare_calculations(
     """
     grouped: dict[tuple[str, ...], list[Calculation]] = {}
     for calculation in calculations:
-        if _case_of(calculation) == SENSITIVITY_CASE:
+        if _case_of(calculation) in PERTURBATION_CASES:
             continue
         grouped.setdefault(_question_of(calculation), []).append(calculation)
 
@@ -512,7 +512,7 @@ def _figure_index(
         )
 
     for calculation in calculations:
-        if _case_of(calculation) == SENSITIVITY_CASE:
+        if _case_of(calculation) in PERTURBATION_CASES:
             continue
         index.setdefault(calculation.name, {})[calculation.period_label or _NO_PERIOD] = (
             _PublishedFigure(

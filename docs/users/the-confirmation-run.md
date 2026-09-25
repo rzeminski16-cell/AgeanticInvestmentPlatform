@@ -712,7 +712,8 @@ Open `/runs/{id}/review`.
 |---|---|
 | **Sections in this draft** | Every section present. None is a coverage notice |
 | **The validation results** | Citation accuracy, numerical consistency, source coverage, completeness — each a number against a threshold, all passing |
-| **The red team's bear case** | Real objections from a separate pass, not a summary of the thesis |
+| **The case for and the case against** | Both argued in the draft, within a point of each other, each lever priced beside its case; the masthead says the report takes no side |
+| **The red team's challenges** | Real objections to what the draft claims, from a separate pass, taking no side |
 | **The revision** | It answered the challenges, or said why it did not |
 | **The challenge brief** | For each unsettled challenge: what keeping the draft assumes, what accepting it assumes, and which way it leans. *Advice beside your decision, never the decision* |
 | **The rating, and what each terminal method gives** | Both follow from what you read at Stage 5 |
@@ -788,8 +789,9 @@ artefact(s) and N model call(s) all still hold.`
 
 1. **Follow three footnotes.** Pick three claims that matter, click each footnote through to
    its excerpt, and confirm the excerpt actually says what the sentence says it says.
-2. **Read it as a reader.** Does it argue something, or does it recite? Is the bear case
-   present in the text, or only in the appendix?
+2. **Read it as a reader.** Does it argue something, or does it recite? Are both cases in
+   the text, each as strong as its advocate would make it, and does the report stay out of
+   deciding between them?
 3. **Check the numbers you already checked.** The figures you traced at Stage 5 should appear
    in the prose saying the same thing.
 

@@ -71,7 +71,7 @@ DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
 # Sections whose *platform-filled fields* are bound in the registry (ADR 0063). The same
 # seed-counterpart standing as the deterministic keys: the row's contract marks fields
 # code must fill, and the registry is where that code attaches.
-AUGMENTED_KEYS = ("valuation_dcf", CLOSING_KEY, CHANGE_SUMMARY_KEY)
+AUGMENTED_KEYS = ("valuation_dcf", "investment_thesis", CLOSING_KEY, CHANGE_SUMMARY_KEY)
 
 # Every key a source file may not name: the spine, the closing section and the change
 # summary beside it. The run-order assertions stay on SEEDED_KEYS, because the fake scene
@@ -320,7 +320,10 @@ class TestDeclaredOrderSurvivesTheDatabase:
         self, db_session: AsyncSession
     ) -> None:
         # The latest version: migration 0023 published v2, appending a figures table to
-        # the 0006 contract without disturbing the declared order of the original fields.
+        # the 0006 contract without disturbing the declared order of the original fields;
+        # migration 0090 published v3, putting `summary` where `thesis` was (ADR 0135) —
+        # read back from the stored v2 and rewritten, which is exactly the round trip a
+        # reordering column would have broken.
         definition = await db_session.scalar(
             select(SectionDefinition)
             .where(SectionDefinition.key == "executive_summary")
@@ -328,7 +331,7 @@ class TestDeclaredOrderSurvivesTheDatabase:
         )
         assert definition is not None
         assert list(definition.output_contract["properties"]) == [
-            "thesis",
+            "summary",
             "key_points",
             "key_risks",
             "headline_figures",
@@ -373,7 +376,9 @@ class TestDeclaredOrderSurvivesTheDatabase:
         report = await run_to_report(**_run_args(run_context))
         markdown = report.content["markdown"]
 
-        assert markdown.index("### Thesis") < markdown.index("### Key Points")
+        # The summary's own field, first in the document: the validation appendix has a
+        # summary of its own much later, which `index` never reaches.
+        assert markdown.index("### Summary") < markdown.index("### Key Points")
         assert markdown.index("### Key Points") < markdown.index("### Key Risks")
 
     async def test_a_tables_columns_come_from_the_contract(self, run_context: dict) -> None:

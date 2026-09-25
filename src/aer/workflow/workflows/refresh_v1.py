@@ -52,7 +52,12 @@ from aer.db.models import (
     User,
 )
 from aer.db.models.section_definition import BUILTIN, SKILL
-from aer.sections.deterministic import CHANGE_SUMMARY_KEY, SectionStage, fill_deterministic_sections
+from aer.sections.deterministic import (
+    CHANGE_SUMMARY_KEY,
+    SectionStage,
+    fill_deterministic_sections,
+    price_drafted_cases,
+)
 from aer.sections.registry import create_report_sections, sections_for_job
 from aer.services import approvals as approval_service
 from aer.services import refresh as refresh_service
@@ -459,7 +464,16 @@ async def _draft(context: StepContext) -> StepResult:  # noqa: PLR0912, PLR0915 
             kept.append(key)
             continue
         prior = prior_by_key.get(key)
-        has_prior = prior is not None and prior.status is SectionStatus.GENERATED
+        # A section is carried only into the version of its definition that wrote it. Carried
+        # by key alone, a report written to the thesis contract lands in the cases' contract
+        # (ADR 0135) and renders as a heading with nothing under it: a changed contract is a
+        # reason to draft, whatever else moved.
+        contract_moved = (
+            prior is not None and prior.section_definition_id != section.section_definition_id
+        )
+        has_prior = (
+            prior is not None and prior.status is SectionStatus.GENERATED and not contract_moved
+        )
 
         if key == CHANGE_SUMMARY_KEY:
             # Free when nothing moved (the augmenter answers from the rows); one writer call
@@ -488,7 +502,7 @@ async def _draft(context: StepContext) -> StepResult:  # noqa: PLR0912, PLR0915 
             continue
 
         wants_redraft = key in flagged or not has_prior
-        if wants_redraft and not too_many and not nothing_new:
+        if wants_redraft and (contract_moved or (not too_many and not nothing_new)):
             if _over(spent_before, agent_context.spend_gbp, ceiling):
                 over_ceiling.append(key)
                 if has_prior and prior is not None:
@@ -538,6 +552,9 @@ async def _draft(context: StepContext) -> StepResult:  # noqa: PLR0912, PLR0915 
         outcomes.append(_outcome(section, "failed"))
 
     await context.session.flush()
+    # Carried or redrafted, the cases' figures are struck on this run's own base case: the
+    # argument is prose and carries, the figures are records (ADR 0135, ADR 0131 §2).
+    priced = await price_drafted_cases(context.session, job=context.job, force=True)
     filled = sum(
         1
         for s in await sections_for_job(context.session, context.job.id)
@@ -555,6 +572,7 @@ async def _draft(context: StepContext) -> StepResult:  # noqa: PLR0912, PLR0915 
             "stale": stale,
             "over_ceiling": over_ceiling,
             "kept": kept,
+            "cases_priced": priced,
             _NOTHING_NEW: nothing_new,
             _TOO_MANY: too_many,
             "ceiling_gbp": str(ceiling),

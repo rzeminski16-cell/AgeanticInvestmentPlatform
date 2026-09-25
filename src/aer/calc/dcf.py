@@ -76,6 +76,7 @@ from aer.calc.wacc import MAX_RATE, MIN_RATE
 from aer.core.sectors import ModelNotPermittedError, ValuationMandate, ValuationModel
 
 __all__ = [
+    "ARGUED_CASE",
     "DRIVER_NAMES",
     "HIGH_TERMINAL_SHARE",
     "MAX_AXIS_POINTS",
@@ -84,6 +85,7 @@ __all__ = [
     "METHOD_DISAGREEMENT",
     "MIN_AXIS_POINTS",
     "MIN_TERMINAL_SPREAD",
+    "PERTURBATION_CASES",
     "SENSITIVITY_CASE",
     "BridgeItem",
     "DcfInputs",
@@ -1213,6 +1215,17 @@ def project(
 # What a sensitivity cell is recorded as, so it is never mistaken for a scenario. The bank
 # model uses the same word for the same reason.
 SENSITIVITY_CASE: Final = "sensitivity"
+
+# What a lever one of the report's two cases turns on is recorded as (ADR 0135): the base
+# case with one input moved to a value the record already holds, struck so the case can print
+# what it would give.
+ARGUED_CASE: Final = "argued"
+
+# The cases that perturb the base case rather than state it. Neither is an answer the report
+# gives nor a scenario it compares against, so every reader of the base case or of a scenario
+# passes both by; the rows beneath them are set aside by lineage
+# (:func:`aer.services.calculations.perturbation_only`).
+PERTURBATION_CASES: Final[frozenset[str]] = frozenset({SENSITIVITY_CASE, ARGUED_CASE})
 
 
 def discounted_cash_flow(

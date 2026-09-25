@@ -3,7 +3,9 @@
 **Status.** **Accepted in part, 2026-09-18** — the composed half has landed (Phase 4.4).
 The authored half, the redaction round and `RESERVED_OUTPUT_FIELDS`' extension to the
 report remain Proposed, and ship only after the composed half has been judged alone, which
-is what the two-shipping-events decision below is for.
+is what the two-shipping-events decision below is for. **The authored half is withdrawn by
+the operator, 25 September 2026 (ADR 0135):** the report states no view, and the section at
+the end says what that leaves standing.
 **Date.** 2026-09-14
 **Extends.** ADR 0087 (a verdict has two halves: one composed, one authored), whose split this
 applies to the report itself rather than to a page. ADR 0102 (a thesis is premises, and a
@@ -258,3 +260,25 @@ most obvious falsifiers are permanently unobservable on M&T while working on Mic
 requires at least one falsifier tied to a stored identifier; the model still writes neither.
 What changes is that the falsifier's *shape* is now stated, and the form that collects it has
 to check what the monitor can read rather than trusting that the view already said it.
+
+## The authored half is withdrawn, 25 September 2026 (ADR 0135)
+
+Asked where the operator's view should be entered for the adversary to argue against, the
+operator answered that it should not be entered at all: *"the report should not be taking
+sides, it should be objective, similarly to the red team. The user has to make up their own
+view in the later thesis/decisioning steps."* So:
+
+- **The authored half, the redaction round, and the final gate's view field are withdrawn.**
+  None was built. The operator's view is a thesis (ADR 0102) and a decision (F10), written
+  after the report is read and never printed in it.
+- **The composed half stands.** *"What the valuation gives"* is arithmetic about the
+  valuation and states no side, so nothing about it changes.
+- **`reports.rating` stays unwritten**, now by decision rather than pending one. The masthead
+  line says the report takes no side, rather than *"none stated"*.
+- **The model still writes no view, and now nothing asks it to.** The executive summary's
+  *Thesis* field and the investment thesis section both asked for *"the central view"*. They
+  are replaced by a neutral summary and by the case for and the case against (migration
+  0090).
+- **The seam this record promised the monitor**, a view's falsifier becoming the first premise
+  watched, moves with the view. It sits where the thesis is written, as ADR 0102 and the
+  correction of 2026-09-20 above already describe.

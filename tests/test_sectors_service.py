@@ -621,7 +621,7 @@ class TestTheBlockIsAtTheTopOfARenderedReport:
         rows = await sections_for_job(db_session, scene["job"].id)
         rows[0].status = SectionStatus.GENERATED
         rows[0].content = {
-            "thesis": "The analysis a reader remembers.",
+            "summary": "The analysis a reader remembers.",
             "key_points": ["A point."],
         }
         await db_session.flush()

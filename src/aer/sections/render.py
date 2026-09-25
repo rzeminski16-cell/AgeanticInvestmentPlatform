@@ -82,8 +82,17 @@ CITATION_KEYS = ("source_document_id", "calculation_id")
 # one, so MSFT's second live run reached gate 2 with twenty-one raw UUIDs in front of the
 # reader and `presentation_integrity` failed on all of them. The id stays in the content
 # for the export and the interface, which can resolve it; the printed table cannot.
+# ``lever`` is a point's key into the run's list of levers (ADR 0135): what the point turns
+# on is printed by code in the priced table beside the case, never as the key it was named by.
 _METADATA_KEYS = frozenset(
-    {*CITATION_KEYS, "confidence", "financial_fact_id", "extraction_id", "prior_report_id"}
+    {
+        *CITATION_KEYS,
+        "confidence",
+        "financial_fact_id",
+        "extraction_id",
+        "prior_report_id",
+        "lever",
+    }
 )
 
 _HEADING_BASE = 2

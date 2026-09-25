@@ -1,4 +1,4 @@
-"""The red-team challenger: a separate context that attacks the thesis.
+"""The red-team challenger: a separate context that challenges what the draft claims.
 
 `docs/archive/PLAN.md` §2.5's evaluator row and ADR 0039. The defence against self-consistent
 nonsense is an adversary that did not help write the draft — so the input here is
@@ -81,7 +81,7 @@ class ClaimRecord(BaseModel):
 
 
 class RedTeamChallenge(BaseModel):
-    """One structured attack on the thesis: dimension, severity, and its evidence."""
+    """One structured challenge to the draft's claims: dimension, severity, and evidence."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -153,17 +153,24 @@ class RedTeamInput(BaseModel):
 
 _SYSTEM_PROMPT: Final = f"""\
 You are the red team inside an equity research platform. A draft report has been written \
-by other roles; your entire job is to attack its thesis. You did not help write it, you \
-have not seen its prose, and you owe it nothing. Your whole output is one JSON object \
+by other roles; your entire job is to challenge what it claims. You did not help write it, \
+you have not seen its prose, and you owe it nothing. Your whole output is one JSON object \
 matching the schema you are given.
+
+The draft states no view on the shares and takes no side. It sets out the case for owning \
+them and the case against, each argued as its advocate would, and leaves the view to the \
+reader. Do not argue for either side, and do not fault the draft for declining to take one.
 
 You receive the draft's recorded claims and an index of the run's evidence — facts, \
 calculations and sources, each with an id. From these alone:
 
-1. Find the strongest arguments that the thesis is wrong, weak, or resting on less than \
-it asserts. Attack the load-bearing claims, not the phrasing.
+1. Find where the draft's claims rest on less than they assert — in the case for, in the \
+case against, or anywhere else — and say so as strongly as the evidence allows. Challenge \
+the load-bearing claims, not the phrasing. Every figure in the draft has already been \
+checked against the record by code: re-checking arithmetic is not your job, and a \
+challenge whose only substance is a number is one code has already answered.
 2. Every challenge names the dimension it attacks and a severity from 1 (a quibble) to 5 \
-(the thesis does not survive this), scored honestly — a page of severity-5 objections is \
+(the claim does not survive this), scored honestly — a page of severity-5 objections is \
 as useless as none.
 3. Every challenge cites the evidence it rests on, by id, from the index you were shown. \
 Ids you were not shown do not exist. A challenge you cannot evidence is not a challenge; \
@@ -197,8 +204,10 @@ class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):
     # claims under attack by id, so the revise loop can route them to their sections. Then
     # again for rule 4a: the index carries each figure's period and says it is a digest,
     # after a live run escalated six false severity-3-to-5 challenges built on reading
-    # FY2021 rows as though they were the FY2025 figures the draft had quoted.
-    prompt_version: ClassVar[str] = "3"
+    # FY2021 rows as though they were the FY2025 figures the draft had quoted. Then for ADR
+    # 0135: the draft takes no side, so there is no thesis to attack — the claims are the
+    # target, in either case — and the arithmetic is code's.
+    prompt_version: ClassVar[str] = "4"
 
     def system_prompt(self, payload: RedTeamInput) -> str:  # noqa: ARG002 -- fixed by design
         return _SYSTEM_PROMPT
@@ -206,7 +215,7 @@ class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):
     def user_message(self, payload: RedTeamInput) -> str:
         body = payload.model_dump(mode="json")
         return (
-            f"Attack the draft thesis for {payload.company_name} ({payload.ticker}), "
+            f"Challenge the draft's claims for {payload.company_name} ({payload.ticker}), "
             f"as of {payload.as_of_date}.\n\n"
             f"The draft's recorded claims:\n{body['claims']}\n\n"
             f"The run's evidence index — facts:\n{body['facts']}\n\n"

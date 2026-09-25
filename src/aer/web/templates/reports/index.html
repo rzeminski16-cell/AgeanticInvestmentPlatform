@@ -83,7 +83,7 @@
                   <a
                     href="/reports/{{ row.report.id }}"
                     class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong"
-                  >{{ row.report.rating or "No conclusion produced" }}</a>
+                  >{{ row.report.rating or "Takes no side" }}</a>
                 </th>
                 <td class="px-4 py-3 type-data-sm text-ink">
                   {% if row.report.valuation_low is not none and row.report.valuation_high is not none %}
