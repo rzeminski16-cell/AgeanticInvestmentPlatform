@@ -3032,6 +3032,35 @@ found rather than as scope that was always there.
     figures by method and have those surfaces print both, named. Not started. It sits with the
     claim work (running order step 4), because none of it changes what a run does.
 
+77. **Every approved report quotes the sensitivity grid as though it were the base case, 25
+    September 2026.** Found while designing F2's levers, from one line of the verdict round's
+    MSFT thesis: *"Discount factors of 0.6655 in year four and 0.6011 in year five"*. Those are
+    the factors at 10.72%, the grid's top row. The report's discount rate is 9.72%, whose
+    factors are 0.6901 and 0.6290.
+    - **The cause.** A valuation stamps its case on its answer rows only. The discount
+      factors, present values and terminal values beneath a grid cell's answer carry the base
+      case's own parameters, and a grid is struck on a ledger of its own, so it records the
+      whole forecast again. The evidence index kept the newest row per name and parameters,
+      which by sequence is the last grid cell's. Every writer and the red team were handed a
+      corner of the grid as the report's own figures.
+    - **What it reached.** Across the operator's six approved reports, 73 claims cite a row
+      only a grid reads. 38 of them state the base case's own value, because the grid's copy
+      of a shared forecast row is the same number. **35 state a figure the base case does not
+      hold**: on AZN, *"The Gordon growth terminal value is USD 510.4bn"* where the base case
+      holds $673.8bn; on MSFT, a terminal-year discount factor of 0.601 where the base case
+      holds 0.629. `cited_figure_agreement` passed every one, because each agrees with the
+      calculation it cites. The figures are real recorded calculations; they are the wrong
+      case's.
+    - **Fixed the same day, by lineage.** `aer.services.calculations.perturbation_only` sets
+      aside every unlabelled row that a non-base answer reads and no base-case answer does,
+      and the index leaves those rows out. A writer may cite only what its evidence offered,
+      so no claim can reach one again. It reads stored runs the same way, where a label
+      written from now on would not. Held in `tests/test_calculation_index.py` on a real
+      valued run; the integration tests fail on the old index.
+    - **Not re-rendered.** The six reports are approved and immutable. Their claims stand as
+      published, and this item is where they are corrected. The re-measurement's fresh runs
+      are the first drafted from the corrected index.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

@@ -61,6 +61,7 @@ __all__ = [
     "lineage",
     "new_context",
     "persist_context",
+    "perturbation_only",
 ]
 
 _log = structlog.get_logger("aer.services.calculations")
@@ -109,7 +110,8 @@ async def indexed_calculations(
     at all — the ratio suite's, where one name is one figure — collapse exactly as before.
 
     A **sensitivity cell is excluded**, because it is a grid point rather than an answer.
-    The case the valuation reports is the one offered.
+    The case the valuation reports is the one offered. **So is every row beneath a cell's
+    answer that the base case's answer does not read** — see :func:`perturbation_only`.
 
     Args:
         run_level_first: Put the figures that belong to no statement period — a discount
@@ -117,23 +119,28 @@ async def indexed_calculations(
             caller whose bound is a token budget rather than this cap, which is a caller
             whose cut would otherwise fall in name order and take ``value_per_share`` and
             ``wacc`` first, alphabetically last as they are. Safe only because the grid is
-            excluded above: with it in the pool, this ordering fills the cap with grid
-            cells and cuts every period.
+            excluded above, its answers and the rows beneath them: with it in the pool,
+            this ordering fills the cap with grid cells and cuts every period.
     """
-    rows = await session.scalars(
-        select(Calculation)
-        .where(Calculation.job_id == job_id)
-        .order_by(
-            Calculation.name,
-            Calculation.period_end.desc().nullslast(),
-            Calculation.sequence.desc(),
+    rows = list(
+        await session.scalars(
+            select(Calculation)
+            .where(Calculation.job_id == job_id)
+            .order_by(
+                Calculation.name,
+                Calculation.period_end.desc().nullslast(),
+                Calculation.sequence.desc(),
+            )
         )
     )
+    beneath_a_perturbation = perturbation_only(rows)
 
     kept: dict[tuple[str, str], Calculation] = {}
     for calc in rows:
         parameters = calc.parameters or {}
         if str(parameters.get("case", "")) == SENSITIVITY_CASE:
+            continue
+        if calc.id in beneath_a_perturbation:
             continue
         kept.setdefault((calc.name, _distinguisher(parameters)), calc)
 
@@ -156,6 +163,74 @@ def _distinguisher(parameters: Mapping[str, Any]) -> str:
     two rows that recorded the same choices in a different insertion order are one figure.
     """
     return json.dumps(parameters, sort_keys=True, default=str)
+
+
+# The case a run's own answer is recorded under. Every other case on an answer is something
+# the report compares against, or a perturbation of it.
+_BASE_CASE: Final = "base"
+
+
+def perturbation_only(rows: Sequence[Calculation]) -> frozenset[uuid.UUID]:
+    """The unlabelled rows only a non-base answer reads: set aside wherever the base is meant.
+
+    **Only an answer carries its case.** A valuation stamps ``case`` on the rows that are
+    its answer — the enterprise value, the value per share — and on none beneath them: the
+    discount factors, the present values, the terminal values carry the base case's own
+    parameters whichever valuation struck them. A grid cell over the discount rate
+    therefore records five discount factors indistinguishable by name and parameters from
+    the base case's, and by sequence the last cell's are the newest. That is how the
+    verdict round's MSFT thesis came to quote year-four and year-five factors of 0.6655 and
+    0.6011: a 10.72% discount rate, the grid's top row, where the report's was 9.72%.
+
+    So what a row belongs to is read from its lineage rather than from its label. A row is
+    set aside when an answer carrying a case other than the base case's reads it, directly
+    or through other rows, and no base-case answer does. A row both read is kept — the
+    engine strikes one derivation once, so a projection the grid shares with the base case
+    *is* the base case's — and so is a row no answer reads, which is most of a run: its
+    ratios, its history, its cost of capital. The labelled answers themselves are left to
+    their own case, so a scenario's value per share stays a scenario's.
+
+    Stored runs are read the same way, which is why this is a rule over rows rather than a
+    label written from now on: a label added today would leave every recorded run's grid
+    where it is.
+    """
+    by_id = {str(row.id): row for row in rows}
+    base: list[Calculation] = []
+    other: list[Calculation] = []
+    for row in rows:
+        case = str((row.parameters or {}).get("case") or "")
+        if case == _BASE_CASE:
+            base.append(row)
+        elif case:
+            other.append(row)
+    read_by_other = _ancestors(other, by_id)
+    if not read_by_other:
+        return frozenset()
+    read_by_base = _ancestors(base, by_id)
+    return frozenset(
+        by_id[identifier].id
+        for identifier in read_by_other - read_by_base
+        if not (by_id[identifier].parameters or {}).get("case")
+    )
+
+
+def _ancestors(answers: Sequence[Calculation], by_id: Mapping[str, Calculation]) -> set[str]:
+    """Every row of ``by_id`` the answers read, through any number of steps, but not them."""
+    found: set[str] = set()
+    queue: deque[Calculation] = deque(answers)
+    while queue:
+        row = queue.popleft()
+        for raw in row.inputs or ():
+            source = raw.get("source") if isinstance(raw, dict) else None
+            if not isinstance(source, dict) or source.get("kind") != SourceKind.CALCULATION.value:
+                continue
+            identifier = str(source.get("id", ""))
+            parent = by_id.get(identifier)
+            if parent is None or identifier in found:
+                continue
+            found.add(identifier)
+            queue.append(parent)
+    return found
 
 
 def new_context() -> CalculationContext:
