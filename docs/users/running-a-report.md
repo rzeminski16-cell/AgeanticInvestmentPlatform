@@ -94,9 +94,9 @@ resumable.
 
 **`/runs/{id}/review`.** The drafted report, exactly as it will be stored, alongside:
 
-- **The validation results.** Citation accuracy, temporal compliance, numerical
-  consistency, source coverage and completeness — deterministic checks, each a number
-  against a threshold. The model's own validator *advises* and cannot overrule them.
+- **The validation results.** Citation accuracy, numerical consistency, source coverage and
+  completeness — deterministic checks, each a number against a threshold. The model's own
+  validator *advises* and cannot overrule them.
 - **The red team's bear case.** A separate pass, working from its own context rather than
   the drafter's, attacking the thesis it was handed.
 - **A brief of each choice you are being asked to make.** For every challenge nobody has

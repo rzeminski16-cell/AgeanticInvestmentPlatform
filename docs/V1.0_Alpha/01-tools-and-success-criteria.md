@@ -100,6 +100,13 @@ important new surface in the design**, and the one that makes the loop legible.
 unmapped-concepts page is unusable at scale, the refresh mechanic and the workbook do not exist,
 and the reader's evidence drawer is the platform's single strongest feature.
 
+*Corrected 25 September 2026.* The refresh exists (ADR 0131) and so does the workbook (ADR 0134).
+The workbook's bar is met: a LibreOffice recompute test changes the growth inputs and holds
+the answer to where the report's own records say it goes. The unmapped-concepts page shows at
+most twenty ranked rows (Phase 1.5). The three timed bars are the operator's own first run on
+their machine, and [`../users/windows-bring-up.md`](../users/windows-bring-up.md) is the
+checklist for it.
+
 ### 2. Methodology library
 
 **What it is.** The operator's own report sections, written in plain language, and — later —

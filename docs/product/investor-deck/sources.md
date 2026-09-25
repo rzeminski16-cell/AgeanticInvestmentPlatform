@@ -1,5 +1,14 @@
 # Where every figure in the decks comes from
 
+> *Overtaken, 25 September 2026.* The three decks built on 16 September came before the
+> verdict round, and the investor overview claims more than the platform now does: it
+> describes a platform that writes an institutional-style note, counts a temporal-compliance
+> check that ADR 0113 retired, and names scenarios and an 81-cell grid the product does not
+> have. The platform now claims an evidence base and a checking instrument, and
+> [`../what-it-is.md`](../what-it-is.md) is the current account. Those decks stay as they were
+> built, because what they argued at the time is part of the record. The angel pitch came
+> after the verdict, and tags every slide by the kind of claim it makes.
+
 Four decks live here.
 
 **`tracework-angel-pitch.pptx`** (54 slides) is the angel pitch: the whole case for taking the

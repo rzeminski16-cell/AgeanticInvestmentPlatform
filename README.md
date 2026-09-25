@@ -1,11 +1,14 @@
 # Tracework Invest
 
-A local-first, auditable equity research platform for equities that file with the SEC:
-US listings, and UK companies that file a 20-F.
+A local-first, auditable equity research platform for companies that file with the SEC: US
+listings, and UK companies that file a 20-F. A London listing that files only with Companies
+House is refused before a run starts, and told why: none has yet been found whose accounts
+there are tagged ([ADR 0128](docs/adr/0128-a-run-that-cannot-succeed-does-not-start.md)).
 
-It produces **one institutional-style research report at a time**, under explicit human
-approval, with every number traceable to a formula and every fact traceable to a hashed
-source document.
+What it gives you is **an evidence base and a checking instrument**, one company at a time,
+under explicit human approval: the filings fetched and hashed, every number computed in tested
+code and traceable to its formula, every fact traceable to the archived bytes it came from, and
+the means to check a figure or an argument by hand.
 
 > **This is a personal research tool. It is not regulated investment advice.** Nothing it
 > produces is a recommendation to buy, sell or hold any security. Ratings are non-binding
@@ -26,11 +29,25 @@ task. See [`docs/adr/0003`](docs/adr/0003-deterministic-code-owns-numbers-and-fa
 
 ## Status
 
+**What it claims, and what it no longer claims.** In September 2026 a pre-registered round
+put the platform's reports beside notes a general-purpose assistant wrote on the same
+companies. The judges chose the assistant's note in all six counted comparisons, for the
+same reason each time: the platform's stated view was broken or contradicted itself. What
+they said was worth keeping from the platform's documents was its evidence: the source
+register, the primary-source checks, the restated figures, and the red team's objections as a
+checklist. So the platform no longer claims to write a better research note. It claims the
+evidence base and the checking instrument, and
+[the round's record](docs/plan/phase-7-round-2026-09/README.md) is why.
+
 **The chain is complete; the breadth is still growing.** A research request becomes a
 costed plan you approve, filings fetched and hashed, each period's latest-filed facts, traced
 calculations, a drafted report you approve, and a frozen document in which every figure
 carries a footnote that resolves either to the formula that produced it or to the archived
-bytes it came from.
+bytes it came from. Beside the document:
+- **a calculator**, which strikes the report's own discounted cash flow over your numbers and
+  records nothing;
+- **a workbook**, the same model with its formulas written out, archived with the report and
+  proved to reproduce it.
 
 All nine planned tools work today — **Equity Research**, **Portfolio**, **Watchlist**,
 **Risk**, **Theses**, **Decisions**, **Monitor**, **Post-trade review** and **Decision
@@ -42,8 +59,8 @@ about what is missing.
 ## Quickstart
 
 ```bash
-git clone https://github.com/rzeminski16-cell/TraceworkEquityResearchPlatform.git
-cd TraceworkEquityResearchPlatform
+git clone https://github.com/rzeminski16-cell/AgeanticInvestmentPlatform.git
+cd AgeanticInvestmentPlatform
 
 uv python install 3.12
 uv sync --all-groups
@@ -76,7 +93,7 @@ Full instructions, including Windows and the WeasyPrint native dependencies, are
 | Read the output properly | [`docs/users/reading-a-report.md`](docs/users/reading-a-report.md) |
 | Change the code | [`docs/developers/knowledge-map.md`](docs/developers/knowledge-map.md) |
 | Know what happens next | [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) |
-| Know why something is the way it is | [`docs/adr/`](docs/adr/) — 85 decision records |
+| Know why something is the way it is | [`docs/adr/`](docs/adr/) — 134 decision records |
 
 ## The invariants
 
@@ -86,7 +103,9 @@ ADR-level decision. They are stated in [`CLAUDE.md`](CLAUDE.md); what enforces e
 
 1. Every externally derived fact traces to a hashed artefact.
 2. The model may propose a citation; **only code confirms one**.
-3. No figure reaches a report unless it is a stored fact or a recorded calculation.
+3. No figure reaches a report unless it is a stored fact, a recorded calculation or an
+   attestation — what your own book says, which reaches no shareable surface
+   ([ADR 0073](docs/adr/0073-an-attestation-is-what-the-book-says-at-two-times-and-one-grade-of-evidence.md)).
 4. *Retired.* A rule that nothing published after a run's date could support a claim was
    shown never to have fired — the date is always the day the run was commissioned — and
    [ADR 0113](docs/adr/0113-a-run-reads-the-filings-as-they-stand.md) took it down. A run

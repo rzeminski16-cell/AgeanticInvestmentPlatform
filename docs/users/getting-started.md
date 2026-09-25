@@ -12,6 +12,8 @@ for downloads.
 - **Python 3.12**
 - [**uv**](https://docs.astral.sh/uv/) for dependency management
 - **Docker Desktop**, for PostgreSQL and Redis
+- **The PostgreSQL 16 client tools** on `PATH`, for backup and restore: they call `pg_dump`
+  and `pg_restore` on your machine even though the server runs in Docker
 - Optionally [**just**](https://github.com/casey/just), a task runner. Every recipe in the
   `justfile` is a one-line `uv run …` command, so you can work without it.
 
@@ -32,8 +34,8 @@ Everything else — matplotlib for charts, pikepdf for the PDF finishing pass �
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # 2. Clone
-git clone https://github.com/rzeminski16-cell/TraceworkEquityResearchPlatform.git
-cd TraceworkEquityResearchPlatform
+git clone https://github.com/rzeminski16-cell/AgeanticInvestmentPlatform.git
+cd AgeanticInvestmentPlatform
 
 # 3. Pinned Python and dependencies
 uv python install 3.12
@@ -171,6 +173,10 @@ clean slate](the-confirmation-run.md#starting-from-a-clean-slate) in the runbook
 down-hard` alone leaves the artefact store behind and the schema unbuilt.
 
 ## Your first run
+
+Bringing it up on your own Windows machine with a restored corpus, as the V1.0 acceptance?
+[**Windows bring-up**](windows-bring-up.md) is the checklist, in order, with the three timed
+bars.
 
 Commission something small and familiar first — a large US filer with a long, clean filing
 history is the gentlest start. Then read

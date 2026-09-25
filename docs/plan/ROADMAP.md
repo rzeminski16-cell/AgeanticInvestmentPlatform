@@ -115,6 +115,36 @@ two terminal assumptions are confirmed (§3.16).
     bytes before the database refused to delete its row. The sweep now reads every foreign key
     to an artefact off the schema.
 
+**The claim narrowed, 25 September 2026 — the finish line's third condition.**
+- **What the documents claim now.** The README, the documentation index, *What it is*, the
+  anatomy page and the user guides claim an evidence base and a checking instrument, and name
+  the verdict round as the reason. They state the London limit as it stands: a listing that
+  files only with Companies House is refused before a run starts, and told why (ADR 0128).
+- **What went with it.**
+  - the retired temporal-compliance check and "what was knowable when";
+  - an 81-cell grid, and scenarios, which nothing in the product creates;
+  - the old repository name in the clone URL;
+  - "85 decision records", now 134;
+  - invariant 3 without attestations.
+- **The investor decks.** They are built files from 16 September. They keep what they argued at
+  the time, and carry a dated notice saying where they now overclaim.
+
+**The Windows bring-up checklist — the instrument for the fourth condition.**
+[`docs/users/windows-bring-up.md`](../users/windows-bring-up.md) covers, in order:
+- restoring the corpus from the 25 September backup;
+- preflight reading ready;
+- the operator's own timed first run against the three bars;
+- rotating the Companies House key, as the last step.
+
+Writing it found one gap: backup and restore call `pg_dump` and `pg_restore` on the operator's
+machine even though Postgres runs in Docker, and the install guide did not say so.
+
+**Taken out of order, and why.** Steps 3 to 5 below came ahead of the last two parts of step 1,
+F13's authored half and F2. F2 waits on the operator's answer to one question: is the view
+entered at the final gate, as ADR 0117 has it, with the adversary running again? Or at a new
+stop after the draft, before the adversary, which needs an ADR amending ADR 0117? The
+re-measurement follows F2.
+
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
    does.

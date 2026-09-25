@@ -2,9 +2,13 @@
 
 Everything written down about this platform, arranged by who is reading it.
 
-The platform produces **one institutional-style equity research report at a time** for a UK
-or US listed company, under explicit human approval, with every number traceable to a
-formula and every fact traceable to a hashed source document.
+The platform builds **an evidence base and a checking instrument** for one company at a time,
+under explicit human approval, with every number traceable to a formula and every fact
+traceable to a hashed source document. It covers companies that file with the SEC — US
+listings, and UK companies with a 20-F; a London listing that files only with Companies House
+is refused before a run starts, and told why. Since the verdict round of September 2026 it no
+longer claims to write a better research note than a general-purpose assistant:
+[`product/what-it-is.md`](product/what-it-is.md) says why.
 
 > **This is a personal research tool. It is not regulated investment advice.** Nothing it
 > produces is a recommendation to buy, sell or hold any security. Ratings are non-binding
@@ -40,9 +44,10 @@ For anyone who needs to understand or explain the platform without reading code.
 - [`investor-deck/`](product/investor-deck/) — twelve slides arguing the case to somebody
   outside the project, built only from figures the readiness audit measured;
   [`sources.md`](product/investor-deck/sources.md) maps every one of them back to its
-  section, including the six blind comparisons the platform lost. Beside them, the angel
-  pitch (`tracework-angel-pitch.pptx`): the case for a business, every slide tagged by the
-  kind of claim it makes, with placeholders wherever the record is silent;
+  section, including the six blind comparisons the platform lost. Built before the verdict
+  round, and claiming more than the platform now does; `sources.md` says where. Beside them,
+  the angel pitch (`tracework-angel-pitch.pptx`): the case for a business, every slide tagged
+  by the kind of claim it makes, with placeholders wherever the record is silent;
   [`pitch-sources.md`](product/investor-deck/pitch-sources.md) is its map.
 
 ### `users/` — how to run it
@@ -50,6 +55,9 @@ For anyone who needs to understand or explain the platform without reading code.
 For the operator: the person who installs it, commissions research and approves it.
 
 - [`getting-started.md`](users/getting-started.md) — install, configure, first run.
+- [`windows-bring-up.md`](users/windows-bring-up.md) — the V1.0 acceptance on your own
+  Windows machine: the corpus restored, preflight ready, and your own timed first run against
+  the three bars nobody else can time.
 - [`running-a-report.md`](users/running-a-report.md) — the run, gate by gate, and what each
   approval commits you to.
 - [`the-confirmation-run.md`](users/the-confirmation-run.md) — testing the tool step by

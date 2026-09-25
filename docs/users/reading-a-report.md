@@ -63,11 +63,32 @@ are unchanged, and the drill-down page still shows you the excerpt.
 | `/claims/{id}` | One claim, its excerpts, and the verifier's verdict on each |
 | `/runs/{id}/sources` | Every document the run acquired — **including the ones it refused** |
 | `/calculations/{id}` | One figure, walked to its leaves |
-| `/companies/{id}` | This company's research history: valuation range over time, prior catalysts and risks |
+| `/runs/{id}/calculator` | The report's own discounted cash flow over your numbers, beside the report's figures. Nothing is recorded |
+| `/companies/{id}` | This company's research history: what each terminal method gave, report by report, and prior catalysts and risks |
 | `/reports` | Every report this account has produced, grouped by company |
 
 The sources page is the one people skip and shouldn't. A run that refused four documents
 made four judgements, and the reasons are on that page.
+
+## Checking the valuation by hand
+
+The report's discounted cash flow is two per-share figures, one for each way of valuing what
+comes after the forecast, and they often disagree. Two things let you test them against your
+own numbers.
+
+- **The calculator** strikes the same model the report struck, over the same confirmed values,
+  and first says whether it still reproduces the report. Change a growth rate or the discount
+  rate and it shows your answer beside the report's. An entry outside the plausible range is
+  refused with the same sentence the assumptions gate gives.
+- **The workbook**, downloaded from the report's page, is the same model as a spreadsheet:
+  inputs in blue, formulas in black, the report's own figures in grey beside them. It is
+  written when the report is approved, and only if it reproduces the report. A sources sheet
+  says where every input came from. The moment you change a figure, it is your model rather
+  than the platform's record, and the sheet says so.
+
+The workbook leaves the machine, so it does not carry the share price, which is the vendor's.
+It carries the market capitalisation computed from it, and leaves the distance from the price
+to the report.
 
 ## Reading a refusal
 

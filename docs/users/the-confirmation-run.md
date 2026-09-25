@@ -711,11 +711,11 @@ Open `/runs/{id}/review`.
 | Check | What good looks like |
 |---|---|
 | **Sections in this draft** | Every section present. None is a coverage notice |
-| **The validation results** | Citation accuracy, temporal compliance, numerical consistency, source coverage, completeness — each a number against a threshold, all passing |
+| **The validation results** | Citation accuracy, numerical consistency, source coverage, completeness — each a number against a threshold, all passing |
 | **The red team's bear case** | Real objections from a separate pass, not a summary of the thesis |
 | **The revision** | It answered the challenges, or said why it did not |
 | **The challenge brief** | For each unsettled challenge: what keeping the draft assumes, what accepting it assumes, and which way it leans. *Advice beside your decision, never the decision* |
-| **The rating and valuation range** | Both follow from what you read at Stage 5 |
+| **The rating, and what each terminal method gives** | Both follow from what you read at Stage 5 |
 | **The spend** | In the region of £9.31 |
 | **Every claim** (`/runs/{id}/claims`) | Evidence verified |
 

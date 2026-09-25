@@ -13,16 +13,27 @@ browser — it is self-contained and needs no server.*
 
 ## In one paragraph
 
-It writes an institutional-style equity research note on a company that files with the
-SEC — every US listing, and a UK plc with a 20-F, as AstraZeneca has. A domestic-only
-London listing cannot be researched yet: acquisition resolves a subject against EDGAR's
-own ticker file, and the Companies House adapter is written but wired to nothing. You
-approve a costed plan before anything is spent, it fetches and archives the primary
-sources itself, it does all the arithmetic in ordinary tested Python, a language model
-writes the prose, and you approve the draft before it is frozen into a document. Every
-figure in that document carries a footnote that resolves either to the formula that
-produced it or to the archived bytes it came from. It runs on your own machine against
-your own database.
+It builds an **evidence base and a checking instrument** for one company at a time: a company
+that files with the SEC — every US listing, and a UK plc with a 20-F, as AstraZeneca has. A
+London listing that files only with Companies House is refused before a run starts, and told
+why: none has yet been found whose accounts there are tagged, and a run that cannot succeed
+does not start. You approve a costed plan before anything is spent, it fetches and archives the
+primary sources itself, it does all the arithmetic in ordinary tested Python, a language model
+writes the prose, and you approve the draft before it is frozen into a document. Every figure
+in that document carries a footnote that resolves either to the formula that produced it or to
+the archived bytes it came from, and the valuation comes with a calculator and a workbook to
+test it against your own numbers. It runs on your own machine against your own database.
+
+## What it claims, and what it no longer claims
+
+It no longer claims to write a better research note than a general-purpose assistant. In
+September 2026 a pre-registered round put the platform's reports beside notes an assistant
+wrote on the same companies, and the judges chose the assistant's note in all six counted
+comparisons. Their reason was the same each time: the platform's stated view was broken or
+contradicted itself. What they said was worth keeping from the platform's documents was its
+evidence — the source register, the primary-source checks, the restated figures, and the red
+team's objections as a checklist. That is what it claims now, and
+[the round's record](../plan/phase-7-round-2026-09/README.md) is why.
 
 ## The problem it exists to solve
 
@@ -46,7 +57,7 @@ interpretation, comparison, adversarial challenge and writing.**
 | Fetching, hashing, archiving, parsing | Deciding what is worth researching |
 | **All arithmetic** — ratios, growth, cost of capital, discounted cash flow, comparables, scenarios | Proposing an assumption, with its justification |
 | Unit and currency handling | Judging whether a source is relevant |
-| Dates, and what was knowable when | Writing a section from facts it was handed |
+| Dates, and which filing's word stands for each period | Writing a section from facts it was handed |
 | Resolving and verifying every citation | Attacking the resulting thesis |
 | Storage, rendering, cost metering | Natural-language prose |
 
@@ -65,14 +76,18 @@ a recorded calculation is refused before it reaches a page.
    statistics. Every byte is hashed and stored, so a claim can point at an exact excerpt in
    an exact document.
 3. **Analysis that is arithmetic, not assertion.** Normalised financial statements, ratio
-   and earnings-quality suites, a cost of capital, a driver-based discounted cash flow, a
-   residual-income model for banks, comparable companies behind a peer-set you confirm,
-   scenarios and an 81-cell sensitivity grid.
-4. **A drafted report, validated and attacked.** Citation accuracy, temporal compliance and
-   numerical consistency are checked in code. A separate red-team pass, working from its
+   and earnings-quality suites, a cost of capital, a driver-based discounted cash flow with
+   both terminal methods side by side, a residual-income model for banks, comparable
+   companies behind a peer-set you confirm, and two sensitivity grids.
+4. **A drafted report, validated and attacked.** Citation accuracy, numerical consistency and
+   agreement between sections are checked in code. A separate red-team pass, working from its
    own context, argues the bear case against the draft.
 5. **A second approval, then an immutable document.** Markdown, HTML and PDF, each frozen
-   and hashed, plus optional Obsidian notes.
+   and hashed, plus optional Obsidian notes, and for a discounted cash flow a workbook of the
+   model with its formulas written out.
+6. **The means to check it by hand.** A calculator strikes the report's own discounted cash
+   flow over your numbers and records nothing. The workbook is the same model in a spreadsheet,
+   proved to reproduce the report before it is written.
 
 You can also add **your own report sections**, written as plain-language skill files, so
 the analysis reflects your views rather than a fixed template.
@@ -138,9 +153,11 @@ multi-user deployment**. Those are not on a roadmap; they are out of scope.
 
 ## What is built, and what is not
 
-Ten tools work today (as at 23 September 2026). The launcher shows each one's state as data
-rather than as a claim: a tool that is not built yet is a page that says what it is waiting
-on, rather than a dead link, and none is in that state at the moment.
+Ten tools work today (as at 25 September 2026), and three more things are reached from a
+report or a run rather than from the launcher: the refresh, the calculator and the workbook.
+The launcher shows each tool's state as data rather than as a claim: a tool that is not built
+yet is a page that says what it is waiting on, rather than a dead link, and none is in that
+state at the moment.
 
 | Tool | State |
 |---|---|
@@ -155,13 +172,15 @@ on, rather than a dead link, and none is in that state at the moment.
 | **Decision analytics** | **Working.** What the reviewed positions have in common, every statistic with its count. |
 | **Ask** | **Working**, all three tiers. A question over a company's record — recomputed for nothing, re-read for pennies, and where it needs new material, priced first and researched through the report's own acquisition path on your go-ahead. |
 | **Refresh** | **Working**, from a report's own page. A priced second run on the same request that reads only what has been filed since, recomputes every figure, re-drafts only the sections resting on a figure that moved, leads with what changed, and supersedes the prior report with *Refreshed*. Nothing is spent when nothing is new. |
+| **Calculator** | **Working**, from a run's valuation page. The report's own discounted cash flow struck over your numbers, beside the report's figures. Nothing is recorded. |
+| **Workbook** | **Working**, from an approved report's page. The discounted cash flow with its formulas written out, the recorded grids, the comparison and where every input came from. It is written only when it reproduces the report. |
 
 The honest summary of the research tool is that the **chain** is complete and the
 **breadth** is still growing. A run reaches a cited, validated, human-approved document
 without a gap in its provenance. What is thinner is coverage: the concept map does not know
-every filer's vocabulary, scenarios do not yet exist for the bank model, and a UK
-risk-free rate is still missing because the Bank of England's own `robots.txt` disallows
-the route its documentation describes, and reaching around that would be circumvention.
+every filer's vocabulary, nothing in the product yet creates a scenario, and a UK risk-free
+rate is still missing because the Bank of England's own `robots.txt` disallows the route its
+documentation describes, and reaching around that would be circumvention.
 
 Those gaps are tracked in [`../plan/ROADMAP.md`](../plan/ROADMAP.md) rather than smoothed
 over here.
@@ -170,11 +189,10 @@ over here.
 
 The constraints cost real capability. Refusing to let the model do arithmetic means every
 calculation has to be written and tested. Refusing to trust a proposed citation means a
-verification pass that occasionally rejects a citation that was fine. Refusing to look
-ahead means some analysis is simply unavailable.
+verification pass that occasionally rejects a citation that was fine.
 
-What they buy is a document whose numbers you do not have to spot-check, because the
-platform cannot produce one it could not defend. That is the whole trade, and it is only
+What they buy is numbers you can check in seconds rather than take on trust: every one walks
+back to its formula or to the filing it came from. That is the whole trade, and it is only
 worth making if you intend to act on what you read.
 
 ---
