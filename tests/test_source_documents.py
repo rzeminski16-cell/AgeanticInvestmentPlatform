@@ -33,7 +33,12 @@ from aer.core.schemas.injection import Finding, InjectionSignal
 from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User
 from aer.errors import IntegrityError, ValidationError
 from aer.services.acquisition import acquisition_root
-from aer.services.artefacts import store_artefact, store_artefact_stream, verify_artefact
+from aer.services.artefacts import (
+    EmptyArtefactError,
+    store_artefact,
+    store_artefact_stream,
+    verify_artefact,
+)
 from aer.services.injection import record_findings
 from aer.services.sources import (
     EXCLUDED_BY_OPERATOR,
@@ -135,6 +140,18 @@ class TestStoringArtefacts:
 
         with pytest.raises(ValidationError):
             await store_artefact(db_session, store, data=b"x" * (store.max_bytes + 1))
+
+        assert await db_session.scalar(select(func.count()).select_from(Artefact)) == before
+
+    async def test_an_empty_body_is_refused_by_name_before_the_table_refuses_it(
+        self, db_session, store
+    ):
+        """Roadmap §3.19 item 70: the table's check constraint refused an empty 404 body as a
+        database error, and the verdict round's MSFT run failed on it as `unexpected_error`."""
+        before = await db_session.scalar(select(func.count()).select_from(Artefact))
+
+        with pytest.raises(EmptyArtefactError, match="nothing in it to cite"):
+            await store_artefact(db_session, store, data=b"", media_type="text/html")
 
         assert await db_session.scalar(select(func.count()).select_from(Artefact)) == before
 

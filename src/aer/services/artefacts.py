@@ -21,11 +21,12 @@ from sqlalchemy.exc import IntegrityError as DbIntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.db.models import Artefact, AuditEvent
-from aer.errors import IntegrityError
+from aer.errors import AerError, IntegrityError
 from aer.storage.protocol import ArtefactStore, StoredArtefact
 
 __all__ = [
     "ArtefactRecord",
+    "EmptyArtefactError",
     "record_fetched_artefact",
     "store_artefact",
     "store_artefact_stream",
@@ -35,6 +36,13 @@ __all__ = [
 _log = structlog.get_logger("aer.services.artefacts")
 
 DEFAULT_MEDIA_TYPE = "application/octet-stream"
+
+
+class EmptyArtefactError(AerError):
+    """Zero bytes were offered as evidence. A publisher's answer, not a store failure."""
+
+    code = "empty_artefact"
+    http_status = 422
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +127,17 @@ async def _record(
     *,
     media_type: str,
 ) -> ArtefactRecord:
+    if stored.size_bytes == 0:
+        # Refused here, by name, before the table's own check constraint refuses it as a
+        # database error: that error reached the verdict round's MSFT run as
+        # `unexpected_error` and failed it outright (roadmap §3.19 item 70). The constraint
+        # stays, as the backstop it was.
+        message = (
+            "An empty body is not an artefact: there is nothing in it to cite, and a "
+            "provenance record for zero bytes would point at nothing."
+        )
+        raise EmptyArtefactError(message, context={"sha256": stored.sha256})
+
     existing = await session.scalar(select(Artefact).where(Artefact.sha256 == stored.sha256))
     if existing is not None:
         # Already known. Not an error and not a second copy — the same bytes are the same

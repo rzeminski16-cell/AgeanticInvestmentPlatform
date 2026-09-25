@@ -627,10 +627,12 @@ class _RecordingFetcher:
         body: bytes = b"<html><body><p>Nothing much.</p></body></html>",
         raises: Exception | None = None,
         headers: dict[str, str] | None = None,
+        status_code: int = 200,
     ) -> None:
         self._body = body
         self._raises = raises
         self._headers = headers or {}
+        self._status_code = status_code
         self.urls: list[str] = []
         self.providers: list[Provider] = []
         self.extra_hosts: list[tuple[str, ...]] = []
@@ -644,11 +646,12 @@ class _RecordingFetcher:
         self.urls.append(url)
         self.providers.append(provider)
         self.extra_hosts.append(extra_hosts)
+        # Archived whatever the status, as the real fetch layer archives every failure.
         stored = await self.store.put_bytes(self._body)
         return FetchResult(
             url=url,
             final_url=url,
-            status_code=200,
+            status_code=self._status_code,
             sha256=stored.sha256,
             size_bytes=len(self._body),
             media_type="text/html",
@@ -712,6 +715,14 @@ async def fetch_scene(db_session: AsyncSession, tmp_path: Any, settings_env: Any
     }
 
 
+async def _documents_held(scene: dict[str, Any]) -> int:
+    """The run's source documents, counted: a refusal must leave the number where it was."""
+    rows = await scene["session"].scalars(
+        select(SourceDocument).where(SourceDocument.work_order_id == scene["request"].id)
+    )
+    return len(list(rows))
+
+
 class TestFetchingAKnownUrl:
     """The one tool that reaches outside, and the rule that keeps it safe.
 
@@ -747,6 +758,43 @@ class TestFetchingAKnownUrl:
         assert outcome.executed is False
         assert "holds no document from that host" in outcome.refusal
         assert fetcher.urls == [], "a refused host must never reach the fetch layer"
+
+    async def test_a_page_that_is_not_there_is_refused_and_nothing_is_recorded(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Roadmap §3.19 item 70. The verdict round's worker composed an EDGAR address with
+        a sequence number of zeros; EDGAR answered 404 with an empty body, recording it
+        broke the artefact table's constraint, and the whole run failed on a database error.
+        """
+        fetcher = _RecordingFetcher(body=b"", status_code=404)
+        executors = self._executors(fetch_scene, fetcher)
+        before = await _documents_held(fetch_scene)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request(
+                "fetch_known_url",
+                "https://www.sec.gov/Archives/edgar/data/789019/000119312526000000/",
+            )
+        )
+
+        assert outcome.executed is False
+        assert "404 (Not Found)" in outcome.refusal
+        assert "search_sources" in outcome.refusal, "the refusal says what to do instead"
+        assert await _documents_held(fetch_scene) == before
+
+    async def test_an_empty_page_is_refused_whatever_its_status(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        executors = self._executors(fetch_scene, _RecordingFetcher(body=b""))
+        before = await _documents_held(fetch_scene)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        assert outcome.executed is False
+        assert "empty page" in outcome.refusal
+        assert await _documents_held(fetch_scene) == before
 
     async def test_a_page_on_an_established_host_is_fetched_and_becomes_citable(
         self, fetch_scene: dict[str, Any]

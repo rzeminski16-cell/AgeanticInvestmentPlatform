@@ -44,6 +44,18 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      # The hooks, over the whole tree (roadmap §3.19 item 69). Nothing ran them but a git
+      # hook, and a container without one drifted unseen: eighty-five recorded files the
+      # whitespace hooks rewrote and 708 strings the secrets scan had never read. Ruff and
+      # mypy are skipped here because they run above against the locked versions; the
+      # branch guard because it is about committing, not about the tree.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: uv run pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: no-commit-to-branch,ruff,ruff-format,mypy
 
   tests:
     name: Tests and the evaluation gate

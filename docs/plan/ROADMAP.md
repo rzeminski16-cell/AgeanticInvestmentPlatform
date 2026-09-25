@@ -2772,6 +2772,11 @@ found rather than as scope that was always there.
     `fecac92`). *Left:* CI still does not run the hooks, so a container without the git hook
     drifts the same way again; a `pre-commit run --all-files` step in the lint job closes it.
 
+    **Closed 25 September 2026.** The lint job runs every hook over the whole tree, with its
+    environments cached on the config's hash. It skips three: ruff and mypy, which the steps
+    before it run against the locked versions, and the branch guard, which is about committing
+    rather than about the tree. Run locally in the same form before it went in, it passed.
+
 70. **An empty page fails a run, 24 September 2026.** Found by the verdict round's MSFT run.
     The research worker asked for an EDGAR accession that does not exist — a sequence number
     of zeros — and EDGAR answered 404 with an empty body; the body went to the artefact store,
@@ -2783,6 +2788,21 @@ found rather than as scope that was always there.
     crash rather than a corruption. Worth asking too why the worker guessed an accession
     rather than resolving one.
 
+    **Fixed 25 September 2026, both halves.**
+    - **The 404.** The research worker's known-address fetch refuses an answer that is not a
+      page — any status outside success, or an empty body — before anything is recorded. The
+      refusal carries the status in words, *"404 (Not Found)"*, and tells the worker to take
+      addresses from what `search_sources` returned rather than composing one. That is the
+      answer to the guessing too: the worker is told, in the one reply it reads, not to guess.
+    - **The empty body.** The artefact recorder refuses an empty body by name, as
+      `EmptyArtefactError`, before the table's constraint has to. The constraint stays as the
+      backstop.
+
+    The fetch layer still archives every answer, as its own rule says. What changed is that an
+    answer that is not a page never becomes evidence. The tests are two in
+    `tests/test_research_workers.py`, red without the fix, and one in
+    `tests/test_source_documents.py`.
+
 71. **The browser suite enqueues its runs on the operator's queue, 24 September 2026.** Found
     by the verdict round's AZN run, which waited ten minutes behind 1,225 stale `run_research`
     jobs — 981 discarded, 244 expired, none spending. The suite's live server is given its own
@@ -2790,6 +2810,12 @@ found rather than as scope that was always there.
     commissions is enqueued on `redis://127.0.0.1:6379/0`, the operator's queue, and
     `tests/e2e/worker.py` begins *"There is no arq worker in these tests and no queue"*. Give
     the live server its own Redis database, and assert that nothing reaches the default one.
+
+    **Fixed 25 September 2026.** The live server now gets `redis://127.0.0.1:6379/15`, emptied
+    before each test so it never grows either. `tests/e2e/test_queue_isolation.py` starts a
+    run through the browser and asserts that the run's job is on the suite's queue and not on
+    database 0. It was red without the fix. The one job its red run left on this container's
+    queue was removed by hand.
 
 72. **The verdict round's fresh baseline cost twice its estimate, 24 September 2026.** The
     pre-registration priced one Opus 5.5 note from September's MSFT note's input, 1.54 million
@@ -2842,6 +2868,22 @@ found rather than as scope that was always there.
     the rows and never instead of them; nothing checks that the prose agrees with them, which
     is the shape ADR 0125's denial scan already catches between sections (item 37), applied
     to a change summary and its own rows.
+
+    **Fixed 25 September 2026, at the cause and at the edge.**
+    - **The cause was the brief.** The writer's note listed every row as *"what moved"*,
+      including the forty that were gone, so the model said they had moved. The note now
+      names each row by what happened to it — moved materially, changed sign, computed for
+      the first time, or no longer computed though the prior report held it. It also says
+      that a figure no longer computed has not moved, been revised or been restated.
+    - **The edge.** The commentary's check refuses a commentary that passes over a figure
+      the report rests on when the rows say it is gone. Those figures are the diff's own
+      anchors, value per share among them. The check names the figures, and the section's
+      retry asks again. The rule is that the absence is said at all, not that one phrase is
+      used. It covers anchors only, because an ordinary figure also disappears when its inputs
+      change: a growth rate over a new window replaces the old one's key. The restated-filing
+      scene showed that on the check's first version.
+
+    `tests/test_what_changed.py` holds it, with the round's own sentence as the refused case.
 
 ### Before this leaves one machine
 

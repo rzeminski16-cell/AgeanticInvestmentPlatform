@@ -19,6 +19,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from http import HTTPStatus
 from typing import Any, Final
 from urllib.parse import urlsplit
 
@@ -620,9 +621,11 @@ async def _fetch_known_url(
         # Every control in the fetch layer refuses by raising — robots, SSRF, the size
         # cap, the breaker. A refusal is information the worker can act on, not a
         # reason to fail the node.
-        return ExecutedTool(
-            tool=tool_request.tool, query=url, executed=False, refusal=f"Refused: {exc.message}"
-        )
+        refusal: str | None = f"Refused: {exc.message}"
+    else:
+        refusal = _nothing_there(result, host=host)
+    if refusal is not None:
+        return ExecutedTool(tool=tool_request.tool, query=url, executed=False, refusal=refusal)
 
     # A page the run already holds is answered from the record it already has —
     # highest tier, unquarantined first (gap A43). Recording it again minted a fresh
@@ -748,6 +751,37 @@ async def _memoised_text(
             store, sha256=sha256, media_type=media_type, settings=settings
         )
     return texts[sha256]
+
+
+def _nothing_there(result: Any, *, host: str) -> str | None:
+    """The refusal for an answer that is not a page, or ``None`` for one that is.
+
+    A page that is not there is not evidence (roadmap §3.19 item 70). The verdict round's
+    worker composed an EDGAR address with a sequence number of zeros; EDGAR answered 404
+    with an empty body, the body went to the artefact table, whose constraint refused it,
+    and the database error failed the whole run. The fetch layer archived the answer, as it
+    archives every failure; what it answered is not a document to cite.
+    """
+    if result.ok and result.size_bytes > 0:
+        return None
+    answered = (
+        f"answered {_status_words(result.status_code)}"
+        if not result.ok
+        else "answered with an empty page"
+    )
+    return (
+        f"Refused: {host} {answered} for that address, so there is nothing there to read "
+        "and nothing was recorded. Take a document's address from what search_sources "
+        "returned rather than composing one."
+    )
+
+
+def _status_words(status_code: int) -> str:
+    """``404 (Not Found)``: the number a log greps for, beside the words a reader needs."""
+    try:
+        return f"{status_code} ({HTTPStatus(status_code).phrase})"
+    except ValueError:
+        return str(status_code)
 
 
 async def _held_by_url(

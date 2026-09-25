@@ -13,12 +13,13 @@ with the ids the drawer resolves; the prose is around them.
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.changes import Movement
+from aer.calc.changes import ANCHORS, Movement
 from aer.calc.comps import Audience
 from aer.db.models import Job, ResearchRequest
 from aer.sections.consequences import instructions_found
@@ -97,18 +98,45 @@ async def what_changed_block(
 
 
 def what_changed_problems(content: dict[str, Any], block: dict[str, Any]) -> list[str]:
-    """A commentary that instructs, or that cites a figure the rows do not carry."""
+    """A commentary that instructs, or that passes over figures the rows say are gone."""
     commentary = str(content.get("commentary") or "")
     if not commentary:
         return []
     named = ", ".join(_labels(block)) or "none"
-    return [
+    problems = [
         f"The commentary says {phrase!r}, and this section states what moved since the prior "
         "report without issuing an instruction: no recommendation, no rating, no target, no "
         f"size. Say what the moves above amount to — {named} — and leave the decision to the "
         "operator."
         for phrase in instructions_found(commentary)
     ]
+    # Roadmap §3.19 item 74. The verdict round's refresh lost its valuation, and the rows
+    # said so — forty figures "no longer computed" — while the commentary said the chain
+    # "has moved" and both terminal approaches "have been restated". A figure the report
+    # rests on that is gone has not moved, and a commentary that never says so is describing
+    # another document. Anchors only: an ordinary figure also disappears when its inputs
+    # change — a growth rate over a new window replaces the old one's key — and a commentary
+    # owes the reader no sentence about that.
+    gone = [
+        label
+        for label in _labels(block, movements={Movement.DISAPPEARED.value})
+        if _anchors_the_report(label)
+    ]
+    if gone and not _ABSENCE.search(commentary):
+        count = len(gone)
+        problems.append(
+            f"{count} figure{'' if count == 1 else 's'} the report rests on "
+            f"{'is' if count == 1 else 'are'} no longer computed — {', '.join(gone)} — and "
+            "the commentary does not say so. A figure this refresh does not hold has not "
+            "moved, been revised or been restated: say that it is no longer computed."
+        )
+    return problems
+
+
+def _anchors_the_report(label: str) -> bool:
+    """Whether a row's label names one of the diff's anchors, which the label begins with."""
+    spoken = label.lower()
+    return any(spoken.startswith(anchor.replace("_", " ")) for anchor in ANCHORS)
 
 
 def what_changed_only(block: dict[str, Any]) -> str:
@@ -120,30 +148,73 @@ def what_changed_only(block: dict[str, Any]) -> str:
 
 
 def what_changed_note(block: dict[str, Any]) -> str:
-    """What the writer is told about the block it cannot see."""
-    named = ", ".join(_labels(block)) or "none"
+    """What the writer is told about the block it cannot see.
+
+    Each row by what happened to it. The note used to call every row a move, figures the
+    refresh no longer computed among them, and the commentary it produced said so in its own
+    words — "has moved", "restated" — against rows that said the opposite (item 74).
+    """
     broke = len(block.get("broke") or [])
+    kinds = [(words, _labels(block, movements=movements)) for words, movements in _WHAT_HAPPENED]
+    listed = " ".join(
+        f"{words.capitalize()}: {', '.join(labels)}." for words, labels in kinds if labels
+    )
     return (
-        "The block rendered above your commentary lists what moved between the prior report "
-        f"and this refresh, largest relative change first: {named}. "
+        "The block rendered above your commentary lists what changed between the prior report "
+        f"and this refresh, largest relative change first. {listed or 'Nothing moved.'} "
         + (
             f"{broke} premise{'' if broke == 1 else 's'} crossed a threshold and lead the list. "
             if broke
             else ""
         )
-        + "Say what those moves amount to for a reader of the prior report, in two or three "
-        "plain sentences, resting only on the rows shown. Quote no figure the rows do not "
-        "carry. Issue no instruction: no buy, sell, add, trim, size, rating, target or "
-        "recommendation."
+        + "Say what those changes amount to for a reader of the prior report, in two or three "
+        "plain sentences, resting only on the rows shown and in the terms above: a figure no "
+        "longer computed has not moved, been revised or been restated. Quote no figure the "
+        "rows do not carry. Issue no instruction: no buy, sell, add, trim, size, rating, "
+        "target or recommendation."
     )
 
 
-def _labels(block: dict[str, Any]) -> list[str]:
+# What happened to a row, in the words the writer is given, in the order they are listed.
+# `broke` rows are premises and are named by the sentence after the list, not here.
+_WHAT_HAPPENED: tuple[tuple[str, frozenset[str]], ...] = (
+    (
+        "moved materially",
+        frozenset(
+            {
+                Movement.RELATIVE.value,
+                Movement.ANCHOR.value,
+                Movement.FROM_ZERO.value,
+                Movement.WATCHED.value,
+            }
+        ),
+    ),
+    ("changed sign", frozenset({Movement.SIGN.value})),
+    ("computed for the first time", frozenset({Movement.APPEARED.value})),
+    (
+        "no longer computed, though the prior report held them",
+        frozenset({Movement.DISAPPEARED.value}),
+    ),
+)
+
+# How a commentary says a figure is gone. Deliberately loose: the rule is that it says so
+# at all, not that it uses one approved phrase.
+_ABSENCE = re.compile(
+    r"\b(?:no longer (?:computed|calculated|held|available|shown|produced)|not computed|"
+    r"not recomputed|absent|missing|dropped out|disappeared|no valuation)\b",
+    re.IGNORECASE,
+)
+
+
+def _labels(
+    block: dict[str, Any], *, movements: frozenset[str] | set[str] | None = None
+) -> list[str]:
     return [
         str(row.get("label", "")).strip()
         for field in ("broke", "moved")
         for row in block.get(field) or []
         if str(row.get("label", "")).strip()
+        and (movements is None or str(row.get("movement") or "") in movements)
     ]
 
 

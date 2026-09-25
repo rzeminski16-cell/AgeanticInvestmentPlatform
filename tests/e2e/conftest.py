@@ -32,6 +32,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import redis
 import uvicorn
 from sqlalchemy import text
 from sqlalchemy.exc import SAWarning
@@ -50,6 +51,21 @@ STARTUP_TIMEOUT_SECONDS = 20.0
 
 # What the console's meta-refresh fallback is set to for browser tests. See `live_server`.
 E2E_POLL_SECONDS = 3600
+
+# The suite's own queue, never the operator's (roadmap §3.19 item 71). The live server was
+# given its own database, artefact root and signing key but not a Redis URL, so every run a
+# browser test commissioned was enqueued on database 0 — the one a real worker reads — and
+# the verdict round's AZN run waited ten minutes behind 1,225 of them. Database 15 on the
+# same server, emptied before each test so it never grows either.
+E2E_REDIS_URL = "redis://127.0.0.1:6379/15"
+
+
+def _empty_the_suite_queue() -> None:
+    client = redis.Redis.from_url(E2E_REDIS_URL)
+    try:
+        client.flushdb()
+    finally:
+        client.close()
 
 
 def _free_port() -> int:
@@ -105,7 +121,9 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     settings_env.setenv("AER_DATABASE_URL", database_url)
     settings_env.setenv("AER_ARTEFACT_ROOT", str(tmp_path / "artefacts"))
     settings_env.setenv("AER_SECRET_KEY", "e2e-signing-key-not-a-real-one")
+    settings_env.setenv("AER_REDIS_URL", E2E_REDIS_URL)
     settings = load_settings()
+    _empty_the_suite_queue()
 
     # Again here, not only at teardown. The server is stopped while the browser page is
     # still open — `page` is requested before `live_server` in every test signature, so
