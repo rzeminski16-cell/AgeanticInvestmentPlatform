@@ -386,7 +386,7 @@
 
   .agents {
     display: grid;
-    /* Two columns at full width, one when narrow — eight agents divide evenly into
+    /* Two columns at full width, one when narrow — twelve agents divide evenly into
        both, so the grid never leaves a hollow cell showing the rule colour. */
     grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
     gap: 1px;
@@ -491,6 +491,10 @@
 
   .output p { font-size: 0.87rem; color: var(--ink-soft); max-width: none; }
 
+  /* The audit trail runs under the renderings rather than beside them: it is what they are
+     all drawn from, and a fifth tile alone on its row would leave a hollow cell. */
+  .output.is-trail { grid-column: 1 / -1; }
+
   .ledger {
     border: 1px solid var(--rule);
     background: var(--sunk);
@@ -575,9 +579,9 @@
     <p class="eyebrow">Tracework Invest</p>
     <h1>Anatomy of a Research Run</h1>
     <p class="lede">
-      One company name becomes a research report and the evidence behind it. The run stops
-      and waits for you at every decision that is yours. Here is what happens in between,
-      and who is allowed to do what.
+      Thirty-two steps turn one company name into a research report and the evidence behind
+      it. At up to seven of them the run stops and waits for your decision. Here is what
+      happens in between, and who is allowed to do what.
     </p>
     <div class="doctrine">
       <p>
@@ -631,9 +635,11 @@
       <p class="eyebrow">Part one — the pipeline</p>
       <h2>The whole run, top to bottom</h2>
       <p class="note">
-        The order and the cost estimates below are what <span class="mono">build_steps()</span>
-        declares; nothing here is a hand-kept copy. Steps that share prerequisites run at the
-        same time — the five research workers are one such fan-out.
+        The order and the cost estimates below are copied from what
+        <span class="mono">build_steps()</span> declares, as it stood on 25 September 2026. It
+        is a copy, so the companion notebook named at the foot of this page reads the same
+        table live, and re-running it is how to check this one has not gone stale. Steps that
+        share prerequisites can run at the same time: after the financials gate, seven do.
       </p>
     </div>
 
@@ -648,94 +654,141 @@
             <span class="step-agent">planner · Opus, high effort</span>
             <span class="step-what">Proposes which sections to write, which sources to consult and which risks to chase — before a single page is fetched or a penny spent.</span>
           </div>
-          <div class="cost">£0.15</div>
+          <div class="cost">£0.20</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">02</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">critique_plan</span>
+            <span class="step-agent">plan_critic · Opus, high effort</span>
+            <span class="step-what">Attacks the plan from a context that did not write it. A serious challenge sends the plan back to the planner once, and the critique joins the plan, so you approve the two together rather than side by side.</span>
+          </div>
+          <div class="cost">£0.30</div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">03</div>
           <div class="gate-body">
+            <span class="step-key">gate_plan</span>
             <p class="gate-name">Gate · Plan <span class="when">always</span></p>
-            <p class="gate-ask">Is this the right research? Change it now, while it is still free.</p>
+            <p class="gate-ask">Is this the right research, at this projected cost? Change it now, while it is still free.</p>
           </div>
-        </div>
-
-        <div class="step">
-          <div class="step-n">03</div>
-          <div class="lane"></div>
-          <div class="step-body">
-            <span class="step-key">acquire</span>
-            <span class="step-what">Fetches filings and XBRL company facts from EDGAR under rate limits and robots rules. Every response is hashed and stored before anything reads it.</span>
-          </div>
-          <div class="cost"></div>
         </div>
 
         <div class="step">
           <div class="step-n">04</div>
           <div class="lane"></div>
           <div class="step-body">
+            <span class="step-key">acquire</span>
+            <span class="step-what">Resolves the company — at EDGAR, or at Companies House for a UK filer — and fetches its filings and their tagged figures under rate limits and robots rules. Every response is hashed and stored before anything reads it.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">05</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">acquire_macro</span>
+            <span class="step-what">The risk-free rate for the filings' currency, read from a published yield series as it stood on the run's date and recorded as a calculation the report can walk. With no reading to be had, the assumptions gate asks you for the rate; the run does not fail.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">06</div>
+          <div class="lane"></div>
+          <div class="step-body">
             <span class="step-key">classify</span>
-            <span class="step-what">Reads the filed SIC code to decide whether this is a bank, an insurer or a REIT — which decides which valuation models are permitted at all.</span>
+            <span class="step-what">Reads the filed industry code to decide whether this is a bank, an insurer or a REIT — which decides which valuation models are permitted at all.</span>
           </div>
           <div class="cost"></div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">07</div>
           <div class="gate-body">
-            <p class="gate-name">Gate · Sector specialist <span class="when">only when the sector needs it</span></p>
+            <span class="step-key">gate_sector_specialist</span>
+            <p class="gate-name">Gate · Sector specialist <span class="when">only when a specialist sector is proposed</span></p>
             <p class="gate-ask">This looks like a financial. Confirm, because a discounted cash flow on a bank will be blocked rather than footnoted.</p>
           </div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">06</div>
+          <div class="step-n">08</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">propose_peers</span>
             <span class="step-agent">peer_proposal · Sonnet, medium effort</span>
             <span class="step-what">Names up to eight comparable companies by ticker, each with a written reason. Code then resolves every ticker against EDGAR's registry; one that does not resolve is refused and never fetched.</span>
           </div>
-          <div class="cost">£0.05</div>
+          <div class="cost">£0.02</div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">09</div>
           <div class="gate-body">
+            <span class="step-key">gate_peer_set</span>
             <p class="gate-name">Gate · Peer set <span class="when">when peers were proposed</span></p>
             <p class="gate-ask">Which companies is this one measured against? A wrong peer moves a median without ever showing itself.</p>
           </div>
         </div>
 
-        <div class="step">
-          <div class="step-n">08</div>
+        <div class="step is-model">
+          <div class="step-n">10</div>
           <div class="lane"></div>
           <div class="step-body">
-            <span class="step-key">acquire_prices</span>
-            <span class="step-what">Price history for the company and its market, and a beta regressed from them — so the cost of capital rests on measured data rather than a number typed in by hand.</span>
+            <span class="step-key">propose_themes</span>
+            <span class="step-agent">theme_proposal · Sonnet, medium effort</span>
+            <span class="step-what">Names the larger stories the company belongs to. The model names them and code decides what they are: each is matched against the themes already tracked, so you see which join one and which would found a new one. A failed call is an empty slate, not a failed run.</span>
           </div>
-          <div class="cost"></div>
+          <div class="cost">£0.02</div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">11</div>
+          <div class="gate-body">
+            <span class="step-key">gate_theme_set</span>
+            <p class="gate-name">Gate · Themes <span class="when">when themes were proposed</span></p>
+            <p class="gate-ask">Which stories is this company filed under? A theme shapes how every later reading of your library weighs it.</p>
+          </div>
         </div>
 
         <div class="step">
-          <div class="step-n">09</div>
+          <div class="step-n">12</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">extract</span>
-            <span class="step-what">Pulls facts and exact character spans out of the stored documents. Each span is the evidence a later citation will be re-checked against.</span>
+            <span class="step-what">Pulls facts and exact character spans out of the stored documents, and takes each period's figures from the latest filing to state them. Each span is the evidence a later citation will be re-checked against.</span>
           </div>
           <div class="cost"></div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">13</div>
           <div class="gate-body">
-            <p class="gate-name">Gate · UK financials <span class="when">when a filing used unknown tags</span></p>
-            <p class="gate-ask">This filer tagged concepts the map does not recognise. Confirm before they are dropped, rather than losing them silently.</p>
+            <span class="step-key">gate_unmapped_concepts</span>
+            <p class="gate-name">Gate · Financials <span class="when">when a filing used tags the map does not know</span></p>
+            <p class="gate-ask">This filer tagged concepts the map does not recognise. The twenty that matter most are ranked, with both counts named; confirm before they are dropped, rather than losing them silently.</p>
           </div>
         </div>
 
+        <p class="fan"><span>Seven steps can run at the same time from here</span></p>
+
         <div class="step">
-          <div class="step-n">11</div>
+          <div class="step-n">14</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">acquire_prices</span>
+            <span class="step-what">Price history for the company and its market: a beta regressed from them, and the market capitalisation that weights the discount rate — measured data rather than numbers typed in by hand.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">15</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">calculate</span>
@@ -744,67 +797,65 @@
           <div class="cost"></div>
         </div>
 
-        <p class="fan"><span>Five research workers run at the same time from here</span></p>
-
         <div class="step is-model">
-          <div class="step-n">12</div>
+          <div class="step-n">16</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">research_company</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
             <span class="step-what">The business itself: what it sells, to whom, and how that has moved.</span>
           </div>
-          <div class="cost">£0.10</div>
+          <div class="cost">£0.30</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">13</div>
+          <div class="step-n">17</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">research_industry</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
             <span class="step-what">Competitive position, structure and where the pressure is coming from.</span>
           </div>
-          <div class="cost">£0.10</div>
+          <div class="cost">£0.30</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">14</div>
+          <div class="step-n">18</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">research_macro</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
             <span class="step-what">Rates, inflation and the conditions the valuation will have to survive.</span>
           </div>
-          <div class="cost">£0.10</div>
+          <div class="cost">£0.30</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">15</div>
+          <div class="step-n">19</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">research_recent_developments</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
             <span class="step-what">What has happened lately, from the pages the run may read.</span>
           </div>
-          <div class="cost">£0.10</div>
+          <div class="cost">£0.30</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">16</div>
+          <div class="step-n">20</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">research_technical_context</span>
             <span class="step-agent">analysis · Sonnet, medium effort</span>
             <span class="step-what">The domain detail a generalist would miss: how this industry actually books revenue and measures itself.</span>
           </div>
-          <div class="cost">£0.10</div>
+          <div class="cost">£0.30</div>
         </div>
 
         <p class="fan"><span>Back to a single line</span></p>
 
         <div class="step">
-          <div class="step-n">17</div>
+          <div class="step-n">21</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">comps</span>
@@ -814,81 +865,116 @@
         </div>
 
         <div class="step is-model">
-          <div class="step-n">18</div>
+          <div class="step-n">22</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">propose_assumptions</span>
             <span class="step-agent">assumption_proposal · Opus, high effort</span>
-            <span class="step-what">The two numbers no filing can answer: the perpetual growth rate and the exit multiple. Proposed with reasons; a value outside the bounds code sets is dropped, never quietly clamped.</span>
+            <span class="step-what">The two numbers no filing can answer — the perpetual growth rate and the exit multiple — proposed with reasons. Code proposes the rest from the filed history, each with its arithmetic. A value outside the bounds code sets is dropped, never quietly clamped.</span>
           </div>
-          <div class="cost">£0.20</div>
+          <div class="cost">£0.10</div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">23</div>
           <div class="gate-body">
+            <span class="step-key">gate_assumptions</span>
             <p class="gate-name">Gate · Assumptions <span class="when">when the valuation needs one</span></p>
-            <p class="gate-ask">Every number the valuation rests on that no filing answers — with the reasoning behind each, for you to accept, change or reject.</p>
+            <p class="gate-ask">Every number the valuation rests on that no filing answers, with the reasoning behind each, for you to accept, change or reject. Where the two terminal methods would finish far apart, you see what each would give before you confirm them.</p>
           </div>
         </div>
 
         <div class="step">
-          <div class="step-n">20</div>
+          <div class="step-n">24</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">value</span>
-            <span class="step-what">Cost of capital, the discounted cash flow, scenarios and sensitivities. Forty lines of tested Python — deliberately not a reasoning task.</span>
+            <span class="step-what">The cost of capital, then the discounted cash flow under both terminal methods side by side, with a sensitivity grid around each. Tested Python — deliberately not a reasoning task.</span>
           </div>
           <div class="cost"></div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">21</div>
+          <div class="step-n">25</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">draft</span>
             <span class="step-agent">report_writer · Opus, high effort · sixteen sections</span>
-            <span class="step-what">Each section is written once, from an evidence pack code assembled for it, against a schema that names every field. The most expensive step by an order of magnitude.</span>
+            <span class="step-what">Each section is written once, from an evidence pack code assembled for it, against a schema that names every field; the descriptive ones go by a cheaper route. The most expensive step in the run.</span>
           </div>
-          <div class="cost">£6.00</div>
+          <div class="cost">£5.00</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">22</div>
+          <div class="step-n">26</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">validate</span>
             <span class="step-agent">validator · Sonnet — advisory only</span>
-            <span class="step-what">Thirteen metrics scored, every citation re-read against the archived bytes, and the two sections that must never be paraphrased filled by code instead.</span>
+            <span class="step-what">Thirteen metrics scored, every citation re-read against the archived bytes, and the record sections that must never be paraphrased filled by code instead.</span>
           </div>
-          <div class="cost">£0.05</div>
+          <div class="cost">£0.02</div>
         </div>
 
         <div class="step is-model">
-          <div class="step-n">23</div>
+          <div class="step-n">27</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">red_team</span>
             <span class="step-agent">red_team · Opus, high effort</span>
             <span class="step-what">A fresh context attacks the thesis. It sees the claims and the evidence index — never the conversation that produced them, so it cannot inherit the drafting model's blind spots.</span>
           </div>
-          <div class="cost">£1.00</div>
+          <div class="cost">£0.35</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">28</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">revise</span>
+            <span class="step-agent">report_writer · Opus, high effort</span>
+            <span class="step-what">The sections the red team's material challenges attack are redrafted once, with the challenge in front of the writer. A redraft that does not pass leaves the first one standing, so a revision can only improve what you are shown.</span>
+          </div>
+          <div class="cost">£1.50</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">29</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">verdict</span>
+            <span class="step-agent">verdict · Haiku, low effort</span>
+            <span class="step-what">One sentence on the frozen draft, for the review page. It is written after the draft stopped changing and joins nothing you approve.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">30</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">brief_challenges</span>
+            <span class="step-agent">challenge_brief · Haiku, low effort</span>
+            <span class="step-what">For each challenge no rule could settle, what each side assumes and what it would imply. It decides nothing: which side you take, and why, is yours to write.</span>
+          </div>
+          <div class="cost">£0.20</div>
         </div>
 
         <div class="gate-bar">
-          <div class="gate-n">◼</div>
+          <div class="gate-n">31</div>
           <div class="gate-body">
+            <span class="step-key">gate_final</span>
             <p class="gate-name">Gate · Final <span class="when">always</span></p>
-            <p class="gate-ask">The finished draft, with its unsupported claims, failed metrics and the red team's best shots shown rather than buried. Approve, and only then is a PDF made.</p>
+            <p class="gate-ask">The finished draft, with its unsupported claims, failed metrics and the red team's best shots shown rather than buried. A section a check refused can be redrafted from here. Approve, and only then are the PDF and the workbook made.</p>
           </div>
         </div>
 
         <div class="step">
-          <div class="step-n">25</div>
+          <div class="step-n">32</div>
           <div class="lane"></div>
           <div class="step-body">
             <span class="step-key">render</span>
-            <span class="step-what">One document, three renderings. The PDF is made from the archived HTML bytes rather than from the object in memory, so what freezes is provably the thing that was approved.</span>
+            <span class="step-what">One document, three renderings. The PDF is made from the archived HTML bytes rather than from the object in memory, so what freezes is provably the thing that was approved. For a discounted cash flow, the model workbook is archived beside it, and only when it reproduces the report.</span>
           </div>
           <div class="cost"></div>
         </div>
@@ -897,16 +983,16 @@
     </div>
 
     <p class="note">
-      A seventh gate is not in the sequence at all: <span class="mono">BUDGET</span> can
-      interrupt at any point, when the metered spend would cross the run's ceiling. It asks
-      one question — continue, or stop here?
+      One more stop is not in the sequence at all: the ceiling. When the metered spend would
+      cross the run's cap, the run pauses wherever it has reached and asks one question —
+      raise the ceiling and continue, or stop here?
     </p>
   </section>
 
   <section>
     <div class="section-head">
       <p class="eyebrow">Part two — the agents</p>
-      <h2>Eight roles, each with one job and a leash</h2>
+      <h2>Twelve roles, each with one job and a leash</h2>
       <p class="note">
         An agent here is a narrow thing: one role, one output contract, one list of tools it
         may ask for. All of that is <em>data in a registry</em>, not something a class can
@@ -928,8 +1014,17 @@
 
       <div class="agent">
         <div class="agent-top">
+          <p class="agent-name">plan_critic</p>
+          <p class="agent-meta"><span>Opus · high</span><span>no tools</span><span>ADR 0091</span></p>
+        </div>
+        <p class="agent-asked">Attack the plan before any money moves: what it has missed, and what it will not be able to answer.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It sees the request and the plan and nothing else, because there are no findings yet to leak. A serious challenge buys the planner one revision, never a loop, and the critique joins the plan you approve.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
           <p class="agent-name">analysis</p>
-          <p class="agent-meta"><span>Sonnet · medium</span><span>4 tools</span><span>ADR 0036</span></p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>5 tools</span><span>ADR 0036</span></p>
         </div>
         <p class="agent-asked">Five workers, one topic each: the company, its industry, the macro backdrop, recent events, technical context.</p>
         <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It never calls a tool. It <em>requests</em> one in a schema and code decides whether that request is permitted, then executes it. Findings must name evidence; a figure of its own is not a valid output.</p>
@@ -942,6 +1037,15 @@
         </div>
         <p class="agent-asked">Comparable companies, each named by ticker with a reason for being on the list.</p>
         <p class="agent-guard"><span class="guard-label">What stops it inventing</span>A ticker is a claim about the world, so code checks it: every one is resolved against EDGAR's registry, and a name that does not resolve is refused before a single request goes out.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">theme_proposal</p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>no tools</span><span>ADR 0065</span></p>
+        </div>
+        <p class="agent-asked">The larger stories this company belongs to, each with a reason.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It names and code decides: every key is reduced to one identity and matched against the themes already tracked, and nothing joins a theme until a person agrees the slate.</p>
       </div>
 
       <div class="agent">
@@ -987,6 +1091,24 @@
         </div>
         <p class="agent-asked">Attack the thesis. Scored, evidence-cited challenges to what the report concluded.</p>
         <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It runs in a separate context and is shown the claims and the evidence index only. Every challenge must cite, so it cannot object by assertion any more than the draft could assert by assertion.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">verdict</p>
+          <p class="agent-meta"><span>Haiku · low</span><span>no tools</span><span>ADR 0087</span></p>
+        </div>
+        <p class="agent-asked">One sentence on the finished draft, for the review page.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It writes after the draft has stopped changing and joins nothing you approve, so its reading can move no figure and no hash.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">challenge_brief</p>
+          <p class="agent-meta"><span>Haiku · low</span><span>no tools</span><span>ADR 0095</span></p>
+        </div>
+        <p class="agent-asked">For a challenge no rule could settle: what each side assumes, and what it would imply.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It decides nothing and reaches no report. Which side you take, and the reason for it, are yours to write.</p>
       </div>
 
     </div>
@@ -1110,12 +1232,17 @@
     <div class="section-head">
       <p class="eyebrow">Part four — the end product</p>
       <h2>What you are left holding</h2>
+      <p class="note">
+        An evidence base and a checking instrument: the record below, and the means to check a
+        figure or an argument by hand. The platform claims that and no more, and
+        <a href="what-it-is.md">what it is</a> says why.
+      </p>
     </div>
 
     <div class="outputs">
       <div class="output">
         <p class="output-name">Markdown</p>
-        <p>The report as source: eighteen sections, every figure carrying its citation.</p>
+        <p>The report as source: eighteen sections, every figure carrying its citation. Its header says what each terminal method gives and states no view of its own.</p>
       </div>
       <div class="output">
         <p class="output-name">HTML</p>
@@ -1126,6 +1253,10 @@
         <p>Frozen from those archived bytes, and only ever for a report you approved.</p>
       </div>
       <div class="output">
+        <p class="output-name">Workbook</p>
+        <p>For a discounted cash flow, the model with its formulas written out: inputs blue, formulas black, the report's own figures beside them. Archived with the PDF, and written only when it reproduces the report.</p>
+      </div>
+      <div class="output is-trail">
         <p class="output-name">The audit trail</p>
         <p>Every artefact fetched, fact stored, calculation with its formula, claim with its citations, thirteen metric scores, the red team's challenges, and one cost row per model call.</p>
       </div>
@@ -1133,20 +1264,25 @@
 
     <div class="ledger">
       <p class="eyebrow">Projected model spend, shown at the plan gate</p>
-      <div class="ledger-row"><span>Drafting sixteen sections</span><span class="figure">£6.00</span></div>
-      <div class="ledger-row"><span>Red team</span><span class="figure">£1.00</span></div>
-      <div class="ledger-row"><span>Five research workers</span><span class="figure">£0.50</span></div>
-      <div class="ledger-row"><span>Assumptions</span><span class="figure">£0.20</span></div>
-      <div class="ledger-row"><span>Plan</span><span class="figure">£0.15</span></div>
-      <div class="ledger-row"><span>Peers and validation</span><span class="figure">£0.10</span></div>
-      <div class="ledger-row total"><span>Projected total</span><span class="figure">£7.95</span></div>
+      <div class="ledger-row"><span>Drafting sixteen sections</span><span class="figure">£5.00</span></div>
+      <div class="ledger-row"><span>Revising what the red team attacks</span><span class="figure">£1.50</span></div>
+      <div class="ledger-row"><span>Five research workers</span><span class="figure">£1.50</span></div>
+      <div class="ledger-row"><span>Red team</span><span class="figure">£0.35</span></div>
+      <div class="ledger-row"><span>Plan critique</span><span class="figure">£0.30</span></div>
+      <div class="ledger-row"><span>Challenge briefs and verdict</span><span class="figure">£0.30</span></div>
+      <div class="ledger-row"><span>Plan</span><span class="figure">£0.20</span></div>
+      <div class="ledger-row"><span>Assumptions</span><span class="figure">£0.10</span></div>
+      <div class="ledger-row"><span>Peers, themes and validation</span><span class="figure">£0.06</span></div>
+      <div class="ledger-row total"><span>Projected total</span><span class="figure">£9.31</span></div>
     </div>
 
     <p class="note">
       The estimate is deliberately coarse and deliberately <em>pre-run</em> — it is what the
-      plan gate shows you before a penny is spent. What is enforced afterwards is the real
-      metered spend, checked in code before every step. A cap that only warned would be a cap
-      that did not work.
+      plan gate shows you before a penny is spent, with the plan's own spend in place of its
+      estimate, and the drafting at the larger of its estimate and the approved sections' own
+      budgets. It errs high: the verdict round's two full runs, in September 2026, cost £5.88
+      and £6.17. What is enforced is the real metered spend, checked in code before every step.
+      A cap that only warned would be a cap that did not work.
     </p>
   </section>
 
@@ -1161,6 +1297,7 @@
       <li><span class="x">✕</span><span>Print a figure it cannot trace to a filing or to a formula.</span></li>
       <li><span class="x">✕</span><span>Compare against peers nobody agreed to.</span></li>
       <li><span class="x">✕</span><span>Run a discounted cash flow on a bank — the sector model blocks it rather than footnoting it.</span></li>
+      <li><span class="x">✕</span><span>State a view of its own. The header says what each terminal method gives, and why the two differ.</span></li>
       <li><span class="x">✕</span><span>Publish a report whose citations do not verify against the archived bytes.</span></li>
       <li><span class="x">✕</span><span>Treat a fetched page as an instruction. Untrusted content is wrapped and labelled as data, and tool permission is enforced in code — so text in a document cannot cause a call the agent's role does not already allow.</span></li>
       <li><span class="x">✕</span><span>Spend past its ceiling because one step looked cheap.</span></li>
