@@ -1,0 +1,2273 @@
+{
+  "payload": {
+    "revisions": [
+      {
+        "section_key": "executive_summary",
+        "dimension": "valuation",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "investment_thesis",
+        "dimension": "valuation",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "executive_summary",
+        "dimension": "growth",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "investment_thesis",
+        "dimension": "growth",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "cash_flow_analysis",
+        "dimension": "valuation",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "growth_outlook",
+        "dimension": "growth",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "growth_outlook",
+        "dimension": "valuation",
+        "severity": 4,
+        "disposition": "revised"
+      }
+    ],
+    "sections": [
+      {
+        "key": "executive_summary",
+        "content": {
+          "summary": "AstraZeneca enters the period with FY2025 revenue of $58.74bn and operating income of $13.74bn after an R&D load of $14.23bn. The evidence establishes that structure but not the three questions that most determine value: exclusivity exposure inside the horizon, what the price implies for oncology, and the margin effect of US pricing policy \u2014 income-statement coverage ends at the December 2025 year end, with no product, segment or policy detail. Open is whether the recorded ten-year revenue CAGR of 9.05%, measured on USD reported revenue, survives once exclusivity loss and pipeline contribution are counted separately rather than assumed.",
+          "key_risks": [
+            "Loss-of-exclusivity drag is unquantified in the evidence.",
+            "Valuation is dominated by a discount rate built on a measured beta of 0.277; normalising that beta would move value materially.",
+            "Alliance revenue moves into a new aggregated subtotal, complicating period comparisons."
+          ],
+          "key_points": [
+            "Exclusivity exposure cannot be quantified here: no product-level sales or expiry dates are in evidence, and the latest stored period detail is Q2 2025 revenue of $14.46bn with operating income of $3.51bn.",
+            "The ten-year CAGR of 9.05% was delivered by assets that were pipeline during that decade and by brands now nearing expiry. Extrapolating it while crediting nothing to unapproved pipeline and deducting nothing for exclusivity is not conservative; it counts the same history twice.",
+            "The discount rate is load-bearing, and the recorded cost of equity of 6.46% sits barely above the pre-tax cost of debt of 5.65% \u2014 4.52% after tax \u2014 because measured beta is 0.277. Discounted values on that basis are conditional on an unnormalised rate, not base cases; average debt is $29.96bn.",
+            "No implied-expectations test on oncology can be run: the evidence carries neither segment revenue nor a consensus range to bound dispersion. The qualitative signal is management's reported positive pivotal readouts, including tozorakimab in COPD and efzimfotase alfa in hypophosphatasia.",
+            "No US pricing-policy margin effect is modelled, since no incremental-margin assumption can be sourced. The structure \u2014 FY2025 gross profit of $48.11bn against SG&A of $19.93bn \u2014 indicates that price-led revenue loss would fall largely on operating income."
+          ],
+          "headline_figures": [
+            {
+              "unit": "USD bn",
+              "label": "FY2025 revenue",
+              "value": "58.74",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD bn",
+              "label": "FY2025 operating income",
+              "value": "13.74",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "%",
+              "label": "Ten-year revenue CAGR",
+              "value": "9.05",
+              "calculation_id": "97e0d831-2c8d-476e-8c33-6ca4e1820ed8"
+            },
+            {
+              "unit": "%",
+              "label": "Recorded cost of equity",
+              "value": "6.46",
+              "calculation_id": "6b3b5ceb-65af-460e-854d-5c22a3725fd4"
+            },
+            {
+              "unit": "pure",
+              "label": "Measured beta",
+              "value": "0.277",
+              "calculation_id": "2a253271-3e06-4bdf-aab1-7d17bf160110"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "investment_thesis",
+        "content": {
+          "case_for": [
+            {
+              "text": "FY2025 revenue of $58.7bn converted into gross profit of $48.1bn and operating income of $13.7bn, after $14.2bn of research spending charged in full against the year. The full-year results attribute the growth to continued patient demand and geographic expansion, with sustained double-digit volume growth and expanded class leadership in the lead franchises \u2014 a mix that does not depend on list price holding. Carry that margin across the forecast and the valuation is struck on the best operating margin in the record rather than on an assumption about a mix shift.",
+              "lever": "ebit_margin:highest",
+              "lead_in": "A record base year, earned on volume rather than price",
+              "source_document_id": "7cf2013d-40ef-4791-bd2a-5b42eb495349"
+            },
+            {
+              "text": "The compound revenue growth rate over the ten years to FY2025 is 9.05%, achieved across successive launch cycles rather than in one step. The Q1 2026 statement attributes rising selling and administrative expense to ongoing and future launches and to supporting growth in existing brands \u2014 spending pointed at new volume, not at defending old price. An advocate would argue the forecast should carry the upper end of the delivered range, not its average.",
+              "lever": "revenue_growth:highest",
+              "lead_in": "Compounding has been the rule for a decade",
+              "source_document_id": "28b57572-08fe-42d0-886c-df1afe83cb51"
+            },
+            {
+              "text": "The $14.2bn of research expense in FY2025 is charged as cost while its output sits outside the revenue base. Phase III results announced to the market during 2026 carry no stored revenue attached to them anywhere in this analysis, so whatever they are worth is upside the forecast does not claim. Equally, nothing here establishes what the share price already discounts for them, and we do not assert a direction on that point.",
+              "lead_in": "Late-stage readouts the forecast does not pay for",
+              "source_document_id": "37582277-f597-48e4-ae29-48dbdbbda8a2"
+            }
+          ],
+          "priced_for": [
+            "case_for:1:ebit_margin:highest",
+            "case_for:2:revenue_growth:highest",
+            "case_against:1:revenue_growth:lowest",
+            "case_against:3:ebit_margin:lowest"
+          ],
+          "case_against": [
+            {
+              "text": "The 9.05% ten-year rate was delivered by medicines that were themselves pipeline assets during that window and by brands now approaching exclusivity expiry. Extrapolating it forward while attributing nothing to unapproved assets is not conservatism; it counts the same engine twice. The evidence in hand neither quantifies exclusivity losses falling inside the forecast horizon nor separates them from competitive displacement by rival launches, so the drag is unmeasured rather than absent \u2014 and a forecast built on the slowest year in the record is the honest bound.",
+              "lever": "revenue_growth:lowest",
+              "lead_in": "The growth record cannot be spent twice",
+              "source_document_id": "e331341d-e9d4-4c88-b748-70325b77fc57"
+            },
+            {
+              "text": "A cost of equity of 6.46% sits barely above a pre-tax cost of debt of 5.65%, implying that equity holders in a patent-exposed pharmaceutical demand nearly nothing over its bondholders; the driver is a measured beta of 0.277, defensible as measurement and implausible as a required return. With the fifth forecast year discounted at 0.738, terminal value dominates the result, so every enterprise value and per-share figure in this report should be read as conditional on that unnormalised rate rather than as a settled base case. Normalising the rate upward would cut the value materially.",
+              "lead_in": "The discount rate carries almost the whole answer",
+              "source_document_id": "e331341d-e9d4-4c88-b748-70325b77fc57"
+            },
+            {
+              "text": "Core measures including EBITDA, net debt, gross margin, operating margin, tax rate and constant-currency growth are non-GAAP and cannot be derived directly from the consolidated statements, and the gross margin definition itself was changed effective 1 January 2025. Quarterly growth reflects order timing in tender markets, and Q4 2025 carried an unfavourable gross-to-net adjustment. Against operating income of $13.7bn, selling and administrative expense of $19.9bn leaves little cushion if launch spending continues to run ahead of launch revenue.",
+              "lever": "ebit_margin:lowest",
+              "lead_in": "Margin is measured on a basis that has moved",
+              "source_document_id": "7cf2013d-40ef-4791-bd2a-5b42eb495349"
+            },
+            {
+              "text": "Where revenue is surrendered to negotiated or mandated price cuts, the effect on operating income depends on the incremental margin of the units given up, and no figure available here supplies it; the direction of revenue is down, but the direction of margin is not determined by anything on file and we do not assert one. Interest expense of $1.7bn set against pre-tax income of $12.4bn means the earnings line carries some leverage into whatever that answer turns out to be.",
+              "lead_in": "The price-cut arithmetic is open",
+              "source_document_id": "e331341d-e9d4-4c88-b748-70325b77fc57"
+            }
+          ],
+          "the_question": "Both cases begin from the same FY2025 record and divide on three points: whether ten-year compound growth of 9.05% describes a franchise that renews itself or a cohort of brands nearing exclusivity expiry; whether the operating margin survives pricing pressure; and whether a cost of equity built on a measured beta of 0.277 is the right rate at which to capitalise either answer.",
+          "case_for_priced": [
+            {
+              "unit": "pure",
+              "label": "The operating margin at its highest in the record, FY2025, in every forecast year",
+              "point": "A record base year, earned on volume rather than price",
+              "value": "0.233967210882",
+              "calculation_id": "33e9c45c-d215-4baa-9a89-45c8c0d3703e"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by perpetuity growth",
+              "point": "",
+              "value": "407.0225873510872489989970806250653",
+              "calculation_id": "98ba9842-1e6e-4ecf-97a5-f7c1e8b19cab"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by the exit multiple",
+              "point": "",
+              "value": "214.9036337459584170342491021208519",
+              "calculation_id": "5f28b74e-771e-49fa-81bb-a7edbd73b779"
+            },
+            {
+              "unit": "pure",
+              "label": "Revenue growth at its fastest in the record, FY2022, in every forecast year",
+              "point": "Compounding has been the rule for a decade",
+              "value": "0.1853168345939011679183258946468183",
+              "calculation_id": "8f269e99-70c6-46cd-85b5-299d66da4e9b"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by perpetuity growth",
+              "point": "",
+              "value": "393.0525068616632224035771596244243",
+              "calculation_id": "52cdf545-cca6-4561-bc10-52ff60421b10"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by the exit multiple",
+              "point": "",
+              "value": "204.6241793702228526177316993684831",
+              "calculation_id": "fedd6b7e-e623-4105-9fdf-5948af034b09"
+            }
+          ],
+          "case_against_priced": [
+            {
+              "unit": "pure",
+              "label": "Revenue growth at its slowest in the record, FY2023, in every forecast year",
+              "point": "The growth record cannot be spent twice",
+              "value": "0.03291921264458524046808414691889698",
+              "calculation_id": "fceb4b6d-49fe-4192-968b-5dc5b2eec913"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by perpetuity growth",
+              "point": "",
+              "value": "193.3548544350830545292445714764733",
+              "calculation_id": "2f64ade0-a06b-4912-8865-1adf5bf2963b"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by the exit multiple",
+              "point": "",
+              "value": "102.5563893895055798202820532186789",
+              "calculation_id": "9f4bcf2c-01c5-4feb-a274-5f1810e535dc"
+            },
+            {
+              "unit": "pure",
+              "label": "The operating margin at its lowest in the record, FY2021, in every forecast year",
+              "point": "Margin is measured on a basis that has moved",
+              "value": "0.028222465724",
+              "calculation_id": "639f56f3-5bce-4a38-97d3-d58c78a78e86"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by perpetuity growth",
+              "point": "",
+              "value": "151.7822640974166918139791500460665",
+              "calculation_id": "fc11848b-ce93-4a8a-9348-406231e0cee4"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share by the exit multiple",
+              "point": "",
+              "value": "78.26444828353006325663780132291569",
+              "calculation_id": "29ef2b6d-7f5b-46d2-9b32-b0e6cf91c346"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "business_overview",
+        "content": {
+          "commentary": "AstraZeneca is a biopharmaceutical group engaged in the discovery, development, manufacture and commercialisation of prescription medicines, spanning oncology, cardiovascular-renal-metabolic disease, respiratory and immunology, and rare disease, among other areas. Its customers are principally healthcare systems, hospitals, pharmacies and distributors across a broad set of geographic markets, and revenue is earned largely from sales of medicines still under patent protection, which the company describes as giving relatively high resilience and predictability to cash inflows, tempered by government price interventions in a number of its significant markets. The evidence available for this note does not include a breakdown of revenue by therapy area or by geography, so no segment-level revenue mix or country footprint can be stated here with support; what follows is confined to consolidated results. For the year ended 31 December 2025, the Group reported revenue of approximately $58,739 million against cost of revenue of approximately $10,633 million, producing gross profit of approximately $48,106 million, a gross margin consistent with a patent-protected pharmaceutical portfolio. Operating expenses included research and development spending of approximately $14,232 million and selling, general and administrative expenses of approximately $19,933 million, leaving operating income of approximately $13,743 million for the year. After net interest items and taxation, the Group reported pre-tax income of approximately $12,402 million, income tax expense of approximately $2,169 million, and net income of approximately $10,225 million for FY2025, equivalent to basic earnings per share of approximately $6.60. For the second quarter of 2025, revenue was approximately $14,457 million, gross profit approximately $11,984 million, operating income approximately $3,508 million and net income approximately $2,450 million, indicating that quarterly profitability tracked the shape of full-year results without evidence of an unusual step-change within the year. Management has stated that capital allocation priorities are to invest in the business and pipeline, maintain a strong investment-grade credit rating, pursue value-enhancing business development, and support a progressive dividend policy, which points to a strategy weighted toward reinvestment and disciplined balance-sheet management rather than aggressive capital return. The company also discloses that it anticipates new revenue streams from recently launched medicines and those still in development, consistent with a pipeline-dependent growth model typical of large-cap pharmaceuticals, though the specific composition of those anticipated streams is not detailed in the evidence reviewed here. Separately, the Group discloses ongoing legal proceedings, including litigation and government investigations relating to product liability, commercial disputes, intellectual property infringement and validity, antitrust matters, and sales and marketing practices, which it characterises as typical to its business; the material facts of individual matters are not itemised in the evidence available for this note. Overall, the picture supported by the record is one of a large, profitable, patent-reliant pharmaceutical business with substantial reinvestment in research and development, but the absence of segment and geographic revenue data here limits how precisely the underlying growth drivers and concentration risks can be characterised in this section.",
+          "revenue_streams": [
+            {
+              "unit": "USD",
+              "label": "Total Group Revenue (FY2025)",
+              "value": "58739000000",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "segment_analysis",
+        "content": {
+          "segments": [
+            {
+              "unit": "USD",
+              "label": "United States",
+              "value": "23970000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            },
+            {
+              "unit": "USD",
+              "label": "Europe excluding United Kingdom",
+              "value": "13455000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            },
+            {
+              "unit": "USD",
+              "label": "Asia, Africa and Australasia",
+              "value": "13368000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            },
+            {
+              "unit": "USD",
+              "label": "United Kingdom",
+              "value": "4359000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            },
+            {
+              "unit": "USD",
+              "label": "China",
+              "value": "6636000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            },
+            {
+              "unit": "USD",
+              "label": "Japan",
+              "value": "3556000000",
+              "source_document_id": "5c2ad597-8c5c-476c-8ace-eb1ec1247361"
+            }
+          ],
+          "commentary": "AstraZeneca's regulatory disclosures for fiscal year 2025 break Total Revenue down by geography rather than by therapy area or individual medicine, so a ranked list of products by disclosed revenue and a sizing of exposure to exclusivity events cannot be constructed from the evidence available; Beyfortus, Ultomiris, Voydeya and Soliris are named in the source material but without accompanying revenue figures. On the geographic split, the United States remained the largest disclosed market, contributing $23,970 million of the $58,739 million Total Revenue for fiscal year 2025, with $54,380 million recorded outside the United Kingdom. Within the group's Americas exposure, the IFRS Americas region contributed $27,557 million, Other Americas excluding the US and Canada added $2,633 million, and Canada contributed $954 million. Europe excluding the United Kingdom generated $13,455 million, with the United Kingdom itself contributing $4,359 million; within continental Europe, Germany ($2,890 million), Sweden ($2,623 million), France ($1,408 million), Spain ($1,136 million) and Italy ($1,078 million) were disclosed individually, with the balance of $4,320 million recorded as Other Europe. Asia, Africa and Australasia contributed $13,368 million, led by China at $6,636 million and Japan at $3,556 million, with Australia adding $454 million and the remaining $2,722 million recorded as Other Asia, Africa and Australasia excluding Australia, China and Japan. This pattern shows a business spread across three broadly comparable regions\u2014the Americas, Europe and Asia/Africa/Australasia\u2014rather than one dominated by a single market, which limits how far any single country's regulatory, patent or biosimilar exposure can be read through to the group's overall revenue base. Margin and capital-intensity comparisons across therapy areas cannot be drawn from geographic data alone, and the group's own commentary notes that reported Gross Margin can vary between periods owing to foreign-exchange movements, product seasonality and the mix of Collaboration Revenue, factors a geography-only view cannot isolate."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "industry_landscape",
+        "content": {
+          "commentary": "AstraZeneca competes in an industry structure dominated by a handful of large, diversified originators that combine broad primary-care, oncology, respiratory, cardiovascular and vaccine/immunology franchises with substantial biologics and biosimilar exposure. That structure exposes every incumbent, AstraZeneca included, to two distinct erosion channels that should be tracked separately rather than conflated. The first is US and other-market pricing mechanics \u2014 statutory price-setting, rebate obligations, tariff and most-favoured-nation policy instruments, and volume-based procurement in China \u2014 which compress realised price on covered products independent of any competitor's clinical progress. The second is competitive displacement \u2014 rival branded assets reaching approval, filing or read-out in the same indications, plus generic and biosimilar entry \u2014 which erodes share through substitution rather than price mechanics. The evidence available for this note does not extend to the specific Medicare selected-drug and maximum fair price effective-date lists, Part D redesign manufacturer-liability schedules, Federal Register most-favoured-nation or tariff dockets, or 340B/Medicaid rebate detail by product, nor to FDA approval records or clinicaltrials.gov read-outs identifying named rival assets against AstraZeneca's in-line oncology products or Phase III pipeline; that gap should be read as a limit on what can be verified here, not as an absence of exposure. What the record does support is that AstraZeneca, like peer originators, has disclosed generic competition in China tied to anticipated volume-based procurement implementation, and, as is common among major prescription pharmaceutical companies, is subject to multiple ongoing government inquiries into drug marketing and pricing practices.",
+          "competitive_position": "Within this landscape, AstraZeneca sits among the largest diversified originators, comparable in scale and patent-cliff dynamics to Pfizer, Merck, Novartis, GSK, Sanofi, Eli Lilly and Bristol Myers Squibb, each carrying overlapping oncology, cardiovascular, respiratory, immunology or vaccine exposure and similar global regulatory footprints. AstraZeneca's own scale is evidenced by FY2025 revenue of approximately $58,739 million, gross profit of approximately $48,106 million and operating income of approximately $13,743 million. A structural feature distinguishing its go-to-market model in at least one product line is an alliance arrangement with Sanofi, under which revenue combines AstraZeneca's manufactured product sales to Sanofi with its share of gross profits and royalties on sales in major markets outside the US \u2014 a revenue-sharing structure that partially insulates ex-US economics from direct pricing mechanics but also means headline growth reflects order timing rather than underlying demand alone. Beyond this, the evidence does not support specific claims about where AstraZeneca's in-line oncology products or Phase III assets stand against named rival branded or biosimilar entrants, so its competitive position should be read as broadly comparable in exposure to the peer group above rather than differentiated on the record available here."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "management_governance",
+        "content": {
+          "commentary": "The evidence available for this review does not include specifics on AstraZeneca's executive team, board composition, or the structure of executive remuneration \u2014 no named director biographies, tenure records, or pay disclosures were present in the material examined. What can be drawn from the company's own reporting relates instead to management's commentary on the business's resilience and near-term pressures, which bears on how leadership is framing strategic priorities. Management characterises the bulk of group revenue as derived from patent-protected medicines, arguing this provides a relatively high degree of resilience and predictability to cash inflows, even as government pricing interventions are expected to continue weighing on revenue in some significant markets; leadership points to newly launched medicines and the pipeline as offsetting sources of growth. Separately, management has flagged generic competition in China, compounded by stocking effects ahead of anticipated Volume-Based Procurement implementation in the first quarter of 2026, as a specific near-term headwind, while also describing continued strong underlying growth despite competitive pressure in some markets. These statements suggest a leadership team that is explicit about known regulatory and competitive risks rather than presenting an unqualified growth narrative, which is a modestly favourable disclosure characteristic, though it falls short of the detail needed to assess incentive alignment, insider ownership, or succession planning. Given the absence of remuneration and board-structure evidence, no assessment can be offered here of how executive incentives are aligned with shareholder outcomes, nor of recent changes in the composition of the board or its committees. Investors seeking a view on governance quality and pay-for-performance alignment at AstraZeneca should treat this section as materially incomplete pending further disclosure review; the commentary above should be read as management's own framing of operating conditions rather than an independent governance assessment.",
+          "governance_observations": [
+            "No board composition, director tenure, or committee membership details were available in the material reviewed for this section.",
+            "No executive remuneration or incentive structure figures were available, so pay-for-performance alignment cannot be assessed here.",
+            "An Annual General Meeting result document dated April 2026 exists in the company's regulatory filings, but its substantive content was not available for review."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "historical_financial_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD m",
+              "label": "Revenue, FY2025",
+              "value": "58,739",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Gross profit, FY2025",
+              "value": "48,106",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Operating income, FY2025",
+              "value": "13,743",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Net income, FY2025",
+              "value": "10,225",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD/share",
+              "label": "Diluted earnings per share, FY2025",
+              "value": "6.54",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "%",
+              "label": "Revenue compound annual growth rate, ten-year window",
+              "value": "9.0",
+              "calculation_id": "97e0d831-2c8d-476e-8c33-6ca4e1820ed8"
+            }
+          ],
+          "commentary": "The auditable record available for this section rests on a single complete year: the twelve months to 31 December 2025, as reported in the Group's annual filing published in February 2026. Prior-year comparatives, the Q1 and half-year 2026 interim line items, and the Group's own bridge between reported IFRS results and its company-defined Core measures are not carried in the material to hand, and neither is a quantified constant-currency versus actual split or a disclosed foreign-exchange sensitivity. What follows is therefore a margin baseline built on one audited year rather than a trend series, and the currency leg of revenue and margin movement cannot be separated from underlying change with figures. That limitation is stated once and not revisited.\n\nOn the income statement, revenue of USD 58,739 million for FY2025 carried a cost of revenue of USD 10,633 million and produced gross profit of USD 48,106 million. Cost of sales is a small fraction of the top line, the pattern expected of an innovative large-cap pharmaceutical mix in which manufacturing cost is modest relative to price. The operating cost base, not cost of goods, is what determines the margin: selling, general and administrative expense of USD 19,933 million is the single largest line on the statement and exceeds research and development of USD 14,232 million, which itself exceeds cost of revenue. Operating income of USD 13,743 million is thus the residual of a gross profit pool consumed principally by commercial spend and the pipeline.\n\nBelow operating income, financing costs are visible but not dominant: interest expense of USD 1,694 million against pre-tax income of USD 12,402 million. Income tax expense of USD 2,169 million left net income of USD 10,225 million, with basic earnings per share of USD 6.60 and diluted earnings per share of USD 6.54; the dilution gap is narrow. Over a ten-year window, the compound annual growth rate of revenue stands at 9.0%, a rate that frames the FY2025 level as the end point of sustained expansion rather than a single strong year, though the year-by-year path behind that rate is not reproduced here.\n\nThe balance sheet at 31 December 2025 is acquisition-shaped. Intangible assets of USD 37,846 million and goodwill of USD 21,242 million together account for a substantial majority of total assets of USD 114,074 million, so reported operating margin carries the amortisation burden that the Group's Core presentation is designed to strip out \u2014 which is precisely why the missing IFRS-to-Core bridge matters for anyone testing pricing-policy effects on underlying profitability. Working capital is tight: current liabilities of USD 30,617 million exceed current assets of USD 28,723 million, with receivables of USD 15,177 million and inventory of USD 6,557 million the largest current assets.\n\nTwo definitional changes limit backward comparison of the margin itself. Effective 1 January 2025 the Group introduced a 'Product Revenue' subtotal on the face of the income statement, aggregating Product Sales and Alliance Revenue, and from the same date it redefined Gross Margin as Gross Profit divided by Total Revenue, where prior-year tables had cited Product Sales Gross Margin. A gross margin computed on the FY2025 basis is therefore not like-for-like with the metric published in earlier years, and the growing weight of Alliance Revenue \u2014 collaboration economics recognised with little or no associated cost of sales \u2014 mechanically flatters the redefined ratio relative to the old one.\n\nOn causation, the Group's own commentary attributes period-to-period gross margin variation to foreign exchange movements, product seasonality and Collaboration Revenue. It does not, in the material here, attribute that variation to exclusivity losses, and with only one year of gross profit on record the proposition that past exclusivity losses moved gross margin cannot be tested against reported numbers in either direction. For FY2026 the company has reconfirmed Total Revenue and Core EPS guidance at constant exchange rates based on average rates through 2025, which locates the currency question in guidance framing rather than in any reported split available here.",
+          "financials": [
+            {
+              "label": "Revenue",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "58,739",
+                  "period": "FY2025",
+                  "financial_fact_id": "247437a3-eca0-46b8-8400-be335be2c35f",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Cost of revenue",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "10,633",
+                  "period": "FY2025",
+                  "financial_fact_id": "324b0a56-fd31-4bd4-bede-5e3e3d6be4cd",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Gross profit",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "48,106",
+                  "period": "FY2025",
+                  "financial_fact_id": "8bbc93cd-aa26-4779-9d9d-b91940755870",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Research and development",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "14,232",
+                  "period": "FY2025",
+                  "financial_fact_id": "59a89edb-bd0e-4cbd-8ab1-6f4a042aad86",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Selling, general and administrative",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "19,933",
+                  "period": "FY2025",
+                  "financial_fact_id": "e7523138-8e98-41f8-9e8d-a18b62b5d11d",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Operating income",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "13,743",
+                  "period": "FY2025",
+                  "financial_fact_id": "4d97ad21-277c-46a8-bd2e-8f99ad5a1b58",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Interest expense",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "1,694",
+                  "period": "FY2025",
+                  "financial_fact_id": "22e9c6b3-168b-49ea-a2f2-f02530d02b9a",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Pre-tax income",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "12,402",
+                  "period": "FY2025",
+                  "financial_fact_id": "85aadad7-eec9-47c0-93f5-d6defb29befb",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Income tax expense",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "2,169",
+                  "period": "FY2025",
+                  "financial_fact_id": "194f11c4-a1d2-490e-8ccd-a32b9e233580",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Net income",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "10,225",
+                  "period": "FY2025",
+                  "financial_fact_id": "e8fa36df-9a71-48c2-b7a2-b095da2cfe37",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Earnings per share, basic",
+              "values": [
+                {
+                  "unit": "USD/share",
+                  "value": "6.60",
+                  "period": "FY2025",
+                  "financial_fact_id": "b50608f0-a4bf-446d-821a-511dcb958a70",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Earnings per share, diluted",
+              "values": [
+                {
+                  "unit": "USD/share",
+                  "value": "6.54",
+                  "period": "FY2025",
+                  "financial_fact_id": "bca75ca8-b0ed-4da2-a81b-048a9d054046",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Accounts receivable",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "15,177",
+                  "period": "FY2025",
+                  "financial_fact_id": "3a844797-0182-4df4-9cd6-8ac7149a91e2",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Inventory",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "6,557",
+                  "period": "FY2025",
+                  "financial_fact_id": "66bcd91f-21e2-4c82-af9e-392220fc969c",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Total current assets",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "28,723",
+                  "period": "FY2025",
+                  "financial_fact_id": "7fade162-bab2-458a-a686-a31578194c2e",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Total current liabilities",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "30,617",
+                  "period": "FY2025",
+                  "financial_fact_id": "db3929c9-bc7b-4c7c-af4c-13e7ac943709",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Goodwill",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "21,242",
+                  "period": "FY2025",
+                  "financial_fact_id": "5f606772-83af-4a80-9fd8-d71f278d14e5",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Intangible assets",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "37,846",
+                  "period": "FY2025",
+                  "financial_fact_id": "7f9ac656-9b88-49a2-8e2e-abacb9794612",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Total assets",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "114,074",
+                  "period": "FY2025",
+                  "financial_fact_id": "1f4ce6cb-c693-42df-941e-ba4b75c43638",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "earnings_quality",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD millions",
+              "label": "Operating cash flow (FY2025)",
+              "value": "14,575",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Net income (FY2025)",
+              "value": "10,225",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Capital expenditure (FY2025)",
+              "value": "2,810",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Share-based compensation (FY2025)",
+              "value": "719",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Change in working capital",
+              "value": "-386.6",
+              "calculation_id": "88665421-1c81-4b7e-b31f-98ef48e18506"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Dividends paid (FY2025)",
+              "value": "4,971",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            }
+          ],
+          "red_flags": [
+            "Regulatory and sales-related milestone payments are capitalised rather than expensed, with sales-related amounts capitalised when management judges them probable against the latest Group sales forecasts \u2014 expense timing therefore depends on forecast judgement.",
+            "Further contingent milestone payments remain unrecognised until triggered, so the reported cost base understates committed consideration.",
+            "A new revenue subtotal aggregating product sales and alliance revenue changes presentation and reduces comparability of headline revenue across periods.",
+            "Only a single fiscal year of figures is available, so accrual ratios and cash-conversion trends cannot be tested against prior periods."
+          ],
+          "commentary": "Cash generation led reported profit in FY2025. Operating cash flow of $14,575m exceeded net income of $10,225m, so the year's accrual earnings were more than covered by cash from operations \u2014 the first test of earnings quality, and one AstraZeneca passes on the annual figures available. Capital expenditure of $2,810m absorbed only a minority of that inflow, leaving operating cash well ahead of plant and equipment needs; total investing outflow of $6,808m points to spending beyond fixed assets, intangible and milestone capitalisation among it.\n\nTwo items explain part of the gap between profit and cash. Share-based compensation of $719m is a non-cash charge within earnings, modest against net income and not a material distortion of the comparison. The recorded change in working capital is -$386.6m, small next to revenue of $58,739m \u2014 receivables and inventory do not appear, on annual aggregates, to be flattering the top line.\n\nFinancing behaviour supports the picture. The financing outflow of $7,544m comprised dividends of $4,971m and debt repayments of $2,029m against new debt proceeds of only $15m, with share repurchases recorded at nil. Distributions were funded from operating cash rather than borrowing, and the group closed the year with cash and equivalents of $5,711m.\n\nAccounting judgement is where caution belongs. The full-year results describe regulatory and sales-related milestone payments capitalised rather than expensed, with further contingent payments possible, and sales-related amounts accrued and capitalised when considered probable by reference to the latest Group sales forecasts for approved indications. That treatment is permitted, but it ties carrying values and the timing of expense recognition to management's own forecasts: a more optimistic forecast capitalises more and depresses current-period cost. The cash leaves the business either way, which is why the operating-cash comparison above carries more weight than the margin line alone. The same filing notes a presentation change \u2014 product sales and alliance revenue remain separately presented but are aggregated into a new subtotal reflecting the growing importance of alliance revenue \u2014 which aids aggregation while complicating comparison of headline revenue across presentations.\n\nOperating income of $13,743m converted to pre-tax income of $12,402m after an interest expense of $1,694m, and to diluted earnings per share of $6.54 after a tax charge of $2,169m; the spread between operating income and operating cash flow is in the expected direction for a business with large non-cash charges. The figures available cover a single fiscal year, so no trend in accrual ratios or cash conversion can be tested here, and the quality read is a point estimate rather than a track record. On that basis FY2025 earnings look cash-backed, with the principal open question being capitalisation policy on milestone payments rather than revenue recognition."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD m",
+              "label": "Cash and equivalents, December 2025 year end",
+              "value": "5,711",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Long-term debt, December 2025 year end",
+              "value": "24,715",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Total assets, December 2025 year end",
+              "value": "114,074",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "%",
+              "label": "Debt weight in capital structure",
+              "value": "10.4",
+              "calculation_id": "74c08d31-c2fc-4d39-8785-3343d29e302d"
+            },
+            {
+              "unit": "%",
+              "label": "After-tax cost of debt",
+              "value": "4.52",
+              "calculation_id": "2fd9e5c0-757a-423c-a1ae-8937da9cc7c4"
+            }
+          ],
+          "commentary": "AstraZeneca closed the December 2025 year end with an asset-heavy, intangible-led balance sheet of USD 114,074m and a working capital position that runs negative. For an investment-grade pharmaceutical company that shape is unremarkable, but it means liquidity rests on operating cash generation and continued market access rather than on a large cash buffer.\n\nLiquidity tightened across the second half of the year. Cash and equivalents fell from USD 7,058m at the end of June 2025 to USD 5,711m at the year end. Current liabilities of USD 30,617m exceeded current assets of USD 28,723m in December, as they did in June, when USD 33,536m stood against USD 28,939m. Receivables of USD 15,177m and inventory of USD 6,557m are the bulk of current assets; payables of USD 25,280m are the largest current liability. The composition of the half-year move reads better than the cash line alone: short-term debt was cut from USD 6,492m to USD 3,104m while receivables built from USD 14,168m.\n\nThe maturity profile is back-end weighted, with long-term debt of USD 24,715m against USD 3,104m falling due within a year, so the near-term wall is modest beside the funded total. Average debt of USD 29,958.5m and a 10.4% debt weight in the capital structure place leverage low against the equity base, and funding cost is moderate at 5.65% before tax and 4.52% after tax.\n\nTwo qualifications. The group's own net debt measure is non-GAAP, defined as interest-bearing loans and borrowings plus lease liabilities net of cash, other investments and net derivative instruments; lease and derivative balances do not sit among the figures available here, so a like-for-like net debt is not reproduced, and no maturity schedule, undrawn facility or covenant detail is visible. Second, AstraZeneca PLC services its debt and guarantee obligations out of the earnings of subsidiaries, branches and affiliates, so upstream distributions are the practical channel for holding-company liquidity.",
+          "financials": [
+            {
+              "label": "Cash and equivalents",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "7,058",
+                  "period": "Q2 2025",
+                  "financial_fact_id": "9782c2ae-edde-4455-8b2d-313d8adb986d",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "5,711",
+                  "period": "FY2025",
+                  "financial_fact_id": "c6481b39-f97f-433b-b559-2186b91eb2dd",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Accounts receivable",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "14,168",
+                  "period": "Q2 2025",
+                  "financial_fact_id": "0c56272d-9874-4c06-8d4d-dd57db6d8f38",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "15,177",
+                  "period": "FY2025",
+                  "financial_fact_id": "3a844797-0182-4df4-9cd6-8ac7149a91e2",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Total current assets",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "28,939",
+                  "period": "Q2 2025",
+                  "financial_fact_id": "7f633a86-c0b2-4a56-9af8-6fa85473e345",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "28,723",
+                  "period": "FY2025",
+                  "financial_fact_id": "7fade162-bab2-458a-a686-a31578194c2e",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Short-term debt",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "6,492",
+                  "period": "Q2 2025",
+                  "financial_fact_id": "d5d032df-1733-4ac9-9377-eca544fea670",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "3,104",
+                  "period": "FY2025",
+                  "financial_fact_id": "3379c1c5-28c0-417a-89c4-7ee9c5243ae8",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Total current liabilities",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "33,536",
+                  "period": "Q2 2025",
+                  "financial_fact_id": "97c01102-6b26-4628-946e-c919791ea816",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "30,617",
+                  "period": "FY2025",
+                  "financial_fact_id": "db3929c9-bc7b-4c7c-af4c-13e7ac943709",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            }
+          ],
+          "observations": [
+            "Working capital is structurally negative: current liabilities exceeded current assets at both the June and December 2025 dates.",
+            "The half-year cash decline coincided with a sharp reduction in short-term borrowings and a build in receivables.",
+            "Lease liabilities, derivative balances, undrawn facilities and covenant terms are not visible in the figures available, so the company's own net debt measure cannot be replicated here."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "cash_flow_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD m",
+              "label": "Operating cash flow, FY2025",
+              "value": "14,575",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Capital expenditure, FY2025",
+              "value": "2,810",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Dividends paid, FY2025",
+              "value": "4,971",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD m",
+              "label": "Net financing cash flow, FY2025",
+              "value": "-7,544",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            }
+          ],
+          "commentary": "Cash generation is strong and evenly spread. Net cash inflow from operating activities was $14,575m in FY2025, of which $7,099m came in the six months to June 2025. Quality looks sound: share-based compensation of $719m is a modest non-cash add-back against that inflow, and the recorded working capital movement of -$386.6m is small beside it, so the cash reflects trading rather than balance-sheet release.\n\nUses of cash are heavier than the headline capital expenditure line suggests. Investing was a net outflow of -$6,808m in FY2025 against capital expenditure of $2,810m on the narrower plant-and-equipment basis; the remainder went to acquisitions of subsidiaries and to purchases of intangible assets, including regulatory and sales-related milestones capitalised as they fall due, with further contingent milestone payments possible. External innovation is a standing call on cash, not an occasional one. Financing was a net outflow of -$7,544m: dividends of $4,971m, of which $3,357m was paid in the first half, and debt repayments of $2,029m against new proceeds of only $15m. Dividend cover from operating cash flow was comfortable. The repurchase line cannot be read cleanly \u2014 $489m is recorded for the half year while the full-year entry is carried as nil over a window starting more than a decade earlier \u2014 so we place no weight on it.\n\nThe durability question is capital intensity, and it should not be settled by the FY2025 ratio. On the Group's own broader measure, tangible assets plus software-related intangibles, capital expenditure rose year on year in FY2025 on several major manufacturing projects and continued technology upgrades; it rose again year on year in Q1 2026 on the same drivers; and the Group has stated it expects to increase that expenditure further in FY2026 for manufacturing expansion and systems investment. Q1 2026 also showed operating cash inflow lower year on year on working capital, short-term provisions and currency, with the investing outflow widening on intangible purchases. Any valuation that holds reinvestment permanently at a small fraction of operating cash flow \u2014 implicitly assuming spending stays far below the depreciation the asset base carries \u2014 extrapolates a capital intensity the company has already said it is leaving behind. The distance between the two recorded enterprise values, $264.3bn on an exit-multiple terminal value against $481.8bn on perpetual growth, shows how much of the valuation rests on that terminal assumption rather than on delivered cash. Depreciation and the forecast reinvestment schedule are not in the verified record here, so we judge the point on the disclosed direction of capital spending: upward, and guided higher again.",
+          "financials": [
+            {
+              "label": "Net cash inflow from operating activities",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "7,099",
+                  "period": "H1 2025 (six months to June)",
+                  "financial_fact_id": "a7bff1e5-1b9b-471d-914c-4545013e6034",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "14,575",
+                  "period": "FY2025",
+                  "financial_fact_id": "cfef5af0-33bb-47cf-89d3-2b14ca50b832",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Capital expenditure",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "1,088",
+                  "period": "H1 2025 (six months to June)",
+                  "financial_fact_id": "b7a2be53-28a0-4d1b-9ae2-18a17b6a5932",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "2,810",
+                  "period": "FY2025",
+                  "financial_fact_id": "de626e22-ef62-449a-a70f-5293d8823dfa",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Dividends paid",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "3,357",
+                  "period": "H1 2025 (six months to June)",
+                  "financial_fact_id": "715aaf75-073a-409a-9de9-1cce81824e8b",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "4,971",
+                  "period": "FY2025",
+                  "financial_fact_id": "23ac738c-1760-4368-a296-bf56e0794368",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            },
+            {
+              "label": "Share repurchases (basis inconsistent)",
+              "values": [
+                {
+                  "unit": "USD m",
+                  "value": "489",
+                  "period": "H1 2025 (six months to June)",
+                  "financial_fact_id": "5a0651f4-12da-4832-a681-9234957a77a6",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                },
+                {
+                  "unit": "USD m",
+                  "value": "0",
+                  "period": "FY2025",
+                  "financial_fact_id": "2684f268-0394-41b4-83c2-d7c65c91eec5",
+                  "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "capital_allocation",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD billions",
+              "label": "Operating cash flow, FY2025",
+              "value": "14.6",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Investing cash flow, FY2025",
+              "value": "-6.8",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Financing cash flow, FY2025",
+              "value": "-7.5",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Capital expenditure, FY2025",
+              "value": "2.8",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Dividends paid, FY2025",
+              "value": "5.0",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            }
+          ],
+          "commentary": "AstraZeneca generated substantial operating cash flow in FY2025, funding a capital allocation program balanced across reinvestment, shareholder returns and debt service. Operating cash flow reached $14.6 billion for the year, providing the base for investing and financing outflows of $6.8 billion and $7.5 billion respectively. Capital expenditure on tangible and intangible assets, as reported in the cash flow statement, totalled $2.8 billion, reflecting continued investment in manufacturing capacity and technology infrastructure consistent with the group's stated priority of investing in the business and pipeline. Share-based compensation of $719 million reflects ongoing equity-settled remuneration. Dividends paid during FY2025 amounted to $5.0 billion, consistent with the group's progressive dividend policy and following a declared increase in the total dividend for the year. The company continued debt-related financing activity: proceeds from new debt of $15 million were modest relative to repayments of debt of $2.0 billion, indicating net deleveraging during the period. Diluted shares outstanding stood at 1,562 million. Recorded share repurchase activity for FY2025 shows zero, an unusual reading given the period tagging on that record spans back to 2013; this figure should be treated as a data quality flag rather than confirmation that no buybacks occurred. Beyond organic reinvestment, the group pursued selective business development, including the acquisition of Modella AI in the fourth quarter, intended to embed AI capabilities into its oncology research environment. Management has articulated capital allocation priorities of investing in the business and pipeline, maintaining an investment-grade credit rating, pursuing value-enhancing business development opportunities, and supporting the progressive dividend policy \u2014 priorities broadly consistent with the FY2025 cash flow pattern, in which operating cash generation funded continued capex and dividend distributions while debt was modestly reduced. Overall, the FY2025 pattern shows a business funding growth investment and shareholder distributions from operating cash flow while deleveraging, though the anomalous repurchase figure limits confidence in assessing buyback activity specifically.",
+          "uses_of_capital": [
+            "Reinvestment in manufacturing capacity and technology (capital expenditure)",
+            "Dividend distributions under the progressive dividend policy",
+            "Debt repayment and net deleveraging",
+            "Selective business development, including the Modella AI acquisition",
+            "Equity-settled employee compensation"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "growth_outlook",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD bn",
+              "label": "FY2025 revenue",
+              "value": "58.7",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "%",
+              "label": "Recorded ten-year revenue CAGR",
+              "value": "9.05",
+              "calculation_id": "97e0d831-2c8d-476e-8c33-6ca4e1820ed8"
+            },
+            {
+              "unit": "USD bn",
+              "label": "FY2025 research and development spend",
+              "value": "14.2",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Enterprise value, Gordon growth route",
+              "value": "481.8",
+              "calculation_id": "d292aac2-72a9-4954-9e46-88a8f43c7606"
+            },
+            {
+              "unit": "USD bn",
+              "label": "Enterprise value, exit-multiple route",
+              "value": "264.3",
+              "calculation_id": "5fbcc27f-e829-48de-a540-a76e2288dc16"
+            }
+          ],
+          "commentary": [
+            {
+              "text": "Near-term growth is carried by products already approved. The Q1 2026 release attributes brand growth to continued patient demand and geographic expansion, to strong uptake following launch of an adult indication, and to conversion from Soliris across gMG, NMOSD, aHUS and PNH, with the EGFRm NSCLC franchise positioned as a backbone across all stages and FLAURA2 the leading first-line combination. The FY2025 release describes sustained double-digit volume growth with expanded class leadership, an unfavourable gross-to-net adjustment in Q4 2025, and tender order timing distorting quarterly growth rates. Against a FY2025 revenue base of $58.7bn, this volume-led contribution from marketed medicines is the most durable element of the outlook.",
+              "lead_in": "What the evidence supports"
+            },
+            {
+              "text": "For FY 2026 the company reconfirms Total Revenue and Core EPS guidance at CER, on average exchange rates through 2025, and states it cannot guide on a Reported basis because fair value adjustments on acquisition-related liabilities, intangible impairment charges and legal settlement provisions are not reliably forecastable. The guidance is therefore a company statement rather than a verified outcome, and the constant-currency-to-actual translation effect sits outside it; the ranges themselves and the currency bridge are not in the material available here.",
+              "lead_in": "Guidance, as stated by the company"
+            },
+            {
+              "text": "Unapproved assets are what the priced-in question turns on, and the record here is thin: the excerpt available from the 31 March 2026 efzimfotase alfa Phase III announcement is cover-page filing boilerplate rather than clinical detail, and no submission or readout timetable is available. FY2025 research and development spend of $14.2bn funds this effort, and rising SG&A is attributed to ongoing and future launches \u2014 outlay consistent with continued conversion, not proof of its value.",
+              "lead_in": "Pipeline contribution, separated out"
+            },
+            {
+              "text": "The forward path extrapolates a recorded ten-year revenue CAGR of 9.05%. That rate was delivered by assets that were unapproved through much of the window and by brands now closer to exclusivity expiry, so carrying it forward is not a pipeline-free assumption dressed as conservatism: it implicitly assumes conversion continues at roughly the historical pace and that new launches offset loss of exclusivity. The forecast embeds pipeline contribution rather than excluding it, and the offsetting exclusivity step-downs cannot be sized from the evidence available. We therefore treat the top-line path as an assumption under test.",
+              "lead_in": "The growth assumption, stated honestly"
+            },
+            {
+              "text": "The two discounted routes do not bracket a single answer. Gordon growth returns an enterprise value of $481.8bn; the exit-multiple route returns $264.3bn \u2014 a gap close to the size of the smaller figure, reflecting opposed terminal economics, a growing perpetuity against implied terminal decline. Neither is presented as the base case. Our judgement is that the exit-multiple result is the safer anchor while exclusivity drag is unquantified, with the Gordon result showing what sustained high-single-digit growth would be worth. A recorded beta of 0.28 and cost of equity of 6.46% leave terminal value acutely sensitive to that single growth choice.",
+              "lead_in": "Where the valuation routes disagree"
+            }
+          ],
+          "growth_drivers": [
+            "Volume growth in approved oncology, led by the EGFRm NSCLC backbone",
+            "Conversion from Soliris across gMG, NMOSD, aHUS and PNH",
+            "Geographic expansion and new indication launches",
+            "Company-reconfirmed FY 2026 revenue and Core EPS guidance at CER",
+            "Pipeline conversion, implied by the growth rate but not separately evidenced"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "valuation_dcf",
+        "content": {
+          "commentary": "The two terminal treatments do not agree, and that disagreement is the main finding here rather than a rounding detail. On the exit multiple, enterprise value comes out at roughly $264.3bn and equity value at roughly $240.4bn; on Gordon growth, enterprise value is roughly $481.8bn. The distance between the two methods is wide enough that the value per share on each route should be read as two answers to two different questions about the terminal year, not as a band around a central case. Both routes place the bulk of value in the terminal value share, so the honest characterisation is that this is a judgement on terminal growth and on the perpetual growth the exit multiple implies, only loosely disciplined by the explicit forecast horizon.\n\nThe discount rate is the second lever and it is soft. Cost of equity sits at 6.46%, resting on a beta of 0.277 alongside the risk-free rate and equity risk premium in the block above. A beta that low holds the cost of equity close to the risk-free rate, and the terminal value is more sensitive to that single input than to anything in the operating forecast. Cost of debt is 5.65% pre-tax and 4.52% after tax, on a debt weight at market value of 10.4%, so the equity weight dominates and WACC sits near the cost of equity. The year-five discount factor of 0.738 shows how little the explicit horizon is compressed: distant forecast cash flows keep most of their face value, which is precisely why the terminal assumptions carry the outcome.\n\nUnderneath sit FY 2025 revenue of $58,739m, operating income of $13,743m, operating cash flow of $14,575m and capital expenditure of $2,810m. The working capital movement of -$386.6m is small against operating cash flow, so working capital intensity is a second-order input. Capex intensity is the input most likely to be too low: the company's own capital expenditure measure is broader than the cash-flow line and is guided materially higher for FY 2026 on manufacturing expansion and technology investment. Should that step-up prove durable rather than a single build cycle, the free cash flow path in the early forecast years is flattered.\n\nOn the revenue bridge, the ten-year CAGR of 9.0% anchors the revenue growth input but has no memory of dated exclusivity step-downs or of the separate competitive-displacement channel, both of which bite within the horizon. Labelled assumption \u2014 the revenue-to-margin mapping: nothing in the evidence establishes product-level cost of goods or therapy-area margin, so every unit of revenue lost to an exclusivity step-down or to displacement is assumed to release contribution at a single stated incremental margin applied uniformly across the bridge. That is an assumption, not a derived figure, and the EBIT margin path inherits it wholesale. The practical consequence cuts both ways: a uniform mapping understates margin damage where losses fall on mature, high-margin brands, and overstates it where the revenue is structurally lower-margin \u2014 the Beyfortus line, for instance, combines product sales to Sanofi with alliance revenue from a share of gross profits and royalties, an economically different mix. A reader who disagrees with the incremental margin should re-read the EBIT margin path before re-reading the growth rate.\n\nTax rate and depreciation intensity enter as stated above. Interest expense of $1,694m against average debt of roughly $30.0bn is broadly consistent with the modelled cost of debt, which is modest comfort on that component; shares outstanding is the only other bridge between equity value and value per share, so per-share figures move one-for-one with the terminal choice.\n\nThe view is taken in US dollars throughout, on dollar-reported figures, before any GBP translation; both value-per-share outputs are dollar amounts, and a sterling-based reader must apply translation separately. On balance we would weight the exit-multiple route over Gordon growth, because at a discount rate this close to terminal growth the perpetuity arithmetic becomes unstable, and treat the gap between the two as the live risk rather than as precision.",
+          "method_note": "Free cash flows from a 5-year explicit forecast of consolidated figures were discounted at the weighted average cost of capital shown below, with the capital weighted at the equity at its market value against the filed debt. The bridge from enterprise to equity value is net debt alone, and the terminal value was taken both ways \u2014 a growing perpetuity and an exit multiple \u2014 with each carried through to a per-share figure. Every figure cites the calculation that produced it.",
+          "cost_of_capital": [
+            {
+              "unit": "pure",
+              "label": "Risk-free rate",
+              "value": "0.051100000000",
+              "provenance": "proposed by aer.services.macro with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Beta",
+              "value": "0.300000000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Equity risk premium",
+              "value": "0.045000000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Tax rate",
+              "value": "0.200000000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Cost of equity",
+              "value": "0.064600000000",
+              "provenance": "computed: Ke = risk-free rate + beta * equity risk premium",
+              "calculation_id": "6b3b5ceb-65af-460e-854d-5c22a3725fd4"
+            },
+            {
+              "unit": "pure",
+              "label": "Cost of debt, pre-tax",
+              "value": "0.056544887094",
+              "provenance": "computed: Kd = interest expense / average debt",
+              "calculation_id": "7d2a7860-fc60-4f6b-a9c1-59dfa434f7e1"
+            },
+            {
+              "unit": "pure",
+              "label": "Cost of debt, after tax",
+              "value": "0.045235909675",
+              "provenance": "computed: Kd after tax = Kd * (1 - tax rate)",
+              "calculation_id": "2fd9e5c0-757a-423c-a1ae-8937da9cc7c4"
+            },
+            {
+              "unit": "pure",
+              "label": "Equity weight, at market value",
+              "value": "0.895949980681",
+              "provenance": "computed: E / (D + E) = equity value / (equity value + debt value)",
+              "calculation_id": "7b517a78-408f-4ff6-a93e-c8da0a899387"
+            },
+            {
+              "unit": "pure",
+              "label": "Debt weight, at market value",
+              "value": "0.104050019319",
+              "provenance": "computed: D / (D + E) = debt value / (equity value + debt value)",
+              "calculation_id": "74c08d31-c2fc-4d39-8785-3343d29e302d"
+            },
+            {
+              "unit": "pure",
+              "label": "WACC",
+              "value": "0.062585166028",
+              "provenance": "computed: WACC = Ke * E/(D+E) + Kd_after_tax * D/(D+E)",
+              "calculation_id": "8b07a2c1-b73a-465f-9c5d-b596630ea2ec"
+            }
+          ],
+          "forecast_drivers": [
+            {
+              "unit": "pure",
+              "label": "Revenue growth",
+              "value": "0.119346000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "EBIT margin",
+              "value": "0.142147000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Capex intensity",
+              "value": "0.033377000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Depreciation intensity",
+              "value": "0.114739000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Working capital intensity",
+              "value": "-0.035125000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Terminal growth",
+              "value": "0.025000000000",
+              "provenance": "proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Exit multiple",
+              "value": "10.000000000000",
+              "provenance": "proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate"
+            }
+          ],
+          "valuation_caveats": [
+            "More than three quarters of the enterprise value is terminal value. The explicit forecast is contributing little, so the answer rests almost entirely on the terminal assumption rather than on the projected years a reader can check.",
+            "The two terminal methods disagree by more than a quarter. That is information, not an error: they are two different guesses about the same unknowable quantity, and the distance between them is the honest width of the answer.",
+            "The bridge from enterprise value to equity value is net debt alone. Associate holdings, minority interests and pension deficits are not read off the filings by this build, so a business carrying material non-operating items is valued as though it does not."
+          ],
+          "terminal_valuations": [
+            {
+              "unit": "USD/shares",
+              "label": "Value per share \u2014 Gordon growth",
+              "value": "293.113382580175",
+              "provenance": "computed: value per share = equity value / shares outstanding",
+              "calculation_id": "bc84fb89-bb89-4086-82a2-446c0983197d"
+            },
+            {
+              "unit": "pure",
+              "label": "Terminal value share \u2014 Gordon growth",
+              "value": "0.857594133264",
+              "provenance": "computed: terminal share = discounted terminal value / enterprise value",
+              "calculation_id": "6f975642-8f63-40cb-adae-e5a3e63ece6e"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share \u2014 Exit multiple",
+              "value": "153.924001851739",
+              "provenance": "computed: value per share = equity value / shares outstanding",
+              "calculation_id": "1ee3e4e7-beaa-4b81-ac16-8af8e9a3370d"
+            },
+            {
+              "unit": "pure",
+              "label": "Terminal value share \u2014 Exit multiple",
+              "value": "0.740468581449",
+              "provenance": "computed: terminal share = discounted terminal value / enterprise value",
+              "calculation_id": "837eee28-2dfa-4ad9-8f04-8e9dd389337b"
+            },
+            {
+              "unit": "pure",
+              "label": "Distance between the two methods",
+              "value": "0.904273401510",
+              "provenance": "computed: disagreement = (higher value per share - lower value per share) / lower",
+              "calculation_id": "d42fdd69-cd9e-44db-9a20-a009e5349e42"
+            },
+            {
+              "unit": "pure",
+              "label": "Perpetual growth the exit multiple implies",
+              "value": "-0.013748726522",
+              "provenance": "computed: implied g = (TV * WACC - final FCFF) / (TV + final FCFF)",
+              "calculation_id": "5bdeb8f2-7005-4c66-9121-e8394459422f"
+            },
+            {
+              "unit": "shares",
+              "label": "Shares outstanding",
+              "value": "1562000000.000000",
+              "provenance": "the filed count: diluted_shares_outstanding",
+              "calculation_id": "bc84fb89-bb89-4086-82a2-446c0983197d"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "content": {
+          "scenarios": [
+            {
+              "unit": "USD billion",
+              "label": "Base case enterprise value, perpetuity-growth terminal",
+              "value": "481.8",
+              "calculation_id": "d292aac2-72a9-4954-9e46-88a8f43c7606"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Base case enterprise value, exit-multiple terminal",
+              "value": "264.3",
+              "calculation_id": "5fbcc27f-e829-48de-a540-a76e2288dc16"
+            },
+            {
+              "unit": "percent",
+              "label": "Growth anchor, ten-year revenue CAGR",
+              "value": "9.05",
+              "calculation_id": "97e0d831-2c8d-476e-8c33-6ca4e1820ed8"
+            }
+          ],
+          "commentary": [
+            {
+              "text": "An implied-expectations solve cannot be run here: no ADR price level, share count or published consensus revenue and earnings estimates are available to anchor one, and no dated price-reaction windows around prior oncology readouts have been measured. The cases below are therefore framed around the two recorded enterprise value builds and the discount-rate inputs behind them, with any pipeline probability weight treated explicitly as an assumption rather than a finding.",
+              "lead_in": "What the evidence supports"
+            },
+            {
+              "text": "The base case carries the trailing full-year shape forward: revenue of 58.7 billion US dollars, gross profit of 48.1 billion, research and development spending of 14.2 billion and operating income of 13.7 billion, with basic earnings per share of 6.60 US dollars. A ten-year compound revenue growth rate of 9.05 percent is the growth anchor. On these inputs the recorded build gives an enterprise value of 481.8 billion US dollars on a perpetuity-growth terminal value against 264.3 billion on an exit multiple. In our judgement the terminal-value convention, not the explicit forecast period, is the single largest swing factor in the valuation.",
+              "lead_in": "Base case"
+            },
+            {
+              "text": "The bull case requires demand-led volume growth to persist and late-stage readouts to convert into reimbursed indications. Quarterly commentary published in April 2026 describes strong demand growth across indications and key regions, the lead EGFR-mutated lung asset positioned as a backbone across all stages, patient conversion from Soliris across gMG, NMOSD, aHUS and PNH, and strong uptake following an adult-indication launch. Sustained, those dynamics support the upper end of the range.",
+              "lead_in": "Bull case"
+            },
+            {
+              "text": "The bear case is exclusivity erosion arriving earlier and steeper than the growth anchor assumes, compounded by competitive displacement in the franchises now driving growth and by pricing haircuts that fall close to fully through to operating income on a high incremental margin. Full-year commentary published in February 2026 notes that quarterly growth rates reflect order timing in certain tender markets, a reminder that the revenue line is lumpier than an annual average implies. The company's own caution that actual outcomes may differ materially from forward-looking statements applies to every path sketched here.",
+              "lead_in": "Bear case"
+            }
+          ],
+          "sensitivity_commentary": "Discount rate dominates. The recorded cost of equity of 6.46 percent rests on a measured beta of 0.277 from monthly observations; a beta that low flatters the equity charge, and any move toward a market-average beta raises the discount rate and compresses the perpetuity-growth valuation far more than the exit-multiple one, whose year-five discount factor of 0.738 caps the effect. Debt is the minor lever: cost of debt of 5.65 percent, 4.52 percent after tax, carried at a 10.4 percent weight. Next in order we would rank exclusivity depth and speed, then the incremental-margin assumption behind pricing haircuts, then competitive displacement. GBP/USD matters directionally, reporting being in US dollars against a substantially sterling cost base, but the split available does not support a quantified swing."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "key_risks",
+        "content": {
+          "risks": [
+            {
+              "risk": "Loss of exclusivity on in-line products \u2014 directional, unverified",
+              "early_warning": "Generic or biosimilar filings and first-launch notices against the largest in-line products.",
+              "why_it_matters": "Dated exclusivity entries matched to product revenue are not available in the evidence reviewed, so the cliff cannot be sized here. It remains the primary structural risk for an asset base weighted towards capitalised product rights."
+            },
+            {
+              "risk": "Competitive displacement of in-line oncology products \u2014 directional, unverified",
+              "early_warning": "Competitor phase III readouts and label expansions in overlapping indications.",
+              "why_it_matters": "No product-level share or competing-readout data is present in the material reviewed, so displacement risk in the oncology franchise is acknowledged rather than quantified."
+            },
+            {
+              "risk": "Litigation, government investigations and contingent liabilities \u2014 directional",
+              "early_warning": "A contingent liability moving into a provision, or a disclosed settlement.",
+              "why_it_matters": "The February 2026 final results state the company is involved in various legal proceedings typical to its business, including government investigations relating to product liability, commercial disputes, IP infringement, patent validity, anti-trust and sales and marketing practices, disclosed under IAS 37. No provisioned amount appears in the material reviewed, so the cash exposure is unsized.",
+              "source_document_id": "7cf2013d-40ef-4791-bd2a-5b42eb495349"
+            },
+            {
+              "risk": "Carrying value of intangibles and goodwill \u2014 sized",
+              "early_warning": "Trial failure or reimbursement loss on an acquired asset; an increase in the discount rate used in impairment testing.",
+              "why_it_matters": "Intangible assets of $37.8bn and goodwill of $21.2bn stand against total assets of $114.1bn at end-December 2025. A write-down of acquired product rights would move reported equity materially, and the trigger is the same clinical or reimbursement event that drives the commercial risks above.",
+              "source_document_id": "5c550a00-4d47-4538-91fe-fd86700c9c2b"
+            },
+            {
+              "risk": "Refinancing cost and liquidity headroom \u2014 sized",
+              "early_warning": "A further cash decline at the next reporting date, or new issuance priced above the recorded cost of debt.",
+              "calculation_id": "7d2a7860-fc60-4f6b-a9c1-59dfa434f7e1",
+              "why_it_matters": "Average debt is recorded at $29.96bn, with a pre-tax cost of debt of 5.65% and 4.52% after tax, and debt carries a 10.4% weight in the capital structure. Cash fell from $7.1bn at end-June 2025 to $5.7bn at end-December 2025, short-term investments were $30m, and accounts payable of $25.3bn sit against current assets of $28.7bn, so near-term cover depends on operating inflow rather than a securities buffer."
+            },
+            {
+              "risk": "Working capital and collection \u2014 sized",
+              "early_warning": "Receivables growing faster than sales, or a step-up in the allowance for doubtful accounts.",
+              "calculation_id": "88665421-1c81-4b7e-b31f-98ef48e18506",
+              "why_it_matters": "Receivables rose from $14.2bn at end-June 2025 to $15.2bn at end-December 2025, and the recorded change in working capital is negative $386.6m, a use of cash. Tender and government-payer channels can lengthen collection."
+            },
+            {
+              "risk": "China procurement, pricing and reimbursement \u2014 unverified",
+              "early_warning": "Procurement round results and disclosure of the China revenue contribution.",
+              "why_it_matters": "No volume-based procurement outcomes, reimbursement list decisions or China revenue mix appear in the evidence reviewed. The exposure is flagged, not sized."
+            },
+            {
+              "risk": "Manufacturing inspection and supply continuity \u2014 unverified",
+              "early_warning": "Inspection classifications at key sites and product-specific supply notices.",
+              "why_it_matters": "No inspection findings, regulatory letters or supply interruptions are evidenced in the material reviewed; the risk is structural to the sector rather than documented here."
+            },
+            {
+              "risk": "Currency translation and the GBP/USD leg of ADR returns \u2014 directional",
+              "early_warning": "Sterling-dollar moves and divergence between ordinary-share and ADR performance.",
+              "calculation_id": "2a253271-3e06-4bdf-aab1-7d17bf160110",
+              "why_it_matters": "A dollar-quoted ADR embeds the sterling-dollar leg alongside business performance. The recorded beta against the S&P 500 is 0.277 and the cost of equity 6.46%; with an expected return that low, a modest currency or discount-rate reset carries proportionately more weight. No currency sensitivity table is available in the material reviewed."
+            },
+            {
+              "risk": "Commercial-practice, environmental and data/AI compliance \u2014 directional",
+              "early_warning": "An investigation into commercial practices, or regulatory action on data handling.",
+              "why_it_matters": "Both the February 2026 final results and the April 2026 first-quarter statement list failure to meet regulatory and ethical expectations on commercial practices, including anti-bribery, anti-corruption, anti-fraud and scientific exchanges; failure on sustainability targets and environmental expectations; and failure to manage data and AI in line with legal and regulatory requirements. None is quantified.",
+              "source_document_id": "28b57572-08fe-42d0-886c-df1afe83cb51"
+            }
+          ],
+          "commentary": "Two exposures dominate. The first is the acquired-asset block: intangibles and goodwill form the largest claim on the balance sheet as at end-December 2025, and their carrying value rests on products whose exclusivity dates and competitive threats cannot be sized from the evidence to hand. The second is funding cost, which compounds the first, since a higher discount rate raises debt service and erodes impairment headroom at the same time. Litigation is disclosed as ongoing but is not quantified. Each item below is labelled sized where a stored figure supports it, and directional or unverified where only the filing's own language does."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "catalysts",
+        "content": {
+          "catalysts": [],
+          "commentary": "The evidence available for this note does not disclose specific forward-dated catalysts for AstraZeneca \u2014 no PDUFA or CHMP decision dates, Phase III primary completion dates, competitor readout dates, CMS price-effective dates, or patent/BPCIA litigation milestones appear in the material reviewed. For a dated catalyst list to be constructed, the company or a regulator would need to publish specific decision or trial-completion dates for named assets, or a court/registry would need to record a scheduled litigation milestone for a product above the revenue threshold."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "prior_research_comparison",
+        "content": {
+          "commentary": "2 prior approved report(s) exist for ASTRAZENECA PLC (AZN); the most recent is as of 2026-09-24. Every row below was read from one of them, and the run's export names which.",
+          "comparisons": [
+            {
+              "prior": "none stated",
+              "aspect": "Non-binding view",
+              "current": "none stated when this section was written",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "not recorded",
+              "aspect": "Confidence",
+              "current": "not stated when this section was written",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "not recorded",
+              "aspect": "Valuation",
+              "current": "293.113382580175 (perpetuity growth) and 153.924001851739 (exit multiple) USD/shares",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Generic and biosimilar entry is the single largest source of revenue discontinuity for a large-cap originator, and whether a date applies to the US or ex-US markets sets the timing and depth of the step-down. No expiry dates, dated entries or matching product revenue appear in the disclosure available here, so no exposure is attached to this item.",
+              "aspect": "Risk \u2014 Loss of exclusivity on key molecules (proposal for verification, not a sized exposure)",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "The Form 20-F dated February 2026 states the group has been, and may continue to be, subject to various legal proceedings and governmental investigations, with authorities holding wide-ranging administrative powers over manufacturing, marketing, promotional, clinical, pharmacovigilance and pricing practices, including those of contractors and partners. Material matters sit in the commitments and contingent liabilities note; no amounts are in the material available, so the exposure is directional.",
+              "aspect": "Risk \u2014 Adverse outcome of litigation and governmental investigations",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Intangible assets of USD 37.8 billion and goodwill of USD 21.2 billion at December 2025 sit within a total asset base of USD 114.1 billion, making carrying value a large share of the balance sheet. A Phase III failure, a label restriction or a pricing reset in a major market can force a non-cash write-down that flows straight through reported earnings.",
+              "aspect": "Risk \u2014 Impairment of acquired intangibles and goodwill",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Cash and equivalents of USD 5.7 billion at December 2025 were lower than the USD 7.1 billion held at June 2025, against trade payables of USD 25.3 billion. Average debt of USD 30.0 billion carries a pre-tax cost of debt of 5.65 per cent, so refinancing at wider spreads, a large settlement or a sizeable acquisition would tighten headroom and lift the interest charge.",
+              "aspect": "Risk \u2014 Liquidity headroom and refinancing cost",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Volume-based procurement rounds and reimbursement list negotiations can reprice a mature in-market portfolio abruptly, and compliance findings in that market have historically carried legal consequences. Nothing quantifying China revenue, tender outcomes or open matters appears in the disclosure available here, so this is flagged rather than sized.",
+              "aspect": "Risk \u2014 China procurement and reimbursement pressure (proposal for verification)",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "The first-quarter results announcement of April 2026 identifies failure to collect and manage data and AI in line with legal and regulatory requirements and strategic objectives among the risks the group carries. Where pipeline decisions and commercial targeting rest on data assets, the practical consequences are remediation cost and restricted data use; no quantification is disclosed.",
+              "aspect": "Risk \u2014 Data and artificial intelligence compliance",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.119346, held flat across the forecast.",
+              "aspect": "Assumption \u2014 revenue growth",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.142147, held flat across the forecast.",
+              "aspect": "Assumption \u2014 ebit margin",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.033377, held flat across the forecast.",
+              "aspect": "Assumption \u2014 capex intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.114739, held flat across the forecast.",
+              "aspect": "Assumption \u2014 depreciation intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at -0.035125, held flat across the forecast.",
+              "aspect": "Assumption \u2014 working capital intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.2, held flat across the forecast.",
+              "aspect": "Assumption \u2014 tax rate",
+              "current": "Not yet observable: no full fiscal year after 2026-09-24 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.3, held flat across the forecast.",
+              "aspect": "Assumption \u2014 beta",
+              "current": "Cannot be measured from filings: beta is estimated from price history against an index; no filing reports a company's beta.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.045, held flat across the forecast.",
+              "aspect": "Assumption \u2014 equity risk premium",
+              "current": "Cannot be measured from filings: an equity risk premium is a market-wide judgement about the future, and no filing states one.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 11.5, held flat across the forecast.",
+              "aspect": "Assumption \u2014 exit multiple",
+              "current": "Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.0496, held flat across the forecast.",
+              "aspect": "Assumption \u2014 risk free rate",
+              "current": "Cannot be measured from filings: a risk-free rate is a market yield on a date, and filings carry no market rates.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "Confirmed at 0.025, held flat across the forecast.",
+              "aspect": "Assumption \u2014 terminal growth",
+              "current": "Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it.",
+              "prior_report_id": "c4664a10-2cff-4f7c-a3e4-a6d16216c7d5"
+            },
+            {
+              "prior": "The annual report identifies pressure from governments and payers to limit IP protection, policy moves to expedite generic approval and encourage generic utilisation, and increasing use of compulsory licensing in some countries of operation \u2014 each capable of accelerating substitution once rights lapse. No docket record of individual Paragraph IV or BPCIA actions is in hand, so no case status is asserted here, and the patent estate of no single biologic is available to us: for any such product the erosion date is unevidenced rather than distant, and should not be assumed comfortable.",
+              "aspect": "Risk \u2014 Loss of exclusivity and patent challenge, including Paragraph IV and biosimilar (BPCIA) proceedings \u2014 annual report filed February 2026",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "The filing states that US civil litigation is inherently unpredictable, that adversaries frequently claim enhanced damages in extremely high amounts, and that unfavourable resolutions could require significant provisions and materially adversely affect results. Where the company has sized this exposure, the legal proceedings note in that filing is the reference point.",
+              "aspect": "Risk \u2014 Government investigations and civil litigation \u2014 annual report filed February 2026",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Intangible assets of USD 37,846 million and goodwill of USD 21,242 million stood against total assets of USD 114,074 million at 31 December 2025 \u2014 a large part of the asset base whose value depends on forecast cash flows from acquired programmes. A shortened exclusivity assumption, a failed readout or a pricing action feeds straight into a write-down.",
+              "aspect": "Risk \u2014 Impairment of acquired intangibles and goodwill",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Both are standing features of the profile, but the disclosures available to us neither quantify volume-based procurement or reimbursement price outcomes nor give the oncology share of revenue. We flag the exposure as a proposal for verification and decline to size it; no inference about magnitude should be drawn from its presence here.",
+              "aspect": "Risk \u2014 China market and pricing exposure, and concentration within oncology",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Supply of complex biologics depends on facility qualification, and an inspection observation can interrupt supply or delay an approval. Nothing in the material in hand records an observation or remediation, so this is a monitoring item, not an identified issue.",
+              "aspect": "Risk \u2014 Manufacturing and regulatory inspection findings",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Cash and equivalents of USD 5,711 million at 31 December 2025 were below the USD 7,058 million held at 30 June 2025, while accounts payable of USD 25,280 million sat only modestly beneath current assets of USD 28,723 million. Funding for settlements or milestones therefore leans on operating cash generation and facility access rather than balance-sheet cash.",
+              "aspect": "Risk \u2014 Liquidity headroom against near-term payables",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "The equity value of roughly USD 247.7 billion rests on a cost of equity of 6.29%, itself derived from an estimated beta of 0.27. In our judgement a beta that defensive understates exposure to binary trial and patent outcomes; a higher premium would compress the valuation materially.",
+              "aspect": "Risk \u2014 Valuation sensitivity to a low estimated beta",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "The company itself lists failure to meet sustainability targets, regulatory requirements or stakeholder expectations on the environment among its principal risks.",
+              "aspect": "Risk \u2014 Sustainability and environmental targets \u2014 first-quarter release, April 2026",
+              "current": "Carried into this run's key-risks review.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.119346, held flat across the forecast.",
+              "aspect": "Assumption \u2014 revenue growth",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.142147, held flat across the forecast.",
+              "aspect": "Assumption \u2014 ebit margin",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.033377, held flat across the forecast.",
+              "aspect": "Assumption \u2014 capex intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.114739, held flat across the forecast.",
+              "aspect": "Assumption \u2014 depreciation intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at -0.035125, held flat across the forecast.",
+              "aspect": "Assumption \u2014 working capital intensity",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.2, held flat across the forecast.",
+              "aspect": "Assumption \u2014 tax rate",
+              "current": "Not yet observable: no full fiscal year after 2026-09-19 is in the store, so the first forecast year has not been filed.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.3, held flat across the forecast.",
+              "aspect": "Assumption \u2014 beta",
+              "current": "Cannot be measured from filings: beta is estimated from price history against an index; no filing reports a company's beta.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.045, held flat across the forecast.",
+              "aspect": "Assumption \u2014 equity risk premium",
+              "current": "Cannot be measured from filings: an equity risk premium is a market-wide judgement about the future, and no filing states one.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 10, held flat across the forecast.",
+              "aspect": "Assumption \u2014 exit multiple",
+              "current": "Cannot be measured from filings: an exit multiple is a claim about a future market price, and filings carry no market prices.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.0494, held flat across the forecast.",
+              "aspect": "Assumption \u2014 risk free rate",
+              "current": "Cannot be measured from filings: a risk-free rate is a market yield on a date, and filings carry no market rates.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            },
+            {
+              "prior": "Confirmed at 0.025, held flat across the forecast.",
+              "aspect": "Assumption \u2014 terminal growth",
+              "current": "Cannot be measured from filings: a perpetuity growth rate describes the years beyond every forecast; no single filed year can confirm or falsify it.",
+              "prior_report_id": "85bcfbb0-92aa-4a38-962b-eeeeb9f7fefb"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "validation_disagreements",
+        "content": {
+          "summary": "The run's validators measured 9 metric(s): 9 passed, 0 failed, 0 not exercised. The corpus metrics \u2014 custom section contract conformance, injection resistance, skill privilege containment and unit integrity \u2014 are measured by the CI evaluation gate against adversarial fixtures rather than against any one run. This run recorded 1 conflict(s) between sources and 8 challenge(s) from the red team, and 9 of them are open at approval, with both sides published.",
+          "validations": [
+            {
+              "score": "1",
+              "metric": "assumption completeness",
+              "verdict": "pass",
+              "threshold": "at least 1"
+            },
+            {
+              "score": "1",
+              "metric": "citation accuracy",
+              "verdict": "pass",
+              "threshold": "at least 0.98"
+            },
+            {
+              "score": "0",
+              "metric": "cited figure agreement",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "figure plausibility",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "hallucinated citation rate",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0",
+              "metric": "numerical consistency",
+              "verdict": "pass",
+              "threshold": "at most 0.005"
+            },
+            {
+              "score": "0",
+              "metric": "presentation integrity",
+              "verdict": "pass",
+              "threshold": "at most 0"
+            },
+            {
+              "score": "0.9394",
+              "metric": "primary source ratio",
+              "verdict": "pass",
+              "threshold": "at least 0.6"
+            },
+            {
+              "score": "1",
+              "metric": "source coverage",
+              "verdict": "pass",
+              "threshold": "at least 0.9"
+            }
+          ],
+          "disagreements": [
+            {
+              "text": "Reported now by the vendor and Held by this platform are both licensed market data, both as first filed, both filed 2026-09-25, and report 7740.63 against 7712.580000. There is nothing left to prefer one by.",
+              "lead_in": "GSPC.INDX close on 2026-09-25 (source conflict)"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The verdict that leverage is comfortable and the near-term maturity profile undemanding rests on no maturity schedule, facility or covenant record I can see \\u2014 the draft concedes the latter two are absent, then draws the conclusion anyway. What the record does show cuts the other way at the short end: a current ratio of 0.938 and a quick ratio of 0.683, with cash falling into the year end. Net debt/EBITDA of 1.27 and interest cover of 8.1 support the structural leverage claim but say nothing about the timing of maturities, which is the part the draft calls undemanding.",
+              "lead_in": "Red team \u2014 balance sheet, severity 3/5",
+              "calculation_id": "b5b2a548-5b47-4ec2-b350-341fd19d8e09"
+            },
+            {
+              "text": "current_ratio 0.9381; quick_ratio 0.6832; net_debt_to_ebitda 1.2699; interest_cover 8.1128; net_debt 23.911bn. No maturity-schedule or facility calculation appears in my index.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The working-capital inputs feeding the valuation look mis-mapped rather than merely unusual. The record carries days outstanding of 868 and a cash conversion cycle of -548 days, which is what happens when a payables line that includes non-trade items is measured against cost of revenue. The draft's description of accounts payable as the largest single current liability inherits that mapping, and the build then projects working capital at -$3.6bn, a structurally negative and widening balance that releases cash into forecast free cash flow. The -$386.6m change used is recorded as not period-specific, so its vintage is unclear.",
+              "lead_in": "Red team \u2014 balance sheet, severity 3/5",
+              "calculation_id": "160c2885-2356-450e-b2e1-6fa133fba02a"
+            },
+            {
+              "text": "days_outstanding 867.79; cash_conversion_cycle -548.40 days; working_capital -1.894bn; projected_working_capital -3.625bn; working_capital_intensity -0.060369; change_in_working_capital -386.55m recorded as not period-specific.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The buyback record is internally inconsistent and only one section says so. The earnings-quality and cash-flow sections state share repurchases at nil for FY2025, while the cash-flow section also records $489m of repurchases in the six months to June 2025; the capital-allocation section flags this as a probable tagging defect. A reader of the first two sections would take the nil at face value. The distribution metrics in the record are also FY2024-tagged, not FY2025, so the shareholder-return picture for the year under discussion is thinner than the draft's framing of capital allocation implies.",
+              "lead_in": "Red team \u2014 governance, severity 2/5",
+              "calculation_id": "feb08e98-6d1c-4f30-b333-bb0fa0f65261"
+            },
+            {
+              "text": "shareholder_distributions and distributions_to_operating_cash_flow are recorded for FY2024 (4.71bn; 0.3971); dividends_paid_change FY2025 +342m. No FY2025 repurchase calculation appears in my index.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The forecast carries revenue from $58.7bn to a projected $103.2bn while the draft simultaneously states that no growth is attributed to unapproved pipeline assets and that exclusivity exposure within the forecast horizon cannot be quantified from the evidence. Those positions are hard to hold together: the recorded ten-year CAGR of 9.05% was itself delivered by assets that were pipeline during that window and by brands now approaching exclusivity expiry, so extrapolating it forward with zero pipeline contribution and no quantified loss-of-exclusivity drag is not conservative \\u2014 it double-counts the past.",
+              "lead_in": "Red team \u2014 growth, severity 4/5",
+              "calculation_id": "a2b0d5f4-be9f-4994-b413-ca6922ea2456"
+            },
+            {
+              "text": "projected_revenue 103.22bn against FY2025 revenue of 58.739bn as claimed; cagr 0.090458; draft records no risk-adjusted pipeline figure and no quantified exclusivity exposure.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The draft says repeatedly that margin effects of pricing and of revenue erosion cannot be determined because no incremental-margin assumption is supplied. But the build is not margin-silent: projected EBIT of $14.67bn against projected revenue of $103.2bn sits well below the FY2025 operating margin in the record, so a substantial compression path is already embedded and undisclosed as an assumption. Separately, the FY2025 base is an unusually strong anchor \\u2014 the recorded FY2024 operating margin is 0.185 against a FY2025 margin of 0.234, a one-year step the draft presents without asking whether it is repeatable.",
+              "lead_in": "Red team \u2014 profitability, severity 3/5",
+              "calculation_id": "c330315e-8937-417e-979d-72dadad5fbc4"
+            },
+            {
+              "text": "projected_ebit 14.672bn vs projected_revenue 103.216bn; margin_of FY2025 0.233967; operating_margin FY2024 0.184991; margin_movement FY2025 0.048977.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The discount rate is the single most load-bearing input and the recorded one is economically implausible on its face: a cost of equity of 6.46% sits barely above the pre-tax cost of debt of 5.65%, implying equity holders in a patent-cliff-exposed pharmaceutical demand almost no premium over its bondholders. The driver is a measured beta of 0.277. With a terminal value share of 74\\u201386% of value, almost the whole answer is a function of this rate. The draft notes the low beta as a sensitivity but still reports the resulting enterprise values as base-case outputs rather than as conditional on an unnormalised rate.",
+              "lead_in": "Red team \u2014 valuation, severity 4/5",
+              "calculation_id": "6b3b5ceb-65af-460e-854d-5c22a3725fd4"
+            },
+            {
+              "text": "cost_of_equity 0.0646 against cost_of_debt 0.056545 and after_tax_cost_of_debt 0.045236; beta 0.276666; wacc 0.062585; terminal_value_share 0.7405 and 0.8576.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The forecast free cash flow the terminal value is built on is far above anything the company has produced: $20.5bn against FY2025 free cash flow of $11.8bn. The mechanism is visible in the record \\u2014 projected depreciation of $11.8bn against projected capex of $3.4bn, a gap that assumes the business runs at a fraction of its own depreciation indefinitely. FY2025 capex was already only about half of depreciation and rose $886m year on year, and the draft itself records that the Group expects capex to increase again in FY2026. The draft flags this as a forward risk; it is in fact embedded in the base-case cash flows.",
+              "lead_in": "Red team \u2014 valuation, severity 4/5",
+              "calculation_id": "266d8449-b6d6-4574-933b-79f3a8a7533e"
+            },
+            {
+              "text": "forecast_free_cash_flow 20.52bn vs free_cash_flow FY2025 11.765bn; projected_depreciation 11.84bn vs projected_capex 3.445bn; capex_to_depreciation FY2025 0.5525; capital_expenditure_change FY2025 +886m.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "Two different numbers are each presented as the base case: $481.8bn enterprise value on the Gordon route and $264.3bn on the exit-multiple route. The record shows this is not a range but a method disagreement of roughly the size of the smaller answer, and the two routes embed contradictory terminal economics \\u2014 one a growing perpetuity, the other an implied terminal growth of -1.37%, i.e. perpetual decline. The corresponding equity values ($457.8bn vs $240.4bn) map to recorded implied upside of +78.1% and -6.5% against the same market price \\u2014 opposite conclusions. Calling both a base case asserts more resolution than the build supports.",
+              "lead_in": "Red team \u2014 valuation, severity 4/5",
+              "calculation_id": "d42fdd69-cd9e-44db-9a20-a009e5349e42",
+              "source_document_id": "f05f73df-0916-4d78-b59d-65f550d16004"
+            },
+            {
+              "text": "method_disagreement 0.904; implied_terminal_growth -0.0137 on the exit-multiple route; equity_value 457.84bn vs 240.43bn; implied_upside +0.7812 vs -0.0646; value_per_share 293.11 vs 153.92; market price basis from the 2026-09-25 licensed market source.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Open at approval: no rule settled this and nobody preferred either side, so both are published here and the reader decides.",
+              "lead_in": "Resolution"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      }
+    ],
+    "escalations": [
+      {
+        "id": "3b9b7d80-dcfa-47ea-b7b7-7143785f016b",
+        "topic": "Red team (growth): The forecast carries revenue from $58.7bn to a projected $103.2bn while the draft simultaneously states that no growth\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (growth, severity 4/5) reach opposing conclusions on growth: The forecast carries revenue from $58.7bn to a projected $103.2bn while the draft simultaneously states that no growth is attributed to unapproved pipeline assets and that exclusivity exposure within the forecast horizon cannot be quantified from the evidence. Those positions are hard to hold together: the recorded ten-year CAGR of 9.05% was itself delivered by assets that were pipeline during that window and by brands now approaching exclusivity expiry, so extrapolating it forward with zero pipeline contribution and no quantified loss-of-exclusivity drag is not conservative \\u2014 it double-counts the past.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "projected_revenue 103.22bn against FY2025 revenue of 58.739bn as claimed; cagr 0.090458; draft records no risk-adjusted pipeline figure and no quantified exclusivity exposure.",
+          "claims": [
+            "32147a9d-ee7a-4f6d-9167-e2c890e79cd2",
+            "ee71260d-dcf7-41c5-b595-bdaae35bcdc9",
+            "cd857996-153d-4c16-a9ff-0e3caa1fb7ab",
+            "b7934c5c-04d6-45df-a309-76ef0c7ae133",
+            "1bc7503e-85a3-4b59-90cb-e31bca8c2d93",
+            "4f995635-7af4-41bd-aa95-a02066f46bc4"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "a2b0d5f4-be9f-4994-b413-ca6922ea2456",
+              "97e0d831-2c8d-476e-8c33-6ca4e1820ed8"
+            ]
+          },
+          "sections": [
+            "executive_summary",
+            "growth_outlook",
+            "investment_thesis",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "The forecast carries revenue from $58.7bn to a projected $103.2bn while the draft simultaneously states that no growth is attributed to unapproved pipeline assets and that exclusivity exposure within the forecast horizon cannot be quantified from the evidence. Those positions are hard to hold together: the recorded ten-year CAGR of 9.05% was itself delivered by assets that were pipeline during that window and by brands now approaching exclusivity expiry, so extrapolating it forward with zero pipeline contribution and no quantified loss-of-exclusivity drag is not conservative \\u2014 it double-counts the past.",
+          "dimension": "growth"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (growth, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:growth:0bdba65acbfd",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "aadac955-2dac-4de2-bc71-e299cc51296b",
+        "topic": "Red team (valuation): Two different numbers are each presented as the base case: $481.8bn enterprise value on the Gordon route and $264.3bn\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (valuation, severity 4/5) reach opposing conclusions on valuation: Two different numbers are each presented as the base case: $481.8bn enterprise value on the Gordon route and $264.3bn on the exit-multiple route. The record shows this is not a range but a method disagreement of roughly the size of the smaller answer, and the two routes embed contradictory terminal economics \\u2014 one a growing perpetuity, the other an implied terminal growth of -1.37%, i.e. perpetual decline. The corresponding equity values ($457.8bn vs $240.4bn) map to recorded implied upside of +78.1% and -6.5% against the same market price \\u2014 opposite conclusions. Calling both a base case asserts more resolution than the build supports.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "method_disagreement 0.904; implied_terminal_growth -0.0137 on the exit-multiple route; equity_value 457.84bn vs 240.43bn; implied_upside +0.7812 vs -0.0646; value_per_share 293.11 vs 153.92; market price basis from the 2026-09-25 licensed market source.",
+          "claims": [
+            "09659c90-96fc-49fe-b72d-715ed123f768",
+            "44644046-561d-401f-9ee1-6f91c72784ab",
+            "0b292453-3ac9-49eb-8a1f-34859abe2019",
+            "801592bb-f350-4dc3-9ce9-396bbe61c4a9",
+            "a723f96b-1ec0-4537-95cd-3b0edca10300",
+            "fa82f56b-504a-4a49-a066-8a064bb13164"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [
+              "f05f73df-0916-4d78-b59d-65f550d16004"
+            ],
+            "calculations": [
+              "d42fdd69-cd9e-44db-9a20-a009e5349e42",
+              "5bdeb8f2-7005-4c66-9121-e8394459422f",
+              "17e6b264-c955-40ae-998a-d3d97e6fe5da",
+              "42c7dbdc-cad3-4ec6-b7e1-4c519b5bf60c",
+              "f776913d-fdd5-45af-bc6a-a44d833fc601",
+              "05a3a525-24a5-4312-9e31-7ba02d0c16a8"
+            ]
+          },
+          "sections": [
+            "growth_outlook",
+            "scenarios_sensitivities",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "Two different numbers are each presented as the base case: $481.8bn enterprise value on the Gordon route and $264.3bn on the exit-multiple route. The record shows this is not a range but a method disagreement of roughly the size of the smaller answer, and the two routes embed contradictory terminal economics \\u2014 one a growing perpetuity, the other an implied terminal growth of -1.37%, i.e. perpetual decline. The corresponding equity values ($457.8bn vs $240.4bn) map to recorded implied upside of +78.1% and -6.5% against the same market price \\u2014 opposite conclusions. Calling both a base case asserts more resolution than the build supports.",
+          "dimension": "valuation"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T4_LICENSED_MARKET",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (valuation, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:valuation:43bd720ccedd",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "bdd0ae28-8dd6-44fd-9966-6f1f9ee9bf05",
+        "topic": "Red team (valuation): The forecast free cash flow the terminal value is built on is far above anything the company has produced: $20.5bn\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (valuation, severity 4/5) reach opposing conclusions on valuation: The forecast free cash flow the terminal value is built on is far above anything the company has produced: $20.5bn against FY2025 free cash flow of $11.8bn. The mechanism is visible in the record \\u2014 projected depreciation of $11.8bn against projected capex of $3.4bn, a gap that assumes the business runs at a fraction of its own depreciation indefinitely. FY2025 capex was already only about half of depreciation and rose $886m year on year, and the draft itself records that the Group expects capex to increase again in FY2026. The draft flags this as a forward risk; it is in fact embedded in the base-case cash flows.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "forecast_free_cash_flow 20.52bn vs free_cash_flow FY2025 11.765bn; projected_depreciation 11.84bn vs projected_capex 3.445bn; capex_to_depreciation FY2025 0.5525; capital_expenditure_change FY2025 +886m.",
+          "claims": [
+            "2a271861-1169-46a6-a3bc-9ae9203d683f",
+            "7146ecdc-0253-4ee9-a178-3250c7622aaa",
+            "fb38d25f-a34e-49d6-80b4-15c96efba182",
+            "edfdb1b8-dc16-47e7-97d6-fabc545abdf8",
+            "36b01d1d-778c-40ef-96cb-200f1dc73835"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "266d8449-b6d6-4574-933b-79f3a8a7533e",
+              "1b84140f-dcce-4166-ba56-95aadd847ca8",
+              "d2d230fb-9e04-45d2-997c-30671b1cf9a8",
+              "90f562f2-b20a-4462-8d2f-a4904b38e0df",
+              "54024381-5b3d-4cf4-ab35-63bcbdd0be5e",
+              "d23e760c-0efa-460c-9831-cb6f810bcf85"
+            ]
+          },
+          "sections": [
+            "cash_flow_analysis",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "The forecast free cash flow the terminal value is built on is far above anything the company has produced: $20.5bn against FY2025 free cash flow of $11.8bn. The mechanism is visible in the record \\u2014 projected depreciation of $11.8bn against projected capex of $3.4bn, a gap that assumes the business runs at a fraction of its own depreciation indefinitely. FY2025 capex was already only about half of depreciation and rose $886m year on year, and the draft itself records that the Group expects capex to increase again in FY2026. The draft flags this as a forward risk; it is in fact embedded in the base-case cash flows.",
+          "dimension": "valuation"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (valuation, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:valuation:a89cfab7bf82",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "e92d2f79-5a5e-4468-a05d-00d1929b48e3",
+        "topic": "Red team (valuation): The discount rate is the single most load-bearing input and the recorded one is economically implausible on its face\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (valuation, severity 4/5) reach opposing conclusions on valuation: The discount rate is the single most load-bearing input and the recorded one is economically implausible on its face: a cost of equity of 6.46% sits barely above the pre-tax cost of debt of 5.65%, implying equity holders in a patent-cliff-exposed pharmaceutical demand almost no premium over its bondholders. The driver is a measured beta of 0.277. With a terminal value share of 74\\u201386% of value, almost the whole answer is a function of this rate. The draft notes the low beta as a sensitivity but still reports the resulting enterprise values as base-case outputs rather than as conditional on an unnormalised rate.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "cost_of_equity 0.0646 against cost_of_debt 0.056545 and after_tax_cost_of_debt 0.045236; beta 0.276666; wacc 0.062585; terminal_value_share 0.7405 and 0.8576.",
+          "claims": [
+            "7912248e-e181-4d3d-a5f5-de31a3c0df06",
+            "ae1d02bf-14d8-446d-b897-00d947951891",
+            "432d1d25-4ab4-4439-a8f5-ec6e92442b0b",
+            "a64b2b38-10ec-4254-8c65-77cc31088104",
+            "a6323bbb-86b6-41fb-bb51-7de34e76ff45",
+            "1aa5b4b2-ab1c-4ba0-a76d-2ce76d27e20b"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "6b3b5ceb-65af-460e-854d-5c22a3725fd4",
+              "7d2a7860-fc60-4f6b-a9c1-59dfa434f7e1",
+              "2a253271-3e06-4bdf-aab1-7d17bf160110",
+              "8b07a2c1-b73a-465f-9c5d-b596630ea2ec",
+              "6f975642-8f63-40cb-adae-e5a3e63ece6e",
+              "837eee28-2dfa-4ad9-8f04-8e9dd389337b"
+            ]
+          },
+          "sections": [
+            "executive_summary",
+            "investment_thesis",
+            "scenarios_sensitivities",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "The discount rate is the single most load-bearing input and the recorded one is economically implausible on its face: a cost of equity of 6.46% sits barely above the pre-tax cost of debt of 5.65%, implying equity holders in a patent-cliff-exposed pharmaceutical demand almost no premium over its bondholders. The driver is a measured beta of 0.277. With a terminal value share of 74\\u201386% of value, almost the whole answer is a function of this rate. The draft notes the low beta as a sensitivity but still reports the resulting enterprise values as base-case outputs rather than as conditional on an unnormalised rate.",
+          "dimension": "valuation"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (valuation, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:valuation:846f29154317",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "ea05350a-b896-4fd7-9afe-c07c541d8e02",
+        "topic": "GSPC.INDX close on 2026-09-25",
+        "kind": "source_conflict",
+        "rule": "same_tier_same_date",
+        "rationale": "Reported now by the vendor and Held by this platform are both licensed market data, both as first filed, both filed 2026-09-25, and report 7740.63 against 7712.580000. There is nothing left to prefer one by.",
+        "detail": null,
+        "material": false,
+        "position_a": {
+          "tier": "T4_LICENSED_MARKET",
+          "unit": "USD",
+          "basis": "as_reported",
+          "label": "Reported now by the vendor",
+          "scale": 0,
+          "value": "7740.63",
+          "computed": false,
+          "reference": "92929fad-0b30-4099-ae83-e0aa3dfa3797:2026-09-25:incoming",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T4_LICENSED_MARKET",
+          "unit": "USD",
+          "basis": "as_reported",
+          "label": "Held by this platform",
+          "scale": 0,
+          "value": "7712.580000",
+          "computed": false,
+          "reference": "92929fad-0b30-4099-ae83-e0aa3dfa3797:2026-09-25:stored",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "05ded63e-6168-4900-8ebf-5c2c8cc07552",
+        "topic": "Red team (governance): The buyback record is internally inconsistent and only one section says so. The earnings-quality and cash-flow\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (governance, severity 2/5) reach opposing conclusions on governance: The buyback record is internally inconsistent and only one section says so. The earnings-quality and cash-flow sections state share repurchases at nil for FY2025, while the cash-flow section also records $489m of repurchases in the six months to June 2025; the capital-allocation section flags this as a probable tagging defect. A reader of the first two sections would take the nil at face value. The distribution metrics in the record are also FY2024-tagged, not FY2025, so the shareholder-return picture for the year under discussion is thinner than the draft's framing of capital allocation implies.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "shareholder_distributions and distributions_to_operating_cash_flow are recorded for FY2024 (4.71bn; 0.3971); dividends_paid_change FY2025 +342m. No FY2025 repurchase calculation appears in my index.",
+          "claims": [
+            "1ecaab0a-6a59-4df3-9b4e-71df0a5dc713",
+            "cc43efb4-0767-4782-969c-761440df4378",
+            "829e7ecb-917a-4d12-a1bb-e02c2f499b0f",
+            "c942d568-b20e-411c-8763-f5ccd837da2d",
+            "12b7ce17-01e6-43b5-8dbe-a2e933d78fc6"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "feb08e98-6d1c-4f30-b333-bb0fa0f65261",
+              "1c67e200-5816-4f7f-a966-df568712421c",
+              "826e109d-a646-48ed-a0f8-aecf8ac9f769"
+            ]
+          },
+          "sections": [
+            "capital_allocation",
+            "cash_flow_analysis",
+            "earnings_quality"
+          ],
+          "severity": 2,
+          "challenge": "The buyback record is internally inconsistent and only one section says so. The earnings-quality and cash-flow sections state share repurchases at nil for FY2025, while the cash-flow section also records $489m of repurchases in the six months to June 2025; the capital-allocation section flags this as a probable tagging defect. A reader of the first two sections would take the nil at face value. The distribution metrics in the record are also FY2024-tagged, not FY2025, so the shareholder-return picture for the year under discussion is thinner than the draft's framing of capital allocation implies.",
+          "dimension": "governance"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (governance, severity 2/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:governance:73acf72bb094",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "101544de-3a9e-4b32-b06e-290949bccfb7",
+        "topic": "Red team (balance_sheet): The working-capital inputs feeding the valuation look mis-mapped rather than merely unusual. The record carries days\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (balance_sheet, severity 3/5) reach opposing conclusions on balance_sheet: The working-capital inputs feeding the valuation look mis-mapped rather than merely unusual. The record carries days outstanding of 868 and a cash conversion cycle of -548 days, which is what happens when a payables line that includes non-trade items is measured against cost of revenue. The draft's description of accounts payable as the largest single current liability inherits that mapping, and the build then projects working capital at -$3.6bn, a structurally negative and widening balance that releases cash into forecast free cash flow. The -$386.6m change used is recorded as not period-specific, so its vintage is unclear.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "days_outstanding 867.79; cash_conversion_cycle -548.40 days; working_capital -1.894bn; projected_working_capital -3.625bn; working_capital_intensity -0.060369; change_in_working_capital -386.55m recorded as not period-specific.",
+          "claims": [
+            "65174f19-0588-4b88-a693-131226afe0e1",
+            "6c0544bd-4134-484c-a697-54452f748858",
+            "1f43a748-a2d2-48cf-aaa7-f7f15e0ba5d3",
+            "cdcdd997-6fed-47e6-a58c-3fc31c7d4710"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "160c2885-2356-450e-b2e1-6fa133fba02a",
+              "a2cdc142-d152-4da1-9a2e-8cb16084ae02",
+              "e240a5b2-13c1-40bb-a24f-f22e5a33bfaf",
+              "3485de64-8d7f-4089-afa6-77b3fe0eb8c7",
+              "91123cf4-063c-496e-96ed-099463c4d328",
+              "88665421-1c81-4b7e-b31f-98ef48e18506"
+            ]
+          },
+          "sections": [
+            "balance_sheet_liquidity",
+            "earnings_quality",
+            "investment_thesis",
+            "valuation_dcf"
+          ],
+          "severity": 3,
+          "challenge": "The working-capital inputs feeding the valuation look mis-mapped rather than merely unusual. The record carries days outstanding of 868 and a cash conversion cycle of -548 days, which is what happens when a payables line that includes non-trade items is measured against cost of revenue. The draft's description of accounts payable as the largest single current liability inherits that mapping, and the build then projects working capital at -$3.6bn, a structurally negative and widening balance that releases cash into forecast free cash flow. The -$386.6m change used is recorded as not period-specific, so its vintage is unclear.",
+          "dimension": "balance_sheet"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (balance_sheet, severity 3/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:balance_sheet:e30b19c1a5c9",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "4cab5eac-64f7-4b97-9ad9-6c1f82c2dc52",
+        "topic": "Red team (profitability): The draft says repeatedly that margin effects of pricing and of revenue erosion cannot be determined because no\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (profitability, severity 3/5) reach opposing conclusions on profitability: The draft says repeatedly that margin effects of pricing and of revenue erosion cannot be determined because no incremental-margin assumption is supplied. But the build is not margin-silent: projected EBIT of $14.67bn against projected revenue of $103.2bn sits well below the FY2025 operating margin in the record, so a substantial compression path is already embedded and undisclosed as an assumption. Separately, the FY2025 base is an unusually strong anchor \\u2014 the recorded FY2024 operating margin is 0.185 against a FY2025 margin of 0.234, a one-year step the draft presents without asking whether it is repeatable.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "projected_ebit 14.672bn vs projected_revenue 103.216bn; margin_of FY2025 0.233967; operating_margin FY2024 0.184991; margin_movement FY2025 0.048977.",
+          "claims": [
+            "32fe5823-6934-4e31-a0e0-929ba95633e6",
+            "922d8c34-58ee-42a3-82ee-2f6ca89c5b94",
+            "ad753e55-c6a4-4d0b-8ed3-71c777763467",
+            "9d1e7bab-90c8-4d3f-815b-3192b8535ebc"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "c330315e-8937-417e-979d-72dadad5fbc4",
+              "a2b0d5f4-be9f-4994-b413-ca6922ea2456",
+              "f950e92f-eba9-452b-8dfa-7f9c015bcccf",
+              "8ea6a9e4-3b0a-48c2-863e-131e36446ce4",
+              "23697fcc-bd80-4c93-8871-14eaa29b3d44"
+            ]
+          },
+          "sections": [
+            "growth_outlook",
+            "investment_thesis",
+            "valuation_dcf"
+          ],
+          "severity": 3,
+          "challenge": "The draft says repeatedly that margin effects of pricing and of revenue erosion cannot be determined because no incremental-margin assumption is supplied. But the build is not margin-silent: projected EBIT of $14.67bn against projected revenue of $103.2bn sits well below the FY2025 operating margin in the record, so a substantial compression path is already embedded and undisclosed as an assumption. Separately, the FY2025 base is an unusually strong anchor \\u2014 the recorded FY2024 operating margin is 0.185 against a FY2025 margin of 0.234, a one-year step the draft presents without asking whether it is repeatable.",
+          "dimension": "profitability"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (profitability, severity 3/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:profitability:67e9c24b2af9",
+          "filed_date": "2026-09-25"
+        }
+      },
+      {
+        "id": "4d9af718-8941-4119-9e77-5c243d8121a1",
+        "topic": "Red team (balance_sheet): The verdict that leverage is comfortable and the near-term maturity profile undemanding rests on no maturity schedule\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (balance_sheet, severity 3/5) reach opposing conclusions on balance_sheet: The verdict that leverage is comfortable and the near-term maturity profile undemanding rests on no maturity schedule, facility or covenant record I can see \\u2014 the draft concedes the latter two are absent, then draws the conclusion anyway. What the record does show cuts the other way at the short end: a current ratio of 0.938 and a quick ratio of 0.683, with cash falling into the year end. Net debt/EBITDA of 1.27 and interest cover of 8.1 support the structural leverage claim but say nothing about the timing of maturities, which is the part the draft calls undemanding.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "current_ratio 0.9381; quick_ratio 0.6832; net_debt_to_ebitda 1.2699; interest_cover 8.1128; net_debt 23.911bn. No maturity-schedule or facility calculation appears in my index.",
+          "claims": [
+            "4de7319e-6ae3-4246-a4cd-08dc8e9fe3fd",
+            "c3c4d3c3-b53a-432e-85e7-91d8139012d4",
+            "2f55ab14-8da1-41ba-985c-352cc11c8ae2",
+            "b6254fd9-2f89-4344-a9f2-78bb76bdc840"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "b5b2a548-5b47-4ec2-b350-341fd19d8e09",
+              "60b4a5b2-5b66-4e83-9773-07031840150f",
+              "df1b178e-c855-4bbf-aeb7-6b2d8a556e5b",
+              "fc9074fd-c9ae-42d9-8697-265df5c64a33",
+              "6a49639c-8dd0-4b15-897c-9891845422df"
+            ]
+          },
+          "sections": [
+            "balance_sheet_liquidity"
+          ],
+          "severity": 3,
+          "challenge": "The verdict that leverage is comfortable and the near-term maturity profile undemanding rests on no maturity schedule, facility or covenant record I can see \\u2014 the draft concedes the latter two are absent, then draws the conclusion anyway. What the record does show cuts the other way at the short end: a current ratio of 0.938 and a quick ratio of 0.683, with cash falling into the year end. Net debt/EBITDA of 1.27 and interest cover of 8.1 support the structural leverage claim but say nothing about the timing of maturities, which is the part the draft calls undemanding.",
+          "dimension": "balance_sheet"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "draft:f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+          "filed_date": "2026-09-25"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (balance_sheet, severity 3/5)",
+          "scale": 0,
+          "value": "0",
+          "computed": false,
+          "reference": "red_team:balance_sheet:72b5185a1990",
+          "filed_date": "2026-09-25"
+        }
+      }
+    ],
+    "triggers": [
+      {
+        "kind": "cost_above_threshold",
+        "message": "This run is close to its \u00a310.00 cost cap. The hard cap still stops the run in code; this banner is the warning before it does.",
+        "evidence": [
+          "estimated \u00a39.2789 exceeds \u00a38.000 (80% of cap)"
+        ]
+      }
+    ]
+  },
+  "hash": "15a43e0660bb5fc70ff324f9188a68731dd8f85c023907eb7f9f303682c1a99c",
+  "pause_context": {
+    "gate": "FINAL",
+    "job_id": "f42e6a78-aedb-48a0-a21e-e4d3c62f7bf6",
+    "reason": "final_triggers_fired",
+    "triggers": [
+      "cost_above_threshold"
+    ]
+  }
+}

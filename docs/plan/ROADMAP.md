@@ -181,11 +181,29 @@ not entered at all, and F2 then landed (below). The re-measurement follows F2.
 - **Still open.** ADR 0115 decision 4's other half is not built: approval refused while a
   challenge is open, and a *carried* state. The re-measurement decides it.
 
+**The re-measurement, 25 September 2026 — the finish line's second condition is met.** The
+record is [`remeasure-2026-09/`](remeasure-2026-09/README.md).
+- **The runs.** MSFT, AZN through its 20-F and M&T each reached an approved report with no
+  terminal and no rescue. The MSFT refresh kept its valuation to the cent: $222.34 and
+  $411.23 a share.
+- **The first AZN run stopped.** It stopped at its final gate on a checker defect, not on the
+  draft (§3.19 item 80), and was rejected with its reason. A fresh run on the fixed tree is
+  the measurement.
+- **Found and fixed the same day.** Three defects, all in deterministic code: items 78, 79
+  and 80. One was F2's own: a lever that argued against its case.
+- **Found and not fixed.** Items 81 to 83, all presentation.
+- **The cost.** £28.15 against the ~£21 approved. The second AZN run is the difference. The
+  audit ledger reads £106.58 of its £125.
+- **ADR 0115 decision 4's other half.** The evidence is in: every approved report left seven
+  to nine challenges open, two to six of them material, each published with both sides for
+  the reader to decide. Refusing approval on one would have stopped all four runs. The
+  recommendation is to withdraw that half. It is the operator's call, and waits on it.
+
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
    does.
 2. The re-measurement: about £21, approved, with the audit ledger's ceiling raised from £100 to
-   £125 to hold it.
+   £125 to hold it. *Done 25 September: the condition is met, for £28.15 (above).*
 3. F5 and the calculator.
 4. The claim.
 5. The operator's machine.
@@ -3125,6 +3143,21 @@ found rather than as scope that was always there.
     may stand. "negative ABC 386.6" and "negative USD386.6" still read as before, and the
     tests hold it. The stopped run stays at its gate as the record. A fresh AZN run on the
     fixed tree is the measurement.
+81. **The Executive Summary says its evidence is weak when it is not, 25 September 2026.**
+    Three of the re-measurement's four approved reports open the summary with *"Insufficient
+    evidence: This section's policy requires at least one primary source (tier 1 or 2); none
+    of its cited evidence is primary."* The verdict round's MSFT did too. The summary cites
+    calculations, whose lineage ends in the filings, and the section's evidence policy counts
+    only cited documents. A cited calculation resting on a tier-1 filing could count as
+    primary through its lineage. That changes an evidence policy, so it is recorded rather
+    than changed mid-measurement.
+82. **A whole number of cents prints without them, 25 September 2026.** The display drops
+    trailing zeros, so a value per share of $307.998 prints "$308" beside "$431.55" in the
+    same column. A ratio of 0.1200 prints "12%" beside "46.8%". It is house style for prose.
+    In a table it reads as a different precision.
+83. **The comparison with prior research says "none stated", 25 September 2026.** Its
+    *Non-binding view* row predates ADR 0135. The masthead says the report takes no side, and
+    the comparison should say the same.
 
 ### Before this leaves one machine
 

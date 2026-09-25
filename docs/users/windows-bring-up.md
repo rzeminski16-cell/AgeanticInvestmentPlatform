@@ -13,6 +13,10 @@ day, in order. [Getting started](getting-started.md) has the detail behind each 
 
 - **The backup from 25 September 2026**: the directory holding the database dump, the artefact
   store and the manifest. It is the corpus, and restoring it means you do not buy it again.
+  Use the V1.0 one, `backup-2026-09-25-v1`, sent as three zips
+  (`aer-backup-2026-09-25-v1-part1.zip` to `part3.zip`). Extract all three into the same
+  folder and they rebuild one directory. It holds everything the earlier backup did, plus the
+  re-measurement's four approved reports, and it was taken at this code's migration.
 - **Your keys.** They go into `.env` and nowhere else — never into a chat, a commit or a
   screenshot:
 
@@ -77,9 +81,10 @@ uv run aer verify-audit
 - [ ] `verify-backup` reports every file matching its manifest. Restore checks again before it
       touches anything, and refuses a backup that does not check out.
 - [ ] `restore` asks before it drops and rebuilds the database. Say yes: the database is empty.
-- [ ] `alembic upgrade head` moves the restored schema to this code's. The backup was taken at an
-      earlier migration, and the upgrade is what brings the report archive's workbook column
-      with it.
+- [ ] `alembic upgrade head` moves the restored schema to this code's. The V1.0 backup was
+      taken at migration 0090, so on this code it has nothing to do. An earlier backup needs
+      it: the upgrade is what brings the report archive's workbook column and the two cases'
+      section contracts.
 - [ ] `verify-artefacts` and `verify-audit` are both clean.
 
 Your user comes back with the database, so there is no `seed-user` step.
