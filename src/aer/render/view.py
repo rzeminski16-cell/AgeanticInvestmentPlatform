@@ -1,4 +1,4 @@
-"""The composed half of the report's view: a range, a spread, a distance, and the levers.
+"""The composed half of the report's view: what each method gives, why, and what moves it.
 
 ADR 0117. `reports.rating` is assigned ``None`` in one place and written nowhere, so every
 report this platform has ever produced printed *"no view reached"* — not because no view
@@ -18,16 +18,22 @@ beside its axis value. Nothing in this file does arithmetic — a renderer that 
 price from a value would produce a figure no ledger row accounts for and no footnote could
 point at, which is the platform's founding rule read backwards.
 
-**No adjectives.** Not "attractive", not "compelling", not "cautious". A range, the method
-that produced it, a distance from the market and the levers that move it — every one a
-recorded calculation with a marker a reader can follow. What the figures *mean* is the
-operator's half, and it is not here.
+**No adjectives.** Not "attractive", not "compelling", not "cautious". What each terminal
+method gives, the figures that say why the two differ, a distance from the market and the
+levers that move it — every one a recorded calculation with a marker a reader can follow.
+What the figures *mean* is the operator's half, and it is not here.
+
+**Two answers, never a range (ADR 0132).** The block was "The view" and its first group
+"Base case, by method", and the masthead printed the two as "$227.43 to $442.01 a share" —
+above a valuation section saying they "should not be read as the ends of a range". Every
+judge of the verdict round gave that contradiction as the first reason to abandon. The
+figures are what two terminal methods give, and the gap between them is two confirmed
+assumptions that cannot both hold, which the block now prints beside them.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any, Final
 
 import structlog
@@ -37,11 +43,13 @@ from sqlalchemy.orm import selectinload
 
 from aer.db.models import Calculation, Job, Sensitivity
 
-__all__ = ["VIEW_CONTRACT", "VIEW_TITLE", "ComposedView", "base_range", "view_content"]
+__all__ = ["VIEW_CONTRACT", "VIEW_TITLE", "ComposedView", "view_content"]
 
 _log = structlog.get_logger("aer.render.view")
 
-VIEW_TITLE: Final = "The view"
+# What the block is, in words that claim no more than it does (ADR 0132): the figures the two
+# terminal methods give, not a view — the view is the operator's, and a range they are not.
+VIEW_TITLE: Final = "What the valuation gives"
 
 # The walk's contract: field order is display order, and each row names the calculation it
 # came from so the walk footnotes it exactly as it footnotes a section's figures.
@@ -51,7 +59,20 @@ VIEW_CONTRACT: Final[dict[str, Any]] = {
     "properties": {
         "base": {
             "type": "array",
-            "title": "Base case, by method",
+            "title": "By terminal method",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "value": {"type": "string"},
+                    "unit": {"type": "string"},
+                    "calculation_id": {"type": "string"},
+                },
+            },
+        },
+        "why_they_differ": {
+            "type": "array",
+            "title": "Why the two methods differ",
             "items": {
                 "type": "object",
                 "properties": {
@@ -137,7 +158,7 @@ class ComposedView:
     """The block's content, or nothing where the run reached no valuation.
 
     ``None`` is an ordinary outcome and the honest one: a run that produced no discounted
-    cash flow has no range to state, and *"no view reached"* is true of it.
+    cash flow has nothing for either method to give.
     """
 
     content: dict[str, Any] | None
@@ -162,6 +183,9 @@ async def view_content(session: AsyncSession, *, job: Job) -> ComposedView:
     base = _base_rows(by_case)
     if base:
         content["base"] = base
+    differ = _implied_rows(calculations)
+    if differ:
+        content["why_they_differ"] = differ
     against = _upside_rows(calculations)
     if against:
         content["against_the_price"] = against
@@ -219,6 +243,44 @@ def _method_rows(rows: Any) -> list[dict[str, str]]:
     for key, label in _METHODS:
         row = next(
             (item for item in reversed(list(rows)) if (item.parameters or {}).get("method") == key),
+            None,
+        )
+        if row is not None:
+            found.append(_figure(label, row))
+    return found
+
+
+# Each method's implied version of the other's assumption, as the base case struck it, in
+# the words a reader meets. The gap between two terminal methods is not noise: an exit
+# multiple is a claim about growth for ever, and a growth rate is a claim about the multiple.
+#
+# **The label decides the notation**, because both figures are dimensionless and
+# `aer.render.display` reads a pure number by its label's words, percentage words first. So
+# the multiple's label must not say "growth": "the multiple the perpetuity growth implies"
+# printed 6.4 as 640%.
+_IMPLIED: Final[tuple[tuple[str, str], ...]] = (
+    ("implied_terminal_growth", "Perpetual growth the exit multiple implies"),
+    ("implied_exit_multiple", "Exit multiple the perpetuity method implies"),
+)
+
+
+def _implied_rows(calculations: list[Calculation]) -> list[dict[str, str]]:
+    """Why the two methods differ, in the two figures the base case already struck.
+
+    ADR 0132. On the verdict round's MSFT run a 14x exit multiple implied growth of 6.5% a
+    year for ever at a 9.7% discount rate, and 3% growth implied a multiple of 6.4x: two
+    confirmed assumptions about the same years that cannot both hold, printed deep in the
+    valuation section while the masthead called the two answers a range. Base case only —
+    the grid's cells strike their own and are a working paper.
+    """
+    found: list[dict[str, str]] = []
+    for name, label in _IMPLIED:
+        row = next(
+            (
+                item
+                for item in reversed(calculations)
+                if item.name == name and (item.parameters or {}).get("case") == "base"
+            ),
             None,
         )
         if row is not None:
@@ -329,18 +391,3 @@ def _figure(label: str, row: Calculation) -> dict[str, str]:
         "unit": row.output_unit,
         "calculation_id": str(row.id),
     }
-
-
-def base_range(content: dict[str, Any] | None) -> tuple[Decimal, Decimal, str] | None:
-    """The low and high of the base case, for the header line, or ``None``.
-
-    The header says *"no view reached"* only where that is true — a run with no valuation
-    — rather than on every run, which is what it did until ADR 0117 (F13). Read off the
-    same rows the block prints, so the two cannot disagree.
-    """
-    rows = (content or {}).get("base") or []
-    values = [Decimal(row["value"]) for row in rows if row.get("value")]
-    if not values:
-        return None
-    unit = str(rows[0].get("unit", ""))
-    return min(values), max(values), unit

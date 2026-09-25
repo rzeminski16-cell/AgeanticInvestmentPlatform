@@ -480,7 +480,7 @@ def _company_generated(
         body_lines = [
             f"# {title}",
             "",
-            f"Latest approved view: {latest.rating or 'no view reached'} as of "
+            f"Latest approved view: {latest.rating or 'none stated'} as of "
             f"{latest.as_of_date.isoformat()}.",
             "",
             "## Approved runs",
@@ -571,7 +571,7 @@ def _lone_company_generated(
     body_lines = [
         f"# {title}",
         "",
-        f"Latest approved view: {report.rating or 'no view reached'} as of "
+        f"Latest approved view: {report.rating or 'none stated'} as of "
         f"{report.as_of_date.isoformat()}.",
         "",
         "## Approved runs",

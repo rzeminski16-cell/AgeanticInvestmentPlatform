@@ -291,8 +291,14 @@ class TestTheComparisonSection:
 
         by_aspect = {comparison["aspect"]: comparison for comparison in comparisons}
         # The headline aspects compare against the most recent prior.
-        assert by_aspect["Valuation range"]["prior"] == "200 to 240 USD per share"
-        assert by_aspect["Valuation range"]["prior_report_id"] == str(scene["newer"].id)
+        assert by_aspect["Valuation"]["prior"] == "200 to 240 USD per share"
+        assert by_aspect["Valuation"]["prior_report_id"] == str(scene["newer"].id)
+        # Neither a view nor a confidence is stated when the section is written, and the
+        # rows say so rather than promising one "at this run's approval" (ADR 0132).
+        assert by_aspect["Non-binding view"]["current"] == (
+            "none stated when this section was written"
+        )
+        assert by_aspect["Confidence"]["current"] == "not stated when this section was written"
         # The older report's catalysts and risks still walk in, with their own id.
         assert by_aspect["Catalyst — Cloud contract renewal"]["prior_report_id"] == str(
             scene["older"].id
@@ -332,7 +338,11 @@ class TestTheComparisonSection:
             session, job_id=scene["new_job"].id, request=scene["new_request"]
         )
         by_aspect = {row["aspect"]: row for row in content["comparisons"]}
-        assert by_aspect["Valuation range"]["current"] == "241.5 to 265 USD/share"
+        # Each figure named by its method, in the report's order, and never a range: the
+        # valuation section says the two are two answers (ADR 0132).
+        assert by_aspect["Valuation"]["current"] == (
+            "265 (perpetuity growth) and 241.5 (exit multiple) USD/share"
+        )
 
     async def test_the_registered_builder_delegates_to_the_service(
         self, scene: dict[str, Any]

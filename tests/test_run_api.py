@@ -1764,8 +1764,10 @@ class TestTheWebPages:
         assert "Research Note" in page.text
         assert "not</strong> regulated investment advice" in page.text
         assert 'id="contents"' in page.text
-        # The draft has no view yet, and the preview says so rather than inventing one.
-        assert "no view reached" in page.text
+        # The draft has no view yet, and the preview says none is stated rather than
+        # inventing one — or saying none was *reached* (ADR 0132).
+        assert "none stated" in page.text
+        assert "no view reached" not in page.text
 
     async def test_a_run_with_no_sections_has_no_preview(self, api: Any, committed: dict) -> None:
         # Started but not yet picked up by the worker: the plan step is what creates the

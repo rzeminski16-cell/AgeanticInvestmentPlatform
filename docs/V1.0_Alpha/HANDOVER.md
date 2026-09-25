@@ -300,6 +300,13 @@ And it pointed at `reports.rating`: that column belongs to the **authored** half
 a column has none of those. The column is still `None` and should be; the header line is
 what changed, and "no view reached" survives for a run with no valuation, where it is true.
 
+*Corrected 25 September 2026 (ADR 0132).* The verdict round showed what a range in the
+masthead does. Every judge read *"$227.43 to $442.01 a share"* as a view, which the valuation
+section then contradicted. The masthead now says what each method gives, *"$227.43 (perpetuity
+growth) and $442.01 (exit multiple) a share"*, and the composed block says why the two differ.
+The view line says *"none stated"* on every run until the operator states one; "no view
+reached" is printed nowhere.
+
 Three things the build found and §3.19 now carries: the price step computed a price and
 discarded it, so a run with no mappable share count held none either (§3.19.12); the market
 capitalisation's recorded source was a literal string that could never resolve; and **no run

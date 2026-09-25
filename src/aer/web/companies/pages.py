@@ -612,7 +612,7 @@ async def _report_row(
     job = await session.get(Job, report.job_id)
     newest = history["timeline"][0] if history["timeline"] else None
     view = (
-        f"{newest.rating or 'no view reached'}, {newest.valuation_range}."
+        f"Non-binding view: {newest.rating or 'none stated'}; valuation {newest.valuation_range}."
         if newest is not None
         else "The report's view is on its own page."
     )

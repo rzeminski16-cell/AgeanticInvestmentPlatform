@@ -65,6 +65,7 @@ from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
 from aer.services.assumptions import assumptions_for_request
 from aer.services.configuration import StandingAssumption, save_standing_assumption
 from aer.services.macro_acquisition import PROPOSED_BY as MACRO_BY
+from aer.services.preview import TerminalCheck
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
 from aer.storage.local import LocalArtefactStore
@@ -1135,6 +1136,85 @@ class TestTheOperatorCanReachTheGate:
         assert page.status_code == 404
         assert "does not permit a discounted cash flow" in page.text
         assert "review-assumptions" not in (await api.get(f"/runs/{blocked['job'].id}")).text
+
+
+# The verdict round's MSFT figures, as the preview would report them (ADR 0132).
+_DISAGREEING = TerminalCheck(
+    wacc=Decimal("0.097"),
+    terminal_growth=Decimal("0.03"),
+    exit_multiple=Decimal(14),
+    growth_the_multiple_implies=Decimal("0.065"),
+    multiple_the_growth_implies=Decimal("6.4"),
+    gordon_per_share=Decimal("227.43"),
+    exit_multiple_per_share=Decimal("442.01"),
+    currency="USD",
+    disagreement=Decimal("0.9435"),
+)
+
+
+class TestTheGateSaysWhenTheTerminalAssumptionsDisagree:
+    """ADR 0132 §3: the two implied figures beside the two assumptions, before either is
+    confirmed — the verdict round's MSFT run confirmed a pair that could not both hold and
+    learnt it only from the valuation section. The preview's own arithmetic is
+    `tests/test_preview.py`'s; this is what the page does with it."""
+
+    async def test_the_disagreement_is_shown_while_the_decision_is_open(
+        self, api: Any, at_the_gate: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def disagreeing(*_args: Any, **_kwargs: Any) -> TerminalCheck:
+            return _DISAGREEING
+
+        monkeypatch.setattr("aer.web.pages.terminal_check", disagreeing)
+
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert page.status_code == 200
+        assert 'id="terminal-check"' in page.text
+        assert "The terminal growth rate and the exit multiple disagree" in page.text
+        assert "implies perpetual growth of 6.5% a year" in page.text
+        assert "$227.43 (perpetuity growth) and $442.01 (exit multiple) a share" in page.text
+        # It informs the decision and refuses nothing, and it says its figures are not
+        # the report's: those are struck only from what the operator confirms.
+        assert "Nothing here refuses the pair" in page.text
+        assert "None of these figures is recorded" in page.text
+
+    async def test_a_run_the_preview_cannot_strike_shows_nothing(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        """The seeded run has no filings behind it and most inputs outstanding: no preview,
+        and no box pretending to one."""
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert page.status_code == 200
+        assert 'id="terminal-check"' not in page.text
+
+    async def test_a_decided_gate_shows_no_preview(
+        self, api: Any, at_the_gate: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Once decided, the rows are what the valuation used and the valuation section
+        prints the recorded figures; a preview beside a settled decision is noise."""
+        job_id = at_the_gate["job"].id
+        token = (await api.get(f"/runs/{job_id}/assumptions")).cookies.get("aer_csrf") or ""
+        decided = await api.post(
+            f"/runs/{job_id}/gates/{GateKind.ASSUMPTIONS.value}",
+            data={
+                CSRF_FIELD_NAME: token,
+                "payload_hash": at_the_gate["produced"]["payload_hash"],
+                "decision": "APPROVED",
+            },
+            follow_redirects=False,
+        )
+        assert decided.status_code == 303, decided.text
+
+        async def disagreeing(*_args: Any, **_kwargs: Any) -> TerminalCheck:
+            return _DISAGREEING
+
+        monkeypatch.setattr("aer.web.pages.terminal_check", disagreeing)
+
+        page = await api.get(f"/runs/{job_id}/assumptions")
+
+        assert page.status_code == 200
+        assert 'id="terminal-check"' not in page.text
 
 
 # ==========================================================================================

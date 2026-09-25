@@ -61,7 +61,7 @@ from aer.errors import ValidationError
 from aer.eval.metrics import spoken_metric
 from aer.render import display
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
-from aer.render.view import VIEW_CONTRACT, VIEW_TITLE, base_range, view_content
+from aer.render.view import VIEW_CONTRACT, VIEW_TITLE, view_content
 from aer.sections.consequences import consequences_for_audience
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
@@ -234,11 +234,12 @@ class HeaderView:
     rating: str | None
     confidence: float | None
 
-    # The base case as one line — "$412.60 to $486.10 a share" — composed from the same
-    # rows the view block prints, so the two cannot disagree (ADR 0117). ``None`` for a run
-    # that produced no valuation, which is the one state where *"no view reached"* is a
-    # true sentence rather than a column nobody ever wrote to.
-    composed_range: str | None = None
+    # What each terminal method gives, as one line — "$227.43 (perpetuity growth) and
+    # $442.01 (exit multiple) a share" — composed from the same rows the view block prints,
+    # so the two cannot disagree (ADR 0117). Two figures and never a range: ADR 0132, after
+    # every judge of the verdict round read "$227.43 to $442.01" as a view the document then
+    # contradicted. ``None`` for a run that produced no valuation.
+    method_values: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -556,10 +557,10 @@ class ReportDocument:
     # run holds nothing to show.
     glance: tuple[Fragment, ...] = ()
 
-    # ADR 0117's composed half: the base-case range, the distance from the market and the
-    # levers, all of them recorded calculations. Empty for a run with no valuation, which
-    # is the one state where "no view reached" is true. Its markers are the document's
-    # first, because it is the first thing a reader meets.
+    # ADR 0117's composed half: what each terminal method gives, why the two differ, the
+    # distance from the market and the levers, all of them recorded calculations (ADR
+    # 0132). Empty for a run with no valuation. Its markers are the document's first,
+    # because it is the first thing a reader meets.
     view: tuple[Fragment, ...] = ()
 
     # The undated-source legend (the C3 marker), present exactly when some section
@@ -783,7 +784,7 @@ async def assemble_document(
             generated_at=generated_at or datetime.now(UTC),
             rating=rating,
             confidence=confidence,
-            composed_range=_composed_range(view.content, style=active_style),
+            method_values=_method_values(view.content, style=active_style),
         ),
         sector=sector,
         sections=tuple(views),
@@ -855,20 +856,23 @@ def _declared_exhibits(definition: SectionDefinition | None) -> list[str]:
     return [str(item) for item in stated]
 
 
-def _composed_range(content: dict[str, Any] | None, *, style: HouseStyle) -> str | None:
-    """The base case as the masthead's one line, in the house style, or ``None``.
+def _method_values(content: dict[str, Any] | None, *, style: HouseStyle) -> str | None:
+    """What each terminal method gives, as the masthead's one line, or ``None``.
 
     Read off the block's own rows rather than recomputed, so the line and the table under
-    it cannot disagree — the failure `glance` was built to avoid, one page earlier. A
-    single method gives a point rather than a range, and says so by being one figure.
+    it cannot disagree — the failure `glance` was built to avoid, one page earlier. Each
+    figure is named by its method, and the two are joined by "and", never "to": they are
+    two answers, and a range is a claim neither method makes (ADR 0132).
     """
-    found = base_range(content)
-    if found is None:
+    rows = [row for row in (content or {}).get("base") or [] if row.get("value")]
+    if not rows:
         return None
-    low, high, unit = found
-    currency = unit.split("/")[0]
-    shown = [display.money(value, currency, style=style) for value in (low, high)]
-    return shown[0] if low == high else f"{shown[0]} to {shown[1]} a share"
+    shown = []
+    for row in rows:
+        currency = str(row.get("unit", "")).split("/")[0]
+        money = display.money(Decimal(row["value"]), currency, style=style)
+        shown.append(f"{money} ({str(row['label']).lower()})")
+    return f"{' and '.join(shown)} a share"
 
 
 def _comps_fragments(

@@ -4,7 +4,7 @@
 **As-of date:** 30 June 2022  
 **Base currency:** USD  
 **Generated:** <generated>
-**Non-binding view:** no view reached  
+**Non-binding view:** none stated  
 
 > This is a personal research tool. It is **not** regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.
 

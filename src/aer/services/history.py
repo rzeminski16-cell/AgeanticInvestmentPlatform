@@ -456,7 +456,7 @@ async def prior_digest_for(
             PriorDigest(
                 report_id=prior.id,
                 as_of_date=prior.as_of_date,
-                rating=view.rating or "no view reached",
+                rating=view.rating or "none stated",
                 confidence=(
                     f"{view.confidence:.0%}" if view.confidence is not None else "not recorded"
                 ),
@@ -632,8 +632,11 @@ async def prior_comparison_content(
     comparisons: list[dict[str, str]] = [
         {
             "aspect": "Non-binding view",
-            "prior": latest.rating or "no view reached",
-            "current": "Recorded at this run's approval.",
+            "prior": latest.rating or "none stated",
+            # A view is stated by the operator at approval, after this section is written,
+            # so the section can only say none is stated yet — never that one will be
+            # recorded, which it printed on every run whether or not one ever was.
+            "current": "none stated when this section was written",
             "prior_report_id": str(latest.report_id),
         },
         {
@@ -641,11 +644,11 @@ async def prior_comparison_content(
             "prior": (
                 f"{latest.confidence:.0%}" if latest.confidence is not None else "not recorded"
             ),
-            "current": "Recorded at this run's approval.",
+            "current": "not stated when this section was written",
             "prior_report_id": str(latest.report_id),
         },
         {
-            "aspect": "Valuation range",
+            "aspect": "Valuation",
             "prior": latest.valuation_range,
             "current": await _current_valuation(session, job_id=job_id),
             "prior_report_id": str(latest.report_id),
@@ -760,6 +763,11 @@ def _assumption_row(outcome: AssumptionOutcome) -> dict[str, str]:
     }
 
 
+_METHOD_WORDS = {
+    TerminalMethod.GORDON_GROWTH.value: "perpetuity growth",
+    TerminalMethod.EXIT_MULTIPLE.value: "exit multiple",
+}
+
 _CATALYST_STATUS = {
     "passed": "The stated window has passed by this run's as-of date.",
     "pending": "Still within its stated window at this run's as-of date.",
@@ -768,11 +776,12 @@ _CATALYST_STATUS = {
 
 
 async def _current_valuation(session: AsyncSession, *, job_id: uuid.UUID) -> str:
-    """This run's base-case per-share range, from its own recorded rows, or honesty.
+    """This run's base-case value per share by each terminal method, or honesty.
 
-    The same read the football field makes: the base case's two terminal methods bound
-    the range. Absent rows mean the run has not valued the business (yet, or at all),
-    and the row says so rather than borrowing a number from anywhere else.
+    Each figure is named by its method and the two are never a range: the valuation
+    section says they are two answers, and this row said "241.5 to 265" in the same
+    document until ADR 0132. Absent rows mean the run has not valued the business (yet, or
+    at all), and the row says so rather than borrowing a number from anywhere else.
     """
     rows = list(
         await session.scalars(
@@ -793,12 +802,11 @@ async def _current_valuation(session: AsyncSession, *, job_id: uuid.UUID) -> str
             found.append(matching[-1])
     if not found:
         return "Not computed at the time this section was drafted."
-    low = _trim(min(row.output_value for row in found))
-    high = _trim(max(row.output_value for row in found))
-    unit = found[0].output_unit
-    if low == high:
-        return f"{low} {unit} (one terminal method recorded)"
-    return f"{low} to {high} {unit}"
+    shown = " and ".join(
+        f"{_trim(row.output_value)} ({_METHOD_WORDS[str(row.parameters['method'])]})"
+        for row in found
+    )
+    return f"{shown} {found[0].output_unit}"
 
 
 def _trim(value: Decimal) -> str:

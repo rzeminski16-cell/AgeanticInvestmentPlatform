@@ -38,6 +38,21 @@
 {% endblock %}
 
 {% block gate_evidence %}
+  {#
+    ADR 0132 §3. The two terminal assumptions, set against what each implies about the
+    other, shown only when together they put the methods further apart than the valuation's
+    own band. A preview over the rows as they stand — nothing in it is recorded — and it
+    refuses nothing: holding both knowingly is the operator's judgement to make.
+  #}
+  {% if terminal_check %}
+    <div id="terminal-check" class="mb-6">
+      {{ ui.callout(
+        "warning",
+        "The terminal growth rate and the exit multiple disagree",
+        terminal_check | join(" ") ~ " Nothing here refuses the pair: holding both is a judgement, and it is yours. None of these figures is recorded; the report's own are struck from the values you confirm.",
+      ) }}
+    </div>
+  {% endif %}
   {% if payload.assumptions %}
     {% call ui.sheet("Proposed assumptions") %}
       {#

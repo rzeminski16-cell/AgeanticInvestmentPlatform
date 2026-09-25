@@ -168,15 +168,15 @@ def _header(header: HeaderView, *, style: HouseStyle) -> list[str]:
         f"{header.generated_at.strftime(', %H:%M UTC')}  ",
     ]
 
-    # "No view" is stated rather than omitted. A missing rating and a deliberate abstention
-    # look identical unless one of them says so — and until ADR 0117 the line said it on
-    # every run, including the ones that had computed a range, because `reports.rating` was
-    # assigned `None` in one place and written nowhere. The composed range is what a run
-    # with a valuation says here; "no view reached" survives for a run with none, where it
-    # is true.
-    lines.append(
-        f"**Non-binding view:** {header.rating or header.composed_range or 'no view reached'}  "
-    )
+    # What the valuation gives, then the view, on two lines that cannot be mistaken for
+    # each other (ADR 0132). The first is what code composed; the second is the operator's,
+    # stated rather than omitted when there is none, because a missing view and a deliberate
+    # abstention look identical unless the line says so. It says "none stated", not "no view
+    # reached": every judge of the verdict round read the old words as the document failing
+    # to conclude, above a masthead that had just called two figures a range.
+    if header.method_values:
+        lines.append(f"**What each method gives:** {header.method_values}  ")
+    lines.append(f"**Non-binding view:** {header.rating or 'none stated'}  ")
     if header.confidence is not None:
         lines.append(f"**Confidence:** {header.confidence:.0%}  ")
 

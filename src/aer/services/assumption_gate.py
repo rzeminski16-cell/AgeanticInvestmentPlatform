@@ -28,7 +28,6 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Any, Final
 
 import structlog
@@ -833,20 +832,3 @@ def _reason_for(name: str, *, outcome: ProposalOutcome) -> str:
         f"No proposal could be made for {name.replace('_', ' ')} from what this run acquired. "
         "Enter a value and say what it rests on."
     )
-
-
-def provisional_discount_rate(values: dict[str, Decimal]) -> Decimal | None:
-    """The cost of equity implied by three proposed values, or ``None``.
-
-    **Not a valuation input and never persisted.** The real discount rate is decomposed by
-    :mod:`aer.calc.wacc` from confirmed assumptions and recorded as calculations. This is a
-    convenience for a caller that wants to show an operator roughly where the bounds will
-    fall, and it returns ``None`` rather than a partial answer the moment any leg is absent.
-    """
-    try:
-        risk_free = values[RISK_FREE_ASSUMPTION]
-        beta = values[BETA_ASSUMPTION]
-        premium = values[EQUITY_RISK_PREMIUM_ASSUMPTION]
-    except KeyError:
-        return None
-    return risk_free + beta * premium

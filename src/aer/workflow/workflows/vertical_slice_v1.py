@@ -115,7 +115,7 @@ from aer.services import reports as reports_service
 from aer.services import requests as request_service
 from aer.services.accounts import read_accounts
 from aer.services.acquisition import acquisition_root, record_acquisition
-from aer.services.analysis import analyse_company, annual_facts
+from aer.services.analysis import AnalysisOutcome, analyse_company, annual_facts
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
 from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
@@ -206,6 +206,7 @@ __all__ = [
     "PRICES_STEP",
     "VALUE_STEP",
     "WORKFLOW_VERSION",
+    "ValuationBasis",
     "assumptions_gate_payload",
     "assumptions_gate_refreshed",
     "assumptions_gate_required",
@@ -222,6 +223,7 @@ __all__ = [
     "theme_gate_payload",
     "unmapped_gate_payload",
     "unmapped_gate_required",
+    "valuation_basis",
 ]
 
 _log = structlog.get_logger("aer.workflow.vertical_slice")
@@ -1606,21 +1608,10 @@ async def _value(context: StepContext) -> StepResult:
         )
 
     request = await _request_for(context)
-    acquired = context.output_of("acquire")
-    sector_key = sector_key_of(context.outputs)
-
-    # Recomputed rather than re-read, for the reason `_propose_assumptions` gives: the
-    # analysis object lives only inside `calculate`. This ledger is never persisted, so the
-    # run's calculations are still recorded exactly once.
-    analysis = await analyse_company(
-        context.session,
-        calculation_service.new_context(),
-        company_id=_uuid(acquired["company_id"]),
-        profile=profile_for(sector_key),
-    )
-
     try:
-        mandate = _mandate_for(request, sector_key=sector_key, model=model)
+        basis = await valuation_basis(
+            context.session, request=request, outputs=context.outputs, model=model
+        )
     except ModelNotPermittedError as refused:
         return StepResult(output={"valued": False, "reason": str(refused)})
 
@@ -1629,8 +1620,8 @@ async def _value(context: StepContext) -> StepResult:
             context.session,
             request=request,
             job_id=context.job.id,
-            analysis=analysis,
-            mandate=mandate,
+            analysis=basis.analysis,
+            mandate=basis.mandate,
             years=FORECAST_YEARS,
         )
         return StepResult(output=bank.as_dict())
@@ -1639,21 +1630,70 @@ async def _value(context: StepContext) -> StepResult:
         context.session,
         request=request,
         job_id=context.job.id,
-        analysis=analysis,
-        mandate=mandate,
+        analysis=basis.analysis,
+        mandate=basis.mandate,
         years=FORECAST_YEARS,
-        # The price step's own figures, read the way the comps step reads them. Without the
-        # capitalisation the capital structure weighed equity at book on every run and the
-        # report printed a caveat saying its own discount rate was therefore too low; the
-        # price beside it is what the implied upside is measured against (ADR 0117).
-        market_capitalisation=_market_capitalisation_from(
-            context.outputs.get(PRICES_STEP, {}), currency=request.base_currency
-        ),
-        price_per_share=_price_per_share_from(
-            context.outputs.get(PRICES_STEP, {}), currency=request.base_currency
-        ),
+        market_capitalisation=basis.market_capitalisation,
+        price_per_share=basis.price_per_share,
     )
     return StepResult(output=outcome.as_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class ValuationBasis:
+    """What the value step values from, other than the assumptions themselves.
+
+    One assembly for the step and for the preview the assumptions gate strikes before the
+    step runs (ADR 0132 §3, :mod:`aer.services.preview`): a figure the gate shows before the
+    confirmation has to be the figure the step records after it, and two readers of the same
+    step outputs is how the two would drift apart.
+    """
+
+    analysis: AnalysisOutcome
+    mandate: ValuationMandate
+    market_capitalisation: Quantity | None
+    price_per_share: Quantity | None
+
+
+async def valuation_basis(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    outputs: Mapping[str, Mapping[str, Any]],
+    model: ValuationModel,
+) -> ValuationBasis:
+    """The analysis, the mandate and the market figures a valuation of ``model`` reads.
+
+    ``outputs`` are the run's step outputs, keyed by step, as the engine carries them — or as
+    a caller outside the engine reads them back from the run's own rows.
+
+    Raises:
+        ModelNotPermittedError: The sector the run confirmed does not permit ``model``.
+    """
+    sector_key = sector_key_of(outputs)
+
+    # Recomputed rather than re-read, for the reason `_propose_assumptions` gives: the
+    # analysis object lives only inside `calculate`. This ledger is never persisted, so the
+    # run's calculations are still recorded exactly once.
+    analysis = await analyse_company(
+        session,
+        calculation_service.new_context(),
+        company_id=_uuid(outputs["acquire"]["company_id"]),
+        profile=profile_for(sector_key),
+    )
+    mandate = _mandate_for(request, sector_key=sector_key, model=model)
+
+    # The price step's own figures, read the way the comps step reads them. Without the
+    # capitalisation the capital structure weighed equity at book on every run and the
+    # report printed a caveat saying its own discount rate was therefore too low; the price
+    # beside it is what the implied upside is measured against (ADR 0117).
+    prices = outputs.get(PRICES_STEP, {})
+    return ValuationBasis(
+        analysis=analysis,
+        mandate=mandate,
+        market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),
+        price_per_share=_price_per_share_from(prices, currency=request.base_currency),
+    )
 
 
 def _mandate_for(

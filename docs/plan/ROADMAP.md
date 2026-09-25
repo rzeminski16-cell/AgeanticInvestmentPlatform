@@ -57,6 +57,23 @@ argues against it, and the workbook and the calculator are the checking instrume
 method gives and why the two disagree. The assumptions gate shows that disagreement before the
 two terminal assumptions are confirmed (§3.16).
 
+**Landed 25 September 2026 — ADR 0132 Accepted.**
+- **The masthead.** It reads *"What each method gives: $227.43 (perpetuity growth) and
+  $442.01 (exit multiple) a share"*. Beneath it, *"Non-binding view: none stated"* until the
+  operator states one.
+- **The composed block.** It is titled *"What the valuation gives"* and gains *"Why the two
+  methods differ"*: the perpetual growth the exit multiple implies, and the exit multiple the
+  perpetuity method implies. Both are the base case's own recorded figures, footnoted.
+- **The assumptions gate.** It strikes the same base case over the rows as proposed, through
+  the value step's own assembly (`valuation_basis`) and on a ledger nothing persists. When the
+  two methods would finish more than a quarter apart, it prints the two implied figures and
+  the two per-share answers. It refuses nothing.
+- **Other surfaces.** "No view reached" has gone from every surface that printed it. The
+  prior-comparison section names each figure by its method rather than calling the pair a
+  range. `tests/test_preview.py` holds the preview to the value step's figures at the ledger's
+  stored precision.
+- **The calculator (F5's companion).** It will run through the same `strike`.
+
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
    does.
@@ -2927,6 +2944,22 @@ found rather than as scope that was always there.
 
     The round's ISSUE 1 reading does not change: it counted what happened, under the rule
     as written. This item says what that rescue was.
+
+76. **A report's stored valuation is written by nothing, 25 September 2026.** Found while
+    taking "range" out of the document for ADR 0132. `reports.valuation_low`,
+    `valuation_high` and `valuation_currency` exist, with a check that low does not exceed
+    high, but no code path writes them. Every surface that reads them therefore has nothing
+    to read:
+    - the reports list's *"Valuation range"* column;
+    - the company page's valuation history chart and its report card;
+    - the prior-report digest the planner is given;
+    - the prior-comparison section's *prior* valuation, which reads *"not recorded"*.
+
+    Filling them at approval is small. But the columns' shape is the range ADR 0132 took off
+    the masthead: a low and a high with no method attached. Writing them as they stand would
+    put the contradiction back on four surfaces. The fix is to store the base case's two
+    figures by method and have those surfaces print both, named. Not started. It sits with the
+    claim work (running order step 4), because none of it changes what a run does.
 
 ### Before this leaves one machine
 

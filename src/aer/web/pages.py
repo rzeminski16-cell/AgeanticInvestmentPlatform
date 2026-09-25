@@ -115,6 +115,7 @@ from aer.services.exhibits import exportable_charts_for, internal_charts_for, se
 from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
 from aer.services.mandate import mandate_of
+from aer.services.preview import terminal_check
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -1428,6 +1429,12 @@ async def assumptions_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.ASSUMPTIONS, live_hash=payload_hash_for(payload)
     )
+    # ADR 0132 §3: while the decision is open, the two terminal assumptions set against what
+    # each implies about the other, when together they put the methods further apart than
+    # the valuation's own band. Struck over the rows as they stand and never recorded. A
+    # decision the rows have moved under is open again, so it is shown there too.
+    settled = frame.get("decided") and not frame.get("stale_decision")
+    check = None if settled else await terminal_check(session, job=job, rows=rows)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -1437,6 +1444,11 @@ async def assumptions_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
+            "terminal_check": (
+                check.sentences(style=await configuration.effective_house_style(session))
+                if check is not None
+                else None
+            ),
             # The rows themselves, for the entry forms: amending and confirming need ids,
             # which the hashed payload deliberately does not carry.
             "rows": {row.name: row for row in rows},

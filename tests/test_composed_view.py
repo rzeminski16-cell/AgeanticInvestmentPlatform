@@ -11,8 +11,13 @@ close, the distance between them is a traced calculation, and the document walks
 into a block whose markers resolve to the arithmetic. Each half passed its own tests while
 the header said nothing.
 
-The refusals matter as much: a run with no valuation has no view to state, and *"no view
-reached"* is true of it.
+The refusals matter as much: a run with no valuation has nothing for either method to give.
+
+**Two answers, never a range (ADR 0132).** The masthead printed the two terminal methods'
+figures as "$227.43 to $442.01 a share" above a valuation section saying they were not the
+ends of a range, and every judge of the verdict round gave that as the first reason to
+abandon. The header now says what each method gives, the block says why the two differ, and
+the view line says "none stated" until the operator states one.
 """
 
 from __future__ import annotations
@@ -25,9 +30,11 @@ import pytest
 from sqlalchemy import select
 
 from aer.calc.units import Quantity, SourceRef, Unit
+from aer.config import HouseStyle
 from aer.core.enums import UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel
 from aer.db.models import Calculation, User
+from aer.render import display
 from aer.render.document import CalculationFootnote, assemble_document
 from aer.render.markdown import serialise_markdown
 from aer.render.summary import summary_document
@@ -146,6 +153,48 @@ class TestAValuedRunStatesAView:
         assert "scenarios" not in content
         assert len(content["base"]) == 2
 
+    async def test_the_block_says_why_the_two_methods_differ(self, scene: dict[str, Any]) -> None:
+        """ADR 0132 §2: each method's implied version of the other's assumption, as the
+        base case struck it — the figures that say the gap is two assumptions that cannot
+        both hold, rather than a width to split."""
+        await _valued(scene)
+
+        content = (await view_content(scene["session"], job=scene["job"])).content
+        struck = {
+            str(row.id): row
+            for row in await scene["session"].scalars(
+                select(Calculation).where(Calculation.job_id == scene["job"].id)
+            )
+        }
+
+        assert content is not None
+        rows = content["why_they_differ"]
+        assert [row["label"] for row in rows] == [
+            "Perpetual growth the exit multiple implies",
+            "Exit multiple the perpetuity method implies",
+        ]
+        assert [struck[row["calculation_id"]].name for row in rows] == [
+            "implied_terminal_growth",
+            "implied_exit_multiple",
+        ]
+        assert all(struck[row["calculation_id"]].parameters["case"] == "base" for row in rows), (
+            "the grid's cells strike their own implied figures, and they are a working paper"
+        )
+
+    async def test_the_implied_multiple_prints_as_a_multiple(self, scene: dict[str, Any]) -> None:
+        """Both implied figures are dimensionless, and the display layer reads a pure
+        number by its label's words, percentage words first: a label saying "growth"
+        printed the multiple 6.4 as 640%."""
+        await _valued(scene)
+
+        rendered = serialise_markdown(await _document(scene))
+        growth = next(line for line in rendered.splitlines() if "exit multiple implies" in line)
+        multiple = next(line for line in rendered.splitlines() if "perpetuity method" in line)
+
+        assert "%" in growth
+        assert "\N{MULTIPLICATION SIGN}" in multiple
+        assert "%" not in multiple
+
     async def test_the_distance_from_the_price_is_stated_where_a_price_exists(
         self, scene: dict[str, Any]
     ) -> None:
@@ -175,7 +224,7 @@ class TestAValuedRunStatesAView:
         assert content["base"], "a valuation with no price is still a valuation"
 
     async def test_a_run_with_no_valuation_has_no_view(self, scene: dict[str, Any]) -> None:
-        """The one state in which "no view reached" is a true sentence."""
+        """The block is omitted rather than filled with apologies."""
         await seed_years(scene, _YEARS)
 
         assert (await view_content(scene["session"], job=scene["job"])).content is None
@@ -204,41 +253,76 @@ class TestTheViewReachesTheDocument:
         assert rendered.index(VIEW_TITLE) < rendered.index("## At a glance")
         assert "[^1]" in rendered.split("## At a glance")[0]
 
-    async def test_the_header_states_the_range_instead_of_no_view_reached(
+    async def test_the_header_says_what_each_method_gives_and_never_a_range(
         self, scene: dict[str, Any]
     ) -> None:
+        """ADR 0132 §1: two figures, each named by its method, joined by "and" — never "to",
+        which is a claim neither method makes."""
         await _valued(scene, price=_price("40"))
 
         document = await _document(scene)
         rendered = serialise_markdown(document)
 
-        assert document.header.composed_range is not None
-        assert "a share" in document.header.composed_range
+        shown = document.header.method_values
+        assert shown is not None
+        assert "(perpetuity growth) and " in shown
+        assert shown.endswith("(exit multiple) a share")
+        assert " to " not in shown
+        assert f"**What each method gives:** {shown}" in rendered
+
+    async def test_the_view_line_belongs_to_the_operator(self, scene: dict[str, Any]) -> None:
+        """ "Non-binding view" is the authored half's, and says when none was stated rather
+        than that none was *reached* — the words the round read as the document failing to
+        conclude."""
+        await _valued(scene, price=_price("40"))
+
+        rendered = serialise_markdown(await _document(scene))
+
+        assert "**Non-binding view:** none stated" in rendered
         assert "no view reached" not in rendered
 
-    async def test_a_run_with_no_valuation_still_says_no_view_reached(
+    async def test_a_run_with_no_valuation_states_no_figures_and_no_view(
         self, scene: dict[str, Any]
     ) -> None:
         await seed_years(scene, _YEARS)
 
-        rendered = serialise_markdown(await _document(scene))
+        document = await _document(scene)
+        rendered = serialise_markdown(document)
 
-        assert "no view reached" in rendered
+        assert document.header.method_values is None
+        assert "What each method gives" not in rendered
+        assert "**Non-binding view:** none stated" in rendered
+        assert "no view reached" not in rendered
 
-    async def test_the_range_and_the_block_cannot_disagree(self, scene: dict[str, Any]) -> None:
+    async def test_the_masthead_and_the_block_cannot_disagree(self, scene: dict[str, Any]) -> None:
         """Composed from the same rows, so the masthead and the table under it agree by
-        construction rather than by two readings happening to match."""
+        construction rather than by two readings happening to match — in the block's order,
+        each beside its own method."""
         await _valued(scene)
 
         document = await _document(scene)
         content = (await view_content(scene["session"], job=scene["job"])).content
 
         assert content is not None
-        values = sorted(Decimal(row["value"]) for row in content["base"])
-        low = f"{values[0]:.2f}".rstrip("0").rstrip(".")
+        shown = document.header.method_values
+        assert shown is not None
+        methods = ("perpetuity growth", "exit multiple")
+        for row, method in zip(content["base"], methods, strict=True):
+            money = display.money(Decimal(row["value"]), "USD", style=HouseStyle())
+            assert f"{money} ({method})" in shown
 
-        assert document.header.composed_range is not None
-        assert low.split(".")[0] in document.header.composed_range
+    async def test_the_block_is_titled_for_what_it_holds(self, scene: dict[str, Any]) -> None:
+        """Not "The view", and its first group not a base case "by method" a reader takes
+        for a band: what the valuation gives, by terminal method, and why the two differ."""
+        await _valued(scene, price=_price("40"))
+
+        rendered = serialise_markdown(await _document(scene))
+        block = rendered.split("## At a glance")[0]
+
+        assert VIEW_TITLE == "What the valuation gives"
+        assert VIEW_TITLE in block
+        assert "By terminal method" in block
+        assert "Why the two methods differ" in block
 
     async def test_the_one_page_summary_keeps_the_conclusion(self, scene: dict[str, Any]) -> None:
         """A summary carrying the evidence and not the position answers nothing."""
