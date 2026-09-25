@@ -102,6 +102,23 @@ class TestWhatARowBelongsTo:
         assert projection.id in excluded
         assert answer.id not in excluded
 
+    def test_a_row_derived_from_one_set_aside_is_set_aside(self) -> None:
+        """A forecast's EBITDA before its last year feeds no answer at all, so reading
+        upwards alone would keep a scenario's year-two EBITDA as the report's."""
+        projection = _row("projected_ebit")
+        answer = _row("value_per_share", reads=(projection,), case="bear")
+        early = _row("forecast_ebitda", reads=(projection,))
+
+        assert perturbation_only([projection, answer, early]) == {projection.id, early.id}
+
+    def test_a_row_derived_from_the_base_case_alone_is_kept(self) -> None:
+        projection = _row("projected_ebit")
+        base = _row("value_per_share", reads=(projection,), case="base")
+        early = _row("forecast_ebitda", reads=(projection,))
+        cell = _row("value_per_share", case=SENSITIVITY_CASE)
+
+        assert perturbation_only([projection, base, early, cell]) == frozenset()
+
     def test_a_run_with_no_perturbation_sets_nothing_aside(self) -> None:
         factor = _row("discount_factor")
         base = _row("value_per_share", reads=(factor,), case="base")
@@ -175,6 +192,17 @@ class TestTheIndexOffersTheBaseCase:
             if row.id not in base
         ]
         assert not strays, f"the index offered a grid cell's rows as the base case's: {strays}"
+
+        # A forecast year's EBITDA before the last is read by no answer, so it is judged by
+        # what it was derived from: the base case's own projection, never a grid cell's.
+        for row in offered:
+            if row.name == "forecast_ebitda":
+                parents = {
+                    uuid.UUID(str(raw["source"]["id"]))
+                    for raw in row.inputs
+                    if (raw.get("source") or {}).get("kind") == "calculation"
+                }
+                assert parents <= base, "the index offered a grid cell's forecast EBITDA"
 
     async def test_a_discount_factor_offered_is_struck_at_the_reports_discount_rate(
         self, valued: dict[str, Any]

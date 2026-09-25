@@ -171,7 +171,7 @@ _BASE_CASE: Final = "base"
 
 
 def perturbation_only(rows: Sequence[Calculation]) -> frozenset[uuid.UUID]:
-    """The unlabelled rows only a non-base answer reads: set aside wherever the base is meant.
+    """The unlabelled rows of a perturbation: set aside wherever the base case is meant.
 
     **Only an answer carries its case.** A valuation stamps ``case`` on the rows that are
     its answer — the enterprise value, the value per share — and on none beneath them: the
@@ -182,13 +182,20 @@ def perturbation_only(rows: Sequence[Calculation]) -> frozenset[uuid.UUID]:
     verdict round's MSFT thesis came to quote year-four and year-five factors of 0.6655 and
     0.6011: a 10.72% discount rate, the grid's top row, where the report's was 9.72%.
 
-    So what a row belongs to is read from its lineage rather than from its label. A row is
-    set aside when an answer carrying a case other than the base case's reads it, directly
-    or through other rows, and no base-case answer does. A row both read is kept — the
-    engine strikes one derivation once, so a projection the grid shares with the base case
-    *is* the base case's — and so is a row no answer reads, which is most of a run: its
-    ratios, its history, its cost of capital. The labelled answers themselves are left to
-    their own case, so a scenario's value per share stays a scenario's.
+    So what a row belongs to is read from its lineage rather than from its label, both ways:
+
+    * **Upwards.** A row is set aside when an answer carrying a case other than the base
+      case's reads it, directly or through other rows, and no base-case answer does.
+    * **Downwards.** So is a row derived from one set aside, when no base-case answer reads
+      it either: a forecast's EBITDA for the years before the last feeds no answer at all —
+      only the final year's reaches the exit multiple's terminal value — so the rule above
+      alone would keep a lever's year-two EBITDA as though it were the report's (ADR 0135).
+
+    A row both read is kept — the engine strikes one derivation once, so a projection the
+    grid shares with the base case *is* the base case's — and so is a row nothing of a
+    perturbation's reaches, which is most of a run: its ratios, its history, its cost of
+    capital. The labelled answers themselves are left to their own case, so a scenario's
+    value per share stays a scenario's.
 
     Stored runs are read the same way, which is why this is a rule over rows rather than a
     label written from now on: a label added today would leave every recorded run's grid
@@ -198,7 +205,7 @@ def perturbation_only(rows: Sequence[Calculation]) -> frozenset[uuid.UUID]:
     base: list[Calculation] = []
     other: list[Calculation] = []
     for row in rows:
-        case = str((row.parameters or {}).get("case") or "")
+        case = _case_of(row)
         if case == _BASE_CASE:
             base.append(row)
         elif case:
@@ -207,11 +214,39 @@ def perturbation_only(rows: Sequence[Calculation]) -> frozenset[uuid.UUID]:
     if not read_by_other:
         return frozenset()
     read_by_base = _ancestors(base, by_id)
-    return frozenset(
-        by_id[identifier].id
-        for identifier in read_by_other - read_by_base
-        if not (by_id[identifier].parameters or {}).get("case")
-    )
+    aside = {
+        identifier for identifier in read_by_other - read_by_base if not _case_of(by_id[identifier])
+    }
+
+    # Downwards, in the order the rows were struck: a row reads only rows struck before it,
+    # so one pass settles every row whose inputs were settled first. Repeated until nothing
+    # moves, because rows from separate strikes can share a sequence.
+    ordered = sorted(rows, key=lambda row: row.sequence if row.sequence is not None else -1)
+    moved = True
+    while moved:
+        moved = False
+        for row in ordered:
+            identifier = str(row.id)
+            if identifier in aside or identifier in read_by_base or _case_of(row):
+                continue
+            if any(parent in aside for parent in _calculation_inputs(row)):
+                aside.add(identifier)
+                moved = True
+    return frozenset(by_id[identifier].id for identifier in aside)
+
+
+def _case_of(row: Calculation) -> str:
+    return str((row.parameters or {}).get("case") or "")
+
+
+def _calculation_inputs(row: Calculation) -> list[str]:
+    """The ids of the recorded calculations a row read, as its inputs name them."""
+    found: list[str] = []
+    for raw in row.inputs or ():
+        source = raw.get("source") if isinstance(raw, dict) else None
+        if isinstance(source, dict) and source.get("kind") == SourceKind.CALCULATION.value:
+            found.append(str(source.get("id", "")))
+    return found
 
 
 def _ancestors(answers: Sequence[Calculation], by_id: Mapping[str, Calculation]) -> set[str]:
@@ -220,11 +255,7 @@ def _ancestors(answers: Sequence[Calculation], by_id: Mapping[str, Calculation])
     queue: deque[Calculation] = deque(answers)
     while queue:
         row = queue.popleft()
-        for raw in row.inputs or ():
-            source = raw.get("source") if isinstance(raw, dict) else None
-            if not isinstance(source, dict) or source.get("kind") != SourceKind.CALCULATION.value:
-                continue
-            identifier = str(source.get("id", ""))
+        for identifier in _calculation_inputs(row):
             parent = by_id.get(identifier)
             if parent is None or identifier in found:
                 continue

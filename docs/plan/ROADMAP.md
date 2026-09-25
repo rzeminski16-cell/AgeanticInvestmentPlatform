@@ -3043,20 +3043,27 @@ found rather than as scope that was always there.
       whole forecast again. The evidence index kept the newest row per name and parameters,
       which by sequence is the last grid cell's. Every writer and the red team were handed a
       corner of the grid as the report's own figures.
-    - **What it reached.** Across the operator's six approved reports, 73 claims cite a row
-      only a grid reads. 38 of them state the base case's own value, because the grid's copy
-      of a shared forecast row is the same number. **35 state a figure the base case does not
-      hold**: on AZN, *"The Gordon growth terminal value is USD 510.4bn"* where the base case
-      holds $673.8bn; on MSFT, a terminal-year discount factor of 0.601 where the base case
-      holds 0.629. `cited_figure_agreement` passed every one, because each agrees with the
-      calculation it cites. The figures are real recorded calculations; they are the wrong
-      case's.
-    - **Fixed the same day, by lineage.** `aer.services.calculations.perturbation_only` sets
-      aside every unlabelled row that a non-base answer reads and no base-case answer does,
-      and the index leaves those rows out. A writer may cite only what its evidence offered,
-      so no claim can reach one again. It reads stored runs the same way, where a label
-      written from now on would not. Held in `tests/test_calculation_index.py` on a real
-      valued run; the integration tests fail on the old index.
+    - **What it reached.** Across the operator's six approved reports, 86 claims cite a row
+      that belongs to a grid and not to the base case. 38 of them state the base case's own
+      value, because the grid's copy of a shared forecast row is the same number. **48 state
+      a figure the base case does not hold**:
+      - on AZN, *"The Gordon growth terminal value is USD 510.4bn"* where the base case holds
+        $673.8bn;
+      - on MSFT, a terminal-year discount factor of 0.601 where the base case holds 0.629;
+      - on M&T, all twelve: *"Recorded closing book value is $40.8 billion"*, where the base
+        case's five forecast years run from $31.0bn to $39.5bn.
+
+      `cited_figure_agreement` passed every one, because each agrees with the calculation it
+      cites. The figures are real recorded calculations; they are the wrong case's.
+    - **Fixed the same day, by lineage, both ways.**
+      `aer.services.calculations.perturbation_only` sets aside every unlabelled row that a
+      non-base answer reads and no base-case answer does, and every row derived from one of
+      those. The index leaves them all out. The second half matters: a forecast's EBITDA for
+      the years before the last feeds no answer at all, and neither does M&T's final-year
+      book value, so reading upwards alone kept the grid's. A writer may cite only what its
+      evidence offered, so no claim can reach one again. Stored runs are read the same way,
+      where a label written from now on would not. Held in `tests/test_calculation_index.py`
+      on a real valued run; the integration tests fail on the old index.
     - **Not re-rendered.** The six reports are approved and immutable. Their claims stand as
       published, and this item is where they are corrected. The re-measurement's fresh runs
       are the first drafted from the corrected index.
