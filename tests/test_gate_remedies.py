@@ -29,16 +29,25 @@ from aer.db.models import (
     Job,
     JobStep,
     ReportSection,
+    RevisionNote,
     User,
+)
+from aer.db.models.revision_note import (
+    DISPOSITION_REQUESTED,
+    DISPOSITION_REVISED,
+    SCOPE_FINAL_GATE,
 )
 from aer.errors import ConflictError, ValidationError
 from aer.services import approvals as approval_service
 from aer.services.cancellation import cancellation_for
 from aer.services.gates import (
     MEASURE_STEP,
+    REDRAFT_EVENT,
+    REDRAFT_STEP,
     REMEASURE_EVENT,
     RESEALED_EVENT,
     remeasure_checks,
+    request_redraft,
     reseal_gate,
 )
 from aer.services.runs import latest_run
@@ -564,6 +573,133 @@ class TestRemeasureIsAControl:
             user = await owner_of(session, job)
             with pytest.raises(ConflictError, match="already succeeded"):
                 await remeasure_checks(session, job=job, actor=user, reason="too late")
+
+
+async def _refuse_a_check(db_engine: Any, job_id: uuid.UUID) -> None:
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        row = await session.scalar(select(Evaluation).where(Evaluation.job_id == job_id))
+        assert row is not None
+        row.passed = False
+        await session.commit()
+
+
+class TestARedraftIsAControl:
+    """Roadmap §3.19 item 75: the third way on from a refused check, beside approving against
+    it (a rescue, by the round's own definition) and rejecting the run."""
+
+    async def test_the_console_offers_it_beside_remeasure_over_a_refused_check(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        clean = await api.get(f"/runs/{job_id}")
+        assert 'id="redraft-form"' not in clean.text
+
+        await _refuse_a_check(db_engine, job_id)
+        refused = await api.get(f"/runs/{job_id}")
+        assert 'id="redraft-form"' in refused.text
+        assert '<option value="executive_summary">' in refused.text
+        assert "about £0.92" in refused.text
+
+    async def test_pressing_it_redrafts_the_section_and_measures_again(
+        self,
+        api: Any,
+        committed: dict[str, Any],
+        driver: Driver,
+        db_engine: Any,
+        enqueued: list[str],
+    ) -> None:
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        await _refuse_a_check(db_engine, job_id)
+        console = await api.get(f"/runs/{job_id}")
+        reason = "The working-capital change is stated without its sign."
+        pressed = await api.post(
+            f"/runs/{job_id}/redraft",
+            data={
+                CSRF_FIELD_NAME: _hidden_value(console.text, CSRF_FIELD_NAME),
+                "section": "executive_summary",
+                "reason": reason,
+            },
+            follow_redirects=False,
+        )
+        assert pressed.status_code == 303, pressed.text
+        assert str(job_id) in enqueued
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            note = await session.scalar(
+                select(RevisionNote).where(
+                    RevisionNote.job_id == job_id, RevisionNote.scope == SCOPE_FINAL_GATE
+                )
+            )
+            assert note is not None
+            assert (note.section_key, note.statement) == ("executive_summary", reason)
+            assert note.disposition == DISPOSITION_REQUESTED
+            rows = {
+                row.step_key: row
+                for row in await session.scalars(select(JobStep).where(JobStep.job_id == job_id))
+            }
+            assert rows[REDRAFT_STEP].status is JobStatus.QUEUED
+            assert rows["gate_final"].status is JobStatus.QUEUED
+            # Not the checks' first reading or anything before it: one section does not buy
+            # the red team again.
+            assert rows[MEASURE_STEP].status is JobStatus.SUCCEEDED
+            assert rows["red_team"].status is JobStatus.SUCCEEDED
+            event = await session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.job_id == job_id, AuditEvent.event_type == REDRAFT_EVENT
+                )
+            )
+            assert event is not None
+            assert event.payload["section"] == "executive_summary"
+            note_id = note.id
+
+        assert await driver.advance(job_id) is JobStatus.AWAITING_APPROVAL
+        assert await driver.waiting_at(job_id) == "gate_final"
+        async with factory() as session:
+            answered = await session.get(RevisionNote, note_id)
+            assert answered is not None
+            assert answered.disposition == DISPOSITION_REVISED
+            revised = await session.scalar(
+                select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == REDRAFT_STEP)
+            )
+            assert revised is not None
+            assert revised.attempt == 1, "the record lost the first attempt"
+            assert revised.output_ref["revised"][0]["requested_by_operator"] is True
+
+    async def test_it_is_refused_without_a_reason_and_for_a_section_the_run_lacks(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        job_id = await to_final_gate(api, committed["request"].id, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            user = await owner_of(session, job)
+            with pytest.raises(ValidationError, match="in your own words"):
+                await request_redraft(
+                    session, job=job, section_key="executive_summary", reason="  ", actor=user
+                )
+            with pytest.raises(ValidationError, match="not part of this run"):
+                await request_redraft(
+                    session, job=job, section_key="no_such_section", reason="x", actor=user
+                )
+
+    async def test_it_is_refused_before_the_final_gate(
+        self, api: Any, committed: dict[str, Any], driver: Driver, db_engine: Any
+    ) -> None:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            user = await owner_of(session, job)
+            with pytest.raises(ConflictError, match="earlier gate"):
+                await request_redraft(
+                    session, job=job, section_key="executive_summary", reason="x", actor=user
+                )
 
 
 class TestAnUnverifiedCitationIsAcceptedOnTheRecord:

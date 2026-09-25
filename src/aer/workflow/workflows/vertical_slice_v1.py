@@ -155,7 +155,14 @@ from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
 from aer.services.residual_income_run import value_the_bank
-from aer.services.revision import revise_challenged_sections, revisions_for_job
+from aer.services.revision import (
+    ReviseOutcome,
+    pending_redrafts,
+    redraft_requested_sections,
+    revise_challenged_sections,
+    revisions_for_job,
+)
+from aer.services.section_rehearsal import REHEARSAL_ESTIMATE_GBP
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -282,6 +289,16 @@ VERDICT_ESTIMATE_GBP: Final = Decimal("0.10")
 # eight of them, on the same cheap route as the verdict. Larger than the verdict's estimate
 # because the output is, and still a rounding error against the draft's.
 CHALLENGE_BRIEF_ESTIMATE_GBP: Final = Decimal("0.20")
+
+# What an operator's redraft at the final gate is priced at on the console (roadmap §3.19
+# item 75): one section's draft, the rehearsal's figure for the same work, and the steps a
+# redraft sends back through — the checks' assists, the verdict and the challenge briefs.
+REDRAFT_ESTIMATE_GBP: Final = (
+    REHEARSAL_ESTIMATE_GBP
+    + VALIDATOR_ESTIMATE_GBP
+    + VERDICT_ESTIMATE_GBP
+    + CHALLENGE_BRIEF_ESTIMATE_GBP
+)
 
 # The severity at which a plan challenge sends the plan back for a revision. Deliberately
 # below the draft's material line (severity 4): a plan revision costs one planner call
@@ -1968,13 +1985,29 @@ async def _revise(context: StepContext) -> StepResult:
         job_step=context.step,
     )
 
-    outcome = await revise_challenged_sections(
-        agent_context,
-        context.session,
-        job=context.job,
-        request=request,
-        focus_by_key=await _focus_by_key(context),
-    )
+    # A second pass through this step is the operator's redraft (roadmap §3.19 item 75):
+    # answered instead of the critique loop, which revised what the red team attacked on
+    # the first pass and would pay for it twice.
+    requested = await pending_redrafts(context.session, context.job.id)
+    if requested:
+        outcome = await redraft_requested_sections(
+            agent_context,
+            context.session,
+            job=context.job,
+            request=request,
+            notes=requested,
+            focus_by_key=await _focus_by_key(context),
+        )
+    else:
+        outcome = await revise_challenged_sections(
+            agent_context,
+            context.session,
+            job=context.job,
+            request=request,
+            focus_by_key=await _focus_by_key(context),
+        )
+
+    await remeasure_after_revision(agent_context, job=context.job, request=request, outcome=outcome)
 
     if outcome.revised:
         # The deterministic sections describe the run's own record, and the record just
@@ -1998,6 +2031,36 @@ async def _revise(context: StepContext) -> StepResult:
         },
         cost_gbp=agent_context.spend_gbp,
     )
+
+
+async def remeasure_after_revision(
+    agent_context: AgentContext,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    outcome: ReviseOutcome,
+) -> bool:
+    """Measure the checks again when a revision stood, so the gate reads the draft it shows.
+
+    `validate` measures the draft before the red team and the revise pass, so every
+    section the revise pass rewrote reached the final gate measured as it was *before*.
+    The verdict round's AZN run was refused for an executive-summary sentence stating
+    "386.6" of a stored -386.6 million; the revise pass had already rewritten it as
+    "-$386.6m", the check had measured the earlier text, and the approval that overrode
+    the refusal overrode a sentence that was no longer in the document (roadmap §3.19
+    item 75). The other direction is worse: a revision that introduced an error would
+    reach the gate unmeasured.
+
+    Only a revision that stood changes the text; a refused one restores the approved
+    draft (ADR 0098), which is what was measured. The evaluation rows are replaced, never
+    appended, and the consistency findings are deduplicated by fingerprint, so measuring
+    twice records the second reading and nothing twice.
+    """
+    if not any(not item.get("kept_approved_draft", False) for item in outcome.revised):
+        return False
+    await evaluate_run(agent_context, job=job, request=request)
+    await check_report_consistency(agent_context.session, job_id=job.id)
+    return True
 
 
 async def _verdict(context: StepContext) -> StepResult:

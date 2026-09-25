@@ -812,9 +812,12 @@ class TestTheDeterministicSections:
 
         revise = inspect.getsource(vertical_slice_v1._revise)
         revised = revise.index("revise_challenged_sections(")
+        # Measured again before the refill, so the validation section and the seal both
+        # describe the revised draft rather than the one before it (roadmap §3.19 item 75).
+        remeasured = revise.index("remeasure_after_revision(")
         refilled = revise.index("fill_deterministic_sections(")
         sealed = revise.index("final_gate_payload(")
-        assert revised < refilled < sealed
+        assert revised < remeasured < refilled < sealed
 
     def test_a_settled_disagreement_names_the_rule_that_settled_it(self) -> None:
         row = Disagreement(

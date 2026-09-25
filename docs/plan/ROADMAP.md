@@ -2885,6 +2885,49 @@ found rather than as scope that was always there.
 
     `tests/test_what_changed.py` holds it, with the round's own sentence as the refused case.
 
+75. **The final gate read a draft the revise pass had already rewritten, 25 September 2026.**
+    Found by tracing AZN's refusal back to its rows while building the control item 73's
+    record promised for it.
+    - **What the gate refused.** It refused AZN for an executive-summary claim that "states
+      386.6" of a stored -386,552,205.83.
+    - **What the claim says.** The claim on record reads *"The change in working capital on
+      record is -$386.6m."* Today's scanner reads that as -386.6 and passes it.
+    - **Why they differ.** The timestamps say it:
+      - the check measured the section at 12:44:19, straight after drafting;
+      - the revise pass rewrote the section and replaced its claims at 12:47:18;
+      - nothing measured again before the gate at 12:57.
+
+    `validate` runs before the red team and the revise pass. So every revised section
+    reached the final gate measured as it had been before revision, and the report's own
+    validation section described the same earlier draft. AZN's approval overrode a sentence
+    that was no longer in the document. The other direction was worse: a revision that
+    introduced an error would have reached the gate with nothing measuring it.
+
+    **Fixed the same day, two ways.**
+    - **The measurement.** The revise step measures the checks and the consistency pass
+      again whenever a revision stood, before the validation section is refilled and the
+      gate sealed (`remeasure_after_revision`). A refused revision restores the draft
+      already measured and costs nothing. Pinned by source order in
+      `tests/test_section_spine.py` and by behaviour in
+      `tests/test_remeasure_after_revision.py`.
+    - **The way forward from a real refusal.** Before this, a refusal left two ways on:
+      approve against the check, which counts as a rescue, or reject and pay for another
+      run. The console now offers *Redraft this section* beside *Re-measure the checks*.
+      The operator picks a built-in section and says what should be put right.
+      - The request is a revision note, under a scope of its own (migration 0088).
+      - The revise step and the steps after it run again. The revise step answers the
+        request instead of the critique loop, the checks are measured on what the writer
+        produced, the gate is sealed over it, and the run comes back to the gate.
+      - It is priced on the page at £0.92.
+      - A custom section, a gate already decided, or a run not at its final gate is
+        refused with the reason. A redraft that does not pass leaves the approved draft
+        standing (ADR 0098).
+      - `tests/test_gate_remedies.py::TestARedraftIsAControl` holds it end to end on the
+        fake scene.
+
+    The round's ISSUE 1 reading does not change: it counted what happened, under the rule
+    as written. This item says what that rescue was.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

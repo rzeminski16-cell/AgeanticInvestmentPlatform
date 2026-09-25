@@ -55,10 +55,12 @@ from aer.db.models import (
     SectionStatus,
 )
 from aer.db.models.revision_note import (
+    DISPOSITION_REQUESTED,
     DISPOSITION_REVISED,
     DISPOSITION_REVISION_REFUSED,
     DISPOSITION_SKIPPED_CUSTOM,
     SCOPE_DRAFT,
+    SCOPE_FINAL_GATE,
 )
 from aer.db.models.section_definition import SKILL
 from aer.sections.writing import execute_builtin_section
@@ -68,7 +70,10 @@ from aer.skills.resolution import guidance_from_pins, pinned_skills_for_job
 
 __all__ = [
     "MAX_REVISED_SECTIONS",
+    "OPERATOR_DIMENSION",
     "ReviseOutcome",
+    "pending_redrafts",
+    "redraft_requested_sections",
     "revise_challenged_sections",
     "revisions_for_job",
 ]
@@ -78,6 +83,11 @@ _log = structlog.get_logger("aer.services.revision")
 # How many sections one run may revise. The revise step's cost estimate is this bound
 # times a section draft, so raising it is a budget decision, not a tweak.
 MAX_REVISED_SECTIONS: Final = 4
+
+# The class an operator's own redraft request is recorded under. A red-team challenge is
+# classed by the dimension it scored; a person asking at the final gate is classed as that,
+# so `aer lessons` counts "how often did I redraft by hand" as its own recurrence.
+OPERATOR_DIMENSION: Final = "the operator's request"
 
 
 @dataclass(slots=True)
@@ -260,9 +270,14 @@ async def revisions_for_job(session: AsyncSession, job_id: uuid.UUID) -> list[di
     Frozen once the revise step has run — the step is the only writer of these rows — so
     the hash the step seals and the one the review page recomputes agree.
     """
+    # The operator's final-gate redrafts join the loop's own, under the same keys so no run
+    # recorded before them reads a different payload: their dimension says whose they were.
     rows = await session.scalars(
         select(RevisionNote)
-        .where(RevisionNote.job_id == job_id, RevisionNote.scope == SCOPE_DRAFT)
+        .where(
+            RevisionNote.job_id == job_id,
+            RevisionNote.scope.in_((SCOPE_DRAFT, SCOPE_FINAL_GATE)),
+        )
         .order_by(RevisionNote.created_at, RevisionNote.id)
     )
     return [
@@ -274,6 +289,94 @@ async def revisions_for_job(session: AsyncSession, job_id: uuid.UUID) -> list[di
         }
         for row in rows
     ]
+
+
+async def pending_redrafts(session: AsyncSession, job_id: uuid.UUID) -> list[RevisionNote]:
+    """The operator's final-gate redraft requests the revise step has not answered yet."""
+    rows = await session.scalars(
+        select(RevisionNote)
+        .where(
+            RevisionNote.job_id == job_id,
+            RevisionNote.scope == SCOPE_FINAL_GATE,
+            RevisionNote.disposition == DISPOSITION_REQUESTED,
+        )
+        .order_by(RevisionNote.created_at, RevisionNote.id)
+    )
+    return list(rows)
+
+
+async def redraft_requested_sections(
+    context: AgentContext,
+    session: AsyncSession,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    notes: Sequence[RevisionNote],
+    focus_by_key: dict[str, str] | None = None,
+) -> ReviseOutcome:
+    """Redraft the sections the operator asked for at the final gate, and nothing else.
+
+    The revise step's answer to a request, instead of the critique loop on the run's
+    second pass through it: the loop already revised what the red team attacked the first
+    time, and running it again would pay for those revisions twice. Each section is
+    redrafted once with the operator's reason in front of the writer, under the same
+    contract, evidence and validation as its first draft, and a redraft that does not pass
+    leaves the approved draft standing (ADR 0098) — so asking can only ever improve what
+    the operator is shown. The service that took the request refused custom sections, so
+    every section here is built-in.
+    """
+    outcome = ReviseOutcome()
+    sections = {
+        section.section_key: section
+        for section in await session.scalars(
+            select(ReportSection)
+            .where(ReportSection.job_id == job.id)
+            .options(selectinload(ReportSection.definition))
+        )
+    }
+    guidance = guidance_from_pins(await pinned_skills_for_job(session, job=job))
+
+    for note in notes:
+        section = sections.get(note.section_key)
+        if section is None or section.definition.origin == SKILL:
+            # Refused when the request was taken; a section gone since is a fact, and the
+            # note says the request went unanswered rather than staying pending for ever.
+            note.disposition = DISPOSITION_REVISION_REFUSED
+            continue
+        approved = _Approved.of(section)
+        execution = await execute_builtin_section(
+            context,
+            section=section,
+            request=request,
+            focus=(focus_by_key or {}).get(note.section_key, ""),
+            challenges=[note.statement],
+            guidance=guidance,
+        )
+        kept = execution.status is not SectionStatus.GENERATED and approved.was_generated
+        if kept:
+            approved.restore(section)
+        note.disposition = DISPOSITION_REVISION_REFUSED if kept else DISPOSITION_REVISED
+        outcome.revised.append(
+            {
+                "section_key": note.section_key,
+                "status": execution.status.value,
+                "attempts": execution.attempts,
+                "challenges": 1,
+                "max_severity": note.severity,
+                "kept_approved_draft": kept,
+                "requested_by_operator": True,
+            }
+        )
+        _log.info(
+            "revision.operator_redraft",
+            job_id=str(job.id),
+            section=note.section_key,
+            status=execution.status.value,
+            kept_approved_draft=kept,
+        )
+
+    await session.flush()
+    return outcome
 
 
 def _targets_of(rows: Sequence[Disagreement]) -> tuple[list[_Target], int]:

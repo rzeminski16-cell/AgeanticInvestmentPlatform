@@ -22,11 +22,13 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidFk, UuidPk
 
 __all__ = [
+    "DISPOSITION_REQUESTED",
     "DISPOSITION_REVISED",
     "DISPOSITION_REVISION_REFUSED",
     "DISPOSITION_SKIPPED_CUSTOM",
     "DISPOSITION_STOOD",
     "SCOPE_DRAFT",
+    "SCOPE_FINAL_GATE",
     "SCOPE_PLAN",
     "RevisionNote",
 ]
@@ -36,6 +38,10 @@ __all__ = [
 # describing a revision the architecture forbids.
 SCOPE_PLAN: Final = "plan"
 SCOPE_DRAFT: Final = "draft"
+# A redraft the operator asked for at the final gate (migration 0088), kept apart from the
+# loop's own so "what did the critique loop do" and "what did the operator ask for" stay
+# two questions with two answers.
+SCOPE_FINAL_GATE: Final = "final_gate"
 
 # What the loop did. `revised`: a redraft happened and stood up. `revision_refused`: a
 # redraft was attempted and did not pass, so the approved draft was kept (ADR 0098) — the
@@ -48,6 +54,9 @@ DISPOSITION_REVISED: Final = "revised"
 DISPOSITION_REVISION_REFUSED: Final = "revision_refused"
 DISPOSITION_STOOD: Final = "stood"
 DISPOSITION_SKIPPED_CUSTOM: Final = "skipped_custom"
+# An operator's request the revise step has not answered yet; it becomes `revised` or
+# `revision_refused` when it has.
+DISPOSITION_REQUESTED: Final = "requested"
 
 
 class RevisionNote(Base):
@@ -79,11 +88,15 @@ class RevisionNote(Base):
     created_at: Mapped[Timestamp] = created_at_column()
 
     __table_args__ = (
-        CheckConstraint(f"scope IN ('{SCOPE_PLAN}', '{SCOPE_DRAFT}')", name="scope_is_known"),
+        CheckConstraint(
+            f"scope IN ('{SCOPE_PLAN}', '{SCOPE_DRAFT}', '{SCOPE_FINAL_GATE}')",
+            name="scope_is_known",
+        ),
         CheckConstraint(
             "disposition IN "
             f"('{DISPOSITION_REVISED}', '{DISPOSITION_REVISION_REFUSED}', "
-            f"'{DISPOSITION_STOOD}', '{DISPOSITION_SKIPPED_CUSTOM}')",
+            f"'{DISPOSITION_STOOD}', '{DISPOSITION_SKIPPED_CUSTOM}', "
+            f"'{DISPOSITION_REQUESTED}')",
             name="disposition_is_known",
         ),
         CheckConstraint("severity BETWEEN 1 AND 5", name="severity_is_scored"),

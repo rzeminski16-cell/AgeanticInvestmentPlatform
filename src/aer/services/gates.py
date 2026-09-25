@@ -33,22 +33,30 @@ from dataclasses import dataclass
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from aer.core.enums import GateKind, JobStatus
-from aer.db.models import Approval, AuditEvent, Job, JobStep, User
+from aer.db.models import Approval, AuditEvent, Job, JobStep, ReportSection, RevisionNote, User
+from aer.db.models.revision_note import DISPOSITION_REQUESTED, SCOPE_FINAL_GATE
+from aer.db.models.section_definition import SKILL
 from aer.errors import ConflictError, ValidationError
 from aer.services import approvals as approval_service
 from aer.services.approvals import payload_hash_for
+from aer.services.revision import OPERATOR_DIMENSION
 from aer.workflow.pauses import LIVE_PAYLOAD_GATES
 from aer.workflow.registry import resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import seal_step_for
 
 __all__ = [
     "MEASURE_STEP",
+    "REDRAFT_EVENT",
+    "REDRAFT_STEP",
+    "Redraft",
     "Remeasure",
     "Reseal",
     "refuse_settling_after_decision",
     "remeasure_checks",
+    "request_redraft",
     "reseal_final_gate",
     "reseal_gate",
 ]
@@ -57,10 +65,16 @@ _log = structlog.get_logger("aer.services.gates")
 
 RESEALED_EVENT = "gate.resealed"
 REMEASURE_EVENT = "run.remeasure_requested"
+REDRAFT_EVENT = "run.redraft_requested"
 
 # The step that writes the run's evaluation rows. Re-measuring starts here and takes every
 # step after it with it; `tests/test_gate_remedies.py` pins it to the workflow's own order.
 MEASURE_STEP = "validate"
+
+# The step that answers an operator's redraft, measures the checks again and seals the gate
+# over the result. A redraft starts here, after the checks' first reading, because the
+# critique loop and the red team need not run again for one section.
+REDRAFT_STEP = "revise"
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +260,125 @@ async def remeasure_checks(
         actor=actor.email,
     )
     return Remeasure(invalidated=tuple(invalidated))
+
+
+@dataclass(frozen=True, slots=True)
+class Redraft:
+    """The request recorded, and which steps it put back to be executed."""
+
+    section_key: str
+    invalidated: tuple[str, ...]
+
+
+async def request_redraft(
+    session: AsyncSession, *, job: Job, section_key: str, reason: str, actor: User
+) -> Redraft:
+    """Ask for one section to be redrafted at the final gate (roadmap §3.19 item 75).
+
+    A check that refuses a sentence at the final gate used to leave two ways on: approve
+    against the check, which the round's own definition counts as a rescue, or reject the
+    run and pay for another. This is the third. The request is recorded as a revision note
+    with the operator's reason, and the revise step and every step after it go back to be
+    executed as their next attempt: the revise step answers the request instead of running
+    the critique loop again, the checks are measured on the redrafted text, the gate is
+    sealed over it, and the run comes back to this gate. The cost is one section's draft
+    and the steps after it, never the run.
+
+    Raises:
+        ConflictError: The run is executing, has finished, is not waiting at its final
+            gate, or has a final decision already — a decided gate is superseded (ADR 0123),
+            not redrafted under.
+        ValidationError: The reason is empty, the section is not this run's, or it is a
+            custom section, which executes under the policy pinned when gate 1 showed it
+            and is never redrafted by the platform (ADR 0037).
+    """
+    reason = " ".join(reason.split())
+    if not reason:
+        message = (
+            "Say what the redraft should put right, in your own words — the refusal it "
+            "answers, or what reads wrong. The writer is given exactly this."
+        )
+        raise ValidationError(message, context={"job_id": str(job.id)})
+    if job.status is not JobStatus.AWAITING_APPROVAL:
+        message = (
+            "A section is redrafted while the run waits at its final gate, and this one is not."
+        )
+        raise ConflictError(message, context={"job_id": str(job.id), "status": job.status.value})
+    if await approval_service.pending_gate(session, job) is not GateKind.FINAL:
+        message = "This run is waiting at an earlier gate; the draft does not exist yet."
+        raise ConflictError(message, context={"job_id": str(job.id)})
+    if await _final_approval(session, job) is not None:
+        message = (
+            "The final gate has a decision already. A decided gate is decided again on what "
+            "it shows, not redrafted under."
+        )
+        raise ConflictError(message, context={"job_id": str(job.id)})
+
+    section = await session.scalar(
+        select(ReportSection)
+        .where(ReportSection.job_id == job.id, ReportSection.section_key == section_key)
+        .options(selectinload(ReportSection.definition))
+    )
+    if section is None:
+        message = "That section is not part of this run."
+        raise ValidationError(message, context={"job_id": str(job.id), "section": section_key})
+    if section.definition.origin == SKILL:
+        message = (
+            f"{section.definition.title} is a custom section, and it runs under the policy "
+            "its skill had when the plan was approved; the platform never redrafts one. "
+            "Change the skill and start a new run, or approve with the section as it is."
+        )
+        raise ValidationError(message, context={"job_id": str(job.id), "section": section_key})
+
+    session.add(
+        RevisionNote(
+            job_id=job.id,
+            scope=SCOPE_FINAL_GATE,
+            section_key=section_key,
+            dimension=OPERATOR_DIMENSION,
+            severity=5,
+            statement=reason[:4000],
+            disposition=DISPOSITION_REQUESTED,
+        )
+    )
+
+    rows = list(
+        await session.scalars(
+            select(JobStep).where(JobStep.job_id == job.id).order_by(JobStep.sequence)
+        )
+    )
+    revised = next((row for row in rows if row.step_key == REDRAFT_STEP), None)
+    if revised is None or revised.status is not JobStatus.SUCCEEDED:
+        message = "This run has not reached its revise step, so there is no draft to redraft."
+        raise ConflictError(message, context={"job_id": str(job.id), "step": REDRAFT_STEP})
+    invalidated: list[str] = []
+    for row in rows:
+        if row.sequence >= revised.sequence and row.status is not JobStatus.QUEUED:
+            row.status = JobStatus.QUEUED
+            row.finished_at = None
+            row.error = None
+            invalidated.append(row.step_key)
+
+    await _append_event(
+        session,
+        actor=actor,
+        job=job,
+        event_type=REDRAFT_EVENT,
+        payload={
+            "job_id": str(job.id),
+            "section": section_key,
+            "reason": reason[:4000],
+            "invalidated": ", ".join(invalidated),
+        },
+    )
+    _log.info(
+        "run.redraft_requested",
+        job_id=str(job.id),
+        section=section_key,
+        invalidated=invalidated,
+        actor=actor.email,
+    )
+    return Redraft(section_key=section_key, invalidated=tuple(invalidated))
 
 
 async def _final_approval(session: AsyncSession, job: Job) -> Approval | None:

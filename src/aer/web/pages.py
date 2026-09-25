@@ -34,6 +34,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
     HTTP_303_SEE_OTHER,
@@ -73,6 +74,7 @@ from aer.db.models import (
     SourceDocument,
     WorkOrder,
 )
+from aer.db.models.section_definition import SKILL
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, enqueue_run, worker_health
@@ -130,10 +132,15 @@ from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.gates import GATE_PAGES, frame_for, journey
 from aer.web.templating import render
-from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
+from aer.workflow.registry import (
+    DEFAULT_WORKFLOW_VERSION,
+    WorkflowRegistryError,
+    resolve_workflow,
+)
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
     COMPS_STEP,
+    REDRAFT_ESTIMATE_GBP,
     SCALE_CONCEPTS,
     assumptions_gate_required,
     comps_for,
@@ -266,6 +273,23 @@ async def run_console(
         if job.status is JobStatus.AWAITING_APPROVAL and pending is GateKind.FINAL
         else []
     )
+    # The sections a redraft may be asked for beside it (roadmap §3.19 item 75): the run's
+    # built-in sections, by title. A custom section runs under its pinned policy and is
+    # never redrafted by the platform; a refresh answers "redraft" by being refreshed.
+    redraftable = (
+        [
+            {"key": section.section_key, "title": section.definition.title}
+            for section in await session.scalars(
+                select(ReportSection)
+                .where(ReportSection.job_id == job_id)
+                .options(selectinload(ReportSection.definition))
+                .order_by(ReportSection.position)
+            )
+            if section.definition.origin != SKILL
+        ]
+        if failed_checks and job.workflow_version == DEFAULT_WORKFLOW_VERSION
+        else []
+    )
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -284,6 +308,8 @@ async def run_console(
             # the case and offers its control (ADR 0123) rather than one banner for all.
             "pause_reason": state.pause_reason,
             "failed_checks": failed_checks,
+            "redraftable_sections": redraftable,
+            "redraft_estimate_gbp": REDRAFT_ESTIMATE_GBP,
             # A run that ended without a report may be started again from here — the
             # request page's own control, moved to where the operator meets the end.
             "can_start_again": state.is_terminal
@@ -687,6 +713,61 @@ async def remeasure_run_page(
     try:
         await gates_service.remeasure_checks(session, job=job, actor=user, reason=reason)
         await resume_service.resume_run(session, job=job, actor=user, reason=reason)
+    except ConflictError as exc:
+        return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
+    except ValidationError as exc:
+        return problem_page(
+            request, exc.message, back=f"/runs/{job_id}", status=HTTP_422_UNPROCESSABLE_CONTENT
+        )
+
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/runs/{job_id}/redraft", summary="Redraft one section at the final gate")
+async def redraft_section_page(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Ask for one section to be redrafted with the operator's reason, and continue.
+
+    Roadmap §3.19 item 75: the third way on from a refused check, beside approving against
+    it and rejecting the run. The revise step answers the request, the checks are measured
+    on what it wrote, and the run comes back to the final gate — queued, never executed
+    inside this request, like every other decision a page records.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was redrafted.",
+            back=f"/runs/{job_id}",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    reason = submitted.get("reason", "")
+    try:
+        await gates_service.request_redraft(
+            session,
+            job=job,
+            section_key=submitted.get("section", ""),
+            reason=reason,
+            actor=user,
+        )
+        await resume_service.resume_run(
+            session, job=job, actor=user, reason=f"redraft requested: {reason}"[:4000]
+        )
     except ConflictError as exc:
         return problem_page(request, exc.message, back=f"/runs/{job_id}", status=HTTP_409_CONFLICT)
     except ValidationError as exc:

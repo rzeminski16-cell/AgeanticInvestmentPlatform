@@ -354,3 +354,24 @@ pre-registration's arriving at the same place independently.
 **The identity guess was not bought.** £29.51 + its £2.50 estimate is £32.01, past the £31.50,
 and the stop rule drops it and reports it as not bought. The audit ledger stands at about
 £78.44 of its £100 ceiling.
+
+---
+
+## Found after the round, 25 September 2026
+
+**AZN's one refusal measured a draft the document no longer held.** The check measured the
+executive summary at 12:44:19, straight after drafting. The revise pass rewrote that section
+and replaced its claims at 12:47:18. The claim now on record reads *"The change in working
+capital on record is -$386.6m."* — signed, and read as -386.6 by the scanner that was already
+in this round's code. Nothing measured again before the gate, so the refusal the
+pre-registered rule approved against was a refusal of a sentence that was not in the
+document.
+
+The reading above stands, because the rule counted what happened. What it counted was the
+platform's defect rather than the writer's. Roadmap §3.19 item 75 has the timestamps and the
+fix: the revise step now measures again whenever a revision stands. It also adds a control
+for a refusal that is real, which is to redraft the one section.
+
+**The refresh's request was put back as day one left it.** The rejected refresh had left the
+request's beta unconfirmed at its own 1.0663. It was restored to the confirmed 1.0659 that
+day one's report rests on (item 73).

@@ -182,6 +182,38 @@
           <button type="submit" id="remeasure-run"
                   class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Re-measure the checks</button>
         </form>
+        {% if redraftable_sections %}
+          {#
+            The third way on (roadmap §3.19 item 75): redraft the one section a refusal
+            names, with the reason in front of the writer, rather than approve against the
+            check or start the run again.
+          #}
+          <form method="post" action="/runs/{{ job.id }}/redraft" id="redraft-form" class="mt-4 grid gap-3">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <p class="type-body text-ink">
+              Or redraft the section a check refused, with what should be put right in front of
+              the writer. The checks are measured again on what it writes and the run returns
+              here; about {{ "£%.2f" | format(redraft_estimate_gbp) }}.
+            </p>
+            <label class="grid gap-1 type-label text-ink">Section
+              <select name="section" id="redraft-section"
+                      class="min-h-11 w-72 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink">
+                {% for section in redraftable_sections %}
+                  <option value="{{ section.key }}">{{ section.title }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="grid gap-1 type-label text-ink">What should be put right
+              <textarea name="reason" id="redraft-reason" required maxlength="4000" rows="3"
+                        placeholder="For example: the working-capital change is stated without its sign"
+                        class="rounded-sm border border-control-boundary bg-surface px-3 py-2 type-body text-ink"></textarea>
+            </label>
+            <div>
+              <button type="submit" id="redraft-section-submit"
+                      class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-selected">Redraft this section</button>
+            </div>
+          </form>
+        {% endif %}
       </section>
     {% endif %}
 
