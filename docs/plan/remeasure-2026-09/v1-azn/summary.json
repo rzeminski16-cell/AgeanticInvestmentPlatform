@@ -1,0 +1,23 @@
+{
+  "subject": "azn",
+  "label": "v1-azn",
+  "started_at": "2026-09-25T16:40:04.893715+00:00",
+  "request_id": "613a7cb5-bc73-4ab4-b00f-39e5564fae24",
+  "job_id": "54fa35ee-a8df-46b4-bd87-b161009da0ab",
+  "as_of_date": "2026-09-25",
+  "cap_gbp": "10",
+  "stop_reason": "failed metrics",
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-25T17:09:00.057896+00:00",
+  "status": "AWAITING_APPROVAL",
+  "spend_gbp": "6.704273",
+  "acceptance_passed": false,
+  "replay": {
+    "calculations_checked": 1575,
+    "citations_checked": 48,
+    "artefacts_checked": 13,
+    "model_calls_checked": 59
+  }
+}

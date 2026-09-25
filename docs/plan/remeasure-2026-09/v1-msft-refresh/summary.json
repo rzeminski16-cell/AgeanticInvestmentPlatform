@@ -1,0 +1,28 @@
+{
+  "subject": "msft1",
+  "label": "v1-msft-refresh",
+  "started_at": "2026-09-25T18:35:09.271246+00:00",
+  "request_id": "803945eb-c848-4148-b9b2-c36b6e63b764",
+  "job_id": "6571e674-edf9-4a3e-9d1b-204339ff1444",
+  "as_of_date": "2026-09-25",
+  "cap_gbp": "10.00",
+  "resumed_by_driver": true,
+  "stop_reason": null,
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-25T18:52:17.757861+00:00",
+  "status": "SUCCEEDED",
+  "spend_gbp": "1.369456",
+  "acceptance_passed": true,
+  "replay": {
+    "calculations_checked": 1190,
+    "citations_checked": 42,
+    "artefacts_checked": 1,
+    "model_calls_checked": 7
+  },
+  "report_id": "9d8bab80-2052-444a-b946-95cf6be04ba6",
+  "report_hash": "a40d5a125df5836e2174a98fead80565b0b51dfcdc6a2841eef8578955f22be2",
+  "report_immutable": true,
+  "report_words": 19488
+}

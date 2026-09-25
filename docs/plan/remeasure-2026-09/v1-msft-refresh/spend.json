@@ -1,0 +1,41 @@
+{
+  "total_gbp": "1.369456",
+  "calls": 7,
+  "output_tokens": 53079,
+  "cache": {
+    "fresh_tokens": 8036,
+    "read_tokens": 10957,
+    "written_tokens": 57737
+  },
+  "by_kind": [
+    [
+      "cache_read",
+      "0.004328"
+    ],
+    [
+      "cache_write",
+      "0.285075"
+    ],
+    [
+      "llm_input",
+      "0.031741"
+    ],
+    [
+      "llm_output",
+      "1.048312"
+    ]
+  ],
+  "by_role": [
+    {
+      "role": "report_writer",
+      "model": "claude-opus-5",
+      "calls": 7,
+      "output_tokens": 53079,
+      "cache": {
+        "fresh_tokens": 8036,
+        "read_tokens": 10957,
+        "written_tokens": 57737
+      }
+    }
+  ]
+}

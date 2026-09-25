@@ -1,0 +1,27 @@
+{
+  "subject": "mtb",
+  "label": "v1-mtb",
+  "started_at": "2026-09-25T17:52:10.576217+00:00",
+  "request_id": "08be241d-02ba-4f4b-988d-6d542089a3a7",
+  "job_id": "7aa761cb-7fc7-43e1-903a-aa7cefabc15f",
+  "as_of_date": "2026-09-25",
+  "cap_gbp": "10",
+  "stop_reason": null,
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-25T18:34:18.990882+00:00",
+  "status": "SUCCEEDED",
+  "spend_gbp": "7.456421",
+  "acceptance_passed": true,
+  "replay": {
+    "calculations_checked": 888,
+    "citations_checked": 44,
+    "artefacts_checked": 21,
+    "model_calls_checked": 59
+  },
+  "report_id": "38552879-41d6-42be-a334-07a7e4b26016",
+  "report_hash": "0924330ac77f5a7cd537007707f506eeef45f6d2e818f84b85ca055eeab42b70",
+  "report_immutable": true,
+  "report_words": 15689
+}

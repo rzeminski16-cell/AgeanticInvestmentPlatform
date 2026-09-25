@@ -1,0 +1,66 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.568190166126",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-25, over 71 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "8.000000000000",
+        "unit": "pure",
+        "justification": "Flagged as a convention forced by the template: EV/EBITDA is not meaningful for a bank, where interest is operating revenue and debt is raw material (note the active MTN and Series L preferred issuance). I read the bank model's EBITDA proxy as pre-provision net revenue: 2026 guidance of $7.2-7.35B NII plus $2.8-2.85B fees less $5.5-5.6B expense implies ~$4.5B. 8x gives ~$36B, i.e. ~11-12x the ~$3.1B net income run-rate, consistent with a top-quartile ROTA 1.46%, 55.5% efficiency regional bank. Gordon on equity (g=2.5%, ROE ~10.5%, r ~10.5%) implies ~10x earnings, so 8x is modestly above. The perpetual-growth route is the better terminal estimate here; use this only if the model's EBITDA proxy is confirmed as PPNR, and rescale if it is after-provision or after-tax.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.3
+      },
+      {
+        "name": "payout_ratio",
+        "value": "0.336680000000",
+        "unit": "pure",
+        "justification": "The mean of dividends paid over net income across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.3120, 0.3936, 0.3167, 0.3458, 0.3153.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "return_on_equity",
+        "value": "0.094214000000",
+        "unit": "pure",
+        "justification": "The mean of net income over equity across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1038, 0.0787, 0.1017, 0.0892, 0.0977.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.051100000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5.11% on 2026-09-23, as published by 2026-09-25 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.0511.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken as below a bank cost of equity of roughly 9.5-11% (5.11% 10Y risk-free per the derived fact, plus an equity premium); it is below even the risk-free rate, so the terminal value stays well defined under any ordinary discount rate confirmed later. 2.5% is long-run nominal GDP, not company-specific: M&T's implied sustainable growth (ROE 9.42% x 66% retention = ~6.2%) cannot persist, and current messaging is organic rather than acquisitive. Raise toward 3.0-3.5% if the confirmed discount rate embeds today's elevated 5.11% nominal rates as permanent; cut toward 2% if terminal ROE is set near the 5-year 9.4% average rather than recent 12.3% ROCE.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "f711aa715d5dc2ca0861d79db19910d6b76f18606ba5bd79110d04a31a6188ae"
+}

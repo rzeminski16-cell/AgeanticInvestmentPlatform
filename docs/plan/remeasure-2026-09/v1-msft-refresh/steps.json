@@ -1,0 +1,173 @@
+[
+  {
+    "step": "carry_forward",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:13.482173+00:00",
+    "finished_at": "2026-09-25T18:35:13.545628+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:13.553572+00:00",
+    "finished_at": "2026-09-25T18:35:15.218459+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire_macro",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:15.227438+00:00",
+    "finished_at": "2026-09-25T18:35:18.180065+00:00",
+    "error": null
+  },
+  {
+    "step": "classify",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:18.188120+00:00",
+    "finished_at": "2026-09-25T18:35:18.194873+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_peers",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:18.200995+00:00",
+    "finished_at": "2026-09-25T18:35:18.205437+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_themes",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:18.211331+00:00",
+    "finished_at": "2026-09-25T18:35:18.215245+00:00",
+    "error": null
+  },
+  {
+    "step": "extract",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:35:18.220393+00:00",
+    "finished_at": "2026-09-25T18:41:25.218079+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_unmapped_concepts",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:25.276148+00:00",
+    "finished_at": "2026-09-25T18:41:25.331389+00:00",
+    "error": null
+  },
+  {
+    "step": "acquire_prices",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:25.350776+00:00",
+    "finished_at": "2026-09-25T18:41:27.184456+00:00",
+    "error": null
+  },
+  {
+    "step": "calculate",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:27.204361+00:00",
+    "finished_at": "2026-09-25T18:41:27.839287+00:00",
+    "error": null
+  },
+  {
+    "step": "comps",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:27.862168+00:00",
+    "finished_at": "2026-09-25T18:41:28.344855+00:00",
+    "error": null
+  },
+  {
+    "step": "propose_assumptions",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:28.368356+00:00",
+    "finished_at": "2026-09-25T18:41:28.374163+00:00",
+    "error": null
+  },
+  {
+    "step": "value",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:28.394958+00:00",
+    "finished_at": "2026-09-25T18:41:29.427684+00:00",
+    "error": null
+  },
+  {
+    "step": "diff",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:41:29.450413+00:00",
+    "finished_at": "2026-09-25T18:41:32.568634+00:00",
+    "error": null
+  },
+  {
+    "step": "draft",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "1.3695",
+    "started_at": "2026-09-25T18:41:32.600774+00:00",
+    "finished_at": "2026-09-25T18:51:40.215531+00:00",
+    "error": null
+  },
+  {
+    "step": "validate",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:51:40.257887+00:00",
+    "finished_at": "2026-09-25T18:51:48.608763+00:00",
+    "error": null
+  },
+  {
+    "step": "revise",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:51:48.639865+00:00",
+    "finished_at": "2026-09-25T18:51:49.251754+00:00",
+    "error": null
+  },
+  {
+    "step": "gate_final",
+    "attempt": 1,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:51:58.107981+00:00",
+    "finished_at": "2026-09-25T18:52:02.805097+00:00",
+    "error": null
+  },
+  {
+    "step": "render",
+    "attempt": 0,
+    "status": "SUCCEEDED",
+    "cost_gbp": "0",
+    "started_at": "2026-09-25T18:52:02.826613+00:00",
+    "finished_at": "2026-09-25T18:52:15.204915+00:00",
+    "error": null
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "job_id": "6571e674-edf9-4a3e-9d1b-204339ff1444",
+  "calculations_checked": 1190,
+  "calculations_diverged": [],
+  "citations_checked": 42,
+  "citations_failed": [],
+  "artefacts_checked": 1,
+  "artefacts_unreadable": [],
+  "model_calls_checked": 7,
+  "model_calls_unarchived": []
+}

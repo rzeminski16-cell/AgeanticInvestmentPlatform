@@ -1,0 +1,98 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "1.064553313698",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-25, over 71 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.202619000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1205, 0.1326, 0.1814, 0.2291, 0.3494.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.087170000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.0736, 0.0637, 0.0816, 0.0994, 0.1175.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.441750000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.4206, 0.4177, 0.4464, 0.4562, 0.4678.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "13.000000000000",
+        "unit": "pure",
+        "justification": "Cross-check, not a comp: EBITDA margin implied by the derived 44.2% EBIT plus 8.7% D&A is ~53%; at a 17.5% tax rate and capex settling near D&A, terminal FCF is ~0.65 of EBITDA, so 1/(0.09\u22120.03)\u224816.7x FCF \u2248 11x EBITDA; if capex stays near the 20.3% mean it falls toward 8x. 13.0x leans to partial normalisation. Of the two, I regard the perpetual-growth figure as the better terminal estimate \u2014 this multiple hinges entirely on where capex settles, which no filing yet answers. Raise toward 18x only if capex reverts fully.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.137411000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2022-06-30 to 2026-06-30, over 4 year(s): revenue moved from 198,270,000,000 to 331,839,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.051100000000",
+        "unit": "pure",
+        "justification": "The US 10-year Treasury constant maturity yield was 5.11% on 2026-09-23, as published by 2026-09-25 (Board of Governors of the Federal Reserve System (H.15), series DGS10). Taken as the USD risk-free rate for this run's as-of date and converted to the fraction 0.0511.",
+        "proposed_by": "aer.services.macro",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.174698000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1311, 0.1898, 0.1823, 0.1763, 0.1940.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken as below a WACC of roughly 8.5\u20139.5% (5.11% 10y risk-free plus an ordinary large-cap equity premium); even a floor-case 7% WACC leaves ample spread. 3.0% is near long-run US nominal GDP, and the 5.11% risk-free implies a higher nominal-inflation regime than a 2.0\u20132.5% assumption would suit. I do not extend the derived 13.7% trailing growth into perpetuity: no firm outgrows the economy for ever. Lower to ~2.0\u20132.5% if you judge the Devices/Consumer drag or AI-capex competition caps real growth; the 4.0% cap is not warranted.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "0.237834000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "cf4e74b2d0449cbb97de714dbcafa72824b56f245181c2ab8cd3795c01c48553"
+}

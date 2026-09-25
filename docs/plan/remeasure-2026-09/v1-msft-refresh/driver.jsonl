@@ -1,0 +1,57 @@
+{"at": "2026-09-25T18:35:09.279391+00:00", "event": "ledger.before", "platform_gbp": "76.102870", "baseline_gbp": "12.8153", "other_gbp": "9.31390250", "total_gbp": "98.23207250", "ceiling_gbp": "125.00", "remaining_gbp": "26.76792750"}
+{"at": "2026-09-25T18:35:09.325875+00:00", "event": "resumed_existing", "status": "QUEUED", "subject": "msft1", "label": "v1-msft-refresh", "request_id": "803945eb-c848-4148-b9b2-c36b6e63b764", "job_id": "6571e674-edf9-4a3e-9d1b-204339ff1444", "as_of_date": "2026-09-25", "cap_gbp": "10.00", "resumed_by_driver": true}
+{"at": "2026-09-25T18:35:11.333572+00:00", "event": "worker.started", "pid": 17121, "after_seconds": 2.0}
+{"at": "2026-09-25T18:35:11.359605+00:00", "event": "run.enqueued", "job_id": "6571e674-edf9-4a3e-9d1b-204339ff1444", "task": "25a0a438e1ac4b3d9dde2334e6012599"}
+{"at": "2026-09-25T18:35:16.385749+00:00", "event": "step", "step": "carry_forward", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:16.386166+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:16.386267+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:21.407975+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:21.408192+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:21.408246+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:21.408291+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:35:21.408334+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:27.310390+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:27.310684+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:27.310797+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:27.310965+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:32.348921+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:32.349164+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:32.349221+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:32.349267+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:32.349310+00:00", "event": "step", "step": "diff", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:37.381034+00:00", "event": "step", "step": "diff", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:41:37.381220+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:41.703925+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.3695"}
+{"at": "2026-09-25T18:51:41.704230+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:51.781022+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:51.781252+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:51.781352+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:56.811400+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:56.813598+00:00", "event": "advanced", "status": "AWAITING_APPROVAL", "elapsed_seconds": 1005.5, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-25T18:51:57.499787+00:00", "event": "gate.decided", "gate": "FINAL", "approved": true, "rationale": "Audit policy: 19/19 sections generated, 0 failed, triggers ['high_model_uncertainty', 'cost_above_threshold'], 7 challenge(s) (6 material) left unsettled for the reader, 0 revision note(s), no metric failing.", "findings": ["section executive_summary generated: Insufficient evidence: This section's policy requires at least one primary source (tier 1 or 2); none of its cited evidence is primary.", "section earnings_quality generated: Shortened to fit the length allotted to this section.", "trigger fired: high_model_uncertainty", "trigger fired: cost_above_threshold"], "stop_reason": null, "payload_hash": "5e870e6e366688a9ff8360f5d80daf2735403c9c23f4fd7cc4e8b7799a399b43"}
+{"at": "2026-09-25T18:51:57.538518+00:00", "event": "run.enqueued", "job_id": "6571e674-edf9-4a3e-9d1b-204339ff1444", "task": "5cde91814f244a198b1ce96f8fb0fb96"}
+{"at": "2026-09-25T18:51:57.562905+00:00", "event": "step", "step": "carry_forward", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563060+00:00", "event": "step", "step": "acquire", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563113+00:00", "event": "step", "step": "acquire_macro", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563158+00:00", "event": "step", "step": "classify", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563199+00:00", "event": "step", "step": "propose_peers", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563239+00:00", "event": "step", "step": "propose_themes", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563339+00:00", "event": "step", "step": "extract", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563386+00:00", "event": "step", "step": "gate_unmapped_concepts", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563429+00:00", "event": "step", "step": "acquire_prices", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563471+00:00", "event": "step", "step": "calculate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563511+00:00", "event": "step", "step": "comps", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563550+00:00", "event": "step", "step": "propose_assumptions", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563589+00:00", "event": "step", "step": "value", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563628+00:00", "event": "step", "step": "diff", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563667+00:00", "event": "step", "step": "draft", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "1.3695"}
+{"at": "2026-09-25T18:51:57.563706+00:00", "event": "step", "step": "validate", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563745+00:00", "event": "step", "step": "revise", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:51:57.563787+00:00", "event": "step", "step": "gate_final", "attempt": 0, "status": "AWAITING_APPROVAL", "cost_gbp": "0"}
+{"at": "2026-09-25T18:52:02.627522+00:00", "event": "step", "step": "gate_final", "attempt": 1, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:52:07.690270+00:00", "event": "step", "step": "gate_final", "attempt": 1, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:52:07.691240+00:00", "event": "step", "step": "render", "attempt": 0, "status": "RUNNING", "cost_gbp": "0"}
+{"at": "2026-09-25T18:52:17.754975+00:00", "event": "step", "step": "render", "attempt": 0, "status": "SUCCEEDED", "cost_gbp": "0"}
+{"at": "2026-09-25T18:52:17.757622+00:00", "event": "advanced", "status": "SUCCEEDED", "elapsed_seconds": 20.2, "killed_at": null, "worker_dead": false}
+{"at": "2026-09-25T18:52:24.524648+00:00", "event": "run.finished", "stop_reason": null, "status": "SUCCEEDED", "spend_gbp": "1.369456"}
+{"at": "2026-09-25T18:52:25.994349+00:00", "event": "worker.stopped", "pid": 17121, "hard": false, "returncode": 0}
