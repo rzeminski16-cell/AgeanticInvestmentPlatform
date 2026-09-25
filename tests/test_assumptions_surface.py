@@ -697,6 +697,30 @@ class TestAValueThatReadsAsATypingMistake:
         """A loss-making company is a real company, and the band exists to catch slips."""
         assert scale_complaint("ebit_margin", Decimal("-1.5")) is None
 
+    def test_the_complaint_names_the_assumption_in_words(self) -> None:
+        """Phase 1.4's ratchet: the form prints this sentence, and a key is not a word."""
+        complaint = scale_complaint("risk_free_rate", Decimal("4.5"))
+
+        assert complaint is not None
+        assert "risk-free rate" in complaint
+        assert "risk_free_rate" not in complaint
+        assert complaint.endswith("Submit it again with the box ticked if you mean this figure.")
+
+    def test_something_that_is_not_a_number_is_complained_of_not_raised(self) -> None:
+        """`Decimal("NaN")` parses, and the range comparison then raised rather than said
+        anything — a 500 where the form should have shown a sentence."""
+        complaint = scale_complaint("terminal_growth", Decimal("NaN"))
+
+        assert complaint is not None
+        assert "not a number" in complaint
+
+    def test_a_caller_with_no_box_to_tick_names_no_box(self) -> None:
+        """The calculator (ADR 0133) is typed again rather than overridden."""
+        complaint = scale_complaint("risk_free_rate", Decimal("4.5"), remedy="")
+
+        assert complaint is not None
+        assert "box" not in complaint
+
     async def test_the_service_refuses_it(self, api: Any, committed: dict) -> None:
         response = await api.post(
             f"/api/requests/{committed['request'].id}/assumptions",

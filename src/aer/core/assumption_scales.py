@@ -191,19 +191,37 @@ def unit_complaint(name: str, unit: str) -> str | None:
     return f"{name} is measured in {wanted!r}, not {unit.strip() or 'nothing'!r}. {_FRACTION_RULE}"
 
 
-def scale_complaint(name: str, value: Decimal) -> str | None:
+# What the assumptions form offers a person who means an implausible figure. The calculator
+# (ADR 0133) has no such box — a what-if is typed again, not overridden — so it passes none.
+_TICK_THE_BOX: Final = "Submit it again with the box ticked if you mean this figure."
+
+
+def scale_complaint(name: str, value: Decimal, *, remedy: str = _TICK_THE_BOX) -> str | None:
     """Why this value looks like a typing mistake, or ``None`` if it is plausible.
 
     Returns prose rather than raising, so the caller decides what a complaint is worth: the
     service refuses on it, and the same sentence is what the form shows.
+
+    **In words, and total.** The sentence named the assumption by its key — "outside the
+    plausible range for risk_free_rate" — on the one page Phase 1.4's ratchet says prints no
+    identifier. And a value that is not a number at all, which `Decimal("NaN")` happily
+    parses, made the comparison below raise rather than complain: the calculator found both.
     """
+    words = assumption_words(name) or name.replace("_", " ")
+    if not value.is_finite():
+        return f"{value} is not a number, and the {words} has to be one. {_FRACTION_RULE}"
     bounds = PLAUSIBLE_RANGE.get(name)
     if bounds is None:
         return None
     low, high = bounds
     if low <= value <= high:
         return None
-    return (
-        f"{value} is outside the plausible range for {name} ({low} to {high}). "
-        f"{_FRACTION_RULE} Submit it again with the box ticked if you mean this figure."
+    return " ".join(
+        part
+        for part in (
+            f"{value} is outside the plausible range for the {words} ({low} to {high}).",
+            _FRACTION_RULE,
+            remedy,
+        )
+        if part
     )

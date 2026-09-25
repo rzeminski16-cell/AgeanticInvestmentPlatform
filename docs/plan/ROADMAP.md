@@ -74,6 +74,25 @@ two terminal assumptions are confirmed (§3.16).
   stored precision.
 - **The calculator (F5's companion).** It will run through the same `strike`.
 
+**The calculator landed 25 September 2026 — ADR 0133.**
+- **Where it is.** `/runs/{id}/calculator`, linked from the valuation page as *"Try your own
+  numbers"*.
+- **What it does.** It strikes the report's own discounted cash flow over the operator's
+  numbers, through the same `strike`.
+- **The proof first.** Before anything is changed, it strikes the confirmed values and holds
+  the result against the report's recorded base case at the ledger's precision. It says
+  whether the two agree. They disagree when a later run has acquired filings the report
+  predates.
+- **What it refuses.** An entry outside the gate's plausible range is refused in the gate's
+  own words, and one the arithmetic refuses in the arithmetic's own words.
+- **What it keeps.** Nothing. The numbers travel in the page's address.
+- **Found on the way, and fixed where they live.**
+  - The assumptions gate printed a confirmed beta as `1.100000000000`. The shared figure
+    filter now drops the column's stored scale.
+  - The assumptions form's refusal named the assumption by its key (*"for risk_free_rate"*),
+    and it raised rather than refused on `NaN`. `scale_complaint` now uses words, and it
+    complains of a non-number instead of failing on one.
+
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
    does.

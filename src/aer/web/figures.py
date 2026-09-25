@@ -669,6 +669,11 @@ def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
     The gate showed `0.025` beside the word `pure`, which is the unit algebra's answer to a
     question nobody asked. Every assumption a forecast needs is dimensionless, so the unit
     carries no information and the scale carries all of it.
+
+    **And without the column's scale.** A beta read back from `Numeric(38, 12)` is
+    `1.100000000000`, and the gate printed it so beside a rate it had already turned into
+    "4.2%": the twelve places are how the value is stored, not how precisely anybody chose
+    it. Found by the calculator page (ADR 0133), which prints the same rows.
     """
     text = str(value)
     if value is None or text == "":
@@ -681,9 +686,10 @@ def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
     if name in _RATE_ASSUMPTIONS:
         percentage = (quantity * 100).normalize()
         return AssumptionFigure(shown=f"{percentage:f}%", stored=text)
+    plain = trimmed(quantity)
     if unit and unit != "pure":
-        return AssumptionFigure(shown=f"{quantity:f} {unit}", stored="")
-    return AssumptionFigure(shown=f"{quantity:f}", stored="")
+        return AssumptionFigure(shown=f"{plain} {unit}", stored="")
+    return AssumptionFigure(shown=plain, stored="")
 
 
 def trimmed(value: object) -> str:

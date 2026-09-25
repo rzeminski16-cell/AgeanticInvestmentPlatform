@@ -132,6 +132,20 @@
           of the lower figure.
         </p>
       {% endif %}
+
+      {#
+        The one place a reader may change the numbers is a page of its own, which recomputes
+        and says so, so this page can go on never recomputing (ADR 0133).
+      #}
+      <p class="mt-4 type-body text-ink">
+        <a
+          href="/runs/{{ job.id }}/calculator"
+          id="open-calculator"
+          class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong"
+        >Try your own numbers</a>
+        in the calculator. It strikes this model again over the values you enter, and
+        records nothing.
+      </p>
     {% endcall %}
   {% endif %}
 

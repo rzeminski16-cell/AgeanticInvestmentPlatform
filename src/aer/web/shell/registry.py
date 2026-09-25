@@ -189,6 +189,8 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # The run console and its surfaces, all reached from the run itself.
         "/runs/{job_id}",
         "/runs/{job_id}/assumptions",
+        # ADR 0133: reached from the valuation page, beside the figures it strikes again.
+        "/runs/{job_id}/calculator",
         "/runs/{job_id}/claims",
         "/runs/{job_id}/financials",
         "/runs/{job_id}/footnotes/{number}",

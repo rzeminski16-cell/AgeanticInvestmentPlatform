@@ -451,3 +451,26 @@ class TestTheUnmappedGateIsCutForAPerson:
         assert queue.total == 0
         assert queue.sentence == ""
         assert queue.fold_summary == ""
+
+
+class TestAnAssumptionReadsWithoutItsColumnsScale:
+    """A beta read back from `Numeric(38, 12)` is `1.100000000000`, and the assumptions gate
+    printed it so beside a rate it had already turned into a percentage. Found by the
+    calculator page (ADR 0133), which prints the same rows."""
+
+    def test_a_coefficient_loses_the_stored_zeros(self) -> None:
+        assert figures.assumption_figure("beta", "1.100000000000", "pure").shown == "1.1"
+
+    def test_a_whole_multiple_reads_as_a_whole_number(self) -> None:
+        assert figures.assumption_figure("exit_multiple", "10.000000000000", "pure").shown == "10"
+
+    def test_a_rate_is_still_a_percentage_with_its_stored_form_beside_it(self) -> None:
+        figure = figures.assumption_figure("terminal_growth", "0.025000000000", "pure")
+
+        assert figure.shown == "2.5%"
+        assert figure.stored == "0.025000000000"
+
+    def test_a_unit_other_than_pure_is_kept(self) -> None:
+        assert figures.assumption_figure("share_count", "1500.000000000000", "shares").shown == (
+            "1500 shares"
+        )

@@ -99,6 +99,7 @@ from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumptions import assumptions_for_request
 from aer.services.availability import check_availability
+from aer.services.calculator import calculator_view, result_rows
 from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
@@ -2836,6 +2837,45 @@ def _grid_for_display(grid: GridView, *, style: HouseStyle) -> dict[str, Any]:
             for y, cells in grid.rows
         ],
     }
+
+
+@router.get(
+    "/runs/{job_id}/calculator",
+    response_class=HTMLResponse,
+    summary="Try your own numbers in the report's model",
+)
+async def calculator_page(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The report's own discounted cash flow, struck over the operator's numbers (ADR 0133).
+
+    The one page that recomputes a valuation, and it says so first: the valuation page's rule
+    — never re-run, because today's answer beside yesterday's report would look as
+    authoritative as the report — is kept by never letting a figure here be mistaken for the
+    report's. It records nothing; the numbers travel in the address.
+
+    A GET with the operator's entries as query parameters, so it changes nothing, needs no
+    token, and works with JavaScript off.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return problem_page(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    view = await calculator_view(session, job=job, entries=dict(request.query_params))
+    style = await configuration.effective_house_style(session)
+    response: Response = render(
+        request,
+        "runs/calculator.html",
+        {
+            "job": job,
+            "view": view,
+            "results": result_rows(view, style=style) if view is not None else [],
+        },
+    )
+    return response
 
 
 @router.get(

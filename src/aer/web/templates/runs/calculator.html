@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The model calculator (ADR 0133). The report's own discounted cash flow, struck over the
+  operator's numbers through the function the assumptions gate's preview uses.
+
+  Three things this page never does, each for a reason the valuation page already gives:
+  it never records (the numbers travel in the address, and the ledger the arithmetic writes
+  to is discarded); it never looks like the report (its first sentence says it is a what-if,
+  and the report's own figures sit beside the operator's under their own heading); and it
+  never uses a model it has not first shown reproduces the report, which is what the callout
+  above the form says either way.
+
+  A GET form with no script, so it works with JavaScript off and changes nothing: there is
+  no state to protect, and so no token.
+#}
+
+{% block title %}Calculator &middot; Tracework Invest{% endblock %}
+
+{% block content %}
+  {{ ui.page_header(
+    "Calculator",
+    eyebrow="A WHAT-IF, NEVER A RECORD",
+    identity="The report's own discounted cash flow, struck over your numbers. Nothing here is recorded, and no figure on this page belongs to the report.",
+    breadcrumbs=[
+      {"href": "/runs/" ~ job.id, "label": "Run console"},
+      {"href": "/runs/" ~ job.id ~ "/valuation", "label": "Valuation"},
+    ],
+  ) }}
+
+  {% if view is none %}
+    <p class="type-body text-ink" id="no-calculator">
+      This run has no discounted cash flow to recalculate. It recorded no valuation, or its
+      sector is valued another way. Nothing is computed here to fill the gap.
+    </p>
+  {% else %}
+    <div id="reproduces" class="mb-6">
+      {% if view.reproduces %}
+        {{ ui.callout(
+          "success",
+          "The calculator reproduces the report",
+          "Struck over the confirmed values, it gives the report's own value per share by both methods, to every digit the ledger keeps. What you change below is the only difference.",
+        ) }}
+      {% else %}
+        {{ ui.callout(
+          "warning",
+          "The calculator does not reproduce the report",
+          "Struck today over the confirmed values, it gives different figures from the report's own. The usual reason is that a later run acquired filings this report predates, so the base year has moved. Both are shown below: compare your numbers with the confirmed values struck today, not with the report.",
+        ) }}
+      {% endif %}
+    </div>
+
+    {% if view.refusal %}
+      <div id="refused" class="mb-6">
+        {{ ui.callout("refusal", "Your numbers could not be struck", view.refusal) }}
+      </div>
+    {% endif %}
+
+    {% call ui.sheet("What you can change", subtitle="Every confirmed assumption the discounted cash flow reads. Enter a decimal the way the assumptions page stores it: 0.03 for 3%, 14 for fourteen times.") %}
+      <form method="get" action="/runs/{{ job.id }}/calculator" id="calculator-form">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[36rem] border-collapse">
+            <caption class="sr-only">
+              The confirmed assumptions, each with a box for your own value.
+            </caption>
+            <thead>
+              <tr class="border-b border-line-strong text-left">
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Assumption</th>
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Confirmed</th>
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Yours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in view.inputs %}
+                {% set figure = item.name | assumption_figure(item.confirmed, "pure") %}
+                <tr class="border-b border-line align-top">
+                  <th scope="row" class="py-3 pr-4 text-left type-body text-ink">
+                    <label for="input-{{ loop.index }}">{{ item.name | concept_name }}</label>
+                  </th>
+                  <td class="py-3 pr-4 type-data text-ink tabular-nums">{{ figure.shown }}</td>
+                  <td class="py-3 pr-4">
+                    <input
+                      id="input-{{ loop.index }}"
+                      name="{{ item.name }}"
+                      value="{{ item.entered }}"
+                      inputmode="decimal"
+                      class="w-32 rounded-sm border {{ 'border-refusal-ink' if item.problem else 'border-line-strong' }} bg-surface px-2 py-1 type-data tabular-nums"
+                      {% if item.problem %}aria-invalid="true" aria-describedby="problem-{{ loop.index }}"{% endif %}
+                    />
+                    {% if item.changed %}
+                      <span class="ml-2 type-body-sm text-info-ink">changed</span>
+                    {% endif %}
+                    {% if item.problem %}
+                      <p id="problem-{{ loop.index }}" class="mt-1 max-w-prose type-body-sm text-refusal-ink">{{ item.problem }}</p>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-4">
+          <button
+            type="submit"
+            id="recalculate"
+            class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
+          >Recalculate</button>
+          <a
+            href="/runs/{{ job.id }}/calculator"
+            id="reset"
+            class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong"
+          >Back to the confirmed values</a>
+        </div>
+      </form>
+    {% endcall %}
+
+    {% call ui.sheet("What it gives", subtitle="Both terminal methods, never averaged and never a range, as in the report.") %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse" id="calculator-results">
+          <caption class="sr-only">
+            The report's recorded figures beside the same model struck over your numbers.
+          </caption>
+          <thead>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Figure</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">In the report</th>
+              {% if not view.reproduces %}
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Confirmed values, struck today</th>
+              {% endif %}
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">With your numbers</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in results %}
+              <tr class="border-b border-line">
+                <th scope="row" class="py-2 pr-4 text-left type-body text-ink">{{ row.label }}</th>
+                <td class="py-2 pr-4 type-data text-ink tabular-nums">{{ row.recorded }}</td>
+                {% if not view.reproduces %}
+                  <td class="py-2 pr-4 type-data text-ink tabular-nums">{{ row.as_confirmed }}</td>
+                {% endif %}
+                <td class="py-2 pr-4 type-data text-ink tabular-nums">{{ row.yours }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if not view.any_changed %}
+        <p class="mt-3 type-body-sm text-ink-muted" id="nothing-changed">
+          Nothing is changed yet, so your column is the confirmed values. Change a box above
+          and recalculate.
+        </p>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+{% endblock %}
