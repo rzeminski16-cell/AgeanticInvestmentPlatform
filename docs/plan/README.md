@@ -10,6 +10,11 @@ a results folder; nothing else belongs here.*
 | [`ROADMAP.md`](ROADMAP.md) | **The authority on scope.** Three buckets — fixes, new additions, archived. An item does not exist as scope until it is in here, and it moves between buckets by being worked, never by being tidied away | Before proposing anything. Start at *What to do next* |
 | [`readiness-audit-2026-09.md`](readiness-audit-2026-09.md) | **The evidence.** Six live runs, three console baselines, eighteen blind judge reads, 28 findings, the spend ledger, and the decisions only the operator can take | Whenever a plan asserts a present-tense fact about the platform. Every one of them traces here |
 | [`readiness-audit-2026-09/`](readiness-audit-2026-09/) | The audit's raw results — exports, scores, baseline texts, gate screenshots | When you doubt a number in the audit |
+| [`phase-5-pre-registration.json`](phase-5-pre-registration.json), [`phase-5-gate.md`](phase-5-gate.md), [`phase-5-round-2026-09/`](phase-5-round-2026-09/README.md) | **The first measured signal**, 19 September 2026: what the round would read before it ran, the gate it passed, and the two runs and six comparisons it measured | When a claim about ISSUE 2 cites Phase 5 |
+| [`phase-7-pre-registration.json`](phase-7-pre-registration.json), [`phase-7-gate.md`](phase-7-gate.md), [`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md) | **The verdict round**, 24–25 September 2026: the same three parts, and the reading — the abandonment criterion fired | Before anything that assumes the product's claim is wider than an evidence base and a checking instrument |
+
+*Corrected 25 September 2026: this index said "three files and a results folder" while two
+measurement rounds had added their pre-registrations, gate records and results beside them.*
 
 **The next phase lives elsewhere.** [`../V1.0_Alpha/`](../V1.0_Alpha/README.md) holds the
 design, the specifications, the mechanisms, the migrations, the testing strategy and the

@@ -455,6 +455,24 @@ end. The audit's 28 findings and §8's sixteen decisions appear only in a preamb
 this plan jumps no queue; it must be *written into* §2 and §3 with numbers, and the two stale
 "next" pointers (`ROADMAP.md:120` and `:391`, both naming closed items) corrected.
 
+**Done, 24–25 September 2026, for £29.51 of the £31.50.** Run as
+[pre-registered](../plan/phase-7-pre-registration.json), after every row of
+[the gate](../plan/phase-7-gate.md) was measured at its head, with one change to the plan
+above: the second MSFT run was the product's own refresh (F4), which the pre-registration says
+why. Against §12's targets:
+
+- **ISSUE 2: the abandonment criterion fired.** None of the counted six comparisons chose the
+  platform, with the fresh baseline in the set; none of the like-for-like six did; no dimension
+  verdict of 36 went to it; and every judge's stated reason is Phase 5's. The claim narrows to
+  an evidence base and a checking instrument.
+- **ISSUE 1: one of three** runs reached an approved report with no rescue; the window's bank
+  did. The journey harness's half stands at 50 of 50.
+
+Written into the roadmap the same day — §2.11 and §3.16 with the numbers, the round's defects as
+§3.19 items 69–74 — and both pointers corrected: §2's had moved on to §2.10, closed on 17
+September, and now names §2.11; §3's names §3.16 with its narrower claim. The record is
+[`../plan/phase-7-round-2026-09/`](../plan/phase-7-round-2026-09/README.md).
+
 ---
 
 ## 12. The targets, stated before the work

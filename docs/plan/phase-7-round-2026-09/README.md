@@ -245,3 +245,112 @@ The stop rule before the panel: £26.53 + £2.10 for the counted six + £1.05 fo
 like-for-like MSFT comparisons is £29.68, so both are bought; the identity guess's £2.50 would
 take the round to £32.18, so it is not, unless the comparisons come in under their estimates
 by enough to make room.
+
+---
+
+# The verdict — 25 September 2026
+
+Nine comparisons — the counted six and the like-for-like three the counted six do not already
+hold — over the blinded documents, on `claude-opus-5` at medium effort, the panel unchanged
+since Phase 5, with the pre-registration's seed 20260924. **£2.98.** Full records in
+[`compare.json`](compare.json).
+
+## The number
+
+| | the counted six | the like-for-like six | Phase 5 |
+|---|---|---|---|
+| handed to the console | **6 of 6** | **6 of 6** | 6 of 6 |
+| handed to the platform | **0** | **0** | 0 |
+| dimension verdicts to the platform | **0 of 36** | **0 of 36** | 2 of 36 |
+| dimension verdicts *equal* | 1 (verifiability) | 1 (verifiability) | 0 |
+
+The counted six include the fresh Opus 5.5 note, as the target requires, and the fresh note
+took all three of its comparisons. The two verifiability wins Phase 5 recorded are gone; what
+is left of them is two draws.
+
+## What the pre-registration reads
+
+The readings are read in their order, and the first that holds is the round's.
+
+1. **`fixed` — does not hold.** It needs at least three of the counted six not to choose the
+   console and at least two to choose the platform. None did either.
+2. **`abandon` — holds.** Its three conditions, each measured:
+   - over the like-for-like six, **all six choose the console**;
+   - **no more than 2 of 36** dimension verdicts go to the platform — **none** did;
+   - **no judge's stated reason changes category from Phase 5's** — *that the platform's stated
+     view is broken or contradicts itself.* Read from the judges' own words, below.
+
+### The stated reasons, beside the category each was read as
+
+The six like-for-like comparisons, each beside the same lens's reason in Phase 5:
+
+| comparison | this round, in the judge's words | Phase 5, same lens | category |
+|---|---|---|---|
+| AZN, operator | *"self-cancelling: it publishes two fair values 75% apart, declares its own discount rate 'unusably low', and leaves nine validation challenges open"* | *"its two terminal methods produce $357.62 versus $158.58 … a 5.6% WACC the document itself calls too low"* | broken, contradicts itself |
+| AZN, reader | *"actively undermines its own figures: it declares 'we publish no target value' while the header prints $304.95 and $173.82 … and publishes an unresolved self-contradiction on operating margin"* | *"B's headline is self-defeating — it prints two base cases"* | broken, contradicts itself |
+| AZN, sceptic | *"a record of its own failure to reach a view — it asserts 'no US versus ex-US revenue split' in one section while printing US revenue of $23,970m in another, and publishes a $304.95 fair value it simultaneously argues is indefensible"* | *"its base case spans $158 to $358 … a beta of 0.27 that its own red team calls indefensible"* | broken, contradicts itself |
+| MSFT, operator | *"B refuses to reach a view, publishes two base cases 94% apart ($227.43 vs $442.01), and openly contradicts itself on deferred revenue"* | *"A explicitly refuses to state a view, prints two terminal values that 'do not bracket a range; they disagree' by 2.9x, and flags its own unresolved self-contradiction"* | broken, contradicts itself — the same three clauses in the same order |
+| MSFT, reader | *"two base cases $227.43 and $442.01 … an executive summary flagged 'Insufficient evidence', and a self-contradiction where it 'denies a figure it prints' (deferred revenue) left open at approval"* | *"it states … 'no cash flow line … is present' while printing $182.9bn OCF … and offers two base-case values ($227.90 and $442.26) with no resolution"* | broken, contradicts itself |
+| MSFT, sceptic | *"B is internally inconsistent — it prints FY2022–26 revenue and segment detail while asserting 'no prior-period comparatives sit on the record' … two terminal methods 94% apart and no reconciled conclusion"* | *"it repeatedly concedes it cannot address the questions asked and contradicts itself on whether capex/FCF exist"* | broken, contradicts itself |
+
+**No reason changed category.** Where a reason reaches for *"refuses to reach a view"*, Phase
+5's same lens had already said *"explicitly refuses to state a view"* beside the same two
+disagreeing values, so it is the complaint Phase 5's category was written from, not a new one.
+Two reasons add a clause Phase 5's did not: AZN's operator on what the console note covered
+and the platform's did not (H1 2026, a trial failure, a 2030 target), and MSFT's sceptic on
+DCF inputs *"proposed by the platform's own code"*. Each is a second clause after the first,
+and neither is the reason given. **MSFT's two base cases were $227.90 and $442.26 in Phase 5,
+and are $227.43 and $442.01 now.**
+
+The counted three against the fresh note say the same: *"self-crippled — two terminal methods
+94% apart ($227 vs $442), no rating"*; *"B repeatedly denies figures it prints elsewhere"*;
+*"B contradicts itself in ways it admits but does not fix"*.
+
+### The round's reading: `abandon`
+
+> *"Nothing moved since Phase 5, and no stated reason changed category: the document is not
+> where the gap is."* — **Then:** *"Stop. Narrow the product's claim to what the readiness audit
+> section 4.3 already scores yes — an evidence base and a checking instrument — and spend the
+> remaining sessions on ISSUE 1 alone."*
+
+This is the abandonment criterion the operator signed off on 14 September, firing on the
+test it was written for. `not_yet` is not reached: the readings are exclusive and read in
+order, and `abandon` holds first.
+
+## What the judges still valued
+
+Five of the nine name something in the platform's document worth keeping, and each says
+what: *"solely for its red-team log as a checklist of objections"*; *"only as a primary-source
+check"*; *"B's source register is worth keeping as a cross-check on A's weaker secondary
+citations"*; *"its restated-segment and five-year-revenue data are worth lifting into A, but
+not the report itself"*; *"solely for the restated-segment 8-K quote"*. That is the evidence
+base and the checking instrument the reading names — the judges' words and the
+pre-registration's arriving at the same place independently.
+
+## Every caveat this verdict carries
+
+1. **The panel was not blind.** The identity guess was not bought (below), so Phase 5's rate
+   carries: fifteen reads, fifteen correct, every one *certain*. A panel that knows which
+   document the platform wrote may prefer by author.
+2. **AZN's document did not pass its own final gate.** It was published by the pre-registered
+   rule; AZN's reader cites the failed check as a reason. MSFT's passed its gate.
+3. **Neither run was a first look.** AZN's planner was shown one prior approved report and
+   MSFT's two, as hypothesis material the verifier refuses as evidence. The console notes had
+   no such history.
+4. **Two of the three comparators are three months old.** The counted six hold the fresh note,
+   and it won all three of its comparisons, so the verdict does not rest on the stale ones.
+
+## Spend — the round
+
+| | |
+|---|---|
+| AZN run | £6.17 |
+| MSFT run | £5.88 |
+| fresh baseline | £12.82 |
+| MSFT refresh | £1.66 |
+| nine comparisons | £2.98 |
+| **the round** | **£29.51**, against £31.50 signed off |
+
+**The identity guess was not bought.** £29.51 + its £2.50 estimate is £32.01, past the £31.50,
+and the stop rule drops it and reports it as not bought. The audit ledger stands at about
+£78.44 of its £100 ceiling.

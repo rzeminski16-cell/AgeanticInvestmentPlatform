@@ -1,0 +1,506 @@
+{
+  "phase": 7,
+  "model": "claude-opus-5",
+  "effort": "medium",
+  "seed": 20260924,
+  "started_at": "2026-09-25T00:33:37.569039+00:00",
+  "finished_at": "2026-09-25T00:34:44.864808+00:00",
+  "cost_gbp": "2.98041720",
+  "asked": 9,
+  "answered": 9,
+  "score": {
+    "comparisons": 9,
+    "handed_to_the_console": 9,
+    "no_longer_chose_the_console": 0,
+    "handed_to_the_platform": 0,
+    "by_dimension": {
+      "better_answers_the_brief": {
+        "platform": 0,
+        "baseline": 9,
+        "equal": 0
+      },
+      "better_on_the_focus_questions": {
+        "platform": 0,
+        "baseline": 9,
+        "equal": 0
+      },
+      "better_on_recent_developments": {
+        "platform": 0,
+        "baseline": 9,
+        "equal": 0
+      },
+      "better_on_verifiability": {
+        "platform": 0,
+        "baseline": 7,
+        "equal": 2
+      },
+      "better_argued": {
+        "platform": 0,
+        "baseline": 9,
+        "equal": 0
+      },
+      "more_complete_against_the_checklist": {
+        "platform": 0,
+        "baseline": 9,
+        "equal": 0
+      }
+    },
+    "dimension_verdicts_to_the_platform": 0,
+    "dimension_verdicts_equal": 2,
+    "september_for_reference": {
+      "comparisons": 9,
+      "handed_to_the_console": 9,
+      "dimension_verdicts_to_the_platform": 0,
+      "dimension_verdicts_equal": 3
+    }
+  },
+  "by_set": {
+    "counted": {
+      "comparisons": 6,
+      "handed_to_the_console": 6,
+      "no_longer_chose_the_console": 0,
+      "handed_to_the_platform": 0,
+      "by_dimension": {
+        "better_answers_the_brief": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_the_focus_questions": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_recent_developments": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_verifiability": {
+          "platform": 0,
+          "baseline": 5,
+          "equal": 1
+        },
+        "better_argued": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "more_complete_against_the_checklist": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        }
+      },
+      "dimension_verdicts_to_the_platform": 0,
+      "dimension_verdicts_equal": 1,
+      "september_for_reference": {
+        "comparisons": 9,
+        "handed_to_the_console": 9,
+        "dimension_verdicts_to_the_platform": 0,
+        "dimension_verdicts_equal": 3
+      }
+    },
+    "like_for_like": {
+      "comparisons": 6,
+      "handed_to_the_console": 6,
+      "no_longer_chose_the_console": 0,
+      "handed_to_the_platform": 0,
+      "by_dimension": {
+        "better_answers_the_brief": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_the_focus_questions": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_recent_developments": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "better_on_verifiability": {
+          "platform": 0,
+          "baseline": 5,
+          "equal": 1
+        },
+        "better_argued": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        },
+        "more_complete_against_the_checklist": {
+          "platform": 0,
+          "baseline": 6,
+          "equal": 0
+        }
+      },
+      "dimension_verdicts_to_the_platform": 0,
+      "dimension_verdicts_equal": 1,
+      "september_for_reference": {
+        "comparisons": 9,
+        "handed_to_the_console": 9,
+        "dimension_verdicts_to_the_platform": 0,
+        "dimension_verdicts_equal": 3
+      }
+    }
+  },
+  "reading": {
+    "counted_six_answered": true,
+    "like_for_like_six_answered": true,
+    "fixed": false,
+    "nothing_moved_since_phase_5": true,
+    "phase_5_level": {
+      "handed_to_the_console": 6,
+      "dimension_verdicts_to_the_platform": 2
+    }
+  },
+  "pairs": [
+    {
+      "key": "azn",
+      "platform": "docs/plan/phase-7-round-2026-09/azn/report.md",
+      "baseline": "docs/plan/readiness-audit-2026-09/baseline/azn/note.md",
+      "sets": [
+        "counted",
+        "like_for_like"
+      ]
+    },
+    {
+      "key": "msft1",
+      "platform": "docs/plan/phase-7-round-2026-09/msft1/report.md",
+      "baseline": "docs/plan/phase-7-round-2026-09/baseline/msft1-fresh/note.md",
+      "sets": [
+        "counted"
+      ]
+    },
+    {
+      "key": "msft1-september",
+      "platform": "docs/plan/phase-7-round-2026-09/msft1/report.md",
+      "baseline": "docs/plan/readiness-audit-2026-09/baseline/msft1/note.md",
+      "sets": [
+        "like_for_like"
+      ]
+    }
+  ],
+  "compares": [
+    {
+      "subject": "azn",
+      "lens": "operator",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 87169,
+        "output_tokens": 755,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.35922880",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "B",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A has a fully machine-traceable citation apparatus tied to SEC XBRL facts and a published validation ledger, including a candid self-contradiction log (\"cited figure agreement ... fail\") and red-team challenges such as \"Projected revenue of ~$103.2bn is recorded against FY2025 revenue of $58,739m, i.e. a near-doubling across the explicit horizon\". It also gives a granular geographic revenue table (US $23,970m, China $6.64bn, Japan $3.56bn) from the 20-F.",
+        "what_B_has_that_A_lacks": "B actually answers the investment question with product- and segment-level evidence and a dated post-FY2025 baseline: \"In H1 2026 Total Revenue was $30,672m, +9% actual / +6% CER\" with \"Oncology ... +15%\" versus \"BioPharmaceuticals ... −5% CER\", plus a named patent cliff (\"Farxiga ... $8,492m global, = 14.5% of FY2025 Total Revenue\") and a reverse DCF showing the market implies \"a cost of equity of 7.20% ... or a 3.90% perpetual growth rate\". A shows none of this — it concedes \"erosion sizing covers no market\" and publishes contradictory values of $304.95 and $173.82 with no resolution.",
+        "which_would_you_hand_to_a_colleague_and_why": "B, without hesitation. It delivers an actionable, falsifiable view (Underweight, $132, −15.2% total return) built on primary filings, names its weakest link explicitly (\"The rating is one assumption deep\"), and covers H1 2026, the CARDIO-TTRansform failure and the $80bn 2030 ambition — all absent from A. A is meticulously sourced but self-cancelling: it publishes two fair values 75% apart, declares its own discount rate \"unusably low\", and leaves nine validation challenges open, which is not a basis for sizing a position."
+      }
+    },
+    {
+      "subject": "azn",
+      "lens": "reader",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 87174,
+        "output_tokens": 1100,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.3660623",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "B",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A carries a formal audit apparatus — numbered notes tying figures to named artefacts (`440e41fd7813`), a validation table with thresholds, and a disclosed red-team log (e.g. 'severity 5/5 … recorded implied upside on that case is 6.4% — inside any plausible error band on a 6.12% WACC'). It also prints a full XBRL geographic revenue table down to Australia $0.454bn.",
+        "what_B_has_that_A_lacks": "B gives the reader numbers with their arithmetic exposed and a price to compare them to: 'FY2025 Core operating profit $18,478m versus Reported $13,743m', 'The bridge is $4,735m (computed)', and a reverse DCF stating the market implies 'a cost of equity of 7.20% … or a 3.90% perpetual growth rate'. It also covers H1 2026 ($30,672m revenue, OCF $6,224m vs $7,099m) and the 9 July 2026 CARDIO-TTRansform failure, plus product-level LOE sizing ('Farxiga $8,492m global, = 14.5% of FY2025 Total Revenue').",
+        "which_would_you_hand_to_a_colleague_and_why": "B — a reader can trust and re-derive its numbers because each is shown with its inputs and source link, and where B cannot source something it says so ('I will not state dates I did not read'). A actively undermines its own figures: it declares 'we publish no target value' while the header prints $304.95 and $173.82, fails the 'cited figure agreement' check, and publishes an unresolved self-contradiction on operating margin — which tells the reader not to believe either place."
+      }
+    },
+    {
+      "subject": "azn",
+      "lens": "sceptic",
+      "identity": {
+        "A": "platform",
+        "B": "baseline"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 87188,
+        "output_tokens": 1462,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.3732671",
+      "verdict": {
+        "better_answers_the_brief": "B",
+        "better_on_the_focus_questions": "B",
+        "better_on_recent_developments": "B",
+        "better_on_verifiability": "B",
+        "better_argued": "B",
+        "more_complete_against_the_checklist": "B",
+        "what_A_has_that_B_lacks": "A carries a formal audit apparatus: a validation table (\"cited figure agreement | 1 | at most 0 | fail\"), a named self-contradiction (\"operating margin is denied and printed\"), and eight red-team challenges published with their arithmetic basis, e.g. \"forecast FCF of ~$20.5bn compares with FY2025 free cash flow of $11.8bn, yet projected capex is ~$3.45bn against projected depreciation of ~$11.84bn\". It also gives an explicit assumption-provenance table (who set beta, the risk-free rate, the exit multiple) and a full sensitivity grid where each cell is a recorded calculation.",
+        "what_B_has_that_A_lacks": "B lets a sceptic walk from any number to a named document: \"US Product Sales were $23,444m in FY2025 (2024: $21,655m; 2023: $17,961m), +8% ([FY2025 20-F])\", product-level tables from Note 2, and a DCF whose every input is justified and sensitised (\"Cost of equity: 8.5% — an assumption, not a derivation... I flag it as the weakest link\"). Its Section 18 reconciles third-party figures against filings and discards those that fail (\"GuruFocus free cash flow of $6,044m TTM... cannot be reproduced as OCF less capex\"), and it dates the live facts A misses entirely — Farxiga US LOE, China VBP, the 9 July 2026 CARDIO-TTRansform failure.",
+        "which_would_you_hand_to_a_colleague_and_why": "B, because every material figure carries a specific filing URL and a shown computation, and the gaps are enumerated rather than allowed to swallow the analysis. A is largely a record of its own failure to reach a view — it asserts \"no US versus ex-US revenue split\" in one section while printing US revenue of $23,970m in another, and publishes a $304.95 fair value it simultaneously argues is indefensible. I would hand A over second, solely for its red-team log as a checklist of objections to put to B's DCF."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "operator",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 67148,
+        "output_tokens": 720,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.2794546",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A gives an actionable decision with a rating, target and reverse-DCF: \"HOLD... 12-month price target (base case) $470\", plus \"for the current price to be fair... the discount rate is about 8.75%; or ten-year revenue growth averages about 13.1%... or the long-run EBIT margin is about 52.7%\". It also digs into the operator-relevant detail B lacks: accrued capex (\"Capex on an accrued basis was about $135.7bn... FCF adjusted for this payables build is about $47.2bn\"), depreciation life sensitivity (\"moving from six-year to five-year lives adds about $6.4bn a year\"), Q1 FY27 guidance, Azure +45% cc, RPO +84%, and quarterly IC gross margin series.",
+        "what_B_has_that_A_lacks": "B has tighter source discipline — nearly everything traces to the 10-K/XBRL with verified passages and a validation table (\"citation accuracy 1... primary source ratio 0.9474\") — and it publishes an adversarial red-team critique of itself, e.g. \"Both recorded valuation routes imply the shares are overvalued, and no claim in the draft says so\". It also carries FY22–FY26 margin history that A admits it could not source.",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because it is the only one that actually answers the investment question: a rating, a target, scenario-weighted values, and an explicit reverse-DCF of what the market is pricing. B is honest and well-sourced but self-crippled — two terminal methods 94% apart ($227 vs $442), no rating, an Executive Summary flagged \"Insufficient evidence\", no peer comparison, and its own red team noting it never states the overvaluation conclusion its numbers imply."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "reader",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "equal",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 67153,
+        "output_tokens": 1610,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.29705185",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "equal",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A delivers an actionable, arithmetically closed answer: a HOLD with a $470 target, a full DCF bridge (\"PV of explicit cash flows $1,120bn ... Enterprise value $3,071bn ... Per share, 30 June 2026 $423.3\"), and reverse-engineered conditions (\"WACC 8.75% ... long-run EBIT margin 52.7%\"). It also self-checks its own numbers — \"Segments sum exactly to the reported totals\", \"FCF of $67.0bn matches a third party's $66,987m\" — and discloses each gap, e.g. \"I did **not** retrieve lease liabilities ... each $50bn of lease debt would take $6.73 off the per-share value.\" B has no rating, no target, and two base cases $227.43 and $442.01 that disagree by 94%.",
+        "what_B_has_that_A_lacks": "B's atomic figures are traceable to primary filings with retrieval artefacts and verified quoted passages (e.g. the 8-K segment table quoted in full at note 29), and every derived number carries its formula (\"Kd = interest expense / average debt = 0.0731\"). It also publishes adversarial challenges against itself, including the damning one A never faces: \"Both recorded valuation routes imply the shares are overvalued, and no claim in the draft says so.\"",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because a reader can take a number off it and act. A's figures reconcile to the filings and to each other, the valuation bridge is legible end to end, and its omissions are named with their directional bias; B repeatedly denies figures it prints elsewhere (\"deferred revenue and depreciation are not separately captured in the figures available here\" versus deferred revenue of $73.0bn in the balance sheet section) and its Executive Summary is flagged \"Insufficient evidence\", which is exactly the kind of self-contradiction that makes a number untrustworthy. B is worth keeping alongside only as a primary-source check."
+      }
+    },
+    {
+      "subject": "msft1-september",
+      "lens": "operator",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "equal",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 77941,
+        "output_tokens": 1325,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.33403570",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "equal",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A gives an actionable, price-anchored conclusion with the arithmetic to stress it: \"Underweight | Target price $405 | Last close $493.16\", a 30-cell WACC × g grid where \"Only one of thirty cells... exceeds the current price\", and reverse-engineered hurdles — \"the market's implied WACC is 7.94%, or its implied perpetual growth rate is 5.78%\". It also answers the cloud-margin question directly — \"Intelligent Cloud gross margin fell 419bp to 58.0%... every basis point of [group margin gain] came from operating-expense leverage\" — and carries forward-looking detail B lacks entirely (FY27 guidance table, ~$175bn calendar-2026 capex, $329.1bn of uncommenced leases, Q4 FCF −23%).",
+        "what_B_has_that_A_lacks": "B captures the September 2026 segment restatement A explicitly could not verify: \"a restated segment history built around two new reporting segments, Agents and Infra and Devices and Consumer\", quoting the 8-K line items. It also supplies a genuine five-year revenue series (FY2022 $198,270m through FY2026 $331,839m) where A admits \"I could not source FY2023 revenue at all\", and it publishes an adversarial red-team challenge stating the point A makes: \"Both recorded valuation routes imply the shares are overvalued, and no claim in the draft says so.\"",
+        "which_would_you_hand_to_a_colleague_and_why": "A, without hesitation — it is the only one of the two a private investor could act on, pairing a target, a scenario ladder ($186 bear / $341 base / $488 bull) and an explicit 'what would change my mind' list with the capex-versus-depreciation arithmetic. B refuses to reach a view, publishes two base cases 94% apart ($227.43 vs $442.01), and openly contradicts itself on deferred revenue; its restated-segment and five-year-revenue data are worth lifting into A, but not the report itself."
+      }
+    },
+    {
+      "subject": "msft1",
+      "lens": "sceptic",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 67167,
+        "output_tokens": 1453,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.29400640",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A delivers an actual investable conclusion with an auditable chain: HOLD, $470 target, a full DCF input table (\"Equity risk premium 4.5% — **Assumption** – no sourced figure retrieved\"), and a reverse-DCF that names what must be true (\"WACC 8.75%… 10-year revenue growth 13.1% a year… long-run EBIT margin 52.7%\"). It also polices its own sources — \"Yahoo gives Q4 capex as '$41 million'; it should be $41bn\", \"Bloomberg gives $498 as the *22 September* close, so [26] appears to have the date wrong\" — and declares its holes (proxy, lease liabilities, with the sizing \"each $50bn of lease debt would take $6.73 off the per-share value\").",
+        "what_B_has_that_A_lacks": "B's figures are almost all traceable to one primary artefact (SEC XBRL company facts, hash `f8aae2965b20`) with each derived number carrying its formula (\"Kd = interest expense / average debt = 0.0731\"), plus verified quoted passages from the 2 September 8-K restated segment table and a published validator/red-team record (\"Recorded implied upside values -0.117 and -0.546… no claim in the draft says so\"). That adversarial log is genuinely useful to a checker — but it mostly documents defects left open.",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because it is the only one that gets from filings to a defensible price and shows the arithmetic at every step, while explicitly listing where sourcing failed. B contradicts itself in ways it admits but does not fix — \"Cash Flow Analysis (denies it) states: 'deferred revenue and depreciation are not separately captured'\" while printing deferred revenue of $72,965m — and offers two base cases 94% apart ($227.43 vs $442.01) with no rating; B's source register is worth keeping as a cross-check on A's weaker secondary citations."
+      }
+    },
+    {
+      "subject": "msft1-september",
+      "lens": "reader",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 77946,
+        "output_tokens": 1545,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.33840045",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A gives a reader a reconciliation trail they can act on: a validation table showing \"Segment revenues sum to group total 139,996 + 137,791 + 54,052 = 331,839 ✓\", \"FY26 capex: 9M $80.146bn + Q4 $35.802bn = $115.948bn vs FY25 $64.6bn + disclosed $51.4bn increase = $116.0bn ✓\", and a named list of unresolved discrepancies (finance leases \"~$62bn [38]\" vs Yahoo's \"$16.53bn [22]\" — \"These cannot both be right\"). It also lands a single defensible number with its own caveat: \"Target price: $405... A reader who prefers a 5.0% ERP should use $341.\"",
+        "what_B_has_that_A_lacks": "B sources everything to primary SEC artefacts with quoted verified passages, including the September 2026 restated segment exhibit A explicitly failed to obtain (\"I was unable to source the underlying 8-K narrative describing any change to reportable segments\"); B quotes the restated \"Agents and Infra\" / \"Devices and Consumer\" figures line by line. It also publishes its own red-team challenges, e.g. \"Both recorded valuation routes imply the shares are overvalued, and no claim in the draft says so.\"",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because a reader can trust and reuse its numbers without the interface: each figure is tagged sourced, calculated here, or assumption, and the weak spots are named (\"The 30 June 2026 balance sheet figures below are therefore drawn from secondary aggregators... should be verified against the 10-K before use\"). B's headline outputs are unusable as handed over — two base cases $227.43 and $442.01 with \"distance between the two methods 0.9435\", an executive summary flagged \"Insufficient evidence\", and a self-contradiction where it \"denies a figure it prints\" (deferred revenue) left open at approval."
+      }
+    },
+    {
+      "subject": "msft1-september",
+      "lens": "sceptic",
+      "identity": {
+        "A": "baseline",
+        "B": "platform"
+      },
+      "dimensions": {
+        "better_answers_the_brief": "baseline",
+        "better_on_the_focus_questions": "baseline",
+        "better_on_recent_developments": "baseline",
+        "better_on_verifiability": "baseline",
+        "better_argued": "baseline",
+        "more_complete_against_the_checklist": "baseline"
+      },
+      "handed_over": "baseline",
+      "usage": {
+        "input_tokens": 77960,
+        "output_tokens": 1568,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost_gbp": "0.338910",
+      "verdict": {
+        "better_answers_the_brief": "A",
+        "better_on_the_focus_questions": "A",
+        "better_on_recent_developments": "A",
+        "better_on_verifiability": "A",
+        "better_argued": "A",
+        "more_complete_against_the_checklist": "A",
+        "what_A_has_that_B_lacks": "A makes every step reproducible and labels provenance per figure: \"FY26 free cash flow was $182.94bn less $115.95bn = $66.99bn, or 20.2% of revenue [10][16] (calculated here)\", plus a validation table (\"9M $80.146bn [16] + Q4 $35.802bn [35] = $115.948bn, vs FY25 $64.6bn + disclosed $51.4bn increase [2][16] = $116.0bn ✓\") and an explicit unresolved-discrepancy log (finance leases $62bn vs $16.53bn; \"$43bn\" vs \"$48.7bn\" of returns). It also answers the reverse-DCF objection head-on: \"an enterprise value of $3,642bn requires a WACC of 7.94%… perpetual growth would have to be 5.78%.\"",
+        "what_B_has_that_A_lacks": "B cites SEC XBRL/10-K URLs with retrieval artefact hashes and a verified quoted passage from the 2 September 2026 8-K showing the restated two-segment structure (\"Agents and Infra… Devices and Consumer\"), the very restatement A says it \"was unable to source\". B also publishes an adversarial red-team log, e.g. \"Recorded projected capex $127.996bn… projected revenue $631.705bn\", exposing that its own base case embeds collapsing capital intensity.",
+        "which_would_you_hand_to_a_colleague_and_why": "A, because a sceptic can actually re-derive its numbers and see exactly where the weak sourcing is (\"The 30 June 2026 balance sheet figures below are… drawn from secondary aggregators… should be verified against the 10-K\"). B is internally inconsistent — it prints FY2022–26 revenue and segment detail while asserting \"no prior-period comparatives sit on the record\" and \"deferred revenue and depreciation are not separately captured\" — and its DCF inputs are opaque (\"proposed by the platform's own code\") with two terminal methods 94% apart and no reconciled conclusion. I'd hand B second, solely for the restated-segment 8-K quote."
+      }
+    }
+  ],
+  "failures": []
+}

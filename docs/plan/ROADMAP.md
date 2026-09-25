@@ -18,6 +18,21 @@ the platform got here and why; this is the record of where it goes.*
 
 ## What to do next
 
+**As at 25 September 2026, the verdict round has read, and the abandonment criterion fired.**
+The pre-registered test for ISSUE 2 was at least three of six comparisons not choosing the
+console, with the fresh baseline in the set. The round measured none of the counted six and none
+of the like-for-like six, no dimension verdict of 36 to the platform, and every judge's stated
+reason the same as Phase 5's — that the platform's stated view is broken and contradicts itself
+([`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md)). What follows was signed off on 14
+September, before any of it was measured: **the product's claim narrows to an evidence base and
+a checking instrument, and the remaining sessions go to ISSUE 1 alone (§2.11)**, where the same
+round measured one of three runs reaching an approved report without a rescue. The round's own
+findings are ISSUE 1 work and are §3.19 items 69–74: a refresh loses the valuation it refreshes,
+an empty page fails a run, and the browser suite queues on the operator's Redis among them.
+
+What follows is the list as it stood before V1.0, kept because its *why* is the part worth
+having.
+
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
@@ -138,8 +153,9 @@ ADR by its old number reads four low.
 ## 2. Fixes and bugs
 
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
-one costs, worst first. **§2.10 is next** — it is the one open blocking finding of the
-readiness audit, and a bank cannot produce an approvable report until it is closed.
+one costs, worst first. **§2.11 is next** — ISSUE 1, which the verdict round of 25 September
+2026 made the remaining sessions' whole work (§3.16). *Corrected 25 September 2026: this line
+named §2.10 until then, which closed on 17 September.*
 
 **2.1 A63 — sections fail to draft. Diagnosed 2026-09-01 from the operator's export;
 the fixes are landing, and the confirmation run is outstanding.** Eight of eighteen
@@ -452,14 +468,28 @@ construct on the fake scene — the sector and unmapped-concepts gates, the nine
 triggers, an unverifiable citation, a bare `AerError` — which are harness backlog, not
 platform backlog.
 
+**Measured live on 24–25 September 2026, in the verdict round: one of three.** The delivery
+plan's target is three of three runs in the measurement window, one a bank, reaching an
+approved rendered report with no terminal and no rescue. AZN reached its report only through
+the pre-registered approval of a refused final gate; MSFT passed its own gate, after one failed
+step retried through the product's resume (§3.19 item 70); the MSFT refresh was refused at its
+final gate having lost its valuation (item 73), and was not approved. The window's bank — M&T,
+17 September — reached its report clean. The journey harness's half of the target stands at
+50 of 50. **Since the same round read `abandon` for ISSUE 2, this item is now the remaining
+sessions' whole work**, and the round's found defects are its first entries
+([`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md)).
+
 ---
 
 ## 3. New additions
 
-Nothing here is broken; it does not exist. **§3.16 is where this bucket now leads**: the
-judgement layer of §3.5–§3.11 is built and unreached, and V1.0 is what connects it to a
-report. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
-nothing after theses can exist before them.
+Nothing here is broken; it does not exist. **§3.16 leads this bucket, and its claim is narrower
+since 25 September 2026**: the verdict round read `abandon`, so V1.0 claims an evidence base
+and a checking instrument rather than a better document than a console note, and what it still
+owes is ISSUE 1, which is §2.11. §3.5 onwards is the judgement layer, and the order there is
+forced by dependency — nothing after theses can exist before them. *Corrected 25 September
+2026: this line said V1.0 was what connects the judgement layer to a report, which the verdict
+round has since measured.*
 
 **3.1 The portfolio — getting a ticker in. All three doors, 2026-08-29.** `Security` rows
 existed only where a priced research run created one, so on a fresh database the control held
@@ -887,7 +917,7 @@ authority on sequencing within this item.
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
-| F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession |
+| F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession. **Failed live on 25 September 2026** (§3.19 item 73): a refresh un-confirms the prior run's price-derived beta and loses its valuation |
 | F5 | The model workbook | — |
 | F6 | Ask, in three tiers | F7 for tier 3 — **all three tiers landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, research after a priced go-ahead through the report's own acquisition path |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
@@ -926,6 +956,33 @@ round, and it needs the operator's sign-off to be worth anything. **F17 is defer
 operator's decision of 14 September 2026, until a solicitor has read the
 consequences-not-instructions design; ADR 0120 is drafted anyway so that V1.0's schema does
 not foreclose it.
+
+**The verdict round, 24–25 September 2026 — and the criterion fired.** Delivery plan Phase 7,
+pre-registered in [`phase-7-pre-registration.json`](phase-7-pre-registration.json) and run
+after every row of [the gate](phase-7-gate.md) was measured at its head; the whole record is
+[`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md). £29.51 of the £31.50 signed off.
+
+| | the counted six | the like-for-like six | Phase 5 |
+|---|---|---|---|
+| handed to the console | 6 of 6 | 6 of 6 | 6 of 6 |
+| handed to the platform | 0 | 0 | 0 |
+| dimension verdicts to the platform | 0 of 36 | 0 of 36 | 2 of 36 |
+
+The counted six hold the fresh Opus 5.5 note, which took all three of its comparisons. Every
+judge's stated reason is Phase 5's category — the platform's stated view is broken or
+contradicts itself — and on MSFT nearly word for word: two base cases of $227.90 and $442.26
+in Phase 5, $227.43 and $442.01 now, and the operator lens's *"refuses to reach a view"* in
+both. The readings are read in order: `fixed` does not hold, **`abandon` holds**, and its
+consequence was written before the round: *"Stop. Narrow the product's claim to what the
+readiness audit section 4.3 already scores yes — an evidence base and a checking instrument —
+and spend the remaining sessions on ISSUE 1 alone."* Five of the nine judges named what they
+would keep from the platform's document, and it was that: the red-team log, the source
+register, the primary-source trail.
+
+What the reading does not decide, and is the operator's: which of the unbuilt features the
+narrower claim still needs, and what the product pages and the README say it is. The caveats
+the verdict carries — a panel that is not blind, AZN published by the pre-registered rule, no
+first look for either run — are in the round's record, beside the number.
 
 **3.17 A London listing can be researched.** The product documentation has said "UK or US"
 since the first plan, and a company listed in London that files only with Companies House
@@ -2647,6 +2704,69 @@ found rather than as scope that was always there.
     (a twentieth on Opus 5.5, a fortieth on Fable 5.1), which `from_input_rate` now takes as
     an argument. Stored `costs` rows are not rewritten: they are what the meter said at the
     time, and the fx rate on each row already shows that a row is a reading, not a bill.
+
+69. **`just hooks` had never been run over the whole tree, 24 September 2026.** Found by the
+    verdict round's gate, row 4. CI's lint job runs `ruff check`, `ruff format --check` and
+    `mypy`, not the hooks, and this session's container never had the git hook installed, so
+    nothing had run `pre-commit run --all-files`. Run for the first time, the whitespace hooks
+    rewrote eighty-five recorded files and the secrets scan failed on 708 strings. The files
+    were restored; the config's own rule for committed output now names the recorded runs
+    under docs/plan's dated folders, for the whitespace hooks and, once the round's day-one
+    commit met it, the size limit; the strings — digests, commit ids, long XBRL names, public
+    fixture data and one deliberate fake credential — went into the secrets baseline after
+    being read one by one, as the audit's own evidence did on 12 September (`d0f815e`,
+    `fecac92`). *Left:* CI still does not run the hooks, so a container without the git hook
+    drifts the same way again; a `pre-commit run --all-files` step in the lint job closes it.
+
+70. **An empty page fails a run, 24 September 2026.** Found by the verdict round's MSFT run.
+    The research worker asked for an EDGAR accession that does not exist — a sequence number
+    of zeros — and EDGAR answered 404 with an empty body; the body went to the artefact store,
+    whose check constraint refuses an empty artefact, and the database error surfaced as
+    `unexpected_error` and failed the whole run, which needed the product's resume to go on.
+    Two defects: a 404 should be refused at the fetch with its own reason and never reach the
+    store, and an empty body should be refused before the insert rather than by the
+    constraint. The constraint did its job — nothing empty was stored — which is why this is a
+    crash rather than a corruption. Worth asking too why the worker guessed an accession
+    rather than resolving one.
+
+71. **The browser suite enqueues its runs on the operator's queue, 24 September 2026.** Found
+    by the verdict round's AZN run, which waited ten minutes behind 1,225 stale `run_research`
+    jobs — 981 discarded, 244 expired, none spending. The suite's live server is given its own
+    database, artefact root and signing key but not a Redis URL, so every run a browser test
+    commissions is enqueued on `redis://127.0.0.1:6379/0`, the operator's queue, and
+    `tests/e2e/worker.py` begins *"There is no arq worker in these tests and no queue"*. Give
+    the live server its own Redis database, and assert that nothing reaches the default one.
+
+72. **The verdict round's fresh baseline cost twice its estimate, 24 September 2026.** The
+    pre-registration priced one Opus 5.5 note from September's MSFT note's input, 1.54 million
+    tokens, at £6.20; the fresh note read 3.61 million and cost £12.82. A planning finding
+    rather than a defect: an estimate for a web-searching model built on one earlier run's
+    input is an estimate of that run. The stop rule absorbed it, by dropping the identity
+    guess, and the round still finished inside its £31.50.
+
+73. **A refresh un-confirms the prior run's beta and loses its valuation, 25 September 2026.**
+    Found by the verdict round's MSFT refresh, F4's first live run. The refresh re-runs the
+    price step, and the price step proposes beta from its regression by writing the request's
+    one beta row — assumptions are unique per request and name — so day one's *confirmed* beta
+    became unconfirmed, under the refresh's job and a day-later value. A refresh has no
+    assumptions gate, so nothing confirmed it again; the value step refused, rightly, to value
+    on an unconfirmed beta, and the whole DCF chain — 31 calculations — was not computed. The
+    diff read each vanished figure as a material move, the seven sections that cited them were
+    re-drafted, and the valuation section came back as a notice that no DCF exists. Two
+    defects: a refresh must carry the prior run's confirmed assumptions or stop at a gate that
+    confirms new ones, and a step of one run must never un-confirm a row another run's
+    decision confirmed. The refresh also took sixteen minutes against F4's ten, and its final
+    gate refused it on an unformatted count in its own change summary. Day one's run still
+    replays exactly. The refresh waits at its final gate for the operator
+    ([`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md)).
+
+74. **The change summary's commentary contradicts its own rows, 25 September 2026.** Same run.
+    The rows are code's and right — forty figures *"no longer computed"*. The commentary the
+    model wrote from them says the valuation chain *"has moved"* and that *"both terminal
+    approaches have been restated"*. The mechanism's rule is that the model writes prose from
+    the rows and never instead of them; nothing checks that the prose agrees with them, which
+    is the shape ADR 0125's denial scan already catches between sections (item 37), applied
+    to a change summary and its own rows.
 
 ### Before this leaves one machine
 
