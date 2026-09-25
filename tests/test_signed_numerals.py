@@ -228,6 +228,68 @@ class TestASignBehindACurrencyMark:
         assert cited_figure_agreement(rows).failures == ()
 
 
+class TestASignBehindACurrencyCode:
+    """The re-measurement's AstraZeneca run, 25 September 2026, stopped at its final gate on
+    the same stored figure, said correctly with the currency's code where the symbol had
+    been: "a working capital change of negative USD 386.6 million"."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("A working capital change of negative USD 386.6 million.", ("-386.6",)),
+            ("Working capital is recorded moving by negative USD 386.6 million.", ("-386.6",)),
+            ("A charge of minus GBP 12.4m against the year.", ("-12.4",)),
+            ("A movement of -EUR 9,307 on the quarter.", ("-9307",)),
+            ("A loss of negative US$0.39bn.", ("-0.39",)),
+        ],
+    )
+    def test_the_currency_code_does_not_break_the_sign(
+        self, text: str, expected: tuple[str, ...]
+    ) -> None:
+        assert numeral_tokens(text) == expected
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("Revenue of USD 54,073 million.", ("54073",)),
+            ("USD -386.6 million", ("-386.6",)),
+            # Only a currency's code: another word still breaks the reading.
+            ("negative ABC 386.6", ("386.6",)),
+            # A code glued to the digits is not how a figure is written.
+            ("negative USD386.6", ()),
+        ],
+    )
+    def test_what_it_must_not_change(self, text: str, expected: tuple[str, ...]) -> None:
+        assert numeral_tokens(text) == expected
+
+    def test_the_run_that_found_this_now_agrees(self) -> None:
+        rows = [
+            CitedFigureObservation(
+                name=name,
+                calculation="change_in_working_capital",
+                value=Decimal("-386552205.830311889804"),
+                unit="USD",
+                text=text,
+            )
+            for name, text in (
+                (
+                    "valuation_dcf/change_in_working_capital#301",
+                    "FY2025 operating cash flow of USD 14,575 million against capital "
+                    "expenditure of USD 2,810 million leaves a substantial free cash base, and "
+                    "a working capital change of negative USD 386.6 million is immaterial "
+                    "beside it.",
+                ),
+                (
+                    "executive_summary/change_in_working_capital#301",
+                    "Working capital is recorded moving by negative USD 386.6 million, a "
+                    "modest drag.",
+                ),
+            )
+        ]
+
+        assert cited_figure_agreement(rows).failures == ()
+
+
 class TestAFigureSaidInTrillions:
     """The first live QUICK run, 17 September 2026, and the reading the table lacked.
 

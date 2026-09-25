@@ -69,10 +69,19 @@ __all__ = ["NUMERAL", "READINGS", "numeral_matches", "numeral_tokens", "reads_as
 # behind a "$" the scanner read "386.6" unsigned. `cited_figure_agreement` then reported
 # three dropped signs that were never dropped, and stopped the run. The money symbol is part
 # of how a figure is written, not a break in it.
+#
+# **So is the currency's code**, and the re-measurement's AstraZeneca run of 25 September
+# 2026 stopped at its final gate for want of it: the draft wrote "a working capital change
+# of negative USD 386.6 million" \u2014 the same stored figure, said correctly again \u2014 and the
+# sign word sat in front of "USD", where the symbol alone was admitted. The codes are a
+# closed list of the currencies a filer reports in, followed by a space, so an unsigned
+# "USD 386.6" is read exactly as before and no other word can stand between a sign and
+# its digits.
 NUMERAL: Final[re.Pattern[str]] = re.compile(
     r"(?<![\w.])"
     r"(?:(?P<word>(?:negative|minus)\s+)|(?P<mark>[-\u2212\u2013]))?"
-    r"(?P<currency>[$\u00a3\u20ac\u00a5]\s?)?"
+    r"(?P<currency>(?:[$\u00a3\u20ac\u00a5]|US\$|"
+    r"(?:USD|GBP|EUR|JPY|CHF|CAD|AUD|HKD|CNY|SEK|NOK|DKK)\s)\s?)?"
     r"(?P<digits>\d[\d,]*(?:\.\d+)?)(?:%|bn|mn|m|k|x|\u00d7)?(?!\w)(?!\.\d)",
     re.IGNORECASE,
 )

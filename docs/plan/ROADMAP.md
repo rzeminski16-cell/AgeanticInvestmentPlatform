@@ -3115,6 +3115,16 @@ found rather than as scope that was always there.
     Code now strikes every lever when the list is built and tells the writer which way each
     moves the value, in words. The check refuses a lever that argues the other case, and
     pricing never prints one (ADR 0135, amended).
+80. **A sign in front of a currency's code was dropped, 25 September 2026.** The
+    re-measurement's AZN run stopped at its final gate on `cited_figure_agreement`. The draft
+    was right: *"a working capital change of negative USD 386.6 million"*, of the stored
+    -386,552,205.83. The scanner read a sign through "$" (the first AZN run's fix) but not
+    through "USD", so the sign fell off. The same run's verdict-round predecessor was stopped
+    by the same figure, and the pre-registration counted that one as a dropped sign. The
+    scanner now admits a closed list of currency codes, followed by a space, where the symbol
+    may stand. "negative ABC 386.6" and "negative USD386.6" still read as before, and the
+    tests hold it. The stopped run stays at its gate as the record. A fresh AZN run on the
+    fixed tree is the measurement.
 
 ### Before this leaves one machine
 
