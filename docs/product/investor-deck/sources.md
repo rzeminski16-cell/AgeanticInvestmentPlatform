@@ -1,6 +1,16 @@
 # Where every figure in the decks comes from
 
-Three decks live here.
+Four decks live here.
+
+**`tracework-angel-pitch.pptx`** (54 slides) is the angel pitch: the whole case for taking the
+platform into a business, written to be cut down rather than padded out. The problem, the
+product, the evidence including the rounds it lost, the competition, the costs, the risks and
+the ask. Where the record is silent (market, price, go-to-market, the future, the team, the
+raise) it carries a placeholder rather than a guess, and it states the ask the other three
+deliberately do not. Every slide is tagged by the kind of claim it makes. Its figure-by-figure
+map, including every external source and the date it was read, is
+[`pitch-sources.md`](pitch-sources.md). Built by `build_pitch_deck.js`; its screens by
+`render_screens.js`.
 
 **`whats-next-v1-alpha.pptx`** (14 slides) is the what-happens-next deck, for people who
 already know and like the system: how the product changes when V1.0 lands, what it stops
@@ -33,6 +43,7 @@ Rebuild a deck with `node <script> <output>.pptx` (needs `pptxgenjs`):
 node build_deck.js          why-a-research-record.pptx
 node build_overview_deck.js ageantic-investor-overview.pptx
 node build_next_deck.js     whats-next-v1-alpha.pptx
+node build_pitch_deck.js    tracework-angel-pitch.pptx
 ```
 
 ## `whats-next-v1-alpha.pptx`, figure by figure

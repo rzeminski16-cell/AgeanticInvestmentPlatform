@@ -40,7 +40,10 @@ For anyone who needs to understand or explain the platform without reading code.
 - [`investor-deck/`](product/investor-deck/) — twelve slides arguing the case to somebody
   outside the project, built only from figures the readiness audit measured;
   [`sources.md`](product/investor-deck/sources.md) maps every one of them back to its
-  section, including the six blind comparisons the platform lost.
+  section, including the six blind comparisons the platform lost. Beside them, the angel
+  pitch (`tracework-angel-pitch.pptx`): the case for a business, every slide tagged by the
+  kind of claim it makes, with placeholders wherever the record is silent;
+  [`pitch-sources.md`](product/investor-deck/pitch-sources.md) is its map.
 
 ### `users/` — how to run it
 
