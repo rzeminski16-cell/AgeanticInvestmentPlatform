@@ -111,6 +111,19 @@
         No PDF: one is rendered only when a report is approved.
       </span>
     {% endif %}
+    {#
+      ADR 0134: the valuation as live formulas, archived when the report was approved. Absent
+      for a report with no discounted cash flow, and for one approved before it existed.
+    #}
+    {% if report.workbook_artefact_id %}
+      <a
+        href="/api/reports/{{ report.id }}/download/xlsx"
+        class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
+        id="download-workbook"
+      >
+        Download the model workbook
+      </a>
+    {% endif %}
   </nav>
 
   {#

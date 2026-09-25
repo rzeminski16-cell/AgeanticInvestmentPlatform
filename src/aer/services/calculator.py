@@ -56,7 +56,16 @@ if TYPE_CHECKING:
     from aer.db.models import Assumption, Job
     from aer.workflow.workflows.vertical_slice_v1 import ValuationBasis
 
-__all__ = ["CalculatorView", "Figures", "Input", "calculator_view", "result_rows"]
+__all__ = [
+    "CalculatorView",
+    "Figures",
+    "Input",
+    "calculator_view",
+    "figures_of",
+    "recorded_base",
+    "reproduces",
+    "result_rows",
+]
 
 _log = structlog.get_logger("aer.services.calculator")
 
@@ -130,7 +139,7 @@ async def calculator_view(
             select(Calculation).where(Calculation.job_id == job.id).order_by(Calculation.sequence)
         )
     )
-    recorded = _recorded(calculations)
+    recorded = recorded_base(calculations)
     if basis is None or recorded.gordon_per_share is None:
         return None
 
@@ -143,7 +152,7 @@ async def calculator_view(
     currency = _currency(calculations)
 
     as_confirmed, _ = _struck(basis, confirmed)
-    reproduces = as_confirmed is not None and _agrees(as_confirmed, recorded)
+    reproduced = as_confirmed is not None and reproduces(as_confirmed, recorded)
 
     yours: Figures | None = None
     refusal = ""
@@ -159,7 +168,7 @@ async def calculator_view(
         "calculator.struck",
         job_id=str(job.id),
         changed=len(changes),
-        reproduces=reproduces,
+        reproduces=reproduced,
         refused=bool(refusal),
     )
     return CalculatorView(
@@ -167,7 +176,7 @@ async def calculator_view(
         inputs=inputs,
         recorded=recorded,
         as_confirmed=as_confirmed,
-        reproduces=reproduces,
+        reproduces=reproduced,
         yours=yours,
         refusal=refusal,
     )
@@ -214,10 +223,11 @@ def _struck(basis: ValuationBasis, values: Mapping[str, Quantity]) -> tuple[Figu
         preview = strike(basis, values)
     except AerError as refused:
         return None, str(refused)
-    return _figures(preview, price=basis.price_per_share), ""
+    return figures_of(preview, price=basis.price_per_share), ""
 
 
-def _figures(preview: Preview, *, price: Quantity | None) -> Figures:
+def figures_of(preview: Preview, *, price: Quantity | None) -> Figures:
+    """One struck base case reduced to the figures a reader compares."""
     result = preview.result
     gordon, exit_multiple = result.gordon, result.exit_multiple
     upside = {
@@ -253,7 +263,7 @@ def _upside(value: Quantity, price: Quantity | None, *, method: TerminalMethod) 
     return figure.value
 
 
-def _recorded(calculations: Sequence[Calculation]) -> Figures:
+def recorded_base(calculations: Sequence[Calculation]) -> Figures:
     """The report's own base case, read off the ledger rather than struck again."""
 
     def last(name: str, **parameters: str) -> Decimal | None:
@@ -281,7 +291,7 @@ def _recorded(calculations: Sequence[Calculation]) -> Figures:
     )
 
 
-def _agrees(struck: Figures, recorded: Figures) -> bool:
+def reproduces(struck: Figures, recorded: Figures) -> bool:
     """Whether the per-share answers match the ledger's at its stored precision."""
     pairs = (
         (struck.gordon_per_share, recorded.gordon_per_share),

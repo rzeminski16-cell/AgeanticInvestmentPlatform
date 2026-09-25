@@ -90,6 +90,14 @@ jobs:
           enable-cache: true
       - run: uv sync --all-groups
 
+      # The spreadsheet engine the model workbook is recomputed in (ADR 0134), headless and
+      # without the desktop. The workbook's tests skip without it on a laptop and fail
+      # without it here: GitHub sets CI, and a check that passes by not running is not one.
+      - name: LibreOffice's headless spreadsheet engine
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-calc-nogui
+
       - name: Migrations apply and match the models
         run: uv run pytest tests/test_migrations.py -q
 

@@ -93,6 +93,28 @@ two terminal assumptions are confirmed (§3.16).
     and it raised rather than refused on `NaN`. `scale_complaint` now uses words, and it
     complains of a non-number instead of failing on one.
 
+**F5, the workbook, landed 25 September 2026 — ADR 0134.**
+- **What it is.** The report's discounted cash flow as a spreadsheet: inputs blue, formulas
+  black, the report's own figures beside them in grey. Beside the model are the recorded
+  grids, the comparison as the shareable report prints it, and a sources sheet with each input's
+  filing, accession and retrieval date. It is written at approval, archived beside the PDF, and
+  downloaded from the report page.
+- **The proof.** It is written only when the model struck again reproduces the report's base
+  case. In CI, LibreOffice recomputes it and reads back the report's figures. Terminal growth
+  typed in lands on the report's own grid cell, and revenue growth on the calculator's strike.
+  The five approved discounted cash flows in the operator's database each recomputed to their
+  report's figures. M&T, a bank, is refused a workbook in words.
+- **What stays out.** The share price, which is the vendor's. Anybody's e-mail address. And a
+  scenarios sheet: nothing in the product creates a scenario, so it would always be empty.
+- **Found on the way.**
+  - openpyxl stamps each file with the wall clock, so no two writes gave the same bytes. The
+    workbook now dates everything by the approval, as the PDF does, and the same rows give the
+    same file.
+  - `aer gc-artefacts` listed the columns that reference an artefact by hand, and the
+    workbook's was not on the list. A sweep with `--delete` would have purged every workbook's
+    bytes before the database refused to delete its row. The sweep now reads every foreign key
+    to an artefact off the schema.
+
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
    does.

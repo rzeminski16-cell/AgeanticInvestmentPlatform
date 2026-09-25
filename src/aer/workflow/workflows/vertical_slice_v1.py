@@ -4335,6 +4335,7 @@ async def _render(context: StepContext) -> StepResult:
     report.markdown_artefact_id = markdown_artefact.artefact.id
     report.html_artefact_id = html_artefact.artefact.id
     report.pdf_artefact_id = None
+    report.workbook_artefact_id = None
     report.approved_by = approval.actor_user_id if approval is not None else None
     report.approved_at = approval.decided_at if approval is not None else None
     await context.session.flush()
@@ -4371,30 +4372,16 @@ async def _render(context: StepContext) -> StepResult:
     recorded_themes = await record_confirmed_themes(context.session, job=context.job, report=report)
 
     pdf_sha256 = None
+    workbook_note: dict[str, str] = {}
     if approval is not None and approval.decided_at is not None:
-        # Imported here rather than at module scope. WeasyPrint loads the native GTK
-        # stack the moment it is imported, which on Windows prints several
-        # GLib-GIO-WARNING lines to stderr — for `aer diagnose`, `aer preflight`, `aer
-        # config` and every other command that will never render a document. The
-        # operator's whole acceptance pass was read through that noise. Nothing else in
-        # this module needs the renderer, and this is the one branch that does.
-        from aer.render.pdf import render_pdf  # noqa: PLC0415 -- the GTK stack is this branch's
-
-        stored_html = await store.read(html_artefact.sha256)
-        pdf_bytes = render_pdf(
-            stored_html.decode("utf-8"),
-            report_id=str(report.id),
-            content_hash=report.content_hash,
+        pdf_sha256 = await _archive_pdf(
+            context,
+            store,
+            report=report,
+            html_sha256=html_artefact.sha256,
             approved_at=approval.decided_at,
         )
-        pdf_artefact = await store_artefact(
-            context.session,
-            store,
-            data=pdf_bytes,
-            media_type="application/pdf",
-        )
-        report.pdf_artefact_id = pdf_artefact.artefact.id
-        pdf_sha256 = pdf_artefact.sha256
+        workbook_note = await _archive_workbook(context, store, report=report)
 
     context.job.status = JobStatus.SUCCEEDED
     context.job.finished_at = datetime.now(UTC)
@@ -4406,12 +4393,80 @@ async def _render(context: StepContext) -> StepResult:
             "markdown_sha256": markdown_artefact.sha256,
             "html_sha256": html_artefact.sha256,
             "pdf_sha256": pdf_sha256,
+            "workbook": workbook_note,
             "footnotes": document.footnote_count,
             "sections": document.section_keys,
             "characters": len(markdown),
             "themes_recorded": list(recorded_themes),
         }
     )
+
+
+async def _archive_pdf(
+    context: StepContext,
+    store: Any,
+    *,
+    report: Report,
+    html_sha256: str,
+    approved_at: datetime,
+) -> str:
+    """The PDF, rendered from the archived HTML and archived itself; its digest.
+
+    The renderer is imported here rather than at module scope. WeasyPrint loads the native
+    GTK stack the moment it is imported, which on Windows prints several GLib-GIO-WARNING
+    lines to stderr — for `aer diagnose`, `aer preflight`, `aer config` and every other
+    command that will never render a document. The operator's whole acceptance pass was read
+    through that noise. Nothing else in this module needs the renderer.
+    """
+    from aer.render.pdf import render_pdf  # noqa: PLC0415 -- the GTK stack is this branch's
+
+    stored_html = await store.read(html_sha256)
+    pdf_bytes = render_pdf(
+        stored_html.decode("utf-8"),
+        report_id=str(report.id),
+        content_hash=report.content_hash,
+        approved_at=approved_at,
+    )
+    pdf_artefact = await store_artefact(
+        context.session,
+        store,
+        data=pdf_bytes,
+        media_type="application/pdf",
+    )
+    report.pdf_artefact_id = pdf_artefact.artefact.id
+    return pdf_artefact.sha256
+
+
+async def _archive_workbook(context: StepContext, store: Any, *, report: Report) -> dict[str, str]:
+    """The model workbook (ADR 0134), archived beside the PDF, or why there is none.
+
+    Archived for the PDF's reason: a download is the file that was frozen, never a
+    regeneration from rows that may since have changed. Returns what the render step records.
+
+    A refusal is recorded rather than raised. The report is the record and the workbook one
+    more way to read it, so a model that cannot be written out leaves an approved report
+    without a workbook, never without its render.
+
+    Imported here rather than at module scope because the workbook service strikes the model
+    through this module's own step records, so a top-level import would be circular.
+    """
+    from aer.render.workbook import (  # noqa: PLC0415 -- see the docstring
+        WORKBOOK_MEDIA_TYPE,
+        build_workbook,
+    )
+    from aer.services.workbook import NoWorkbook, workbook_model  # noqa: PLC0415
+
+    try:
+        workbook = await workbook_model(context.session, job=context.job, report=report)
+    except AerError as refused:
+        workbook = NoWorkbook(f"The workbook could not be written: {refused}")
+    if isinstance(workbook, NoWorkbook):
+        return {"withheld": workbook.reason}
+    stored = await store_artefact(
+        context.session, store, data=build_workbook(workbook), media_type=WORKBOOK_MEDIA_TYPE
+    )
+    report.workbook_artefact_id = stored.artefact.id
+    return {"sha256": stored.sha256}
 
 
 def _supersession_reason(context: StepContext, *, approved_at: datetime | None) -> str:

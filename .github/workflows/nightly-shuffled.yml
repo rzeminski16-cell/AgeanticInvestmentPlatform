@@ -58,6 +58,13 @@ jobs:
           enable-cache: true
       - run: uv sync --all-groups
 
+      # As the main job: the model workbook's tests fail rather than skip where CI is set,
+      # so the engine they recompute it in has to be here too (ADR 0134).
+      - name: LibreOffice's headless spreadsheet engine
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-calc-nogui
+
       # The seed is the first line the runner prints; it goes on the job summary so a red
       # night can be repeated without opening the log.
       - name: Shuffled suite

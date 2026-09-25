@@ -10,7 +10,7 @@ and it records nothing at all.
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -18,178 +18,21 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from aer.calc.units import Quantity, SourceRef, Unit
 from aer.config import HouseStyle, Settings
 from aer.core.assumption_scales import scale_complaint
-from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
-from aer.core.sectors import ValuationModel, unclassified_mandate
-from aer.db.models import Artefact, Calculation, Company, Job, JobStep, SourceDocument, User
-from aer.services.assumption_gate import EQUITY_RISK_PREMIUM_ASSUMPTION, RISK_FREE_ASSUMPTION
-from aer.services.assumptions import confirm, propose
+from aer.db.models import Calculation
 from aer.services.calculator import calculator_view, result_rows
-from aer.services.prices import BETA_ASSUMPTION
-from aer.services.valuation_run import value_the_business
-from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 from tests.api_fixtures import build_app, client_for
-from tests.assumption_fixtures import a_year, analysed, seed_years
+from tests.assumption_fixtures import a_year, seed_years
 from tests.db_cleanup import delete_all
-from tests.request_fixtures import research_request
+from tests.valued_run_fixtures import CONFIRMED, SHARES, valued_run
 
 pytestmark = pytest.mark.integration
-
-_SHARES = {
-    "shares_outstanding": "100",
-    "basic_shares_outstanding": "100",
-    "diluted_shares_outstanding": "110",
-    "interest_expense": "20",
-    "short_term_debt": "0",
-}
-
-_YEARS = {
-    date(2022, 12, 31): a_year(revenue="1000", operating_income="240", **_SHARES),
-    date(2023, 12, 31): a_year(revenue="1150", operating_income="290", **_SHARES),
-    date(2024, 12, 31): a_year(revenue="1300", operating_income="340", **_SHARES),
-}
-
-_CONFIRMED: dict[str, str] = {
-    "revenue_growth": "0.05",
-    "ebit_margin": "0.25",
-    "capex_intensity": "0.06",
-    "depreciation_intensity": "0.05",
-    "working_capital_intensity": "0.20",
-    "tax_rate": "0.21",
-    "terminal_growth": "0.02",
-    "exit_multiple": "10",
-    RISK_FREE_ASSUMPTION: "0.042",
-    BETA_ASSUMPTION: "1.1",
-    EQUITY_RISK_PREMIUM_ASSUMPTION: "0.055",
-}
-
-_PRICE = "40"
-_CAPITALISATION = "4400"
-
-
-def _recorded_figure(value: str) -> dict[str, str]:
-    """A figure as the price step records it: the value, and the stored fact behind it."""
-    return {"value": value, "source_id": "a-listing", "source_kind": "fact"}
-
-
-async def _valued_run(session: AsyncSession, *, value: bool = True) -> dict[str, Any]:
-    """A run that valued a company from its filings, with every step the calculator reads.
-
-    ``value=False`` stops short of the valuation: every assumption confirmed and nothing
-    struck, which is a run the calculator has no report figures to reproduce.
-    """
-    user = User(email="calculator@example.invalid", display_name="C", role=UserRole.OWNER)
-    session.add(user)
-    await session.flush()
-    request = research_request(
-        user_id=user.id,
-        company_name="Contoso Corporation",
-        ticker="CTSO",
-        exchange="NASDAQ",
-        as_of_date=date(2025, 6, 30),
-        base_currency="USD",
-        investment_horizon_months=12,
-        max_cost_gbp="2.50",
-        portfolio_context={},
-    )
-    company = Company(
-        name="Contoso Corporation", ticker="CTSO", exchange="NASDAQ", cik="0000000002"
-    )
-    artefact = Artefact(
-        sha256="d" * 64, size_bytes=10, media_type="application/json", storage_key="dd/d"
-    )
-    session.add_all([request, company, artefact])
-    await session.flush()
-    document = SourceDocument(
-        work_order_id=request.id,
-        artefact_id=artefact.id,
-        url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000002.json",
-        provider=Provider.SEC_EDGAR,
-        source_tier=SourceTier.T1_REGULATORY,
-        title="Contoso XBRL company facts",
-        retrieved_at=datetime.now(UTC),
-    )
-    job = Job(
-        work_order_id=request.id,
-        workflow_version="test",
-        code_version="abc",
-        status=JobStatus.SUCCEEDED,
-        started_at=datetime.now(UTC),
-    )
-    session.add_all([document, job])
-    await session.flush()
-    scene = {
-        "session": session,
-        "user": user,
-        "request": request,
-        "company": company,
-        "document": document,
-        "job": job,
-    }
-    await seed_years(scene, _YEARS)
-
-    per_share = Unit.currency("USD") / Unit.base("shares")
-    price = Quantity.of(
-        Decimal(_PRICE), per_share, source=SourceRef.security("a-listing", label="close")
-    )
-    capitalisation = Quantity.of(
-        Decimal(_CAPITALISATION),
-        Unit.currency("USD"),
-        source=SourceRef.security("a-listing", label="market capitalisation"),
-    )
-    recorded: dict[str, dict[str, Any]] = {
-        "acquire": {"company_id": str(company.id)},
-        "acquire_prices": {
-            "market_capitalisation": _recorded_figure(_CAPITALISATION),
-            "price_per_share": _recorded_figure(_PRICE),
-        },
-        "propose_assumptions": {"valuation_model": ValuationModel.DCF_FCFF.value},
-    }
-    for sequence, (key, output) in enumerate(recorded.items()):
-        session.add(
-            JobStep(
-                job_id=job.id,
-                step_key=key,
-                sequence=sequence,
-                status=JobStatus.SUCCEEDED,
-                attempt=0,
-                idempotency_key=f"{job.id}:{key}",
-                input_hash="a" * 64,
-                output_ref=output,
-            )
-        )
-    for name, figure in _CONFIRMED.items():
-        row = await propose(
-            session,
-            request_id=request.id,
-            name=name,
-            value=Decimal(figure),
-            unit="pure",
-            justification=f"Scene value for {name}.",
-            proposed_by="test",
-        )
-        await confirm(session, assumption=row, actor=user)
-
-    if value:
-        await value_the_business(
-            session,
-            request=request,
-            job_id=job.id,
-            analysis=await analysed(scene),
-            mandate=unclassified_mandate(ValuationModel.DCF_FCFF, subject="CTSO"),
-            years=FORECAST_YEARS,
-            market_capitalisation=capitalisation,
-            price_per_share=price,
-        )
-    await session.flush()
-    return scene
 
 
 @pytest.fixture
 async def valued(db_session: AsyncSession) -> dict[str, Any]:
-    return await _valued_run(db_session)
+    return await valued_run(db_session)
 
 
 async def _calculations(session: AsyncSession) -> int:
@@ -215,7 +58,7 @@ class TestItIsTheReportsOwnModel:
         is showing rather than compare the operator's numbers with the wrong thing."""
         await seed_years(
             valued,
-            {date(2025, 12, 31): a_year(revenue="1600", operating_income="420", **_SHARES)},
+            {date(2025, 12, 31): a_year(revenue="1600", operating_income="420", **SHARES)},
         )
 
         view = await calculator_view(valued["session"], job=valued["job"], entries={})
@@ -228,7 +71,7 @@ class TestItIsTheReportsOwnModel:
     async def test_a_run_with_no_valuation_has_no_calculator(
         self, db_session: AsyncSession
     ) -> None:
-        scene = await _valued_run(db_session, value=False)
+        scene = await valued_run(db_session, value=False)
 
         assert await calculator_view(db_session, job=scene["job"], entries={}) is None
 
@@ -331,7 +174,7 @@ class TestTheOperatorsNumbers:
 
         assert view is not None
         names = {item.name for item in view.inputs}
-        assert names == set(_CONFIRMED)
+        assert names == set(CONFIRMED)
         assert not view.any_changed
 
 
@@ -362,7 +205,7 @@ async def served(api_settings: Settings, db_engine: Any, fake_redis: Any) -> Any
     await delete_all(db_engine)
     factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
     async with factory() as session:
-        scene = await _valued_run(session)
+        scene = await valued_run(session)
         await session.commit()
     async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
         yield client, scene

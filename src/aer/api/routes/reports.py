@@ -22,6 +22,7 @@ from starlette.status import HTTP_404_NOT_FOUND
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.db.models import Artefact, Report, User, WorkOrder
 from aer.errors import AerError
+from aer.render.workbook import WORKBOOK_MEDIA_TYPE
 from aer.services.reports import report_state
 from aer.storage.local import LocalArtefactStore
 
@@ -98,11 +99,12 @@ async def read_report_for_run(
 
 
 class DownloadFormat(StrEnum):
-    """The three archived notations a report can be fetched in."""
+    """The archived notations a report can be fetched in."""
 
     MD = "md"
     HTML = "html"
     PDF = "pdf"
+    XLSX = "xlsx"
 
 
 # For each format: which artefact column carries it, the media type it serves as, and
@@ -124,6 +126,15 @@ _FORMATS: dict[DownloadFormat, tuple[str, str, str]] = {
         "application/pdf",
         "This report has no PDF. A PDF is rendered only when a report is approved, "
         "because its every date is the approval's — and this report was never approved.",
+    ),
+    # ADR 0134. The absence is ordinary — no discounted cash flow, or a report approved
+    # before the workbook existed — and the render step recorded which.
+    DownloadFormat.XLSX: (
+        "workbook_artefact_id",
+        WORKBOOK_MEDIA_TYPE,
+        "This report has no model workbook. One is written only for an approved report whose "
+        "valuation is a discounted cash flow, and only while the model still reproduces the "
+        "report's own figures.",
     ),
 }
 

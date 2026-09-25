@@ -41,6 +41,7 @@ import structlog
 
 from aer.calc.dcf import METHOD_DISAGREEMENT, DcfInputs, DcfResult, discounted_cash_flow
 from aer.calc.units import Quantity, SourceRef, Unit
+from aer.calc.wacc import CostOfCapital
 from aer.core.sectors import ModelNotPermittedError, ValuationModel
 from aer.errors import AerError
 from aer.render import display
@@ -97,6 +98,9 @@ class Preview:
 
     inputs: DcfInputs
     result: DcfResult
+    # The discount rate taken apart, for a reader that writes it out (ADR 0134's workbook)
+    # rather than only reading the rate it came to.
+    capital: CostOfCapital
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +191,7 @@ def strike(
         )
         raise ValuationNotPossibleError(message)
     ledger = new_context()
-    _, inputs = base_case_inputs(
+    capital, inputs = base_case_inputs(
         ledger,
         dict(values),
         latest=latest,
@@ -196,7 +200,7 @@ def strike(
         market_capitalisation=basis.market_capitalisation,
     )
     result = discounted_cash_flow(ledger, inputs, mandate=basis.mandate, case=PREVIEW_CASE)
-    return Preview(inputs=inputs, result=result)
+    return Preview(inputs=inputs, result=result, capital=capital)
 
 
 async def terminal_check(

@@ -30,16 +30,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import func, select, union
+from sqlalchemy import Column, func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider
 from aer.db.models import (
-    AgentRun,
     Artefact,
     ArtefactPurge,
     AuditEvent,
-    Report,
     SourceDocument,
     User,
 )
@@ -53,6 +51,7 @@ __all__ = [
     "IntegrityReport",
     "PermanentArtefactError",
     "PurgeOutcome",
+    "artefact_references",
     "collect_garbage",
     "licensed_providers",
     "purge_artefact",
@@ -410,6 +409,23 @@ async def verify_store(session: AsyncSession, store: ArtefactStore) -> Integrity
     return report
 
 
+def artefact_references() -> tuple[Column[uuid.UUID], ...]:
+    """Every column that points at an artefact, read off the schema rather than listed.
+
+    The list was written out by hand, and the model workbook's column (ADR 0134) was the eighth
+    reference and not on it. The sweep purges an orphan's bytes before it deletes the row, so
+    `gc-artefacts --delete` would have taken every workbook's bytes and then failed on the
+    foreign key, leaving each report pointing at nothing. Every reference is a foreign key, so
+    the schema already knows them all, and the next one cannot be left off.
+    """
+    return tuple(
+        column
+        for table in Artefact.metadata.sorted_tables
+        for column in table.columns
+        if any(key.column.table is Artefact.__table__ for key in column.foreign_keys)
+    )
+
+
 async def unreferenced_artefacts(session: AsyncSession) -> Sequence[Artefact]:
     """Artefacts nothing in the database points at.
 
@@ -422,32 +438,15 @@ async def unreferenced_artefacts(session: AsyncSession) -> Sequence[Artefact]:
     runs and leaves the content-addressed bytes, which is the right order to do it in —
     the alternative is deleting artefacts a surviving run still needs.
     """
-    # **Every branch filters its nulls, and the sweep is worthless without it.** Four of
+    # **Every branch filters its nulls, and the sweep is worthless without it.** Most of
     # these columns are optional, so one agent run with no archived request payload puts a
     # NULL in the set — and `x NOT IN (…, NULL)` is NULL, never true, for every row. The
     # query would return no orphans at all and look exactly like a clean store.
     referenced = union(
-        select(SourceDocument.artefact_id.label("artefact_id")).where(
-            SourceDocument.artefact_id.is_not(None)
-        ),
-        select(ArtefactPurge.artefact_id.label("artefact_id")).where(
-            ArtefactPurge.artefact_id.is_not(None)
-        ),
-        select(AgentRun.request_payload_ref.label("artefact_id")).where(
-            AgentRun.request_payload_ref.is_not(None)
-        ),
-        select(AgentRun.response_payload_ref.label("artefact_id")).where(
-            AgentRun.response_payload_ref.is_not(None)
-        ),
-        select(Report.pdf_artefact_id.label("artefact_id")).where(
-            Report.pdf_artefact_id.is_not(None)
-        ),
-        select(Report.markdown_artefact_id.label("artefact_id")).where(
-            Report.markdown_artefact_id.is_not(None)
-        ),
-        select(Report.html_artefact_id.label("artefact_id")).where(
-            Report.html_artefact_id.is_not(None)
-        ),
+        *(
+            select(column.label("artefact_id")).where(column.is_not(None))
+            for column in artefact_references()
+        )
     ).subquery()
     statement = (
         select(Artefact)

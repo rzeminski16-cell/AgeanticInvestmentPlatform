@@ -103,6 +103,12 @@ class Report(Base):
     pdf_artefact_id: Mapped[UuidFkOptional] = mapped_column(
         ForeignKey("artefacts.id", ondelete="RESTRICT")
     )
+    # The model workbook, archived beside the PDF when the report is approved (ADR 0134,
+    # migration 0089). Empty for a report with no discounted cash flow, and for one approved
+    # before the workbook existed.
+    workbook_artefact_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("artefacts.id", ondelete="RESTRICT")
+    )
 
     # -- Approval ----------------------------------------------------------------------------
 

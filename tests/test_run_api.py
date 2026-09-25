@@ -27,6 +27,7 @@ from unittest import mock
 
 import pikepdf
 import pytest
+from openpyxl import Workbook
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -61,10 +62,13 @@ from aer.db.models import (
 )
 from aer.db.models.report_section import SectionStatus
 from aer.errors import ValidationError
+from aer.render.workbook import WORKBOOK_MEDIA_TYPE
 from aer.services import runs as run_service
+from aer.services.artefacts import store_artefact
 from aer.services.disagreements import settle_by_hand
 from aer.services.red_team import _shortened
 from aer.services.resume import resume_run
+from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.web.pages import SETTLED_WITHOUT_COMMENT
 from aer.web.vocabulary import TRIGGER_KINDS
@@ -1870,6 +1874,84 @@ class TestTheWebPages:
         assert 'id="download-pdf"' in page.text
         assert 'id="download-html"' in page.text
 
+    async def test_an_approved_run_that_valued_nothing_records_why_it_has_no_workbook(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        """ADR 0134. The fake scene's filings are too thin to forecast, so its run values
+        nothing: the render step records why there is no workbook rather than writing one,
+        and neither the download nor the page offers it. The written path is proved on a
+        valued run in `tests/test_workbook.py`."""
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
+        await driver.advance(job_id)
+
+        report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
+        assert report is not None
+        assert report.pdf_artefact_id is not None
+        assert report.workbook_artefact_id is None
+        render = await db_session.scalar(
+            select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == "render")
+        )
+        assert render is not None
+        assert "no discounted cash flow" in render.output_ref["workbook"]["withheld"]
+
+        response = await api.get(f"/api/reports/{report.id}/download/xlsx")
+        assert response.status_code == 404
+        assert "no model workbook" in response.text
+        page = await api.get(f"/reports/{report.id}")
+        assert 'id="download-workbook"' not in page.text
+
+    async def test_the_workbook_download_serves_the_archived_bytes(
+        self, api: Any, committed: dict, db_engine: Any, api_settings: Settings
+    ) -> None:
+        """The archived file, in the spreadsheet's media type, with its digest."""
+        book = Workbook()
+        buffer = BytesIO()
+        book.save(buffer)
+        data = buffer.getvalue()
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = Job(
+                work_order_id=committed["request"].id,
+                workflow_version="vertical_slice_v1",
+                code_version="workbook12345678",
+                status=JobStatus.SUCCEEDED,
+            )
+            session.add(job)
+            await session.flush()
+            stored = await store_artefact(
+                session,
+                LocalArtefactStore(
+                    api_settings.artefact_root, max_bytes=api_settings.max_artefact_bytes
+                ),
+                data=data,
+                media_type=WORKBOOK_MEDIA_TYPE,
+            )
+            report = Report(
+                job_id=job.id,
+                request_id=committed["request"].id,
+                as_of_date=committed["request"].work_order.as_of_date,
+                content={"markdown": "# Approved"},
+                content_hash="1" * 64,
+                approved_by=committed["user"].id,
+                approved_at=datetime.now(UTC),
+                workbook_artefact_id=stored.artefact.id,
+            )
+            session.add(report)
+            await session.commit()
+            report_id = report.id
+
+        response = await api.get(f"/api/reports/{report_id}/download/xlsx")
+
+        assert response.status_code == 200
+        assert response.content == data
+        assert response.headers["content-type"] == WORKBOOK_MEDIA_TYPE
+        assert response.headers["X-Artefact-SHA256"] == hashlib.sha256(data).hexdigest()
+        assert response.headers["Content-Disposition"].endswith('.xlsx"')
+        page = await api.get(f"/reports/{report_id}")
+        assert 'id="download-workbook"' in page.text
+
     async def test_an_unapproved_report_has_no_pdf_and_says_so(
         self, api: Any, committed: dict, db_engine: Any
     ) -> None:
@@ -1898,10 +1980,15 @@ class TestTheWebPages:
         response = await api.get(f"/api/reports/{report_id}/download/pdf")
         assert response.status_code == 404
         assert "never approved" in response.text
+        # Nor a workbook, which is written at approval beside the PDF (ADR 0134).
+        workbook = await api.get(f"/api/reports/{report_id}/download/xlsx")
+        assert workbook.status_code == 404
+        assert "no model workbook" in workbook.text
 
         page = await api.get(f"/reports/{report_id}")
         assert 'id="no-pdf"' in page.text
         assert 'id="download-pdf"' not in page.text
+        assert 'id="download-workbook"' not in page.text
 
     async def test_no_licensed_geometry_reaches_the_preview_or_the_valuation_page(
         self, api: Any, committed: dict, driver: Driver

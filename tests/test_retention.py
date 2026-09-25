@@ -29,6 +29,7 @@ from aer.db.models import (
     AuditEvent,
     Job,
     JobStep,
+    Report,
     SourceDocument,
     User,
 )
@@ -727,6 +728,48 @@ class TestCollectingGarbage:
         assert outcome.found == 1
         assert await scene["store"].exists(orphan.sha256) is False
         assert await db_session.get(Artefact, orphan.id) is None
+
+    async def test_a_real_sweep_leaves_an_archived_workbook_alone(self, db_session, scene):
+        """ADR 0134's column was missing from a hand-written list of references. The sweep
+        purges an orphan's bytes before it deletes the row, so it would have taken every
+        workbook's bytes and then failed on the foreign key, with the report left pointing
+        at nothing."""
+        step = await a_job_step(db_session, scene)
+        workbook = await store_orphan(db_session, scene, b"PK a workbook, as bytes")
+        db_session.add(
+            Report(
+                job_id=step.job_id,
+                request_id=scene["request"].id,
+                as_of_date=AS_OF_DATE,
+                content={"markdown": "# A report"},
+                content_hash="1" * 64,
+                workbook_artefact_id=workbook.id,
+            )
+        )
+        await db_session.flush()
+
+        outcome = await retention_service.collect_garbage(db_session, scene["store"], dry_run=False)
+
+        assert outcome.found == 0
+        assert await scene["store"].exists(workbook.sha256) is True
+
+    def test_every_foreign_key_to_an_artefact_is_a_reference(self) -> None:
+        """Read off the schema, so a column added later cannot be left off the way the
+        workbook's was."""
+        pointing = {
+            f"{column.table.name}.{column.name}"
+            for table in Artefact.metadata.sorted_tables
+            for column in table.columns
+            for key in column.foreign_keys
+            if key.target_fullname == "artefacts.id"
+        }
+        found = {
+            f"{column.table.name}.{column.name}"
+            for column in retention_service.artefact_references()
+        }
+
+        assert "reports.workbook_artefact_id" in found
+        assert found == pointing
 
     async def test_a_real_sweep_leaves_referenced_evidence_alone(self, db_session, scene):
         artefact, _ = await store_filing(db_session, scene)

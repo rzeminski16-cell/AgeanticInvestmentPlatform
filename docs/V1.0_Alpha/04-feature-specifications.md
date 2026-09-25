@@ -257,6 +257,21 @@ project writes spreadsheets today); the report's action bar; the run export.
 **Done when.** Opening the workbook, changing the revenue growth rate and seeing the value per
 share move to the figure the platform's own sensitivity grid predicts for that input.
 
+*Corrected 25 September 2026, when F5 landed under ADR 0134.*
+- **The modules.** They are `aer.render.workbook` (the pure builder) and
+  `aer.services.workbook` (what goes in), not `aer.export.workbook`.
+- **The formulas.** They are `aer.calc.dcf`'s own, written in the sheet's syntax and held to
+  the ledger by a LibreOffice recompute. They are not generated from the calculation registry:
+  its formulas are prose for a reader, not expressions a spreadsheet can evaluate.
+- **The colours.** The report's own recorded figures sit beside the live ones in grey. They are
+  neither inputs nor computed cells, so the convention's two colours do not fit them.
+- **The done-when.** No grid varies revenue growth, so no stored record predicts that figure.
+  The test holds terminal growth to the report's own grid cell, and revenue growth to the
+  calculator's strike (ADR 0133).
+- **The scenarios sheet.** It was not built: nothing in the product creates a scenario.
+- **The run export.** It carries the render step's record of the workbook: its digest, or the
+  reason there is none.
+
 ---
 
 ## F6 · Ask, in three tiers
