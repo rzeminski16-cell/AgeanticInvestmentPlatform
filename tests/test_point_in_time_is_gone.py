@@ -98,6 +98,11 @@ DOC_ALLOWED: Final = (
     # mixes a point-in-time run-rate with a fiscal-year figure"* — the ordinary sense, in a
     # model's prose about its own estimate — and CI run 551 caught it on the day it was filed.
     "docs/plan/phase-7-round-2026-09/",
+    # The re-measurement's run records, on the same reasoning: the first AZN run's planner
+    # wrote that the Orange Book and the CMS lists are *"live databases with no point-in-time
+    # archive"* — a model's sentence about a source's history, and CI run 564 caught it. The
+    # run folders only: the readout beside them describes the platform and stays scanned.
+    "docs/plan/remeasure-2026-09/v1-",
     "docs/plan/ROADMAP.md",
     "docs/V1.0_Alpha/",
     # The index names ADR 0113 by its title, and the knowledge map's invariant table records
