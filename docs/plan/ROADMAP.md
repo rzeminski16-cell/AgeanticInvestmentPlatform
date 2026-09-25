@@ -960,7 +960,7 @@ authority on sequencing within this item.
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
 | F2 | The adversary argues the opposite case | ADR 0115, F13 |
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
-| F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession. **Failed live on 25 September 2026** (§3.19 item 73): a refresh un-confirms the prior run's price-derived beta and loses its valuation |
+| F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession. **Failed live on 25 September 2026** (§3.19 item 73): a refresh un-confirms the prior run's price-derived beta and loses its valuation. Fixed the same day, and measured live again in the finish-line round |
 | F5 | The model workbook | — |
 | F6 | Ask, in three tiers | F7 for tier 3 — **all three tiers landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, research after a priced go-ahead through the report's own acquisition path |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
@@ -2813,6 +2813,27 @@ found rather than as scope that was always there.
     gate refused it on an unformatted count in its own change summary. Day one's run still
     replays exactly. The refresh waits at its final gate for the operator
     ([`phase-7-round-2026-09/`](phase-7-round-2026-09/README.md)).
+
+    **Fixed 25 September 2026.**
+    - **The rule.** `assumptions.propose` now refuses a machine's proposal over a confirmed
+      assumption while the request has a current report (`AssumptionHeldError`), whichever
+      step makes it. A person's amendment is unchanged. A full re-run may only start once no
+      report is current, so it still proposes and asks again at its own gate.
+    - **The price step.** It meets the refusal on a refresh and keeps the regression on the
+      ledger as evidence, so the diff compares it as a price-driven figure rather than reading
+      the beta as vanished. The step's record says why the confirmed beta stands.
+    - **The count.** It is grouped.
+    - **The time.** 785 of the refresh's 957 seconds went on re-drafting the seven sections
+      that cited the figures the lost valuation took with it, and 151 on extraction. The
+      re-measurement will say what a refresh takes without the defect.
+    - **The request's beta.** The refresh had left it unconfirmed at its own 1.0663. It was
+      restored to day one's confirmed 1.0659, which the current report rests on, as the
+      operator's proposal with that reason on the record, and confirmed. The refresh itself
+      was rejected at its final gate on the operator's decision.
+
+    The tests are `tests/test_assumptions.py::TestACurrentReportHoldsWhatItRestsOn` and
+    `tests/test_price_acquisition.py::TestABetaTheCurrentReportRestsOn`, both red without the
+    rule.
 
 74. **The change summary's commentary contradicts its own rows, 25 September 2026.** Same run.
     The rows are code's and right — forty figures *"no longer computed"*. The commentary the

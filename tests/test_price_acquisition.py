@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
+from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     Artefact,
     Assumption,
@@ -27,12 +28,14 @@ from aer.db.models import (
     FinancialFact,
     Job,
     PriceBar,
+    Report,
     Security,
     SourceDocument,
     User,
 )
 from aer.errors import ExternalServiceError
 from aer.fetch.client import FetchResult
+from aer.services.assumptions import confirm
 from aer.services.calculations import new_context
 from aer.services.price_acquisition import BETA_WINDOW_YEARS, acquire_prices
 from aer.services.prices import BETA_ASSUMPTION
@@ -40,6 +43,7 @@ from aer.sources.eodhd import api
 from aer.sources.eodhd.client import ActionsResponse, PriceResponse, SharesResponse
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import _filed_share_count
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
@@ -550,6 +554,85 @@ class TestTheBeta:
 
         assert outcome.beta_proposed is True
         assert outcome.beta_reason == ""
+
+
+class TestABetaTheCurrentReportRestsOn:
+    """Roadmap §3.19 item 73, at the step that did it: a refresh's price step, later on.
+
+    The verdict round's refresh re-ran this step a day after the report was approved. It
+    proposed the day's regression over the confirmed beta, which un-confirmed it, and the
+    refreshed document came back with no valuation.
+    """
+
+    async def _reported(self, scene: dict[str, Any]) -> Assumption:
+        """Day one: a beta regressed, confirmed at the gate, and a report approved on it."""
+        session = scene["session"]
+        await _acquire(scene, StubPriceClient(scene["store"]))
+        beta = await session.scalar(select(Assumption).where(Assumption.name == BETA_ASSUMPTION))
+        assert beta is not None
+        operator = await session.scalar(select(User))
+        await confirm(session, assumption=beta, actor=operator)
+        content: dict[str, Any] = {"sections": []}
+        report = Report(
+            job_id=scene["job_id"],
+            request_id=scene["request"].id,
+            company_id=scene["company"].id,
+            as_of_date=AS_OF,
+            approved_by=operator.id,
+            approved_at=datetime.now(UTC),
+            content=content,
+            content_hash=sha256_hex(canonical_json(content)),
+        )
+        session.add(report)
+        await session.flush()
+        await make_current(session, report)
+        return beta
+
+    async def _refresh(self, scene: dict[str, Any], ledger: Any) -> Any:
+        """The refresh: a second job on the request, re-dated to its own day (ADR 0131 §1)."""
+        session = scene["session"]
+        refresh = Job(
+            work_order_id=scene["request"].id,
+            workflow_version="refresh_v1",
+            code_version="abc",
+            status=JobStatus.RUNNING,
+            started_at=datetime.now(UTC),
+        )
+        session.add(refresh)
+        scene["request"].work_order.as_of_date = date(2024, 7, 31)
+        await session.flush()
+        return await acquire_prices(
+            session,
+            StubPriceClient(scene["store"]),
+            scene["store"],
+            request=scene["request"],
+            company=scene["company"],
+            job_id=refresh.id,
+            context=ledger,
+        )
+
+    async def test_the_confirmed_beta_stands(self, scene: dict[str, Any]) -> None:
+        beta = await self._reported(scene)
+        confirmed = beta.value
+
+        outcome = await self._refresh(scene, new_context())
+
+        await scene["session"].refresh(beta)
+        assert beta.approved is True, "a later run does not un-confirm a report's decision"
+        assert beta.value == confirmed
+        assert outcome.acquired is True
+        assert outcome.beta_proposed is False
+        assert "current report rests on" in outcome.beta_reason
+
+    async def test_the_regression_still_runs_and_is_recorded(self, scene: dict[str, Any]) -> None:
+        """Evidence, not a proposal: the diff compares it as a price-driven figure, and a
+        refresh that dropped it would read the beta as vanished — a material change."""
+        await self._reported(scene)
+        ledger = new_context()
+
+        await self._refresh(scene, ledger)
+
+        assert any(record.name == "beta" for record in ledger.records)
 
 
 class TestTheWindow:

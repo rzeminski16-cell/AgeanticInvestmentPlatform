@@ -627,9 +627,12 @@ async def summary_block(
         )
     else:
         read = len(documents)
+        # Counts are grouped: the verdict round's refresh was refused at its own final gate
+        # for printing "18829 other figures", a bare integer the presentation check counts
+        # as a defect wherever it appears (roadmap §3.19 item 73).
         basis = (
-            f"Refreshed against the report of {dated}, as at {today}: {material} figure"
-            f"{'' if material == 1 else 's'} moved materially and {read} "
+            f"Refreshed against the report of {dated}, as at {today}: {material:,} figure"
+            f"{'' if material == 1 else 's'} moved materially and {read:,} "
             f"document{'' if read == 1 else 's'} {'was' if read == 1 else 'were'} read for the "
             "first time. Every figure below is a recorded calculation or a stored fact; the "
             "prior report stays readable at its own address."
@@ -640,7 +643,7 @@ async def summary_block(
         "moved": moved,
         "new_documents": documents,
         "unchanged": (
-            f"{unchanged} other figure{'' if unchanged == 1 else 's'} "
+            f"{unchanged:,} other figure{'' if unchanged == 1 else 's'} "
             f"{'is' if unchanged == 1 else 'are'} within two per cent of the prior report."
             if unchanged
             else ""

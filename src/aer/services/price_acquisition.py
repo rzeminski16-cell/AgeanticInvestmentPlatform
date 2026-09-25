@@ -41,6 +41,7 @@ from aer.core.enums import Provider, SourceTier
 from aer.db.models import Company, ResearchRequest, Security
 from aer.errors import AerError
 from aer.services.acquisition import acquisition_root, record_acquisition
+from aer.services.assumptions import AssumptionHeldError
 from aer.services.prices import (
     adjusted_series_for,
     price_quantity,
@@ -644,6 +645,12 @@ async def _propose_beta(
             market_label=proxy.label,
             job_id=job_id,
         )
+    except AssumptionHeldError as held:
+        # A refresh (ADR 0131 §2): the regression ran and its rows are on the ledger, so the
+        # diff compares it like any price-driven figure, and the confirmed beta the current
+        # report rests on is what the value step reads.
+        _log.info("prices.beta_held", symbol=subject.provider_symbol, reason=str(held))
+        return False, str(held)
     except AerError as refused:
         _log.info(
             "prices.beta_not_regressed",

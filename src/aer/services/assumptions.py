@@ -21,6 +21,17 @@ same failure the gate payload hashes exist to prevent one layer up.
 **An unconfirmed assumption cannot enter a calculation.** :func:`as_quantity` refuses one, so
 the refusal happens where the number would be used rather than at a review step somebody can
 forget to run. That is the acceptance criterion of `docs/archive/phase-3-plan.md` task 24, in code.
+
+**A confirmed assumption the current report rests on moves only when a person moves it.** An
+assumption is unique per request and name, and every run on a request reads the same rows —
+so a step of a later run that proposes over a confirmed row un-confirms the decision an
+earlier run's operator took. On a full re-run that is the design: a request may only be run
+again once it has no current report, and the new run's assumptions gate asks again. On a
+refresh it was the defect the verdict round found (roadmap §3.19 item 73): the price step
+proposed a day-later beta, the confirmed one became unconfirmed, a refresh has no gate to
+confirm it again, and the valuation was not computed. So :func:`propose` refuses a machine's
+proposal over a confirmed row while the request has a current report, whichever step makes
+it. A person's amendment is unchanged, because changing a decision is theirs to do.
 """
 
 from __future__ import annotations
@@ -36,10 +47,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.core.assumption_scales import scale_complaint, unit_complaint
-from aer.db.models import Assumption, AssumptionProposal, User
+from aer.db.models import Assumption, AssumptionProposal, Report, User
 from aer.errors import AerError, ValidationError
 
 __all__ = [
+    "AssumptionHeldError",
     "UnconfirmedAssumptionError",
     "amend",
     "as_quantity",
@@ -66,6 +78,19 @@ class UnconfirmedAssumptionError(AerError):
     http_status = 409
 
 
+class AssumptionHeldError(AerError):
+    """A machine proposed over a confirmed figure the request's current report rests on.
+
+    Its own class because the one caller that meets it in the ordinary course — the price
+    step of a refresh, regressing a beta a day later — must tell it apart from a regression
+    that could not run: here the regression ran and is recorded as evidence, and the
+    decision it would have displaced stands.
+    """
+
+    code = "assumption_held_by_current_report"
+    http_status = 409
+
+
 async def propose(
     session: AsyncSession,
     *,
@@ -87,7 +112,9 @@ async def propose(
     page shows a list and a reviewer who scrolls past a row has not agreed to it.
 
     Proposing again for an existing assumption supersedes the previous proposal and, if the
-    assumption was confirmed, un-confirms it. See the module docstring.
+    assumption was confirmed, un-confirms it — except that a machine may not do so while the
+    request has a current report, which rests on the confirmed value. See the module
+    docstring.
 
     Args:
         accepted_anyway: Proceed despite an implausible value. The operator saying they
@@ -102,6 +129,8 @@ async def propose(
             All refused here rather than at the database, so the message names the
             assumption — and here rather than at first use, so a valuation does not die
             several layers from the row that caused it.
+        AssumptionHeldError: If a machine proposes over a confirmed assumption while the
+            request has a current report. Nothing is written.
     """
     _require_justification(name, justification)
     _require_unit(name, unit)
@@ -112,6 +141,9 @@ async def propose(
     existing = await session.scalar(
         select(Assumption).where(Assumption.request_id == request_id, Assumption.name == name)
     )
+
+    if existing is not None and existing.approved and not by_human:
+        await _refuse_if_held(session, existing, value=value, unit=unit, proposed_by=proposed_by)
 
     if existing is None:
         assumption = Assumption(
@@ -350,6 +382,58 @@ async def _latest_proposal(
         .limit(1)
     )
     return latest
+
+
+async def _refuse_if_held(
+    session: AsyncSession,
+    existing: Assumption,
+    *,
+    value: Decimal,
+    unit: str,
+    proposed_by: str,
+) -> None:
+    """Refuse a machine's proposal over a confirmed row the current report rests on.
+
+    "Current" is the report the platform asserts now: approved, neither superseded nor
+    withdrawn. A report names its request, and an assumption belongs to the request every
+    job on it shares, so a refresh's step meets the report it is refreshing here.
+    """
+    report: Report | None = await session.scalar(
+        select(Report)
+        .where(
+            Report.request_id == existing.request_id,
+            Report.immutable.is_(True),
+            Report.superseded_by.is_(None),
+            Report.superseded_at.is_(None),
+        )
+        .limit(1)
+    )
+    if report is None:
+        return
+    message = (
+        f"The {existing.name.replace('_', ' ')} the current report rests on stands at "
+        f"{existing.value.normalize():f} {existing.unit}, as confirmed. This run's "
+        f"{value.normalize():f} {unit} is recorded as evidence and not proposed: a later run "
+        "does not replace a decision the current report rests on. Changing it is an "
+        "amendment, made by a person."
+    )
+    _log.info(
+        "assumption.held",
+        assumption_id=str(existing.id),
+        name=existing.name,
+        held=str(existing.value),
+        offered=str(value),
+        proposed_by=proposed_by,
+        report_id=str(report.id),
+    )
+    raise AssumptionHeldError(
+        message,
+        context={
+            "name": existing.name,
+            "assumption_id": str(existing.id),
+            "report_id": str(report.id),
+        },
+    )
 
 
 def _require_justification(name: str, justification: str) -> None:

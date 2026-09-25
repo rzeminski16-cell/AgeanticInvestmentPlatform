@@ -202,3 +202,21 @@ first section of every export. On the shareable copy a crossing is now a count o
 line and a watched figure's row loses the clause that says what it feeds; the operator's copy
 is unchanged. The same audience switch ADR 0129 introduced, applied at render, so the stored
 rows and the export are untouched.
+
+## Corrected 25 September 2026: §2 held by convention, and the price step broke it (ROADMAP §3.19, item 73)
+
+§2 says *"the confirmed assumptions are the request's rows, read as they stand. No gate is
+re-asked."* The rows did not stand. The refresh runs the slice's own price step, and that step
+proposes the day's beta regression over the request's one beta row. A proposal un-confirms
+whatever it replaces, so the verdict round's refresh un-confirmed the beta that the report it
+was refreshing rested on. With no gate to confirm it again, the value step refused to discount
+and the refreshed document had no valuation. Nothing in §2's wording was wrong. What held it
+was the assumption that no step of a refresh proposes, and one did.
+
+**It is held in code now, at the one place every proposal passes through.**
+`aer.services.assumptions.propose` refuses a machine's proposal over a confirmed assumption
+while the request has a current report. A person's amendment is untouched. A full re-run is
+untouched too, because it may only start once no report is current, and its own gate asks
+again. The price step meets the refusal on a refresh and keeps the regression as evidence on
+the ledger, where the diff compares it like any price-driven figure. The confirmed beta is
+what the value step reads.

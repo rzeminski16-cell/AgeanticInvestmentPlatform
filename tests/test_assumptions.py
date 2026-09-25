@@ -24,8 +24,10 @@ from sqlalchemy.exc import IntegrityError
 
 from aer.calc.units import Unit
 from aer.core.enums import UserRole
+from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     AssumptionProposal,
+    Report,
     ResearchRequest,
     ScenarioOverride,
     SensitivityCell,
@@ -34,8 +36,9 @@ from aer.db.models import (
 from aer.errors import ValidationError
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
-from aer.services.assumptions import UnconfirmedAssumptionError
+from aer.services.assumptions import AssumptionHeldError, UnconfirmedAssumptionError
 from aer.services.scenarios import CellInput
+from tests.report_fixtures import make_current
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
@@ -338,6 +341,78 @@ class TestAnAmendmentKeepsTheOriginalOnTheRecord:
             )
         )
         assert len(rows) == 1
+
+
+async def _report_resting_on(session: Any, scene: dict[str, Any]) -> Report:
+    """An approved, current report on the scene's request: what a refresh runs beside."""
+    content: dict[str, Any] = {"sections": []}
+    report = Report(
+        job_id=scene["job"].id,
+        request_id=scene["request"].id,
+        as_of_date=AS_OF_DATE,
+        approved_by=scene["reviewer"].id,
+        approved_at=datetime.now(UTC),
+        content=content,
+        content_hash=sha256_hex(canonical_json(content)),
+    )
+    session.add(report)
+    await session.flush()
+    return await make_current(session, report)
+
+
+class TestACurrentReportHoldsWhatItRestsOn:
+    """Roadmap §3.19 item 73: a refresh un-confirmed the beta its own report rested on.
+
+    The verdict round's MSFT refresh re-ran the price step a day later. The step proposed the
+    day's regression over the request's one beta row, so the confirmed value became an
+    unconfirmed one. A refresh has no assumptions gate to confirm it again, the value step
+    would not discount on it, and the refreshed document had no valuation.
+    """
+
+    async def test_a_machine_may_not_un_confirm_it(self, db_session, scene):
+        assumption = await propose_rate(db_session, scene["request"], value="0.09")
+        await assumption_service.confirm(db_session, assumption=assumption, actor=scene["reviewer"])
+        await _report_resting_on(db_session, scene)
+
+        with pytest.raises(AssumptionHeldError, match="current report rests on"):
+            await propose_rate(db_session, scene["request"], value="0.095")
+
+        await db_session.refresh(assumption)
+        assert assumption.approved is True
+        assert assumption.value == Decimal("0.09")
+        proposals = await assumption_service.history_of(db_session, assumption.id)
+        assert [p.value for p in proposals] == [Decimal("0.09")], "nothing was written"
+
+    async def test_a_person_may_still_amend_it(self, db_session, scene):
+        """Changing a decision stays the operator's to do, with its reason on the record."""
+        assumption = await propose_rate(db_session, scene["request"], value="0.09")
+        await assumption_service.confirm(db_session, assumption=assumption, actor=scene["reviewer"])
+        await _report_resting_on(db_session, scene)
+
+        amended = await assumption_service.amend(
+            db_session,
+            assumption=assumption,
+            value=Decimal("0.10"),
+            justification="The regression window now includes the rate rise.",
+            actor=scene["reviewer"],
+        )
+
+        assert amended.value == Decimal("0.10")
+        assert amended.approved is False
+
+    async def test_with_no_current_report_a_run_may_propose_again(self, db_session, scene):
+        """A full re-run starts only once no report is current, and its gate asks again."""
+        assumption = await propose_rate(db_session, scene["request"], value="0.09")
+        await assumption_service.confirm(db_session, assumption=assumption, actor=scene["reviewer"])
+        report = await _report_resting_on(db_session, scene)
+        report.superseded_at = datetime.now(UTC)
+        report.supersession_reason = "Withdrawn in this scene."
+        await db_session.flush()
+
+        again = await propose_rate(db_session, scene["request"], value="0.095")
+
+        assert again.value == Decimal("0.095")
+        assert again.approved is False
 
 
 class TestWhatIsRefusedAtWriteTime:
