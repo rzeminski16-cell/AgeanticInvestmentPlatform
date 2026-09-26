@@ -8,6 +8,9 @@ argued from. This record becomes Accepted outright when the remaining decisions 
 **Amended by ADR 0135, 25 September 2026:** the report states no view, so decisions 1, 2 and 5
 land in the shape that ADR gives them, and decision 4's unbuilt half stays open. See the
 section at the end.
+**Amended 26 September 2026:** decision 4's unbuilt half is withdrawn by the operator. Approval
+is not refused while a challenge is open, and there is no *carried* state. Decision 3's
+replacement rule is the only part of this record still unbuilt. See the last section.
 **Date.** 2026-09-14
 **Amends.** ADR 0095 (an escalated challenge is briefed, never decided). The brief, its
 advisory status and its exclusion from every rendered report are untouched; what changes is
@@ -235,3 +238,36 @@ view this record waited for will never exist. What each decision becomes:
 The case the adversary was to write is written in the draft, by the report's writer under an
 advocate's brief for each side. That way every check applies to it, and the red team
 challenges it like any other section.
+
+## Amended 26 September 2026 — decision 4's unbuilt half is withdrawn
+
+The operator decided it on the re-measurement's evidence
+([`docs/plan/remeasure-2026-09/`](../plan/remeasure-2026-09/README.md)). Two things are
+withdrawn, and neither will be built:
+
+- **Refusing approval while a challenge is open.** Every one of the re-measurement's four
+  approved reports left seven to nine challenges open, two to six of them material. Refusing
+  approval on one would have stopped all four runs.
+- **The *carried* state.** It was the escape hatch from that refusal, and without the refusal
+  there is nothing to escape.
+
+The reason is ADR 0135. This record was written for a report that states a view, where an
+open challenge is an unanswered attack on it. A report that takes no side has no view for a
+challenge to break. The reader gets the claim, the challenge and both sides, and decides.
+Refusing approval would have turned the reader's decision into a gate the operator must
+clear.
+
+What stands is the half that landed. The appendix is assembled after the settle and says
+what happened to each challenge, in one of three honest states: accepted, with what changed;
+rejected, with the operator's recorded reason; or open at approval, with both sides published
+for the reader. The Settle control stays in reach on the review page, and ADR 0095's brief is
+untouched.
+
+**What is given up.** A challenge the operator never looks at still reaches the published
+report. It reaches it labelled as open, with both sides beside it, which is the report's
+position on everything else.
+
+With this, the only part of this record still unbuilt is decision 3's replacement rule: a
+challenge that quotes two periods of one calculation as a contradiction is comparing periods,
+not finding an error. Its cause is closed structurally (Phase 3.1's index offers one period
+per name), so the rule is a guard rather than a fix.

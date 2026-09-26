@@ -215,3 +215,10 @@ case where the lever moves the other way, and then the point stands in words.
 
 On MSFT's own record the list reads as the report should have been told: depreciation at
 its heaviest raises the value, and the operating margin at its lowest lowers it.
+
+## Amended 26 September 2026 — the open question is closed
+
+The re-measurement decided what this record left to it. Open challenges do not read as a
+defect in a report that takes no side, and the operator withdrew ADR 0115 decision 4's unbuilt
+half: approval is not refused while a challenge is open, and there is no *carried* state. The
+appendix's three honest states stand. ADR 0115 carries the withdrawal and its reasoning.

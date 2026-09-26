@@ -179,7 +179,8 @@ not entered at all, and F2 then landed (below). The re-measurement follows F2.
   cases' and rendered empty. A section is now carried only into the version that wrote it, and
   a carried argument's figures are struck again on the refresh's own base case.
 - **Still open.** ADR 0115 decision 4's other half is not built: approval refused while a
-  challenge is open, and a *carried* state. The re-measurement decides it.
+  challenge is open, and a *carried* state. The re-measurement decides it. *Decided 26
+  September: withdrawn by the operator on the re-measurement's evidence (ADR 0115, amended).*
 
 **The re-measurement, 25 September 2026 — the finish line's second condition is met.** The
 record is [`remeasure-2026-09/`](remeasure-2026-09/README.md).
@@ -198,6 +199,9 @@ record is [`remeasure-2026-09/`](remeasure-2026-09/README.md).
   to nine challenges open, two to six of them material, each published with both sides for
   the reader to decide. Refusing approval on one would have stopped all four runs. The
   recommendation is to withdraw that half. It is the operator's call, and waits on it.
+  *The operator withdrew it on 26 September.* Nothing is built or removed, because nothing had
+  been built. ADR 0115 records the withdrawal, and decision 3's replacement rule is now the only
+  part of that record still unbuilt.
 
 Running order:
 1. The fixes, the masthead, F13's authored half and F2 — everything that changes what a run
@@ -1100,10 +1104,10 @@ authority on sequencing within this item.
 | | Feature | Needs |
 |---|---|---|
 | F1 | Remove point-in-time | ADR 0113 — **landed 17 September 2026**, Accepted outright: all four re-seeded runs replay |
-| F2 | The adversary argues the opposite case — reshaped on 25 September 2026 to both cases, the report taking neither side | ADR 0115, ADR 0135 |
+| F2 | The adversary argues the opposite case — reshaped on 25 September 2026 to both cases, the report taking neither side | ADR 0115, ADR 0135 — **landed 25 September 2026**, and measured live in the re-measurement the same day |
 | F3 | The closing section reads the operator's own book | F12 — **landed 23 September 2026**, ADR 0129: in full on the operator's copy, withheld from what leaves where the book is typed |
 | F4 | The refresh | ADR 0116, F7 — **landed 23 September 2026**, ADR 0131: a second job on the same request, the price as the plan gate, the diff as rows, re-draft only what moved, *Refreshed* on supersession. **Failed live on 25 September 2026** (§3.19 item 73): a refresh un-confirms the prior run's price-derived beta and loses its valuation. Fixed the same day, and measured live again in the finish-line round |
-| F5 | The model workbook | — |
+| F5 | The model workbook | — **landed 25 September 2026**, ADR 0134: written at approval, archived beside the PDF, recomputed by LibreOffice in CI |
 | F6 | Ask, in three tiers | F7 for tier 3 — **all three tiers landed 23 September 2026**, ADR 0130: recompute for nothing, re-read for pennies, research after a priced go-ahead through the report's own acquisition path |
 | F7 | Primary-source depth, and a bank's revenue | ADR 0114 (= §2.10) |
 | F8 | Print what the run already computed | ADR 0118, F16 |
@@ -2285,6 +2289,12 @@ found rather than as scope that was always there.
     that was removed because alarming on the red team doing its job taught an operator to
     read red as noise. This is not a banner. It is whether a document may freeze mid-
     argument, which is a different question and the one ADR 0115 answered.
+
+    *Decided 26 September 2026: the document may freeze with a challenge open.* ADR 0135
+    took the report's side away. The re-measurement then published every open challenge
+    with both sides for the reader, seven to nine a report. On that evidence the operator
+    withdrew the freeze and the *carried* state (ADR 0115, amended). "Open at approval" is
+    now the honest third state, not the fourth one this item found.
 
 
 47. **A restated segment structure reads as the document contradicting itself, and the

@@ -108,3 +108,9 @@ Recorded for the operator rather than changed mid-measurement:
   (item 82).
 - **The comparison with prior research says the view was "none stated"** where the masthead
   says the report takes no side (item 83).
+
+## Decided, 26 September 2026
+
+The operator withdrew ADR 0115 decision 4's unbuilt half, as recommended above. Approval is not
+refused while a challenge is open, and there is no *carried* state. ADR 0115 records the
+withdrawal.
