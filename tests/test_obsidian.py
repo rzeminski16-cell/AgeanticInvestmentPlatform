@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +29,7 @@ from aer.obsidian import (
 from aer.services.citations import record_citation, record_claim
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
+from tests.report_fixtures import record_valuation
 from tests.scene_fixtures import build_scene
 
 pytestmark = pytest.mark.integration
@@ -112,6 +112,11 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     db_session.add(quarantined)
     await db_session.flush()
 
+    await record_valuation(
+        db_session,
+        job_id=built["job"].id,
+        rows=(("gordon_growth", "base", "180"), ("exit_multiple", "base", "220")),
+    )
     report = Report(
         job_id=built["job"].id,
         request_id=built["request"].id,
@@ -119,9 +124,6 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
         as_of_date=built["request"].work_order.as_of_date,
         rating="Constructive (non-binding)",
         confidence=0.62,
-        valuation_low=Decimal("180"),
-        valuation_high=Decimal("220"),
-        valuation_currency="USD",
         content={
             "markdown": (
                 "# Report\n\n## Prior Research Comparison\n\nA fixed comparison line.\n\n"
@@ -260,7 +262,13 @@ class TestTheExport:
         assert post["ticker"] == "MSFT"
         assert post["content_hash"] == "e" * 64
         assert post["rating"] == "Constructive (non-binding)"
-        assert post["valuation"]["low"] == "180"
+        # Each method named, to the cent, read back from the run's own rows (§3.19 item 76).
+        assert post["valuation"] == {
+            "currency": "USD",
+            "per": "share",
+            "perpetuity growth": "180.00",
+            "exit multiple": "220.00",
+        }
         assert "aer/approved" in post["tags"]
         assert post["evidence_policy"].startswith("derived-from-approved-run")
         # The approval's moment, not the export's: the note has one honest date.

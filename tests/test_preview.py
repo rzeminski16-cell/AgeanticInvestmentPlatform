@@ -288,6 +288,7 @@ class TestWhatTheGateSays:
 
         said = " ".join(check.sentences(style=HouseStyle())).lower()
 
-        assert "£40 (perpetuity growth) and £90 (exit multiple)" in said
+        # To the cent, as every value per share is (ROADMAP §3.19 item 82).
+        assert "£40.00 (perpetuity growth) and £90.00 (exit multiple)" in said
         for word in (" to £", "range", "should", "recommend", "prefer"):
             assert word not in said

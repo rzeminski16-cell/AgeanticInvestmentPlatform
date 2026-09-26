@@ -862,7 +862,7 @@ async def _prior_digests(session: AsyncSession, *, request: ResearchRequest) -> 
             as_of_date=digest.as_of_date.isoformat(),
             rating=digest.rating,
             confidence=digest.confidence,
-            valuation_range=digest.valuation_range,
+            valuation=digest.valuation,
             named_risks=list(digest.named_risks),
             catalyst_lines=list(digest.catalyst_lines),
         )

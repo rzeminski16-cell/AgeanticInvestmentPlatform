@@ -16,7 +16,8 @@ day, in order. [Getting started](getting-started.md) has the detail behind each 
   Use the V1.0 one, `backup-2026-09-25-v1`, sent as three zips
   (`aer-backup-2026-09-25-v1-part1.zip` to `part3.zip`). Extract all three into the same
   folder and they rebuild one directory. It holds everything the earlier backup did, plus the
-  re-measurement's four approved reports, and it was taken at this code's migration.
+  re-measurement's four approved reports. It was taken at migration 0090, one behind this
+  code, and step 4's upgrade closes the gap.
 - **Your keys.** They go into `.env` and nowhere else — never into a chat, a commit or a
   screenshot:
 
@@ -82,9 +83,12 @@ uv run aer verify-audit
       touches anything, and refuses a backup that does not check out.
 - [ ] `restore` asks before it drops and rebuilds the database. Say yes: the database is empty.
 - [ ] `alembic upgrade head` moves the restored schema to this code's. The V1.0 backup was
-      taken at migration 0090, so on this code it has nothing to do. An earlier backup needs
-      it: the upgrade is what brings the report archive's workbook column and the two cases'
-      section contracts.
+      taken at migration 0090, so the upgrade applies 0091: it drops the report's four
+      valuation columns, which nothing ever wrote, and every page reads a report's valuation
+      from its run's own rows instead. It refuses, and changes nothing, if any report holds a
+      figure there; none of yours does. An earlier backup needs more of it: the upgrade is
+      also what brings the report archive's workbook column and the two cases' section
+      contracts.
 - [ ] `verify-artefacts` and `verify-audit` are both clean.
 
 Your user comes back with the database, so there is no `seed-user` step.

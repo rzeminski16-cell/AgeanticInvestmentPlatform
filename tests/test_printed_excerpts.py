@@ -451,7 +451,7 @@ def _prior(*, risks: list[str]) -> PriorResearch:
         as_of_date="2025-06-30",
         rating="hold",
         confidence="60%",
-        valuation_range="100 to 120 USD per share",
+        valuation="$100.00 (perpetuity growth) and $120.00 (exit multiple) a share",
         named_risks=risks,
         catalyst_lines=["FY2025 results (expected 2025-07-27) — window passed."],
     )
@@ -547,7 +547,7 @@ class TestThePriorResearchTypeStaysNarrow:
         "as_of_date",
         "rating",
         "confidence",
-        "valuation_range",
+        "valuation",
         "named_risks",
         "catalyst_lines",
     }
@@ -570,7 +570,7 @@ class TestThePriorResearchTypeStaysNarrow:
                 as_of_date="2025-06-30",
                 rating="hold",
                 confidence="60%",
-                valuation_range="100 to 120 USD per share",
+                valuation="$100.00 (perpetuity growth) and $120.00 (exit multiple) a share",
                 excerpts=[PASSAGE],
             )
 

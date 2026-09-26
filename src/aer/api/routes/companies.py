@@ -30,6 +30,17 @@ class CompanyNotFoundError(AerError):
     http_status = HTTP_404_NOT_FOUND
 
 
+class MethodValueRead(BaseModel):
+    """One terminal method's value per share, and the calculation that recorded it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    method: str
+    value: str
+    currency: str
+    calculation_id: uuid.UUID
+
+
 class ApprovedReportRead(BaseModel):
     """One approved report, as history: the conclusion, never the draft."""
 
@@ -40,9 +51,9 @@ class ApprovedReportRead(BaseModel):
     as_of_date: date
     rating: str | None
     confidence: float | None
-    valuation_low: str | None
-    valuation_high: str | None
-    valuation_currency: str | None
+    # What each method gave, read back from the run's own rows (§3.19 item 76). A list of
+    # named answers, never a low and a high: two methods are not the ends of a range.
+    valuation: list[MethodValueRead]
 
 
 class CompanyHistoryRead(BaseModel):
@@ -88,9 +99,15 @@ async def company_history(
                 as_of_date=view.as_of_date,
                 rating=view.rating,
                 confidence=view.confidence,
-                valuation_low=view.valuation_low,
-                valuation_high=view.valuation_high,
-                valuation_currency=view.valuation_currency,
+                valuation=[
+                    MethodValueRead(
+                        method=figure.label,
+                        value=str(figure.value),
+                        currency=figure.currency,
+                        calculation_id=figure.calculation_id,
+                    )
+                    for figure in view.valuation.figures
+                ],
             )
             for view in views
         ],

@@ -29,7 +29,18 @@ from typing import Any, Final
 from aer.config import HouseStyle
 from aer.core.dates import format_date
 
-__all__ = ["cell", "date_text", "figure", "money", "multiple", "prose", "scalar", "stored"]
+__all__ = [
+    "cell",
+    "date_text",
+    "figure",
+    "money",
+    "multiple",
+    "percentage",
+    "points",
+    "prose",
+    "scalar",
+    "stored",
+]
 
 _SYMBOLS: Final[dict[str, str]] = {"USD": "$", "GBP": "£", "EUR": "€"}
 
@@ -88,8 +99,12 @@ def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = 
         # To the cent at most. The ledger stores twelve decimal places, and the valuation
         # page showed them — "$1,234.500000000000" (first live run of the runbook) — which
         # is precision the figure does not have and a reader cannot use.
+        #
+        # **And to the cent at least** (§3.19 item 82). A value per share that rounded to a
+        # whole number of cents printed without them: "$308" in the column beside
+        # "$431.55", one figure reading as a different precision from its neighbour.
         cents = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return f"{symbol}{_grouped(cents)}"
+        return f"{symbol}{cents:,.2f}"
 
     if not in_table and style.prose_money == "auto" and magnitude >= style.billions_from:
         scaled = (value / _BILLION).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
@@ -99,6 +114,30 @@ def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = 
 
     scaled = (value / _MILLION).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return f"{symbol}{_grouped(scaled)}m"
+
+
+def percentage(fraction: Decimal, *, in_table: bool = False) -> str:
+    """A fraction as a percentage, to one decimal place: ``0.137411`` is "13.7%".
+
+    Prose drops a trailing zero ("12%") and a table keeps it ("12.0%"), for the reason
+    :func:`_pure_reading` gives. The one rounding rule for every percentage the document
+    prints, so a figure named by its label and one named by its caller cannot differ.
+    """
+    scaled = (fraction * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return f"{scaled:.1f}%" if in_table else f"{_trimmed(scaled)}%"
+
+
+def points(difference: Decimal) -> str:
+    """A difference between two fractions, in percentage points: ``0.022`` is "2.2 percentage
+    points".
+
+    Never as a percentage: a margin of 44.2% against an assumed 42.0% is 2.2 points above
+    it, and "2.2%" would read as a relative change, which is a different and smaller claim.
+    A negative difference keeps its sign; a caller that says the direction in words passes
+    the size.
+    """
+    scaled = (difference * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return f"{_trimmed(scaled)} percentage points"
 
 
 def multiple(value: Decimal) -> str:
@@ -188,7 +227,8 @@ def _unit_reading(
         top, bottom = unit.split("/", 1)
         if top.upper() in _SYMBOLS and bottom.strip().lower() in {"share", "shares"}:
             symbol = _SYMBOLS[top.upper()]
-            return f"{symbol}{_grouped(number.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))}"
+            # Always to the cent, for the reason `money` gives (§3.19 item 82).
+            return f"{symbol}{number.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):,.2f}"
         return None
 
     if code in _SYMBOLS or (len(code) == _ISO_CODE_LENGTH and code.isalpha() and code != "GBX"):
@@ -200,7 +240,7 @@ def _unit_reading(
     elif unit in {"%", "percent"}:
         reading = f"{_trimmed(number)}%"
     elif unit.lower() in {"pure", "ratio", ""}:
-        reading = _pure_reading(number, label=label)
+        reading = _pure_reading(number, label=label, in_table=in_table)
     return reading
 
 
@@ -331,7 +371,7 @@ def _unexplained(value: Decimal) -> str:
     return _trimmed(value.quantize(Decimal(1).scaleb(places), rounding=ROUND_HALF_UP))
 
 
-def _pure_reading(value: Decimal, *, label: str) -> str | None:
+def _pure_reading(value: Decimal, *, label: str, in_table: bool = False) -> str | None:
     """How a label's author would say a dimensionless number aloud, or ``None``.
 
     ``0.462`` labelled "operating margin" is "46.2%"; labelled "current ratio" it reads
@@ -345,11 +385,14 @@ def _pure_reading(value: Decimal, *, label: str) -> str | None:
     said ``0.789627518146``, the same figure in two notations with one of them storage.
     On the stored corpus this is 310 rows of ``terminal_value_share`` and 275 of
     ``discount_factor`` alone.
+
+    **A table keeps its decimal** (§3.19 item 82). Prose says "12%", and in a sentence that
+    reads as the number it is. In a column it sat as "12%" beside "46.8%", which reads as a
+    different precision from the row above.
     """
     lowered = f" {label.lower().replace('_', ' ')} "
     if any(word in lowered for word in _PERCENT_WORDS):
-        scaled = (value * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-        return f"{_trimmed(scaled)}%"
+        return percentage(value, in_table=in_table)
     if any(word in lowered for word in _TIMES_WORDS):
         return multiple(value)
     return None

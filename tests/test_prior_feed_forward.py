@@ -37,11 +37,12 @@ from aer.db.models import (
     SectionStatus,
     User,
 )
+from aer.render.document import NO_VIEW
 from aer.services import runs as run_service
 from aer.services.history import PriorDigest, prior_digest_for
 from aer.services.requests import mandate_read
 from aer.workflow.workflows.vertical_slice_v1 import _prior_research_note, plan_gate_payload
-from tests.report_fixtures import make_current
+from tests.report_fixtures import make_current, record_valuation
 from tests.workflow_fixtures import AS_OF_DATE, seed_job, seed_request, seed_user
 
 # -- Building a prior approved report --------------------------------------------------------
@@ -97,6 +98,11 @@ async def _approved_report(
         )
         await session.flush()
 
+    await record_valuation(
+        session,
+        job_id=job.id,
+        rows=(("gordon_growth", "base", "100"), ("exit_multiple", "base", "120")),
+    )
     content: dict[str, Any] = {"sections": []}
     report = Report(
         job_id=job.id,
@@ -105,9 +111,6 @@ async def _approved_report(
         as_of_date=as_of,
         rating=rating,
         confidence=0.6,
-        valuation_low=Decimal("100"),
-        valuation_high=Decimal("120"),
-        valuation_currency="USD",
         approved_by=user.id,
         approved_at=datetime.now(UTC),
         content=content,
@@ -153,11 +156,28 @@ class TestThePriorDigest:
         newest = digests[0]
         assert newest.rating == "hold"
         assert newest.confidence == "60%"
-        assert newest.valuation_range == "100 to 120 USD per share"
+        # Read back from the run's own rows, by method (§3.19 item 76): the digest said
+        # "Valuation range: not recorded" of every prior the planner was ever shown.
+        assert newest.valuation == (
+            "$100.00 (perpetuity growth) and $120.00 (exit multiple) a share"
+        )
         assert newest.named_risks == ("FX exposure: Half of revenue is overseas.",)
         assert len(newest.catalyst_lines) == 1
         # The calendar judgement is already made; the model is never asked to date anything.
         assert "window has passed" in newest.catalyst_lines[0]
+
+    async def test_a_report_that_takes_no_side_says_so(
+        self, db_session: AsyncSession, owner: User
+    ) -> None:
+        """The masthead's words, where the digest said "none stated" (§3.19 item 83)."""
+        company = await _company(db_session)
+        await _approved_report(
+            db_session, user=owner, company=company, as_of=date(2021, 6, 30), rating=None
+        )
+
+        (digest,) = await prior_digest_for(db_session, company_id=company.id, before=AS_OF_DATE)
+
+        assert digest.rating == NO_VIEW
 
     async def test_the_as_of_bound_and_the_limit_hold(
         self, db_session: AsyncSession, owner: User
@@ -207,7 +227,7 @@ class TestThePriorDigest:
             "as_of_date",
             "rating",
             "confidence",
-            "valuation_range",
+            "valuation",
             "named_risks",
             "catalyst_lines",
         }
@@ -222,7 +242,7 @@ def _prior(**overrides: Any) -> PriorResearch:
         "as_of_date": "2021-06-30",
         "rating": "hold",
         "confidence": "60%",
-        "valuation_range": "100 to 120 USD per share",
+        "valuation": "$100.00 (perpetuity growth) and $120.00 (exit multiple) a share",
         "named_risks": ["FX exposure: Half of revenue is overseas."],
         "catalyst_lines": ["FY2021 results (expected 2021-07-27) — window passed."],
     }
@@ -264,6 +284,9 @@ class TestThePlannerComposition:
         assert 'tier="not_evidence"' in message
         assert 'title="Prior approved research, as of 2021-06-30"' in message
         assert "Non-binding view: hold (confidence 60%)" in message
+        assert (
+            "Valuation: $100.00 (perpetuity growth) and $120.00 (exit multiple) a share" in message
+        )
         assert "FX exposure" in message
 
         composed = agent.composed_system_prompt(payload)

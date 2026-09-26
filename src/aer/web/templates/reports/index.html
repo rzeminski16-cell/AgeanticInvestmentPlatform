@@ -65,7 +65,7 @@
           <thead class="border-b border-line-strong text-left">
             <tr>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">Conclusion</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Valuation range</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">What each method gives</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">As of</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">Produced</th>
               <th scope="col" class="px-4 py-3 type-label text-ink-muted">State</th>
@@ -86,12 +86,11 @@
                   >{{ row.report.rating or "Takes no side" }}</a>
                 </th>
                 <td class="px-4 py-3 type-data-sm text-ink">
-                  {% if row.report.valuation_low is not none and row.report.valuation_high is not none %}
-                    {{ row.report.valuation_low }}&ndash;{{ row.report.valuation_high }}
-                    {{ row.report.valuation_currency or "" }}
-                  {% else %}
-                    &mdash;
-                  {% endif %}
+                  {#
+                    Two answers named by method, never a range between them (ADR 0132), and
+                    read back from the run's own rows (§3.19 item 76).
+                  #}
+                  {% if row.valuation_display %}{{ row.valuation_display }}{% else %}&mdash;{% endif %}
                 </td>
                 <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.as_of_date.isoformat() }}</td>
                 <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.created_at.date().isoformat() }}</td>

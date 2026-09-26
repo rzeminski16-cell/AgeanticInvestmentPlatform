@@ -117,6 +117,7 @@ from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
 from aer.services.mandate import mandate_of
 from aer.services.preview import terminal_check
+from aer.services.report_valuation import valuations_for
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -3257,6 +3258,9 @@ async def reports_index(
         spend_by_job = {
             job_id: Decimal(total) for job_id, total in totals.tuples() if total is not None
         }
+    # And what each report's run gave, by method, read back from its own rows in one query
+    # (§3.19 item 76): the column this reads used to be a pair of fields nothing wrote.
+    valuations = await valuations_for(session, job_ids)
 
     groups: dict[str, dict[str, Any]] = {}
     for report, req in rows:
@@ -3273,6 +3277,9 @@ async def reports_index(
                     figures.pounds(spend_by_job[report.job_id])
                     if report.job_id in spend_by_job
                     else None
+                ),
+                "valuation_display": (
+                    valuations[report.job_id].spoken() if report.job_id in valuations else None
                 ),
             }
         )

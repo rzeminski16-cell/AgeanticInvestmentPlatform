@@ -192,7 +192,8 @@ record is [`remeasure-2026-09/`](remeasure-2026-09/README.md).
   the measurement.
 - **Found and fixed the same day.** Three defects, all in deterministic code: items 78, 79
   and 80. One was F2's own: a lever that argued against its case.
-- **Found and not fixed.** Items 81 to 83, all presentation.
+- **Found and not fixed.** Items 81 to 83, all presentation. *Items 82 and 83 were fixed on
+  26 September with item 76. Item 81 changes an evidence policy, and waits on the operator.*
 - **The cost.** £28.15 against the ~£21 approved. The second AZN run is the difference. The
   audit ledger reads £106.58 of its £125.
 - **ADR 0115 decision 4's other half.** The evidence is in: every approved report left seven
@@ -3094,8 +3095,29 @@ found rather than as scope that was always there.
     Filling them at approval is small. But the columns' shape is the range ADR 0132 took off
     the masthead: a low and a high with no method attached. Writing them as they stand would
     put the contradiction back on four surfaces. The fix is to store the base case's two
-    figures by method and have those surfaces print both, named. Not started. It sits with the
-    claim work (running order step 4), because none of it changes what a run does.
+    figures by method and have those surfaces print both, named. It sat with the claim work
+    (running order step 4), because none of it changes what a run does.
+
+    **Fixed 26 September 2026, by reading the figures rather than copying them.** They were
+    already stored: the base case's own per-share rows, one per terminal method, each with its
+    formula, inputs and code version. A copy on the report row would have been a second source
+    for one number.
+    - **One reader.** `aer.services.report_valuation` reads the rows back for a discounted cash
+      flow's two methods and a bank's two treatments of residual income. It takes the base
+      case only: a grid cell, a scenario and an argued lever strike the same names.
+    - **Every surface above prints both answers, named,** in the masthead's words: *"$222.34
+      (perpetuity growth) and $411.23 (exit multiple) a share"*. So do the API and the vault's
+      notes. The company page's chart draws a line per method, never a bar between them.
+      All ten approved reports in the store read back both answers, M&T's included.
+    - **The comparison section's current column** read `value_per_share` alone, so it said
+      *"Not computed"* of every bank's valuation. It reads the same rows as the prior column
+      now.
+    - **The comparison's assumption rows** printed stored decimals: *"Realised 0.064; delta
+      -0.026"*. They now say a rate as a percentage and a miss in percentage points, with its
+      direction in words: *"Realised 6.4%, 2.6 percentage points below the assumption"*.
+    - **Migration 0091** drops the four columns and their two checks. It refuses if any report
+      holds a figure there, since nothing wrote them and a figure found there was put in by
+      hand. None does.
 
 77. **Every approved report quotes the sensitivity grid as though it were the base case, 25
     September 2026.** Found while designing F2's levers, from one line of the verdict round's
@@ -3165,9 +3187,17 @@ found rather than as scope that was always there.
     trailing zeros, so a value per share of $307.998 prints "$308" beside "$431.55" in the
     same column. A ratio of 0.1200 prints "12%" beside "46.8%". It is house style for prose.
     In a table it reads as a different precision.
+    **Fixed 26 September 2026.** Money below a million, which is every value per share, prints
+    to the cent at least as well as at most: "$308.00" beside "$431.55". A percentage in a
+    table keeps its one decimal, "12.0%", and prose keeps the house style, "12%". The document
+    goldens moved by exactly that.
 83. **The comparison with prior research says "none stated", 25 September 2026.** Its
     *Non-binding view* row predates ADR 0135. The masthead says the report takes no side, and
     the comparison should say the same.
+    **Fixed 26 September 2026.** The comparison has no view row and no confidence row. Nothing
+    writes either field, so both rows could only say "none stated" on both sides. The company
+    page, the vault's company notes and the planner's digest of prior research now use the
+    masthead's words, *"none — this report takes no side"*, where they said "none stated".
 
 ### Before this leaves one machine
 

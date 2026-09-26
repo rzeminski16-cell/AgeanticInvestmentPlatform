@@ -42,9 +42,11 @@ __all__ = [
     "ASSUMPTION_WORDS",
     "EXPECTED_UNIT",
     "PLAUSIBLE_RANGE",
+    "RATE_ASSUMPTIONS",
     "UNIT_CHOICES",
     "assumption_words",
     "expected_unit",
+    "is_rate",
     "scale_complaint",
     "unit_complaint",
 ]
@@ -114,6 +116,37 @@ test, so a name the form learns is a name a sentence can say."""
 
 # A per-year driver path — ``ebit_margin_y3`` — is its flat name and a year.
 _PER_YEAR: Final = re.compile(r"^(?P<name>[a-z][a-z0-9_]*?)_y(?P<year>[1-9][0-9]*)$")
+
+RATE_ASSUMPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "revenue_growth",
+        "ebit_margin",
+        "capex_intensity",
+        "depreciation_intensity",
+        "working_capital_intensity",
+        "tax_rate",
+        "terminal_growth",
+        "risk_free_rate",
+        "equity_risk_premium",
+        "cost_of_debt",
+        "target_debt_weight",
+        "return_on_equity",
+        "payout_ratio",
+    }
+)
+"""The assumptions that are rates or shares of a whole, and read as percentages.
+
+The others are not: an exit multiple of 12 means twelve times, and a beta of 1.15 is a
+coefficient. Held here rather than beside the gate that first needed it, because the report
+states the same assumptions (the prior comparison's *"Confirmed at …"*) and neither layer
+may import the other. A label is no guide: "payout ratio" reads as times by its last word,
+and 0.35 printed as a multiple is the platform stating something untrue about the number."""
+
+
+def is_rate(name: str) -> bool:
+    """Whether an assumption, or the flat name of a per-year path, reads as a percentage."""
+    per_year = _PER_YEAR.match(name)
+    return (per_year["name"] if per_year is not None else name) in RATE_ASSUMPTIONS
 
 
 def assumption_words(name: str) -> str | None:

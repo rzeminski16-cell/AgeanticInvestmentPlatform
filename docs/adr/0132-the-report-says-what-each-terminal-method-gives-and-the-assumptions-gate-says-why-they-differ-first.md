@@ -131,3 +131,25 @@ operator stated one. The operator has since decided that the report states no vi
 the line now reads *"Non-binding view: none — this report takes no side"*. The words say the
 report declines by design, rather than that a view is missing. The first line, what each
 method gives, is unchanged.
+
+## The other surfaces, 26 September 2026 (ROADMAP §3.19 items 76, 82 and 83)
+
+The words above reached the prior-comparison row, but the surfaces that showed a *prior*
+report's valuation read `reports.valuation_low`, `valuation_high` and `valuation_currency`,
+and nothing ever wrote them. Every one printed *"not recorded"* or a dash: the reports list,
+the company page's chart and card, the planner's digest, the vault's notes, the API, and the
+comparison's prior column. Their shape was also this record's range, a low and a high with no
+method attached.
+
+The columns are dropped (migration 0091) rather than filled. A report's valuation is its run's
+base-case per-share rows, which already carry their formula, inputs and code version, and
+`aer.services.report_valuation` reads them back for every surface. Each surface now says what
+this record's masthead says: *"$222.34 (perpetuity growth) and $411.23 (exit multiple) a
+share"*. A bank's two treatments of residual income are read the same way. The comparison row
+had said *"Not computed"* of every bank. The company page's chart draws one line per method.
+
+The comparison row quoted above now reads in the currency's notation and to the cent, *"$265.00
+(perpetuity growth) and $241.50 (exit multiple) a share"*, as every other surface does. Its view
+and confidence rows are gone. The report takes no side (ADR 0135) and nothing writes either
+field, so both rows could only say *"none stated"* on both sides. The company page, the digest
+and the vault say *"none — this report takes no side"* where they said *"none stated"*.

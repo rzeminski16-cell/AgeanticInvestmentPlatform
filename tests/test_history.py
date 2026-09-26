@@ -16,10 +16,9 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.charts import ValuationHistoryInput, ValuationRangePoint, valuation_history
+from aer.charts import ValuationHistoryInput, ValuationPoint, valuation_history
 from aer.core.enums import JobStatus, UserRole
 from aer.db.models import (
-    Calculation,
     Company,
     Job,
     Report,
@@ -38,7 +37,7 @@ from aer.services.history import (
     prior_risks_for,
     timing_deadline,
 )
-from tests.report_fixtures import make_current
+from tests.report_fixtures import make_current, record_valuation
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
@@ -95,12 +94,19 @@ async def _approved_report(
     as_of: date,
     rating: str | None = None,
     confidence: float | None = None,
-    low: str | None = None,
-    high: str | None = None,
+    values: tuple[str, str] | None = None,
     catalysts: list[dict[str, Any]] | None = None,
     risks: list[dict[str, Any]] | None = None,
 ) -> Report:
     job = await _job(session, request_id=request.id)
+    if values is not None:
+        # The report's valuation is its run's base-case rows, one per terminal method, and
+        # nothing on the report row (§3.19 item 76).
+        await record_valuation(
+            session,
+            job_id=job.id,
+            rows=(("gordon_growth", "base", values[0]), ("exit_multiple", "base", values[1])),
+        )
     if catalysts is not None:
         session.add(
             ReportSection(
@@ -130,9 +136,6 @@ async def _approved_report(
         as_of_date=as_of,
         rating=rating,
         confidence=confidence,
-        valuation_low=Decimal(low) if low is not None else None,
-        valuation_high=Decimal(high) if high is not None else None,
-        valuation_currency="USD" if low is not None else None,
         content={"markdown": "prior"},
         content_hash="a" * 64,
         approved_at=APPROVED_AT,
@@ -161,8 +164,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         as_of=date(2021, 6, 30),
         rating="Cautious (non-binding)",
         confidence=0.55,
-        low="180",
-        high="220",
+        values=("180", "220"),
         catalysts=[
             {
                 "label": "Cloud contract renewal",
@@ -190,8 +192,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         request=second_request,
         company=company,
         as_of=date(2021, 12, 31),
-        low="200",
-        high="240",
+        values=("200", "240.5"),
         catalysts=[],
         risks=[],
     )
@@ -290,15 +291,17 @@ class TestTheComparisonSection:
         assert all(comparison["prior_report_id"] for comparison in comparisons)
 
         by_aspect = {comparison["aspect"]: comparison for comparison in comparisons}
-        # The headline aspects compare against the most recent prior.
-        assert by_aspect["Valuation"]["prior"] == "200 to 240 USD per share"
-        assert by_aspect["Valuation"]["prior_report_id"] == str(scene["newer"].id)
-        # Neither a view nor a confidence is stated when the section is written, and the
-        # rows say so rather than promising one "at this run's approval" (ADR 0132).
-        assert by_aspect["Non-binding view"]["current"] == (
-            "none stated when this section was written"
+        # The headline aspect compares against the most recent prior, whose valuation is
+        # read back from its run's own rows by method (§3.19 item 76) — where it read "not
+        # recorded" on every report, because the columns it read were written by nothing.
+        assert by_aspect["Valuation"]["prior"] == (
+            "$200.00 (perpetuity growth) and $240.50 (exit multiple) a share"
         )
-        assert by_aspect["Confidence"]["current"] == "not stated when this section was written"
+        assert by_aspect["Valuation"]["prior_report_id"] == str(scene["newer"].id)
+        # No row for a view or a confidence: the report takes no side (ADR 0135), and the
+        # two rows could only ever say "none stated" on both sides (§3.19 item 83).
+        assert "Non-binding view" not in by_aspect
+        assert "Confidence" not in by_aspect
         # The older report's catalysts and risks still walk in, with their own id.
         assert by_aspect["Catalyst — Cloud contract renewal"]["prior_report_id"] == str(
             scene["older"].id
@@ -310,38 +313,67 @@ class TestTheComparisonSection:
         self, scene: dict[str, Any]
     ) -> None:
         session: AsyncSession = scene["session"]
-        for sequence, (method, case, value) in enumerate(
-            (
+        await record_valuation(
+            session,
+            job_id=scene["new_job"].id,
+            rows=(
                 ("gordon_growth", "base", "265.00"),
                 ("exit_multiple", "base", "241.50"),
-                # A scenario's number: the base-case range must not absorb it.
+                # A scenario's, a grid cell's and an argued lever's numbers: none of them is
+                # the report's answer, and each strikes the same row name.
                 ("gordon_growth", "bull", "999.00"),
-            )
-        ):
-            session.add(
-                Calculation(
-                    job_id=scene["new_job"].id,
-                    name="value_per_share",
-                    formula="value per share = equity value / shares outstanding",
-                    function_ref="aer.calc.dcf:value_per_share",
-                    code_version="historycode1234",
-                    inputs=[],
-                    parameters={"method": method, "case": case},
-                    output_value=Decimal(value),
-                    output_unit="USD/share",
-                    sequence=sequence,
-                )
-            )
-        await session.flush()
+                ("exit_multiple", "sensitivity", "888.00"),
+                ("gordon_growth", "argued", "777.00"),
+            ),
+        )
 
         content = await prior_comparison_content(
             session, job_id=scene["new_job"].id, request=scene["new_request"]
         )
         by_aspect = {row["aspect"]: row for row in content["comparisons"]}
         # Each figure named by its method, in the report's order, and never a range: the
-        # valuation section says the two are two answers (ADR 0132).
+        # valuation section says the two are two answers (ADR 0132). In the currency's own
+        # notation and to the cent, as the prior column beside it (§3.19 items 76 and 82).
         assert by_aspect["Valuation"]["current"] == (
-            "265 (perpetuity growth) and 241.5 (exit multiple) USD/share"
+            "$265.00 (perpetuity growth) and $241.50 (exit multiple) a share"
+        )
+
+    async def test_a_banks_valuation_is_found_as_a_discounted_cash_flows_is(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """M&T's comparison said "Not computed" of the residual income the report printed.
+
+        The row read ``value_per_share`` alone, and a bank's answer is
+        ``residual_income_per_share``, told apart by its terminal treatment.
+        """
+        session: AsyncSession = scene["session"]
+        await record_valuation(
+            session,
+            job_id=scene["new_job"].id,
+            name="residual_income_per_share",
+            discriminator="treatment",
+            rows=(
+                ("fade_to_nothing", "base", "118.4"),
+                ("perpetual_growth", "base", "164.925"),
+            ),
+        )
+
+        content = await prior_comparison_content(
+            session, job_id=scene["new_job"].id, request=scene["new_request"]
+        )
+        by_aspect = {row["aspect"]: row for row in content["comparisons"]}
+        assert by_aspect["Valuation"]["current"] == (
+            "$118.40 (excess return competed away) and $164.93 (excess return in "
+            "perpetuity) a share"
+        )
+
+    async def test_a_run_that_has_not_valued_says_so(self, scene: dict[str, Any]) -> None:
+        content = await prior_comparison_content(
+            scene["session"], job_id=scene["new_job"].id, request=scene["new_request"]
+        )
+        by_aspect = {row["aspect"]: row for row in content["comparisons"]}
+        assert by_aspect["Valuation"]["current"] == (
+            "Not computed at the time this section was drafted."
         )
 
     async def test_the_registered_builder_delegates_to_the_service(
@@ -428,23 +460,46 @@ class TestTheComparisonSection:
         ]
 
 
+def _points() -> tuple[ValuationPoint, ...]:
+    return tuple(
+        ValuationPoint(as_of=as_of, method=method, value=Decimal(value), report=report)
+        for as_of, report, method, value in (
+            (date(2021, 6, 30), "first", "perpetuity growth", "180"),
+            (date(2021, 6, 30), "first", "exit multiple", "220"),
+            (date(2021, 12, 31), "second", "perpetuity growth", "200"),
+            (date(2021, 12, 31), "second", "exit multiple", "240.5"),
+            # A refresh on the same as-of date is a report of its own on the axis.
+            (date(2021, 12, 31), "refresh", "perpetuity growth", "201"),
+            (date(2021, 12, 31), "refresh", "exit multiple", "239"),
+        )
+    )
+
+
 class TestTheValuationHistoryChart:
     def test_it_is_byte_stable(self) -> None:
-        data = ValuationHistoryInput(
-            currency="USD",
-            points=(
-                ValuationRangePoint(as_of=date(2021, 6, 30), low=Decimal(180), high=Decimal(220)),
-                ValuationRangePoint(as_of=date(2021, 12, 31), low=Decimal(200), high=Decimal(240)),
-            ),
-        )
+        data = ValuationHistoryInput(currency="USD", points=_points())
         one = valuation_history(data, hashsalt="company-1")
         two = valuation_history(data, hashsalt="company-1")
         assert one.svg == two.svg
         assert one.exportable
         assert not one.placeholder
-        assert "2 approved report(s)" in one.caption
+        assert one.caption == (
+            "Value per share by method from 3 approved report(s), in as-of date order."
+        )
 
-    def test_no_recorded_ranges_render_the_placeholder(self) -> None:
+    def test_each_method_is_its_own_line_and_named(self) -> None:
+        """Two lines with a legend, never one bar from the low to the high (ADR 0132)."""
+        chart = valuation_history(
+            ValuationHistoryInput(currency="USD", points=_points()), hashsalt="company-1"
+        )
+        assert chart.title == "Valuation history"
+        assert "Perpetuity growth" in chart.svg
+        assert "Exit multiple" in chart.svg
+        # The latest value by each method is labelled where its line ends.
+        assert "201.00" in chart.svg
+        assert "239.00" in chart.svg
+
+    def test_no_recorded_value_renders_the_placeholder(self) -> None:
         chart = valuation_history(ValuationHistoryInput(), hashsalt="company-1")
         assert chart.placeholder
-        assert "No approved report has recorded a valuation range" in chart.caption
+        assert "No approved report has recorded a value per share yet." in chart.caption

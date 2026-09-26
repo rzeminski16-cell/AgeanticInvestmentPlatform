@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import structlog
@@ -59,8 +60,9 @@ from aer.obsidian.notes import (
     render_note,
 )
 from aer.obsidian.vault import VaultWriter
+from aer.render.document import NO_VIEW
 from aer.services.decisions import ACTION_WORDS
-from aer.services.history import report_view
+from aer.services.report_valuation import ReportValuation, valuation_of
 from aer.services.thesis_monitor import predicate_sentence
 from aer.version import version
 
@@ -169,6 +171,7 @@ async def export_report(
             job=job,
             industry=graph.subject_industry,
             peer_ids=graph.subject_peer_ids,
+            valuation=await valuation_of(session, report.job_id),
         )
         written.extend(
             await _export_run(
@@ -189,6 +192,7 @@ async def export_report(
             _lone_company_generated(
                 request,
                 report,
+                valuation=lone.valuation,
                 company_name=company_name,
                 graph=graph,
                 stamp=stamp,
@@ -306,7 +310,7 @@ async def _export_run(
         base_currency=run.request.base_currency,
         rating=run.report.rating,
         confidence=run.report.confidence,
-        valuation=_valuation_dict(run.report),
+        valuation=_valuation_dict(run.valuation),
         horizon_months=run.request.investment_horizon_months,
         aliases=[f"{run.request.ticker} {run.request.work_order.as_of_date.isoformat()} research"],
         company_note=f"[[{company_title}]]",
@@ -480,7 +484,7 @@ def _company_generated(
         body_lines = [
             f"# {title}",
             "",
-            f"Latest approved view: {latest.rating or 'none stated'} as of "
+            f"Latest approved view: {latest.rating or NO_VIEW}, as of "
             f"{latest.as_of_date.isoformat()}.",
             "",
             "## Approved runs",
@@ -529,12 +533,12 @@ def _company_generated(
 
 
 def _valuation_history_lines(runs: tuple[RunView, ...]) -> list[str]:
-    """One line per approved run, oldest first — the range as each run recorded it."""
+    """One line per approved run, oldest first — what each method gave, as the run recorded it."""
     lines = []
     for run in runs:
-        span = report_view(run.report).valuation_range
+        given = run.valuation.spoken()
         lines.append(
-            f"- {run.report.as_of_date.isoformat()} — {span} — [[{_run_note_title(run.request)}]]"
+            f"- {run.report.as_of_date.isoformat()} — {given} — [[{_run_note_title(run.request)}]]"
         )
     return lines
 
@@ -543,6 +547,7 @@ def _lone_company_generated(
     request: ResearchRequest,
     report: Report,
     *,
+    valuation: ReportValuation,
     company_name: str,
     graph: LinkGraph,
     stamp: datetime,
@@ -571,8 +576,7 @@ def _lone_company_generated(
     body_lines = [
         f"# {title}",
         "",
-        f"Latest approved view: {report.rating or 'none stated'} as of "
-        f"{report.as_of_date.isoformat()}.",
+        f"Latest approved view: {report.rating or NO_VIEW}, as of {report.as_of_date.isoformat()}.",
         "",
         "## Approved runs",
         "",
@@ -580,7 +584,7 @@ def _lone_company_generated(
         "",
         "## Valuation history",
         "",
-        f"- {report.as_of_date.isoformat()} — {report_view(report).valuation_range} — {run_link}",
+        f"- {report.as_of_date.isoformat()} — {valuation.spoken()} — {run_link}",
         "",
     ]
     if competitors:
@@ -1084,15 +1088,21 @@ def _source_relative(source: SourceDocument) -> str:
     return f"90-Sources/{_source_note_title(source)}.md"
 
 
-def _valuation_dict(report: Report) -> dict[str, Any] | None:
-    if report.valuation_low is None or report.valuation_high is None:
+def _valuation_dict(valuation: ReportValuation) -> dict[str, Any] | None:
+    """Each method's value per share, named, for the run note's properties.
+
+    A key per method rather than a low and a high, for the reason the report itself gives:
+    two terminal methods are two answers, not the ends of a range (ADR 0132). To the cent,
+    as the report prints them: the row stores twelve decimal places, and a property reading
+    "222.340000000000" is storage rather than a figure.
+    """
+    if not valuation.figures:
         return None
-    valuation: dict[str, Any] = {
-        "low": str(report.valuation_low),
-        "high": str(report.valuation_high),
-        "currency": report.valuation_currency,
-        "per": "share",
-    }
-    if report.valuation_base is not None:
-        valuation["base"] = str(report.valuation_base)
-    return valuation
+    properties: dict[str, Any] = {"currency": valuation.currency, "per": "share"}
+    properties.update(
+        {
+            figure.label: str(figure.value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            for figure in valuation.figures
+        }
+    )
+    return properties

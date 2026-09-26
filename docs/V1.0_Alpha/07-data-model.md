@@ -121,6 +121,14 @@ immutable · created_at`
 migration for the composed view; it needs code that fills them. `valuation_low/base/high` are
 likewise present.
 
+**Corrected 26 September 2026, by migration 0091** (ROADMAP §3.19 item 76). The four valuation
+columns are gone rather than filled. They were a low and a high with no method attached, the
+range ADR 0132 took off the masthead, and filling them would have made a second copy of numbers
+the run already records. What a report's run gave is its base case's own per-share rows, one
+per terminal method (a bank's two treatments of residual income, likewise), and
+`aer.services.report_valuation` reads them back for every surface that shows a report's
+valuation. `rating` and `confidence` stay, still unwritten: the report takes no side (ADR 0135).
+
 ### The rest, in one line each
 `portfolios` · `transactions` — the book, recomputed rather than stored.
 `risk_scenarios` · `risk_scenario_shocks` — the operator's stated shock (F12).

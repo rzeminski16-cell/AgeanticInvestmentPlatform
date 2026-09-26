@@ -49,6 +49,7 @@ from aer.services.history import (
     driver_accuracy_for,
     timing_deadline,
 )
+from aer.services.report_valuation import ReportValuation, valuations_for
 from aer.services.sectors import confirmed_classification
 
 __all__ = [
@@ -75,6 +76,8 @@ class RunView:
     job: Job
     industry: SectorProfile | None
     peer_ids: tuple[uuid.UUID, ...]
+    # What the run gave, by method, read back from its own rows (§3.19 item 76).
+    valuation: ReportValuation = field(default_factory=ReportValuation)
 
 
 @dataclass(frozen=True, slots=True)
@@ -393,7 +396,9 @@ async def _confirmed_industry(session: AsyncSession, job: Job) -> SectorProfile 
 
 async def _runs_for(session: AsyncSession, *, company_id: uuid.UUID) -> tuple[RunView, ...]:
     views: list[RunView] = []
-    for prior in reversed(await approved_reports_for(session, company_id=company_id)):
+    priors = list(reversed(await approved_reports_for(session, company_id=company_id)))
+    valuations = await valuations_for(session, (prior.job_id for prior in priors))
+    for prior in priors:
         request = await session.get(ResearchRequest, prior.request_id)
         run_job = await session.get(Job, prior.job_id)
         if request is None or run_job is None:  # pragma: no cover -- FK-guaranteed rows
@@ -405,6 +410,7 @@ async def _runs_for(session: AsyncSession, *, company_id: uuid.UUID) -> tuple[Ru
                 job=run_job,
                 industry=await _confirmed_industry(session, run_job),
                 peer_ids=await _confirmed_peers(session, run_job),
+                valuation=valuations.get(prior.job_id, ReportValuation()),
             )
         )
     return tuple(views)

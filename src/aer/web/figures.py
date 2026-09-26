@@ -31,7 +31,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.config import HouseStyle
-from aer.core.assumption_scales import assumption_words
+from aer.core.assumption_scales import assumption_words, is_rate
 from aer.render import display
 from aer.services.overview import TypicalCost
 from aer.web.shell.provenance import Provenance, ProvenanceRef
@@ -628,28 +628,6 @@ def unmapped_queue(
     )
 
 
-# The assumptions stored as a fraction, where "0.025" means 2.5%. Named rather than
-# inferred, because the ones that are *not* fractions are the ones that matter: an exit
-# multiple of 12 means twelve times, and a beta of 1.15 is a coefficient. Rendering either
-# as a percentage would be the platform telling the operator something untrue about the
-# number it is asking them to agree to.
-_RATE_ASSUMPTIONS: Final[frozenset[str]] = frozenset(
-    {
-        "revenue_growth",
-        "ebit_margin",
-        "capex_intensity",
-        "depreciation_intensity",
-        "working_capital_intensity",
-        "tax_rate",
-        "terminal_growth",
-        "risk_free_rate",
-        "equity_risk_premium",
-        "cost_of_debt",
-        "target_debt_weight",
-    }
-)
-
-
 @dataclass(frozen=True, slots=True)
 class AssumptionFigure:
     """One assumption's value, as the gate shows it.
@@ -683,7 +661,9 @@ def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
     except (ArithmeticError, ValueError):
         return AssumptionFigure(shown=text, stored="")
 
-    if name in _RATE_ASSUMPTIONS:
+    # Named rather than inferred (`aer.core.assumption_scales.RATE_ASSUMPTIONS`): the ones
+    # that are *not* fractions are the ones that matter, and a label is no guide.
+    if is_rate(name):
         percentage = (quantity * 100).normalize()
         return AssumptionFigure(shown=f"{percentage:f}%", stored=text)
     plain = trimmed(quantity)

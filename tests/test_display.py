@@ -42,7 +42,16 @@ class TestMoney:
 
     def test_below_a_million_nothing_is_scaled(self) -> None:
         """Pretending $250,000 is "$0m" is not presentation."""
-        assert display.money(Decimal("250000"), "USD", style=STYLE) == "$250,000"
+        assert display.money(Decimal("250000"), "USD", style=STYLE) == "$250,000.00"
+
+    def test_below_a_million_reads_to_the_cent_at_least(self) -> None:
+        """ROADMAP §3.19 item 82: "$308" printed in the column beside "$431.55".
+
+        A value per share that rounds to a whole number of cents is still a figure to the
+        cent, and dropping the zeros made it read as a different precision.
+        """
+        assert display.money(Decimal("307.998"), "USD", style=STYLE) == "$308.00"
+        assert display.money(Decimal("431.55"), "USD", style=STYLE) == "$431.55"
 
     def test_below_a_million_reads_to_the_cent_at_most(self) -> None:
         """The ledger stores twelve decimal places; the valuation page showed them."""
@@ -57,6 +66,19 @@ class TestMoney:
 class TestScalar:
     def test_a_per_share_amount_keeps_its_pence(self) -> None:
         assert display.scalar("123.456", style=STYLE, unit="USD/shares") == "$123.46"
+
+    def test_a_per_share_amount_keeps_whole_cents(self) -> None:
+        """The priced tables' per-share unit, for the reason `money` gives (item 82)."""
+        assert display.scalar("307.998", style=STYLE, unit="USD/shares") == "$308.00"
+        assert display.scalar("1234", style=STYLE, unit="USD/shares") == "$1,234.00"
+
+    def test_a_table_percentage_keeps_its_decimal(self) -> None:
+        """Item 82: "12%" sat in a column beside "46.8%". Prose keeps saying "12%"."""
+        margin = {"label": "Operating margin", "value": "0.1200", "unit": "pure"}
+        assert display.cell(margin, "value", style=STYLE) == "12.0%"
+        assert display.scalar("0.1200", style=STYLE, unit="pure", label="Operating margin") == (
+            "12%"
+        )
 
     def test_a_margin_label_reads_as_a_percentage(self) -> None:
         assert display.scalar("0.462", style=STYLE, unit="pure", label="Operating margin") == (
@@ -270,3 +292,19 @@ class TestACalculationNameReadsLikeALabel:
             display.scalar("0.834130153416", style=STYLE, unit="pure", label="discount_factor")
             == "0.8341"
         )
+
+
+class TestAPercentageAndItsPoints:
+    """The two readings the prior comparison's assumption rows are said in (item 76)."""
+
+    def test_a_fraction_reads_to_one_decimal(self) -> None:
+        assert display.percentage(Decimal("0.137411")) == "13.7%"
+        assert display.percentage(Decimal("0.12")) == "12%"
+        assert display.percentage(Decimal("0.12"), in_table=True) == "12.0%"
+
+    def test_a_difference_reads_in_points_never_as_a_percentage(self) -> None:
+        """44.2% against an assumed 42.0% is 2.2 points above it, and "2.2%" would read
+        as a relative change: a different and smaller claim."""
+        assert display.points(Decimal("0.022")) == "2.2 percentage points"
+        assert display.points(Decimal("-0.026")) == "-2.6 percentage points"
+        assert display.points(Decimal("0.03")) == "3 percentage points"

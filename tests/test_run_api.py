@@ -74,6 +74,7 @@ from aer.web.pages import SETTLED_WITHOUT_COMMENT
 from aer.web.vocabulary import TRIGGER_KINDS
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
+from tests.report_fixtures import record_valuation
 from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
@@ -2126,15 +2127,17 @@ class TestTheHistorySurfaces:
             )
             session.add_all([approved_job, draft_job])
             await session.flush()
+            await record_valuation(
+                session,
+                job_id=approved_job.id,
+                rows=(("gordon_growth", "base", "180"), ("exit_multiple", "base", "220")),
+            )
 
             approved = Report(
                 job_id=approved_job.id,
                 request_id=committed["request"].id,
                 company_id=company.id,
                 as_of_date=committed["request"].work_order.as_of_date,
-                valuation_low=Decimal("180"),
-                valuation_high=Decimal("220"),
-                valuation_currency="USD",
                 content={"markdown": "approved"},
                 content_hash="c" * 64,
                 approved_at=datetime(2022, 1, 15, 10, 0, tzinfo=UTC),
@@ -2165,6 +2168,11 @@ class TestTheHistorySurfaces:
         assert ">Draft<" in page.text  # the work list shows drafts, badged
         assert f"/companies/{company_id}" in page.text
 
+        # What each method gives, named, from the run's own rows (§3.19 item 76): the
+        # column was headed "Valuation range" and printed a dash for every report.
+        assert "What each method gives" in page.text
+        assert "$180.00 (perpetuity growth) and $220.00 (exit multiple) a share" in page.text
+
         filtered = await api.get("/reports", params={"company": "zzz"})
         assert 'id="no-reports"' in filtered.text
 
@@ -2181,7 +2189,12 @@ class TestTheHistorySurfaces:
         assert page.text.count("as of 2") == 1
         assert 'id="valuation-history-chart"' in page.text
         assert "data:image/svg+xml;base64," in page.text
-        assert "180 to 220 USD per share" in page.text
+        assert (
+            "What each method gives: $180.00 (perpetuity growth) and $220.00 (exit multiple) "
+            "a share"
+        ) in page.text
+        # The report takes no side, in the masthead's words (§3.19 item 83).
+        assert "none — this report takes no side" in page.text
 
     async def test_the_history_api_serves_mine_and_refuses_theirs(
         self, api: Any, committed: dict, db_engine: Any, someone_elses_run: uuid.UUID
@@ -2193,6 +2206,15 @@ class TestTheHistorySurfaces:
         body = mine.json()
         assert body["ticker"] == "MSFT"
         assert [report["report_id"] for report in body["reports"]] == [str(approved_id)]
+        # A named answer per method, each with the calculation that recorded it — never a
+        # low and a high (§3.19 item 76).
+        valuation = body["reports"][0]["valuation"]
+        assert [(row["method"], row["currency"]) for row in valuation] == [
+            ("perpetuity growth", "USD"),
+            ("exit multiple", "USD"),
+        ]
+        assert [Decimal(row["value"]) for row in valuation] == [Decimal(180), Decimal(220)]
+        assert all(uuid.UUID(row["calculation_id"]) for row in valuation)
 
         # The other user's request created RIO on LSE; a company row for it is theirs,
         # not mine, and answers as if it did not exist.

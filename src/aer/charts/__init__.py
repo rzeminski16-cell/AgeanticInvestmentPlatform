@@ -43,7 +43,7 @@ from aer.charts.model import (
     SegmentRevenue,
     SeriesPoint,
     ValuationHistoryInput,
-    ValuationRangePoint,
+    ValuationPoint,
     ValueBand,
     svg_data_uri,
 )
@@ -65,7 +65,7 @@ __all__ = [
     "SegmentRevenue",
     "SeriesPoint",
     "ValuationHistoryInput",
-    "ValuationRangePoint",
+    "ValuationPoint",
     "ValueBand",
     "football_field",
     "football_field_with_comps",

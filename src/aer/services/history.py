@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Any, Final
@@ -24,7 +25,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.comps import Audience
-from aer.calc.dcf import TerminalMethod
 from aer.calc.engine import CalculationContext
 from aer.calc.outcomes import (
     MEASURABLE_DRIVERS,
@@ -34,9 +34,10 @@ from aer.calc.outcomes import (
 )
 from aer.calc.statements import StatementSet, assemble
 from aer.calc.units import Quantity, SourceRef
+from aer.config import HouseStyle
+from aer.core.assumption_scales import assumption_words, is_rate
 from aer.db.models import (
     Assumption,
-    Calculation,
     Company,
     Report,
     ReportSection,
@@ -44,9 +45,12 @@ from aer.db.models import (
     SectionStatus,
     WorkOrder,
 )
+from aer.render import display
+from aer.render.document import NO_VIEW
 from aer.services.analysis import annual_facts, quantities_of
 from aer.services.calculations import new_context, persist_context
 from aer.services.premise_outcomes import lookback_rows, premise_outcomes_for
+from aer.services.report_valuation import ReportValuation, valuation_of, valuations_for
 from aer.services.subject import name_of
 
 __all__ = [
@@ -65,6 +69,7 @@ __all__ = [
     "prior_comparison_content",
     "prior_digest_for",
     "prior_risks_for",
+    "report_views",
     "timing_deadline",
     "valuation_history_for",
 ]
@@ -90,16 +95,13 @@ class PriorReportView:
     as_of_date: date
     rating: str | None
     confidence: float | None
-    valuation_low: str | None
-    valuation_high: str | None
-    valuation_currency: str | None
+    # What the report's run gave, by method, read back from its own rows (§3.19 item 76).
+    valuation: ReportValuation = field(default_factory=ReportValuation)
 
     @property
-    def valuation_range(self) -> str:
-        if self.valuation_low is None or self.valuation_high is None:
-            return "not recorded"
-        currency = f" {self.valuation_currency}" if self.valuation_currency else ""
-        return f"{self.valuation_low} to {self.valuation_high}{currency} per share"
+    def valuation_text(self) -> str:
+        """Each method's answer, named, or "not recorded" — the line every surface prints."""
+        return self.valuation.spoken()
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,19 +161,21 @@ async def approved_reports_for(
     return list(await session.scalars(query))
 
 
-def report_view(report: Report) -> PriorReportView:
+def report_view(report: Report, valuation: ReportValuation | None = None) -> PriorReportView:
     return PriorReportView(
         report_id=report.id,
         job_id=report.job_id,
         as_of_date=report.as_of_date,
         rating=report.rating,
         confidence=report.confidence,
-        valuation_low=(_trim(report.valuation_low) if report.valuation_low is not None else None),
-        valuation_high=(
-            _trim(report.valuation_high) if report.valuation_high is not None else None
-        ),
-        valuation_currency=report.valuation_currency,
+        valuation=valuation if valuation is not None else ReportValuation(),
     )
+
+
+async def report_views(session: AsyncSession, reports: Sequence[Report]) -> list[PriorReportView]:
+    """Each report as history shows it, its valuation read in one query for them all."""
+    valuations = await valuations_for(session, (report.job_id for report in reports))
+    return [report_view(report, valuations.get(report.job_id)) for report in reports]
 
 
 # The states an assumption outcome can be in. Strings rather than an enum because they
@@ -420,7 +424,7 @@ class PriorDigest:
     as_of_date: date
     rating: str
     confidence: str
-    valuation_range: str
+    valuation: str
     named_risks: tuple[str, ...]
     catalyst_lines: tuple[str, ...]
 
@@ -439,10 +443,8 @@ async def prior_digest_for(
     conclusions — never an excerpt of evidence, which would invite citing it.
     """
     digests: list[PriorDigest] = []
-    for prior in (await approved_reports_for(session, company_id=company_id, before=before))[
-        :limit
-    ]:
-        view = report_view(prior)
+    priors = (await approved_reports_for(session, company_id=company_id, before=before))[:limit]
+    for prior, view in zip(priors, await report_views(session, priors), strict=True):
         catalyst_lines = tuple(
             f"{outcome.label} (expected {outcome.expected_timing}) — "
             f"{_CATALYST_STATUS[outcome.status]}"
@@ -456,11 +458,11 @@ async def prior_digest_for(
             PriorDigest(
                 report_id=prior.id,
                 as_of_date=prior.as_of_date,
-                rating=view.rating or "none stated",
+                rating=view.rating or NO_VIEW,
                 confidence=(
                     f"{view.confidence:.0%}" if view.confidence is not None else "not recorded"
                 ),
-                valuation_range=view.valuation_range,
+                valuation=view.valuation_text,
                 named_risks=risks,
                 catalyst_lines=catalyst_lines,
             )
@@ -473,7 +475,7 @@ async def valuation_history_for(
 ) -> list[PriorReportView]:
     """The approved reports oldest-first, for a chart whose x axis is time."""
     reports = await approved_reports_for(session, company_id=company_id)
-    return [report_view(report) for report in reversed(reports)]
+    return await report_views(session, list(reversed(reports)))
 
 
 # -- Reading a prior run's own sections back ---------------------------------------------------
@@ -628,28 +630,15 @@ async def prior_comparison_content(
             ),
         }
 
-    latest = report_view(priors[0])
+    (latest,) = await report_views(session, priors[:1])
+    # No row for a view or a confidence. A report takes no side (ADR 0135), and neither
+    # field is written by anything, so the two rows could only ever say "none stated" and
+    # "not recorded" on both sides — a table opening with two blanks reads as a report that
+    # lost something, when it was never there to lose (§3.19 item 83).
     comparisons: list[dict[str, str]] = [
         {
-            "aspect": "Non-binding view",
-            "prior": latest.rating or "none stated",
-            # A view is stated by the operator at approval, after this section is written,
-            # so the section can only say none is stated yet — never that one will be
-            # recorded, which it printed on every run whether or not one ever was.
-            "current": "none stated when this section was written",
-            "prior_report_id": str(latest.report_id),
-        },
-        {
-            "aspect": "Confidence",
-            "prior": (
-                f"{latest.confidence:.0%}" if latest.confidence is not None else "not recorded"
-            ),
-            "current": "not stated when this section was written",
-            "prior_report_id": str(latest.report_id),
-        },
-        {
             "aspect": "Valuation",
-            "prior": latest.valuation_range,
+            "prior": latest.valuation_text,
             "current": await _current_valuation(session, job_id=job_id),
             "prior_report_id": str(latest.report_id),
         },
@@ -747,26 +736,59 @@ def comparison_for_audience(content: dict[str, Any], audience: Audience) -> dict
 
 
 def _assumption_row(outcome: AssumptionOutcome) -> dict[str, str]:
-    """One outcome as a comparison row — the existing shape, so no contract changes."""
-    if outcome.status == MEASURED:
+    """One outcome as a comparison row — the existing shape, so no contract changes.
+
+    The figures are said as the report says them elsewhere: a rate as a percentage and its
+    miss in percentage points. The outcome keeps the stored decimals, which the driver
+    accuracy arithmetic reads; only the sentence is formatted.
+    """
+    if outcome.status == MEASURED and outcome.actual is not None and outcome.delta is not None:
         current = (
-            f"Realised {outcome.actual}; delta {outcome.delta} against the assumption "
-            f"({outcome.basis})."
+            f"Realised {_assumption_shown(outcome.name, outcome.actual)}, "
+            f"{_miss_shown(outcome.name, outcome.delta)} ({outcome.basis})."
         )
     else:
         current = outcome.basis[:1].upper() + outcome.basis[1:] + "."
+    words = assumption_words(outcome.name) or outcome.name.replace("_", " ")
     return {
-        "aspect": f"Assumption — {outcome.name.replace('_', ' ')}",
-        "prior": f"Confirmed at {outcome.assumed}, held flat across the forecast.",
+        "aspect": f"Assumption — {words}",
+        "prior": (
+            f"Confirmed at {_assumption_shown(outcome.name, outcome.assumed)}, "
+            "held flat across the forecast."
+        ),
         "current": current,
         "prior_report_id": str(outcome.prior_report_id or ""),
     }
 
 
-_METHOD_WORDS = {
-    TerminalMethod.GORDON_GROWTH.value: "perpetuity growth",
-    TerminalMethod.EXIT_MULTIPLE.value: "exit multiple",
-}
+def _assumption_shown(name: str, stated: str) -> str:
+    """An assumption's value as the report prints it: a rate as "13.7%", a coefficient plain.
+
+    By the assumption's name, never its label's words: "payout ratio" reads as times by its
+    last word, and a payout of 0.35 is 35%. `aer.core.assumption_scales` names the rates.
+    """
+    value = Decimal(stated)
+    if is_rate(name):
+        return display.percentage(value)
+    words = assumption_words(name) or name.replace("_", " ")
+    return display.figure(value, unit="pure", label=words, style=HouseStyle())
+
+
+def _miss_shown(name: str, stated: str) -> str:
+    """Where the realised figure landed against the assumed one, in the assumption's terms.
+
+    The recorded delta is realised minus assumed, and its sign is said as a word: "2.6
+    percentage points below the assumption" is the delta of -0.026, where a bare "-2.6"
+    beside a percentage would leave the reader to work out which was subtracted from which.
+    """
+    difference = Decimal(stated)
+    if difference == 0:
+        return "level with the assumption"
+    side = "above" if difference > 0 else "below"
+    size = abs(difference)
+    shown = display.points(size) if is_rate(name) else _assumption_shown(name, str(size))
+    return f"{shown} {side} the assumption"
+
 
 _CATALYST_STATUS = {
     "passed": "The stated window has passed by this run's as-of date.",
@@ -780,33 +802,17 @@ async def _current_valuation(session: AsyncSession, *, job_id: uuid.UUID) -> str
 
     Each figure is named by its method and the two are never a range: the valuation
     section says they are two answers, and this row said "241.5 to 265" in the same
-    document until ADR 0132. Absent rows mean the run has not valued the business (yet, or
-    at all), and the row says so rather than borrowing a number from anywhere else.
+    document until ADR 0132. Read by the same reader as the prior column
+    (`aer.services.report_valuation`), so the two columns say one thing in one notation —
+    and a bank's two treatments are found as a discounted cash flow's two methods are,
+    where this row said "Not computed" of a valuation the report printed two pages
+    earlier. Absent rows mean the run has not valued the business (yet, or at all), and
+    the row says so rather than borrowing a number from anywhere else.
     """
-    rows = list(
-        await session.scalars(
-            select(Calculation)
-            .where(Calculation.job_id == job_id, Calculation.name == "value_per_share")
-            .order_by(Calculation.created_at, Calculation.sequence)
-        )
-    )
-    found = []
-    for method in (TerminalMethod.GORDON_GROWTH, TerminalMethod.EXIT_MULTIPLE):
-        matching = [
-            row
-            for row in rows
-            if str(row.parameters.get("case", "base")) == "base"
-            and str(row.parameters.get("method", "")) == method.value
-        ]
-        if matching:
-            found.append(matching[-1])
-    if not found:
+    valuation = await valuation_of(session, job_id)
+    if not valuation.figures:
         return "Not computed at the time this section was drafted."
-    shown = " and ".join(
-        f"{_trim(row.output_value)} ({_METHOD_WORDS[str(row.parameters['method'])]})"
-        for row in found
-    )
-    return f"{shown} {found[0].output_unit}"
+    return valuation.spoken()
 
 
 def _trim(value: Decimal) -> str:

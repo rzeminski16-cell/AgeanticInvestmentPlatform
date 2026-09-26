@@ -379,8 +379,14 @@ class TestTheComparisonSection:
         measured_row = next(
             row for row in content["comparisons"] if row["aspect"] == "Assumption — revenue growth"
         )
-        assert "0.064" in measured_row["current"]
-        assert "-0.026" in measured_row["current"]
+        # Said as the report says a rate everywhere else, and the miss in points with its
+        # direction in words (§3.19 item 76's comparison half): the row read "Realised 0.064;
+        # delta -0.026", two stored decimals in a sentence.
+        assert measured_row["prior"] == "Confirmed at 9%, held flat across the forecast."
+        assert measured_row["current"].startswith(
+            "Realised 6.4%, 2.6 percentage points below the assumption ("
+        )
+        assert "0.064" not in measured_row["current"]
 
         recorded = {
             row.name

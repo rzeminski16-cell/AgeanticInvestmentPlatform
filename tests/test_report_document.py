@@ -1388,8 +1388,9 @@ class TestThePeriodSeries:
         # cited twice keeps one marker, exactly as in prose.
         assert "| Revenue | $168,088m[^1] | $198,270m[^1] |" in rendered.markdown
         # A period the row does not carry is an em dash, never a blank that reads as
-        # zero — and the margin ratio reads as a percentage off the row's own label.
-        assert "| Operating margin | \N{EM DASH} | 42%[^2] |" in rendered.markdown
+        # zero — and the margin ratio reads as a percentage off the row's own label, to
+        # the one decimal every percentage in a column keeps (§3.19 item 82).
+        assert "| Operating margin | \N{EM DASH} | 42.0%[^2] |" in rendered.markdown
 
     def test_every_cell_resolves_to_its_own_citation(self) -> None:
         rendered = self._rendered()

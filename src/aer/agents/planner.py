@@ -143,7 +143,7 @@ class PriorResearch(BaseModel):
     as_of_date: str
     rating: str
     confidence: str
-    valuation_range: str
+    valuation: str
     named_risks: list[str] = Field(default_factory=list)
     catalyst_lines: list[str] = Field(default_factory=list)
 
@@ -316,7 +316,7 @@ def _digest_text(prior: PriorResearch) -> str:
     """One prior report as plain lines. Conclusions and their standing, never evidence."""
     lines = [
         f"Non-binding view: {prior.rating} (confidence {prior.confidence})",
-        f"Valuation range: {prior.valuation_range}",
+        f"Valuation: {prior.valuation}",
     ]
     if prior.named_risks:
         lines.append("Key risks named:")

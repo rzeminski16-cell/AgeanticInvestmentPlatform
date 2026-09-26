@@ -32,7 +32,7 @@ __all__ = [
     "SegmentRevenue",
     "SeriesPoint",
     "ValuationHistoryInput",
-    "ValuationRangePoint",
+    "ValuationPoint",
     "ValueBand",
     "svg_data_uri",
 ]
@@ -250,21 +250,27 @@ class PriceRelativeInput:
 
 
 @dataclass(frozen=True, slots=True)
-class ValuationRangePoint:
-    """One approved report's per-share range, on the day it was taken."""
+class ValuationPoint:
+    """One approved report's value per share by one method, on the day it was taken.
+
+    A point per method rather than a low and a high per report: two terminal methods give
+    two answers, and the range the chart used to draw is a claim neither makes (ADR 0132).
+    """
 
     as_of: date
-    low: Decimal
-    high: Decimal
-    label: str = ""
+    method: str
+    value: Decimal
+    # Which report the point belongs to. A report and its refresh can share an as-of date,
+    # and two reports are two places on the axis even when the calendar says one day.
+    report: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class ValuationHistoryInput:
-    """The company page's range-over-time chart. Own recorded figures only."""
+    """The company page's valuation-over-time chart. Own recorded figures only."""
 
     currency: str = ""
-    points: tuple[ValuationRangePoint, ...] = ()
+    points: tuple[ValuationPoint, ...] = ()
 
     @property
     def is_empty(self) -> bool:

@@ -46,8 +46,8 @@ A fixed thesis sentence with no figures in it.
 
 | Label | Value |
 |---|---|
-| Revenue CAGR | 18%[^3][^4] |
-| Revenue CAGR | 18%[^5][^4] |
+| Revenue CAGR | 18.0%[^3][^4] |
+| Revenue CAGR | 18.0%[^5][^4] |
 
 ### Mixed Notes
 

@@ -40,13 +40,14 @@ from starlette.status import (
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.charts import (
     ValuationHistoryInput,
-    ValuationRangePoint,
+    ValuationPoint,
     svg_data_uri,
     valuation_history,
 )
 from aer.core.enums import CatalystOutcomeKind, JobStatus, PremiseStatus, WatchCadence
 from aer.db.models import Company, Finding, Job, Report, Security
 from aer.errors import ValidationError
+from aer.render.document import NO_VIEW
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import company_record as record_service
 from aer.services import history as history_service
@@ -611,8 +612,11 @@ async def _report_row(
         }
     job = await session.get(Job, report.job_id)
     newest = history["timeline"][0] if history["timeline"] else None
+    # The masthead's two lines, in the masthead's words: what each method gives, and that
+    # the report takes no side (ADR 0135).
     view = (
-        f"Non-binding view: {newest.rating or 'none stated'}; valuation {newest.valuation_range}."
+        f"What each method gives: {newest.valuation_text}. Non-binding view: "
+        f"{newest.rating or NO_VIEW}."
         if newest is not None
         else "The report's view is on its own page."
     )
@@ -680,16 +684,17 @@ async def _history(session: DbSession, company: Company) -> dict[str, Any]:
     chart = valuation_history(
         ValuationHistoryInput(
             currency=next(
-                (view.valuation_currency for view in views if view.valuation_currency), ""
+                (view.valuation.currency for view in views if view.valuation.currency), ""
             ),
             points=tuple(
-                ValuationRangePoint(
+                ValuationPoint(
                     as_of=view.as_of_date,
-                    low=Decimal(view.valuation_low),
-                    high=Decimal(view.valuation_high),
+                    method=figure.label,
+                    value=figure.value,
+                    report=str(view.report_id),
                 )
                 for view in views
-                if view.valuation_low is not None and view.valuation_high is not None
+                for figure in view.valuation.figures
             ),
         ),
         hashsalt=str(company.id),

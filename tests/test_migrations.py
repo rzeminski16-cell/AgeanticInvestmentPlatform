@@ -403,3 +403,115 @@ class TestRoundTrip:
         asyncio.run(clear_report_sections())
         run_alembic(guard_url, "downgrade", "0049")
         run_alembic(guard_url, "upgrade", "head")
+
+
+class TestTheValuationColumnsGo:
+    def test_the_drop_refuses_while_a_report_holds_a_figure(self, database_url):
+        """Revision 0091 drops four columns nothing ever wrote (ROADMAP §3.19 item 76).
+
+        Nothing wrote them, so a figure found in one was put there by hand, and the drop
+        would delete it without a word. The upgrade refuses instead, and goes through once
+        the columns are empty; the downgrade gives the columns and their checks back.
+        """
+        guard_url = database_url.replace("/aer_test", "/aer_valuation_guard")
+
+        async def execute(statement: str, **values: object) -> list:
+            engine = create_async_engine(guard_url)
+            try:
+                async with engine.begin() as conn:
+                    result = await conn.execute(text(statement), values)
+                    return list(result) if result.returns_rows else []
+            finally:
+                await engine.dispose()
+
+        async def recreate() -> None:
+            base, _, name = guard_url.rpartition("/")
+            engine = create_async_engine(f"{base}/postgres", isolation_level="AUTOCOMMIT")
+            try:
+                async with engine.connect() as conn:
+                    await conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+                    await conn.execute(text(f'CREATE DATABASE "{name}"'))
+            finally:
+                await engine.dispose()
+
+        async def seed_a_valued_report() -> None:
+            ((user,),) = await execute(
+                "INSERT INTO users (email, display_name) "
+                "VALUES ('valuation@example.invalid', 'Valuation') RETURNING id"
+            )
+            ((request,),) = await execute(
+                "INSERT INTO work_orders (user_id, as_of_date) "
+                "VALUES (:user, DATE '2026-01-01') RETURNING id",
+                user=user,
+            )
+            await execute(
+                "INSERT INTO research_requests (id, company_name, ticker, exchange, "
+                "base_currency, investment_horizon_months) "
+                "VALUES (:id, 'Guard plc', 'GRD', 'LSE', 'GBP', 12)",
+                id=request,
+            )
+            ((job,),) = await execute(
+                "INSERT INTO jobs (work_order_id, workflow_version, code_version) "
+                "VALUES (:id, 'vertical_slice_v1', 'test') RETURNING id",
+                id=request,
+            )
+            await execute(
+                "INSERT INTO reports (job_id, request_id, as_of_date, content_hash, "
+                "valuation_low, valuation_high, valuation_currency) "
+                "VALUES (:job, :request, DATE '2026-01-01', repeat('a', 64), 180, 220, 'GBP')",
+                job=job,
+                request=request,
+            )
+
+        async def valuation_columns() -> set[str]:
+            rows = await execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'reports' AND column_name LIKE 'valuation%'"
+            )
+            return {name for (name,) in rows}
+
+        async def valuation_checks() -> set[str]:
+            rows = await execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'reports'::regclass AND conname LIKE '%valuation%'"
+            )
+            return {name for (name,) in rows}
+
+        asyncio.run(recreate())
+        run_alembic(guard_url, "upgrade", "0090")
+        asyncio.run(seed_a_valued_report())
+        checks_before = asyncio.run(valuation_checks())
+        assert len(checks_before) == 2, checks_before
+
+        with pytest.raises(RuntimeError) as refusal:
+            run_alembic(guard_url, "upgrade", "0091")
+
+        message = str(refusal.value)
+        assert "1 report(s) hold a figure" in message, message
+        assert "set the four columns to NULL" in message, (
+            f"the refusal has to name the remedy, or it is only a stop: {message}"
+        )
+        assert asyncio.run(valuation_columns()) == {
+            "valuation_low",
+            "valuation_base",
+            "valuation_high",
+            "valuation_currency",
+        }
+
+        asyncio.run(
+            execute(
+                "UPDATE reports SET valuation_low = NULL, valuation_high = NULL, "
+                "valuation_currency = NULL"
+            )
+        )
+        run_alembic(guard_url, "upgrade", "0091")
+        # The columns and both checks are gone: Postgres drops a table constraint with a
+        # column it involves, whatever the database named it.
+        assert asyncio.run(valuation_columns()) == set()
+        assert asyncio.run(valuation_checks()) == set()
+
+        run_alembic(guard_url, "downgrade", "0090")
+        assert len(asyncio.run(valuation_columns())) == 4
+        # The checks come back under the names revision 0006 gave them, so a second trip
+        # down and up is the first one again.
+        assert asyncio.run(valuation_checks()) == checks_before

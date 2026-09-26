@@ -20,7 +20,6 @@ able to say so rather than being forced to pick one.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -30,7 +29,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
-    Numeric,
     String,
     Text,
     text,
@@ -77,10 +75,9 @@ class Report(Base):
     rating: Mapped[str | None] = mapped_column(String(32))
     confidence: Mapped[float | None] = mapped_column(Float)
 
-    valuation_low: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
-    valuation_base: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
-    valuation_high: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
-    valuation_currency: Mapped[str | None] = mapped_column(String(3))
+    # No valuation columns. What a report's run gave is its base case's recorded rows, one
+    # per terminal method, and `aer.services.report_valuation` reads them back: a copy here
+    # would be a second source for one number (migration 0091, ROADMAP §3.19 item 76).
 
     # -- The content ------------------------------------------------------------------------
 
@@ -180,16 +177,6 @@ class Report(Base):
         CheckConstraint(
             "(NOT immutable) OR (approved_at IS NOT NULL)",
             name="immutable_reports_were_approved",
-        ),
-        CheckConstraint(
-            "valuation_currency IS NULL OR char_length(valuation_currency) = 3",
-            name="valuation_currency_iso4217",
-        ),
-        # A range that runs backwards is a modelling error, and one that reaches a report
-        # would read as though the bear case were better than the bull.
-        CheckConstraint(
-            "valuation_low IS NULL OR valuation_high IS NULL OR valuation_low <= valuation_high",
-            name="valuation_range_runs_forwards",
         ),
         Index("ix_reports_request_id_as_of_date", "request_id", "as_of_date"),
     )

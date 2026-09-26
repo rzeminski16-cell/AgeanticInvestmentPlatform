@@ -415,44 +415,69 @@ def price_relative(data: PriceRelativeInput, *, hashsalt: str) -> Chart:
     )
 
 
-def valuation_history(data: ValuationHistoryInput, *, hashsalt: str) -> Chart:
-    """Approved per-share ranges over time — how the view moved between reports.
+# The method pair, checked with the dataviz skill's validator on the white chart surface:
+# the blue and the amber sit ΔE 19.2 apart under deuteranopia and 20.2 in normal vision, and
+# both clear 3:1 against white. The blue's chroma sits just under the checker's floor, so a
+# method's identity never rests on its colour alone: each series has its own marker and a
+# legend entry, and the latest value is labelled where its line ends. The accent navy leads
+# every other chart and is not used here, because the checker reads it as near-black.
+_METHOD_COLOURS: Final[tuple[str, ...]] = (PALETTE[2], PALETTE[1], PALETTE[3], PALETTE[4])
+_METHOD_MARKERS: Final[tuple[str, ...]] = ("o", "s", "^", "D")
 
-    Exportable: every band end is a figure from one of this account's own approved
-    reports. The caption names the population; the company page beside it lists the
-    reports themselves, so this chart carries no markers of its own.
+
+def valuation_history(data: ValuationHistoryInput, *, hashsalt: str) -> Chart:
+    """Each approved report's value per share, one line per method, over time.
+
+    Exportable: every point is a figure from one of this account's own approved reports,
+    the base case's recorded answer by one terminal method. Two methods are two lines,
+    never one bar between them: a range is a claim neither method makes (ADR 0132). The
+    company page beside the chart lists the reports themselves.
     """
-    key, title = "valuation_history", "Valuation range history"
+    key, title = "valuation_history", "Valuation history"
     if data.is_empty:
         return _placeholder(
             key=key,
             title=title,
-            message="No approved report has recorded a valuation range yet.",
+            message="No approved report has recorded a value per share yet.",
             hashsalt=hashsalt,
         )
+
+    reports = list(dict.fromkeys((point.as_of, point.report) for point in data.points))
+    place = {report: index for index, report in enumerate(reports)}
+    methods = list(dict.fromkeys(point.method for point in data.points))
 
     with pinned_context(hashsalt=hashsalt):
         figure = Figure(figsize=_SIZE)
         axis = figure.add_subplot()
-        positions = range(len(data.points))
-        for index, point in enumerate(data.points):
-            low, high = float(point.low), float(point.high)
-            axis.vlines(index, low, high, color=PALETTE[0], linewidth=6, alpha=0.85)
-            axis.text(
-                index,
-                high,
-                f" {point.high:.2f}",
-                ha="center",
-                va="bottom",
+        for index, method in enumerate(methods):
+            series = [point for point in data.points if point.method == method]
+            xs = [place[(point.as_of, point.report)] for point in series]
+            ys = [float(point.value) for point in series]
+            axis.plot(
+                xs,
+                ys,
+                color=_METHOD_COLOURS[index % len(_METHOD_COLOURS)],
+                linewidth=1.5,
+                marker=_METHOD_MARKERS[index % len(_METHOD_MARKERS)],
+                markersize=6,
+                label=f"{method[:1].upper()}{method[1:]}",
+            )
+            axis.annotate(
+                f"{series[-1].value:,.2f}",
+                (xs[-1], ys[-1]),
+                xytext=(7, 0),
+                textcoords="offset points",
+                va="center",
                 fontsize=7,
                 color=MUTED,
             )
-            axis.text(
-                index, low, f" {point.low:.2f}", ha="center", va="top", fontsize=7, color=MUTED
-            )
-        axis.set_xticks(list(positions), [point.as_of.isoformat() for point in data.points])
+        axis.set_xticks(list(range(len(reports))), [as_of.isoformat() for as_of, _ in reports])
         axis.set_ylabel(f"Value per share, {data.currency}" if data.currency else "Value per share")
-        axis.margins(y=0.18)
+        axis.margins(x=0.2, y=0.2)
+        # Wherever the lines leave room: a history that starts high on the left would sit
+        # under a legend pinned there. Placement reads only the data, so the bytes still
+        # repeat.
+        axis.legend(loc="best")
         axis.set_title(title)
 
     return Chart(
@@ -460,7 +485,7 @@ def valuation_history(data: ValuationHistoryInput, *, hashsalt: str) -> Chart:
         title=title,
         svg=render_svg(figure, hashsalt=hashsalt),
         caption=(
-            f"Per-share valuation ranges from {len(data.points)} approved report(s), "
+            f"Value per share by method from {len(reports)} approved report(s), "
             "in as-of date order."
         ),
     )

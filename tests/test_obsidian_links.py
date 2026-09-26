@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, date, datetime
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +46,7 @@ from aer.obsidian import (
 from aer.services import approvals as approval_service
 from aer.services.comps import PEER_SET_STEP, peer_set_payload
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
-from tests.report_fixtures import make_current
+from tests.report_fixtures import make_current, record_valuation
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
@@ -112,6 +111,12 @@ async def _report(
     markdown: str,
     approved_at: datetime | None,
 ) -> Report:
+    # The report's valuation is its run's own rows, one per method (§3.19 item 76).
+    await record_valuation(
+        session,
+        job_id=job.id,
+        rows=(("gordon_growth", "base", low), ("exit_multiple", "base", high)),
+    )
     report = Report(
         job_id=job.id,
         request_id=request.id,
@@ -119,9 +124,6 @@ async def _report(
         as_of_date=request.work_order.as_of_date,
         rating="Constructive (non-binding)",
         confidence=0.6,
-        valuation_low=Decimal(low),
-        valuation_high=Decimal(high),
-        valuation_currency="USD",
         content={"markdown": markdown},
         content_hash="e" * 64,
         approved_at=approved_at,
@@ -656,8 +658,15 @@ class TestTheJournalStaysHonest:
 
         alpha_note = _note(settings, "10-Companies/ALPH - Alpha plc.md")
         assert "## Valuation history" in alpha_note.content
-        assert "- 2022-06-30 — 100 to 120 USD per share — [[2022-06-30 ALPH]]" in alpha_note.content
-        assert "- 2022-12-31 — 110 to 130 USD per share — [[2022-12-31 ALPH]]" in alpha_note.content
+        # Each method named, never a range (ADR 0132), read back from each run's rows.
+        assert (
+            "- 2022-06-30 — $100.00 (perpetuity growth) and $120.00 (exit multiple) a share "
+            "— [[2022-06-30 ALPH]]"
+        ) in alpha_note.content
+        assert (
+            "- 2022-12-31 — $110.00 (perpetuity growth) and $130.00 (exit multiple) a share "
+            "— [[2022-12-31 ALPH]]"
+        ) in alpha_note.content
 
     async def test_frontmatter_for_every_note_kind_validates(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings

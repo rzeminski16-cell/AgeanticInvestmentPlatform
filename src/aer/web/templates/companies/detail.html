@@ -248,10 +248,10 @@
               >
                 as of {{ view.as_of_date.isoformat() }}
               </a>
-              <span class="type-body text-ink">{{ view.rating or "none stated" }}</span>
+              <span class="type-body text-ink">{{ view.rating or "none — this report takes no side" }}</span>
             </div>
             <p class="mt-1 type-body-sm text-ink-muted">
-              Valuation: {{ view.valuation_range }}
+              What each method gives: {{ view.valuation_text }}
               {% if view.confidence is not none %}
                 &middot; confidence {{ "%.0f%%" | format(view.confidence * 100) }}
               {% endif %}
