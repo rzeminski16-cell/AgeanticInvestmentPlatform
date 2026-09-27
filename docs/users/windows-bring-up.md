@@ -49,7 +49,7 @@ day, in order. [Getting started](getting-started.md) has the detail behind each 
 ## 2. Clone and configure
 
 ```powershell
-git clone https://github.com/rzeminski16-cell/AgeanticInvestmentPlatform.git
+git clone --branch claude/v1-0-dev-plan-h1ege7 https://github.com/rzeminski16-cell/AgeanticInvestmentPlatform.git
 cd AgeanticInvestmentPlatform
 uv python install 3.12
 uv sync --all-groups
@@ -57,6 +57,16 @@ copy .env.example .env      # then fill in the five variables above
 docker compose up -d
 docker compose ps           # both healthy
 ```
+
+- [ ] **Clone the branch, not `main`.** *(27 September 2026.)* V1.0 is on
+      `claude/v1-0-dev-plan-h1ege7` until it is merged. `main` is 138 commits behind: it stops
+      at migration 0073 and cannot restore a backup taken at 0090. `uv run aer version` names
+      the commit you are on.
+- [ ] **Before 1 October, raise the month's budget.** *(27 September 2026.)* The restored
+      ledger already holds £84.45 of September's spend, and `.env.example`'s
+      `AER_MONTHLY_BUDGET_GBP=80.00` would refuse every model call until the month turns.
+      Set it to `110.00` for the rest of September: room for the timed run and a retry. From
+      1 October the default is enough. `preflight` in step 5 reads the month's room either way.
 
 ## 3. Prove the PDF renderer before you need it
 
@@ -111,7 +121,10 @@ uv run aer preflight
 - [ ] Every row of `preflight` reads ready. It checks the keys, the caps, the worker and every
       dependency a paid run needs, and it costs nothing.
 - [ ] <http://127.0.0.1:8000/reports> lists the restored reports, and one opens with its
-      footnotes resolving.
+      footnotes resolving. Walk a figure in AZN's or M&T's. *(27 September 2026.)* In
+      Microsoft's restored reports, 17 to 26 cited figures on the discount rate's chain stop
+      one row short of the filing: the defect ROADMAP §3.19 item 84 fixed for new runs. The
+      stored records keep it, and a fresh run has none.
 
 ## 6. The acceptance: your own timed first run
 
