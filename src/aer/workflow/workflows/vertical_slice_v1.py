@@ -1677,8 +1677,9 @@ async def valuation_basis(
     sector_key = sector_key_of(outputs)
 
     # Recomputed rather than re-read, for the reason `_propose_assumptions` gives: the
-    # analysis object lives only inside `calculate`. This ledger is never persisted, so the
-    # run's calculations are still recorded exactly once.
+    # analysis object lives only inside `calculate`. This ledger is not persisted whole; a
+    # step that strikes over its figures persists the few rows it cites beside its own,
+    # through `AnalysisOutcome.ledger` (§3.19 item 84), so its walks reach the filings.
     analysis = await analyse_company(
         session,
         calculation_service.new_context(),
@@ -1784,7 +1785,11 @@ async def _comps(context: StepContext) -> StepResult:
     )
 
     if ledger.records:
-        await calculation_service.persist_context(context.session, ledger, job_id=context.job.id)
+        # With the rows of the recomputed analyses the table cites, the subject's and each
+        # peer's (§3.19 item 84): an EBITDA or a net debt struck over a subtotal walks to it.
+        await calculation_service.persist_context(
+            context.session, ledger, job_id=context.job.id, read_from=outcome.read_from
+        )
 
     return StepResult(output=outcome.as_dict())
 

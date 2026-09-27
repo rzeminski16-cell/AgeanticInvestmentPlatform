@@ -3236,6 +3236,20 @@ found rather than as scope that was always there.
       - Give a calculation an id derived from what it computed, so a recomputed subtotal
         *is* the recorded one. That needs an ADR and changes how every row is keyed.
 
+    **Fixed 27 September 2026, the first way, on the operator's choice (ADR 0068, amended).**
+    - `persist_context` takes the ledgers a ledger read (`read_from`) and writes the rows
+      it cites from them first, beside it, through any number of steps. A subtotal is
+      recorded twice with one value; a row the store already holds is not written again.
+    - It refuses a citation found nowhere, so a step that forgets `read_from` stops at the
+      persist rather than shipping a broken walk.
+    - The value step, the bank's valuation, the comparables (the subject and each peer),
+      the cases' levers and Ask pass the analysis they read, through
+      `AnalysisOutcome.ledger`.
+    - `tests/test_cited_rows_are_recorded.py` holds it on a company whose debt is filed in
+      two parts, as MSFT's is. Before the fix, the test finds the valuation citing the two
+      unrecorded subtotals.
+    - The approved reports keep the walks they have. Runs from now on walk to the filings.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

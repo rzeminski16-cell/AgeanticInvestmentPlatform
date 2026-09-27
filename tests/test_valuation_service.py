@@ -20,6 +20,7 @@ from sqlalchemy import select, text
 
 from aer.calc.dcf import BridgeItem, GridAxis, GridMeasure, TerminalMethod
 from aer.calc.units import Quantity, SourceKind, SourceRef, money
+from aer.calc.wacc import EquityBasis, wacc_all_equity
 from aer.core.enums import UserRole
 from aer.core.sectors import ValuationModel, unclassified_mandate
 from aer.db.models import (
@@ -31,6 +32,7 @@ from aer.db.models import (
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
 from aer.services import valuation as valuation_service
+from aer.services.calculations import new_context, persist_context
 from aer.services.valuation import MissingAssumptionError, inputs_from
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
@@ -81,7 +83,30 @@ async def scene(db_session: Any) -> dict[str, Any]:
     await db_session.flush()
 
     job = await seed_job(db_session, request=request)
-    return {"request": request, "job": job, "analyst": analyst}
+    return {
+        "request": request,
+        "job": job,
+        "analyst": analyst,
+        "wacc": await _discount_rate(db_session, job_id=job.id),
+    }
+
+
+async def _discount_rate(session: Any, *, job_id: uuid.UUID) -> Quantity:
+    """The discount rate, struck and recorded before a valuation reads it.
+
+    Computed elsewhere and passed in, as the value step computes it, and recorded, because
+    every valuation row that discounts cites it and a citation of a row nobody wrote is
+    refused (ROADMAP §3.19 item 84). All equity, so it is one row.
+    """
+    ledger = new_context()
+    rate = wacc_all_equity(
+        ledger,
+        cost_of_equity=Quantity.of(Decimal("0.10"), source=SourceRef.assumption("ke")),
+        equity_weight=Quantity.of(Decimal(1), source=SourceRef.assumption("we")),
+        equity_basis=EquityBasis.BOOK,
+    )
+    await persist_context(session, ledger, job_id=job_id)
+    return rate
 
 
 async def confirm_all(session: Any, scene: dict[str, Any], **overrides: str) -> None:
@@ -104,13 +129,13 @@ def usd(value: str) -> Quantity:
     return money(value, "USD", source=FACT)
 
 
-def facts() -> dict[str, Any]:
+def facts(scene: dict[str, Any]) -> dict[str, Any]:
     """The balance-sheet figures a valuation needs alongside its assumptions."""
     return {
         "years": 5,
         "base_revenue": usd("1000"),
         "opening_working_capital": usd("100"),
-        "wacc": Quantity.of(Decimal("0.10"), source=SourceRef.calculation("wacc-1", label="wacc")),
+        "wacc": scene["wacc"],
         "net_debt": usd("400"),
         "shares_outstanding": Quantity.of(Decimal("100"), "shares", source=FACT),
         "non_operating": (),
@@ -125,7 +150,7 @@ class TestInputsFromAssumptions:
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         assert inputs.years == 5
         assert all(v.value == Decimal("0.050000000000") for v in inputs.revenue_growth.values)
@@ -147,7 +172,7 @@ class TestInputsFromAssumptions:
             )
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         assert [v.value for v in inputs.revenue_growth.values] == [
             Decimal("0.120000000000"),
@@ -179,7 +204,7 @@ class TestInputsFromAssumptions:
         with pytest.raises(
             MissingAssumptionError, match=r"EBIT margin driver .* year 3 missing"
         ) as hole:
-            inputs_from(values, **facts())
+            inputs_from(values, **facts(scene))
         assert hole.value.context["missing"] == "ebit_margin_y3"
 
     async def test_a_missing_driver_refuses_and_says_what_it_looked_for(self, db_session, scene):
@@ -188,7 +213,7 @@ class TestInputsFromAssumptions:
         del values["capex_intensity"]
 
         with pytest.raises(MissingAssumptionError, match="no default for any of them"):
-            inputs_from(values, **facts())
+            inputs_from(values, **facts(scene))
 
     async def test_a_missing_scalar_refuses(self, db_session, scene):
         await confirm_all(db_session, scene)
@@ -196,7 +221,7 @@ class TestInputsFromAssumptions:
         del values["terminal_growth"]
 
         with pytest.raises(MissingAssumptionError, match="needs the terminal growth,") as refusal:
-            inputs_from(values, **facts())
+            inputs_from(values, **facts(scene))
         assert refusal.value.context["missing"] == "terminal_growth"
 
     async def test_an_unconfirmed_driver_never_reaches_the_forecast(self, db_session, scene):
@@ -215,13 +240,13 @@ class TestInputsFromAssumptions:
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
         with pytest.raises(MissingAssumptionError, match="EBIT margin driver has no confirmed"):
-            inputs_from(values, **facts())
+            inputs_from(values, **facts(scene))
 
     async def test_every_driver_carries_its_assumption_source(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
 
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         for path in inputs.drivers:
             for value in path.values:
@@ -236,7 +261,7 @@ class TestRunningAValuation:
     async def test_every_calculation_is_persisted(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         result = await valuation_service.run_valuation(
             db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
@@ -256,7 +281,7 @@ class TestRunningAValuation:
         """The acceptance criterion, against the database rather than an in-memory ledger."""
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         result = await valuation_service.run_valuation(
             db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
@@ -272,7 +297,7 @@ class TestRunningAValuation:
     async def test_both_terminal_methods_are_stored(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         await valuation_service.run_valuation(
             db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
@@ -294,7 +319,7 @@ class TestRunningAValuation:
     async def test_the_terminal_share_is_stored_on_every_run(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         await valuation_service.run_valuation(
             db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
@@ -341,7 +366,11 @@ class TestScenarios:
         )
 
         valuations = await valuation_service.run_scenarios(
-            db_session, job_id=scene["job"].id, scenarios=[bear, base], **facts(), mandate=MANDATE
+            db_session,
+            job_id=scene["job"].id,
+            scenarios=[bear, base],
+            **facts(scene),
+            mandate=MANDATE,
         )
 
         by_key = {v.key: v for v in valuations}
@@ -386,7 +415,11 @@ class TestScenarios:
 
         before = (
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[bear], **facts(), mandate=MANDATE
+                db_session,
+                job_id=scene["job"].id,
+                scenarios=[bear],
+                **facts(scene),
+                mandate=MANDATE,
             )
         )[0]
 
@@ -408,7 +441,11 @@ class TestScenarios:
 
         after = (
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[bear], **facts(), mandate=MANDATE
+                db_session,
+                job_id=scene["job"].id,
+                scenarios=[bear],
+                **facts(scene),
+                mandate=MANDATE,
             )
         )[0]
 
@@ -442,7 +479,11 @@ class TestScenarios:
 
         with pytest.raises(MissingAssumptionError):
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[broken], **facts(), mandate=MANDATE
+                db_session,
+                job_id=scene["job"].id,
+                scenarios=[broken],
+                **facts(scene),
+                mandate=MANDATE,
             )
 
         rows = list(
@@ -450,7 +491,8 @@ class TestScenarios:
                 select(Calculation).where(Calculation.job_id == scene["job"].id)
             )
         )
-        assert rows == []
+        # Nothing of any case: the one row is the discount rate, recorded before they ran.
+        assert [row.name for row in rows] == ["wacc_all_equity"]
 
 
 # -- The sensitivity grid --------------------------------------------------------------------
@@ -460,7 +502,7 @@ class TestTheStoredGrid:
     async def test_every_cell_points_at_a_calculation_that_exists(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         grid, stored = await valuation_service.run_sensitivity(
             db_session,
@@ -505,7 +547,7 @@ class TestTheStoredGrid:
     async def test_the_grid_records_which_inputs_it_varied(self, db_session, scene):
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         _, stored = await valuation_service.run_sensitivity(
             db_session,
@@ -548,7 +590,7 @@ class TestTheStoredGrid:
         """
         await confirm_all(db_session, scene)
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
-        inputs = inputs_from(values, **facts())
+        inputs = inputs_from(values, **facts(scene))
 
         _, stored = await valuation_service.run_sensitivity(
             db_session,
@@ -599,7 +641,7 @@ class TestTheEquityBridge:
         inputs = inputs_from(
             values,
             **(
-                facts()
+                facts(scene)
                 | {
                     "non_operating": (
                         BridgeItem("Associates at carrying value", usd("120")),

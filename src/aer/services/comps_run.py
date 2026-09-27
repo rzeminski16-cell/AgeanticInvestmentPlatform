@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -77,6 +77,12 @@ class CompsOutcome:
     # peer had the multiple. Serialised for the step output; the internal football field
     # cites the recorded implied-value calculations behind it rather than these strings.
     band: dict[str, Any] | None = None
+
+    # The ledgers the table's figures were read from, which nobody persists: the subject's
+    # recomputed analysis and each peer's (ROADMAP §3.19 item 84). The caller persists the
+    # run's ledger with these as `read_from`, so a peer's net debt summed from its parts is
+    # written beside the multiple that cites it. Not part of the record.
+    read_from: tuple[CalculationContext, ...] = field(default=(), compare=False, repr=False)
 
     def as_dict(self) -> dict[str, Any]:
         if not self.built or self.table is None:
@@ -334,6 +340,7 @@ async def build_comps_table(
                 "compute a multiple against."
             ),
         )
+    read: list[CalculationContext] = [analysis.ledger] if analysis.ledger is not None else []
 
     price = await _subject_price(
         session, context, ticker=ticker, exchange=request.exchange, as_of=as_of
@@ -356,7 +363,7 @@ async def build_comps_table(
 
     try:
         peer_multiples = await _peer_multiples(
-            session, context, request=request, job=job, client=client, store=store
+            session, context, request=request, job=job, client=client, store=store, read=read
         )
         table = await build(
             session,
@@ -367,7 +374,8 @@ async def build_comps_table(
             as_of=as_of,
         )
     except PeerSetNotConfirmedError as refused:
-        return CompsOutcome(built=False, reason=str(refused))
+        # The subject's row is already struck in `context`, over the recomputed analysis.
+        return CompsOutcome(built=False, reason=str(refused), read_from=tuple(read))
 
     band = _implied_band(context, table=table, inputs=inputs)
 
@@ -379,7 +387,7 @@ async def build_comps_table(
         computed=sum(1 for row in subject.multiples if row.quantity is not None),
         band=band["label"] if band else "",
     )
-    return CompsOutcome(built=True, table=table, band=band)
+    return CompsOutcome(built=True, table=table, band=band, read_from=tuple(read))
 
 
 def _inputs_for(
@@ -502,8 +510,12 @@ async def _peer_multiples(
     job: Job,
     client: PriceClient | None,
     store: ArtefactStore | None,
+    read: list[CalculationContext],
 ) -> dict[str, tuple[calc.MultipleResult, ...]]:
     """Each confirmed peer's multiples, computed from its own filings and its own price.
+
+    Each peer's throwaway ledger is added to ``read``, because the multiples struck in the
+    run's ledger cite its rows (§3.19 item 84).
 
     Raises:
         PeerSetNotConfirmedError: Propagated from :func:`confirmed_peer_set`; the caller
@@ -516,7 +528,14 @@ async def _peer_multiples(
     computed: dict[str, tuple[calc.MultipleResult, ...]] = {}
     for peer in confirmed:
         multiples = await _one_peer(
-            session, context, request=request, job=job, client=client, store=store, peer=peer
+            session,
+            context,
+            request=request,
+            job=job,
+            client=client,
+            store=store,
+            peer=peer,
+            read=read,
         )
         if multiples is not None:
             computed[peer.identifier] = multiples
@@ -532,6 +551,7 @@ async def _one_peer(
     client: PriceClient,
     store: ArtefactStore,
     peer: Any,
+    read: list[CalculationContext],
 ) -> tuple[calc.MultipleResult, ...] | None:
     """One peer's multiples, or ``None`` for a peer the run cannot price or read.
 
@@ -542,7 +562,9 @@ async def _one_peer(
     The peer's statements are assembled in a throwaway ledger, the same shape the
     assumptions step uses for its recomputation: the run's persisted calculations are the
     subject's, and eight peers' full ratio suites would bury them. The multiples
-    themselves land in the run's ledger, where the table's figures must be.
+    themselves land in the run's ledger, where the table's figures must be, and the few
+    peer rows they cite land beside them: the throwaway ledger goes into ``read``, and
+    the caller persists with it (§3.19 item 84).
     """
     try:
         peer_id = uuid.UUID(str(peer.identifier))
@@ -552,7 +574,9 @@ async def _one_peer(
     if company is None:
         return None
 
-    peer_analysis = await analyse_company(session, new_context(), company_id=company.id)
+    peer_ledger = new_context()
+    read.append(peer_ledger)
+    peer_analysis = await analyse_company(session, peer_ledger, company_id=company.id)
     latest = peer_analysis.periods[0] if peer_analysis.periods else None
     if latest is None:
         return None

@@ -148,6 +148,13 @@ class AnalysisOutcome:
     # Empty for an ordinary company, and for any run whose sector nobody confirmed.
     undefined_concepts: tuple[str, ...] = ()
 
+    # The ledger this analysis was struck in (ROADMAP §3.19 item 84). The value, comparables
+    # and case steps recompute the analysis and never persist it, so the run's calculations
+    # are recorded once; whatever they strike over its figures is persisted with this as
+    # `read_from`, and the few rows of it they cite are written beside them rather than
+    # left for a provenance walk to find missing.
+    ledger: CalculationContext | None = field(default=None, compare=False, repr=False)
+
     @property
     def latest(self) -> PeriodAnalysis | None:
         return self.periods[0] if self.periods else None
@@ -268,6 +275,7 @@ async def analyse_company(
                 "so no statements could be assembled.",
             ),
             undefined_concepts=undefined,
+            ledger=context,
         )
 
     ordered = sorted(facts, reverse=True)[:max_periods]
@@ -323,6 +331,7 @@ async def analyse_company(
         skipped=tuple(skipped),
         unplaced_concepts=tuple(sorted(unplaced)),
         undefined_concepts=undefined,
+        ledger=context,
     )
     coverage = outcome.forecast_coverage
     _log.info(

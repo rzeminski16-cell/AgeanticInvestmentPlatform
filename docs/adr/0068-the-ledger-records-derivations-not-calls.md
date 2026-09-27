@@ -91,3 +91,39 @@ are where this went wrong in the first place.
 
 **Leave it and add a period column so the duplicates are at least visible.** Rejected: two
 rows a reader can see are identical are two rows a citation still cannot choose between.
+
+## Amended 27 September 2026 — a ledger carries the rows it read, and refuses a citation that resolves nowhere (ROADMAP §3.19 item 84)
+
+This record's context says the recomputations feeding the valuation and comparables "build
+their own throwaway contexts and are never persisted". The consequence it did not draw is that
+a persisted ledger struck over their figures cites rows nobody wrote. The analysis mints new
+ids each time it is recomputed, so the valuation's average debt cited two `subtotal_sum` rows
+that existed only in memory. In each of MSFT's five approved reports, 17 to 26 of the cited
+figures walked to "not here": the discount rate's chain, from the cost of debt to enterprise
+value. The figures were right, and they replayed; the walks were broken. MSFT files its debt in
+two parts and AZN and M&T in one, which is why only MSFT showed it.
+
+The operator chose the fix on 27 September 2026:
+
+- **A ledger is persisted with the rows it cites from the ledgers it read.**
+  - `persist_context(..., read_from=...)` follows the ledger's citations through any number
+    of steps. The cited rows of a throwaway ledger are written first, beside it, and only
+    those: a subtotal is written twice with one value, rather than a whole analysis twice.
+  - A cited row the store already holds is not written again, so a valuation's scenarios and
+    grids find what its base case wrote.
+  - `AnalysisOutcome.ledger` names the ledger an analysis was struck in. Five places pass it:
+    the value step, the bank's valuation, the comparables (the subject's analysis and each
+    peer's), the cases' levers, and Ask.
+- **A citation that resolves nowhere is refused.** If it is not in the ledger, not in the
+  ledgers it read, and not in the store, `persist_context` raises rather than write a figure
+  that looks sourced until somebody walks it. A step that forgets `read_from` stops at the
+  persist instead of shipping a broken walk.
+
+**What is given up.** This record's decision now holds within a pass and not across one. The
+calculate step's subtotal and the value step's are two rows of one derivation, with two ids
+and one value. A citation is still never arbitrary, because each resolves to arithmetic that
+exists and says what it says. An id derived from what a calculation computed would make the
+two one row, but it changes how every row is keyed, and it was not chosen.
+
+**The stored reports are not rewritten.** Their calculations are immutable, and their walks
+still end where they ended. Runs from now on do not.

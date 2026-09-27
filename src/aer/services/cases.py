@@ -586,7 +586,9 @@ async def _strike_named(
         tables[side].extend(_rows(lead_in or f"Point {number}", option, anchor, result))
 
     if ledger.records:
-        await persist_context(session, ledger, job_id=job.id)
+        # With the rows of the recomputed analysis a strike cites (§3.19 item 84): a lever
+        # over an operating expense summed from its parts walks to that sum.
+        await persist_context(session, ledger, job_id=job.id, read_from=(basis.analysis.ledger,))
     return len(results)
 
 

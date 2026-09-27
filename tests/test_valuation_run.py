@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc import prices as price_calc
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.calc.wacc import ALL_EQUITY_NOTE, BOOK_WEIGHT_CAVEAT, EquityBasis
 from aer.core.enums import UserRole
@@ -33,6 +34,7 @@ from aer.services.assumption_gate import (
     RISK_FREE_ASSUMPTION,
 )
 from aer.services.assumptions import assumptions_for_request, confirm, propose
+from aer.services.calculations import new_context, persist_context
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SENSITIVITY_POINTS
 from aer.services.valuation_run import (
@@ -153,13 +155,25 @@ async def _value(
     )
 
 
-def _market_cap(value: str, currency: str = "USD") -> Quantity:
-    """What the price step hands the valuation: a figure sourced to its own calculation."""
-    return Quantity.of(
-        Decimal(value),
-        Unit.currency(currency),
-        source=SourceRef.calculation("market-capitalisation", label="market capitalisation"),
+async def _market_cap(scene: dict[str, Any], value: str, currency: str = "USD") -> Quantity:
+    """What the price step hands the valuation: a figure sourced to its own calculation.
+
+    Struck and recorded as the price step strikes and records it, a close times the shares
+    in issue, because the valuation's rows cite it and a citation of a row nobody wrote is
+    refused (ROADMAP §3.19 item 84).
+    """
+    ledger = new_context()
+    capitalisation = price_calc.market_capitalisation(
+        ledger,
+        price=_price(str(Decimal(value) / _BASIC_SHARES), currency),
+        shares=Quantity.of(
+            _BASIC_SHARES,
+            Unit.base("shares"),
+            source=SourceRef.financial_fact("shares-in-issue", label="shares outstanding"),
+        ),
     )
+    await persist_context(scene["session"], ledger, job_id=scene["job"].id)
+    return capitalisation
 
 
 def _price(value: str, currency: str = "USD") -> Quantity:
@@ -297,7 +311,7 @@ class TestAConfirmedRunProducesAValuation:
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
-        outcome = await _value(scene, market_capitalisation=_market_cap("900000000"))
+        outcome = await _value(scene, market_capitalisation=await _market_cap(scene, "900000000"))
 
         assert outcome.cost_of_capital is not None
         assert outcome.cost_of_capital.basis is EquityBasis.MARKET
@@ -312,7 +326,7 @@ class TestAConfirmedRunProducesAValuation:
         await _confirm_all(scene)
 
         on_book = await _value(scene)
-        at_market = await _value(scene, market_capitalisation=_market_cap("900000000"))
+        at_market = await _value(scene, market_capitalisation=await _market_cap(scene, "900000000"))
 
         assert on_book.cost_of_capital is not None
         assert at_market.cost_of_capital is not None
@@ -331,7 +345,9 @@ class TestAConfirmedRunProducesAValuation:
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
-        outcome = await _value(scene, market_capitalisation=_market_cap("900000000", "GBP"))
+        outcome = await _value(
+            scene, market_capitalisation=await _market_cap(scene, "900000000", "GBP")
+        )
 
         assert outcome.cost_of_capital is not None
         assert outcome.cost_of_capital.basis is EquityBasis.BOOK
@@ -344,7 +360,7 @@ class TestAConfirmedRunProducesAValuation:
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
-        outcome = await _value(scene, market_capitalisation=_market_cap("0"))
+        outcome = await _value(scene, market_capitalisation=await _market_cap(scene, "0"))
 
         assert outcome.cost_of_capital is not None
         assert outcome.cost_of_capital.basis is EquityBasis.BOOK
@@ -354,7 +370,7 @@ class TestAConfirmedRunProducesAValuation:
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
-        at_market = await _value(scene, market_capitalisation=_market_cap("900000000"))
+        at_market = await _value(scene, market_capitalisation=await _market_cap(scene, "900000000"))
 
         assert at_market.as_dict()["equity_basis"] == "market"
 

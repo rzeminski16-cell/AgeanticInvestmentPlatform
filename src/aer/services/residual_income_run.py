@@ -250,7 +250,9 @@ async def value_the_bank(
         return BankValuationOutcome(ran=False, reason=str(refusal))
 
     base = _both_treatments(ledger, inputs, mandate=mandate, case="base")
-    await persist_context(session, ledger, job_id=job_id)
+    # With the analysis rows it cites, for the reason `value_the_business` gives (§3.19
+    # item 84): an opening book value summed from its parts is a row nobody else persists.
+    await persist_context(session, ledger, job_id=job_id, read_from=(analysis.ledger,))
 
     scenarios = await _scenarios(
         session,

@@ -556,7 +556,8 @@ async def _recompute(
             context=ledger,
             case="as_asked",
         )
-        await persist_context(session, ledger, job_id=job.id)
+        # With the rows of the recomputed analysis the two strikes cite (§3.19 item 84).
+        await persist_context(session, ledger, job_id=job.id, read_from=(analysis.ledger,))
     except AerError as refused:
         await _fail(session, order=order, job=job, step=step, reason=str(refused))
         question.content = {"kind": "refused", "reason": str(refused)}

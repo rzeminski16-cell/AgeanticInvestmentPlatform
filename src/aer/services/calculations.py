@@ -285,21 +285,35 @@ async def persist_context(
     context: CalculationContext,
     *,
     job_id: uuid.UUID,
+    read_from: Iterable[CalculationContext | None] = (),
 ) -> list[Calculation]:
     """Write every calculation in a context, or none of them.
+
+    **And every calculation it cites, or none at all** (ROADMAP §3.19 item 84). A ledger
+    struck over another ledger's figures cites rows that ledger struck — a valuation over
+    a recomputed analysis, most often, whose subtotals were never written. The rows it
+    cites from ``read_from``, through any number of steps, are written first, beside it. A
+    citation found nowhere — not in this ledger, not in the ones it read from, not in the
+    stored ledger — is refused rather than written: its figure would look sourced until
+    somebody walked it, and the walk would end at "not here".
 
     Args:
         context: The calculations performed. Written in the order they happened, so a row
             citing another is never written before the row it cites.
         job_id: The run these belong to.
+        read_from: Ledgers this one's figures were taken from and that nobody persists,
+            the recomputed analysis above all. Only the rows this ledger cites are
+            written, so a subtotal is recorded twice with one value rather than a whole
+            analysis twice; a cited row the store already holds is not written again.
 
     Returns:
-        The persisted rows, in the same order.
+        The persisted rows, in the same order: the cited rows carried, then the ledger's.
 
     Raises:
         ValidationError: If the context is empty. Persisting nothing is almost always a
             caller that forgot to pass the context its functions actually wrote to, and
             silently succeeding would hide that until the report had no numbers in it.
+            And if a calculation cites one that resolves nowhere.
     """
     if not context.records:
         message = (
@@ -307,6 +321,8 @@ async def persist_context(
             "traced functions were given a different context from the one being saved."
         )
         raise ValidationError(message, context={"job_id": str(job_id)})
+
+    carried = await _carried(session, context, job_id=job_id, read_from=read_from)
 
     # Sequences continue the job's ledger rather than restarting at zero, and the advisory
     # lock is what keeps that true when two workflow nodes persist concurrently (task 34):
@@ -326,7 +342,7 @@ async def persist_context(
 
     rows = [
         _row_for(record, job_id=job_id, sequence=int(base or 0) + index)
-        for index, record in enumerate(context.records)
+        for index, record in enumerate((*carried, *context.records))
     ]
 
     # A savepoint, so a constraint violation part-way through leaves the caller's
@@ -340,10 +356,82 @@ async def persist_context(
         "calculations.persisted",
         job_id=str(job_id),
         count=len(rows),
+        carried=len(carried),
         code_version=context.code_version,
         names=sorted({record.name for record in context.records}),
     )
     return rows
+
+
+def _cited(record: CalculationRecord) -> list[str]:
+    """The calculations a record read, by the ids its inputs name."""
+    return [
+        entry.source_id for entry in record.inputs if entry.source_kind is SourceKind.CALCULATION
+    ]
+
+
+async def _carried(
+    session: AsyncSession,
+    context: CalculationContext,
+    *,
+    job_id: uuid.UUID,
+    read_from: Iterable[CalculationContext | None],
+) -> tuple[CalculationRecord, ...]:
+    """The rows of ``read_from`` this ledger cites and the store lacks, in the order struck.
+
+    Raises:
+        ValidationError: A citation this ledger does not hold, was not given, and the store
+            has never recorded.
+    """
+    own = {str(record.id) for record in context.records}
+    offered = [record for ledger in read_from if ledger is not None for record in ledger.records]
+    by_id = {str(record.id): record for record in offered}
+
+    needed: set[str] = set()
+    unheld: dict[str, str] = {}
+    pending = [(cited, record.name) for record in context.records for cited in _cited(record)]
+    while pending:
+        cited, citer = pending.pop()
+        if cited in own or cited in needed or cited in unheld:
+            continue
+        found = by_id.get(cited)
+        if found is None:
+            unheld[cited] = citer
+            continue
+        needed.add(cited)
+        pending.extend((parent, found.name) for parent in _cited(found))
+
+    asked = [key for key in map(_uuid_or_none, (*needed, *unheld)) if key is not None]
+    stored: set[str] = set()
+    if asked:
+        stored = {
+            str(identifier)
+            for identifier in await session.scalars(
+                select(Calculation.id).where(Calculation.id.in_(asked))
+            )
+        }
+
+    dangling = {cited: citer for cited, citer in unheld.items() if cited not in stored}
+    if dangling:
+        named = ", ".join(sorted({f"{citer} cites {cited}" for cited, citer in dangling.items()}))
+        message = (
+            f"{len(dangling)} citation(s) in this ledger name a calculation it does not hold, "
+            f"was not given, and the store has never recorded: {named}. Writing them would "
+            "leave figures whose walk to their source ends at a row that does not exist. The "
+            "ledger that struck the cited rows has to be persisted first, or passed as "
+            "`read_from`."
+        )
+        raise ValidationError(
+            message, context={"job_id": str(job_id), "dangling": sorted(dangling)}
+        )
+
+    # `by_id` keeps each row once, in the order it was first struck, so a ledger offered
+    # twice is still one set of rows and a parent is still written before its child.
+    return tuple(
+        record
+        for identifier, record in by_id.items()
+        if identifier in needed and identifier not in stored
+    )
 
 
 def _row_for(record: CalculationRecord, *, job_id: uuid.UUID, sequence: int) -> Calculation:

@@ -248,7 +248,10 @@ async def value_the_business(
     # recovers all of it if that year is inside the forecast. Company figures, not book
     # figures, so they are struck here beside the upside and composed on render.
     _horizon_figures(ledger, base, inputs, market_capitalisation=market_capitalisation)
-    await persist_context(session, ledger, job_id=job_id)
+    # With the analysis rows it cites (§3.19 item 84): a total debt summed from its parts is
+    # a row of the recomputed analysis, and the cost of debt above it has to walk to it.
+    # The scenarios and grids below read the same inputs and find those rows stored.
+    await persist_context(session, ledger, job_id=job_id, read_from=(analysis.ledger,))
 
     scenarios = await _scenarios(
         session, request=request, job_id=job_id, inputs=inputs, mandate=mandate, years=years
