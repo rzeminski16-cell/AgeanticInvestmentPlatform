@@ -3209,6 +3209,33 @@ found rather than as scope that was always there.
     writes either field, so both rows could only say "none stated" on both sides. The company
     page, the vault's company notes and the planner's digest of prior research now use the
     masthead's words, *"none — this report takes no side"*, where they said "none stated".
+84. **A figure's walk to its filing dead-ends at a recomputed subtotal, 27 September 2026.**
+    Found while measuring item 81 on the store. In each of MSFT's five approved reports, 17 to
+    26 of the cited figures cannot be walked to a filing: the cost of debt, the debt weight,
+    every discount factor, enterprise value and equity value among them. The figures are
+    right, and `aer replay-run` re-derives every one. The walk breaks one level down: MSFT's
+    average debt reads two `subtotal_sum` rows, the total debt summed from its components, and
+    neither is in the ledger.
+    - **The cause.** The value step, the comparables step and the assumption proposals each
+      recompute the company's analysis in a calculation context nobody persists. That is on
+      purpose, *"so the run's calculations are recorded exactly once"*. But the recomputation
+      mints new ids, and the ledger that is persisted names them. A filed line survives it,
+      because a fact's id is the fact's own. A figure the analysis computed, such as a
+      subtotal, does not. AZN and M&T file their debt as one line, which is why only MSFT's
+      reports show it. The comparables step strikes EBITDA the same way, and on every run in
+      the store its EBITDA names a subtotal nobody recorded.
+    - **Why it matters before V1.0.** The operator's timed first run (the finish line's
+      fourth condition) walks a figure to its source. On a company that files its debt in
+      parts, the walk from the discount rate ends at *"this input points at a calculation
+      that is no longer here"*.
+    - **Not fixed: the approach is the operator's call.** There are two ways to fix it:
+      - Record what a ledger read. Persist the few analysis rows a ledger references
+        alongside it, so a subtotal is recorded twice with one value. Then make
+        `persist_context` refuse a reference to a calculation it neither holds nor finds,
+        so the gap cannot reopen.
+      - Give a calculation an id derived from what it computed, so a recomputed subtotal
+        *is* the recorded one. That needs an ADR and changes how every row is keyed.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
