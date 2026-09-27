@@ -307,10 +307,12 @@ class TestAPeersEvidenceNeverReachesASection:
     ) -> None:
         """ADR 0118 widens what one section may see; it does not widen *whose*."""
         evidence = await _gather(scene, dimensions=Dimensions.INCLUDE_SINGLE_AXIS)
-        shown = str(_internals(evidence))
+        values = {Decimal(str(item["value"])) for item in _internals(evidence) if "fact_id" in item}
 
-        assert "8888" not in shown
-        assert "600" in shown
+        # The figures, not the pack's text. Every id in the pack is a random UUID, and one
+        # carrying "8888" among its hex digits failed CI run 568 with nothing wrong.
+        assert Decimal(8888) not in values
+        assert Decimal(600) in values
 
     async def test_no_source_in_the_pack_belongs_to_another_company(
         self, scene: dict[str, Any]
