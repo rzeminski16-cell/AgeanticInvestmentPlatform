@@ -50,7 +50,7 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
-from aer.services.calculations import indexed_calculations
+from aer.services.calculations import filed_bases, indexed_calculations
 from aer.services.citations import record_citation, record_claim
 from aer.services.facts import Dimensions, visible_facts
 from aer.services.scope import scope_for_request, with_subject
@@ -1164,6 +1164,14 @@ async def record_draft_claims(
     the cited-source set feeds the policy-shortfall check, with a fact's own source
     counting for the claim that names the fact.
 
+    **And a calculation's filings for the claim that names the calculation**, when filings
+    are all it rests on and every one of them is primary (ROADMAP §3.19 item 81). A growth
+    rate over two filed revenue lines stands on that filing as surely as either line does.
+    Three of four approved reports opened their summary with *"none of its cited evidence
+    is primary"* because a figure computed from a 10-K counted for nothing. A figure with
+    an assumption, a price or an attestation anywhere under it still counts for nothing:
+    choosing a number well does not make it filed.
+
     **A recorded draft replaces the section's claims, and only a recorded one does**
     (ADR 0098). The replacement lives here because here is where there is something to
     replace them with: the revise pass used to delete them before its attempt, so a
@@ -1199,6 +1207,20 @@ async def record_draft_claims(
         if proposal.financial_fact_id is not None:
             cited_source_ids.add(evidence.fact_sources[proposal.financial_fact_id])
         recorded += 1
+
+    named = {
+        uuid.UUID(proposal.calculation_id)
+        for proposal in draft.claims
+        if proposal.calculation_id is not None
+    }
+    for basis in (await filed_bases(session, named)).values():
+        if not basis.is_primary:
+            continue
+        cited_source_ids.update(basis.documents)
+        # Into the tier index the shortfall check reads. A filing an earlier run acquired
+        # for the same company is no less a filing, and the index only knew this request's.
+        for document, tier in basis.documents.items():
+            evidence.source_tiers.setdefault(document, tier)
     return recorded, cited_source_ids
 
 

@@ -193,7 +193,8 @@ record is [`remeasure-2026-09/`](remeasure-2026-09/README.md).
 - **Found and fixed the same day.** Three defects, all in deterministic code: items 78, 79
   and 80. One was F2's own: a lever that argued against its case.
 - **Found and not fixed.** Items 81 to 83, all presentation. *Items 82 and 83 were fixed on
-  26 September with item 76. Item 81 changes an evidence policy, and waits on the operator.*
+  26 September with item 76. Item 81 changes an evidence policy: the operator decided it on
+  27 September, and it is fixed.*
 - **The cost.** £28.15 against the ~£21 approved. The second AZN run is the difference. The
   audit ledger reads £106.58 of its £125.
 - **ADR 0115 decision 4's other half.** The evidence is in: every approved report left seven
@@ -3183,6 +3184,16 @@ found rather than as scope that was always there.
     only cited documents. A cited calculation resting on a tier-1 filing could count as
     primary through its lineage. That changes an evidence policy, so it is recorded rather
     than changed mid-measurement.
+    **Decided by the operator and fixed, 27 September 2026 (ADR 0111, amended).** A cited
+    calculation counts as primary evidence only when every input under it is a figure from a
+    primary document. The filings it ends in join the section's cited sources, as a named
+    fact's document does. An assumption, a price, a statistic, an attestation or an
+    unresolved reference anywhere under it, and it counts for nothing. An undated filing is
+    still never primary. The drafting step's banner and the evaluation step's per-section
+    coverage apply the one rule (`aer.services.calculations.filed_bases`), so the review
+    page's coverage table and the low-coverage trigger say what the banner says. On the
+    store, each of the four summaries that carried the banner cites one or two figures that
+    rest on the 10-K alone. The approved reports keep the banner they were approved with.
 82. **A whole number of cents prints without them, 25 September 2026.** The display drops
     trailing zeros, so a value per share of $307.998 prints "$308" beside "$431.55" in the
     same column. A ratio of 0.1200 prints "12%" beside "46.8%". It is house style for prose.
@@ -3198,7 +3209,6 @@ found rather than as scope that was always there.
     writes either field, so both rows could only say "none stated" on both sides. The company
     page, the vault's company notes and the planner's digest of prior research now use the
     masthead's words, *"none — this report takes no side"*, where they said "none stated".
-
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before

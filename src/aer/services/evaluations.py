@@ -79,7 +79,7 @@ from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
-from aer.services.calculations import lineage
+from aer.services.calculations import FiledBasis, filed_bases, lineage
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request
 from aer.verify.citations import verify_job_citations
@@ -128,6 +128,11 @@ class _RunRows:
     # computed rests on the evidence under it, and until this existed the sourcing
     # measure could not see any of it — see `_calculation_sources`.
     calculation_sources: dict[uuid.UUID, set[uuid.UUID]] = field(default_factory=dict)
+    # The named calculations that rest on filed figures alone, with those filings' tiers.
+    # Narrower than the line above on purpose: the coverage floor asks whether a section
+    # stands on primary evidence, and a figure with an assumption under it does not
+    # (ROADMAP §3.19 item 81).
+    filed_bases: dict[uuid.UUID, FiledBasis] = field(default_factory=dict)
 
 
 async def evaluate_run(
@@ -304,6 +309,7 @@ async def _load(session: AsyncSession, *, job: Job, request: ResearchRequest) ->
 
     named_calculations = {c.calculation_id for c in rows.claims if c.calculation_id is not None}
     rows.calculation_sources = await _calculation_sources(session, named_calculations)
+    rows.filed_bases = await filed_bases(session, named_calculations)
 
     await _tier_every_referenced_document(session, rows)
 
@@ -410,9 +416,10 @@ def _coverage_rows(rows: _RunRows) -> list[SectionCoverage]:
     """One coverage row per generated section, held to its own floor.
 
     A section's evidence is everything actually standing behind it: its claims'
-    citations, the source documents of the facts those claims name, and the source
-    references its structured content carries — the same references the renderer turns
-    into footnotes.
+    citations, the source documents of the facts those claims name, the filings under a
+    named calculation that rests on nothing else (ROADMAP §3.19 item 81, the rule the
+    drafting step's banner applies), and the source references its structured content
+    carries — the same references the renderer turns into footnotes.
     """
     claims_by_section: dict[uuid.UUID, list[Claim]] = {}
     for claim in rows.claims:
@@ -425,6 +432,9 @@ def _coverage_rows(rows: _RunRows) -> list[SectionCoverage]:
             sources |= rows.citation_sources.get(claim.id, set())
             if claim.financial_fact_id in rows.fact_sources:
                 sources.add(rows.fact_sources[claim.financial_fact_id])
+            basis = rows.filed_bases.get(claim.calculation_id) if claim.calculation_id else None
+            if basis is not None and basis.is_primary:
+                sources |= {uuid.UUID(document) for document in basis.documents}
         sources |= _content_source_ids(section.content)
 
         policy = (section.definition.evidence_policy or {}) if section.definition else {}

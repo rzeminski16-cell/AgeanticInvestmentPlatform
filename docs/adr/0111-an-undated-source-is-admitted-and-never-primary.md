@@ -185,3 +185,34 @@ needs to have. Tier 5 already answers the question the platform actually asks of
 whatever the current build thinks, applied retroactively to every run ever recorded. A
 platform whose premise is that the stored record can be trusted does not get to re-decide
 old runs by deploying.
+
+## Amended 27 September 2026 — a figure computed from filings stands on them (ROADMAP §3.19 item 81)
+
+The half that was already true said a numeric claim names exactly one figure. The primary
+floor read only two of the three: a claim naming a fact counted the fact's document, and a
+claim naming a calculation counted for nothing. So a growth rate over two lines of a 10-K was
+evidence of nothing, and three of the re-measurement's four approved reports opened their
+Executive Summary with *"none of its cited evidence is primary"*. The summary cites
+calculations, and every one of those reports stood on filings.
+
+The operator decided the rule on 27 September 2026, and it is narrow on purpose:
+
+- **A cited calculation counts as primary evidence only when every input under it is a
+  figure from a primary document.** The walk is `lineage`, the same one the provenance
+  surface makes. The documents it ends in join the section's cited sources, just as a named
+  fact's document does. `aer.services.calculations.filed_bases` states the rule once.
+- **Anything else under it and it counts for nothing.** That covers an assumption, an
+  attestation, a price, a statistic, an exchange rate, and a reference the walk cannot
+  resolve. Choosing a number well does not make it filed, so a value per share never stands
+  on the filings beneath its forecast.
+- **This record's cap reaches through the lineage.** A calculation over an undated
+  document's figures has a filed basis and no primary one, at evidence tier 5 like the
+  document.
+
+Both places that ask the question apply it. The first is the drafting step's banner. The
+second is the evaluation step's per-section coverage, which the review page's coverage table
+and the low-coverage trigger read. They agreed before, and they still agree. The sourcing
+ratio's rule is unchanged: it scores a claim by the best tier anything under it reaches, and
+it has read through lineage since the first acceptance pass. The approved reports are
+immutable and keep the banner they were approved with. Reports drafted from now on do not
+carry one they have not earned.

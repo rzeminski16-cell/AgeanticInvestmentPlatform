@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections import deque
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Final
@@ -39,6 +39,7 @@ from sqlalchemy.orm import selectinload
 from aer.calc.dcf import PERTURBATION_CASES
 from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.units import SourceKind, SourceTable
+from aer.core.enums import SourceTier
 from aer.db.models import (
     Assumption,
     Attestation,
@@ -50,13 +51,17 @@ from aer.db.models import (
     ResearchRequest,
     RiskScenarioShock,
     Security,
+    SourceDocument,
 )
 from aer.errors import ValidationError
 from aer.version import git_sha
 
 __all__ = [
     "EVIDENCE_CALCULATION_CAP",
+    "FiledBasis",
     "LineageNode",
+    "filed_bases",
+    "filed_documents",
     "indexed_calculations",
     "lineage",
     "new_context",
@@ -457,6 +462,90 @@ async def lineage(
                 queue.append((child, next_row, depth + 1))
 
     return root
+
+
+# -- What a calculation stands for as evidence (ROADMAP §3.19 item 81) -----------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FiledBasis:
+    """The documents a calculation rests on, when nothing but filed figures is under it.
+
+    Each document carries its **evidence** tier, which is what a policy reads: an undated
+    document is tier 5 whoever published it (ADR 0111), so a calculation over one is not
+    primary however authoritative its filer.
+    """
+
+    documents: Mapping[str, SourceTier]
+
+    @property
+    def is_primary(self) -> bool:
+        """Whether every document under the calculation is primary evidence (tier 1 or 2)."""
+        return bool(self.documents) and all(tier.is_primary for tier in self.documents.values())
+
+
+def filed_documents(tree: LineageNode) -> frozenset[str] | None:
+    """The documents a calculation's lineage ends in, or ``None`` if anything else is there.
+
+    A leaf is a filed figure when it is a ``financial_facts`` row, which names the document
+    it was extracted from. Any other leaf answers ``None`` for the whole calculation:
+    - an assumption is a number somebody chose;
+    - an attestation is a number somebody asserted;
+    - a price, a statistic or an exchange rate was published, but not by the filer;
+    - a reference the walk could not resolve, or cut short, cannot be shown to rest on
+      anything.
+
+    A reference to a calculation expanded elsewhere in the same tree is not a leaf of its
+    own: its inputs are counted where it was expanded.
+    """
+    documents: set[str] = set()
+    for node in tree.leaves:
+        if node.kind == "calculation_ref":
+            continue
+        if node.kind != "fact" or node.detail.get("table") != SourceTable.FINANCIAL_FACTS.value:
+            return None
+        document = str(node.detail.get("source_document_id") or "")
+        if not document:
+            return None
+        documents.add(document)
+    return frozenset(documents) if documents else None
+
+
+async def filed_bases(
+    session: AsyncSession, calculation_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, FiledBasis]:
+    """Each named calculation that rests on filed figures alone, with its documents' tiers.
+
+    A calculation absent from the answer rests on something besides a filing, or is not
+    in the ledger at all. The closed-world check reports the second; here it is simply a
+    figure with no filed basis.
+
+    One walk per calculation, through :func:`lineage` — the walk the provenance surface
+    and the sourcing measure already make, so "what does this figure rest on?" has one
+    answer everywhere it is asked.
+    """
+    found: dict[uuid.UUID, frozenset[str]] = {}
+    for identifier in dict.fromkeys(calculation_ids):
+        try:
+            tree = await lineage(session, identifier)
+        except ValidationError:
+            continue
+        documents = filed_documents(tree)
+        if documents is not None:
+            found[identifier] = documents
+
+    wanted = {document for documents in found.values() for document in documents}
+    parsed = [key for key in (_uuid_or_none(document) for document in wanted) if key is not None]
+    tiers: dict[str, SourceTier] = {}
+    if parsed:
+        rows = await session.scalars(select(SourceDocument).where(SourceDocument.id.in_(parsed)))
+        tiers = {str(row.id): row.evidence_tier for row in rows}
+    return {
+        identifier: FiledBasis(documents={document: tiers[document] for document in documents})
+        for identifier, documents in found.items()
+        # A document the store no longer holds cannot be shown to be primary.
+        if all(document in tiers for document in documents)
+    }
 
 
 @dataclass(frozen=True, slots=True)
