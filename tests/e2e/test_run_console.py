@@ -360,6 +360,9 @@ class TestTheSecondGateAndTheReport:
 
         expect(page.locator("#immutable-badge")).to_be_visible()
         expect(page.locator("#report-markdown")).to_contain_text("Executive Summary")
+        # The archived files sit behind one disclosure beside the report's actions (page
+        # specification §8), so a reader opens it the way the operator would.
+        page.locator("#report-downloads > summary").click()
         expect(page.locator("#download-report")).to_be_visible()
 
     def test_the_download_serves_the_archived_markdown(
@@ -372,6 +375,7 @@ class TestTheSecondGateAndTheReport:
         assert drafted.advance() is JobStatus.SUCCEEDED
 
         page.goto(f"{live_server}/reports/{drafted.report_id()}")
+        page.locator("#report-downloads > summary").click()
         with page.expect_download() as download:
             page.click("#download-report")
 
