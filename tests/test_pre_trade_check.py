@@ -8,11 +8,11 @@ happen to agree today.
 
 Two rules the check obeys and this file pins, because both are decisions rather than gaps:
 
-**It states the book now and never what the book becomes.** ADR 0104 refused a numeric
-intended size — ``decisions.size_statement`` is text precisely so no calculation can read an
-intended weight and multiply it by a net asset value. The page specification's §11.1 asks for
-*"top-five concentration before and after"*; there is no *after* to compute, an ADR outranks a
-page specification, and the check says so in the operator's words rather than leaving a blank.
+**It states the book now, and what it becomes only at a weight typed into it.** ADR 0104
+refused a numeric intended size — ``decisions.size_statement`` is text precisely so no
+calculation can read an intended weight off a decision and multiply it by a net asset value.
+ADR 0137 adds a what-if beside it: a weight typed into the check, struck in a ledger nobody
+keeps, whose source ``persist_context`` refuses to write.
 
 **It never blocks.** No ceiling is stored anywhere in this platform, so nothing here can be
 breached and no control here refuses a decision.
@@ -20,6 +20,7 @@ breached and no control here refuses a decision.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -30,7 +31,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.calc.engine import CalculationContext
 from aer.core.enums import ShockKind, TransactionKind
 from aer.db.models import Company
+from aer.errors import ValidationError
 from aer.services import risk as risk_service
+from aer.services.calculations import persist_context
 from tests import portfolio_fixtures
 from tests.portfolio_fixtures import AS_OF, daily_bars, funded, trade
 
@@ -243,12 +246,139 @@ class TestWhatTheCheckSays:
         assert check.scenarios == ()
 
 
+class TestWhatTheBookBecomes:
+    """ADR 0137: a weight typed into the check, set against the book by the closing
+    section's own arithmetic, in a ledger nobody keeps."""
+
+    async def test_the_holding_the_cash_and_the_five_largest_move_together(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        await _two_holdings(db_session, book)
+
+        check = await risk_service.check_before_recording(
+            db_session,
+            context,
+            portfolio=book["portfolio"],
+            security=book["msft"],
+            as_of=AS_OF,
+            weight_after=Decimal("0.5"),
+        )
+
+        after = check.after
+        assert after is not None
+        assert after.weight_after.value == Decimal("0.5")
+        assert check.held is not None
+        assert check.held.weight is not None
+        assert after.weight_before.value == check.held.weight.value
+        # Funded from cash: the cash falls by exactly what the position rises by.
+        moved = Decimal("0.5") - after.weight_before.value
+        assert _same(after.cash_after.value, after.cash_before.value - moved)
+        # Two holdings, so the five largest are both of them before and after — with this
+        # one's weight replaced by the one typed.
+        assert check.top_holdings is not None
+        assert after.top_before is check.top_holdings
+        assert _same(
+            after.top_after.value,
+            check.top_holdings.value - after.weight_before.value + Decimal("0.5"),
+        )
+
+    async def test_the_sector_moves_with_the_listing(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        company = Company(
+            name="Microsoft Corporation",
+            ticker="MSFT",
+            cik="0000789019",
+            exchange="NASDAQ",
+            sic="7372",
+            sic_description="Prepackaged software",
+        )
+        db_session.add(company)
+        await db_session.flush()
+        book["msft"].company_id = company.id
+        await _two_holdings(db_session, book)
+        await db_session.refresh(book["msft"], ["company"])
+
+        check = await risk_service.check_before_recording(
+            db_session,
+            context,
+            portfolio=book["portfolio"],
+            security=book["msft"],
+            as_of=AS_OF,
+            weight_after=Decimal("0.3"),
+        )
+
+        after = check.after
+        assert after is not None
+        assert after.sector == "Prepackaged software"
+        assert after.sector_before is not None
+        assert after.sector_after is not None
+        assert _same(
+            after.sector_after.value,
+            after.sector_before.value + Decimal("0.3") - after.weight_before.value,
+        )
+
+    async def test_a_weight_with_no_listing_named_says_what_it_needs(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        await _two_holdings(db_session, book)
+
+        check = await risk_service.check_before_recording(
+            db_session,
+            context,
+            portfolio=book["portfolio"],
+            security=None,
+            as_of=AS_OF,
+            weight_after=Decimal("0.1"),
+        )
+
+        assert check.after is None
+        assert "name the listing" in check.after_problem
+
+    async def test_without_a_weight_the_check_is_as_it_was(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        await _two_holdings(db_session, book)
+
+        check = await _check(db_session, context, book, security=book["msft"])
+
+        assert check.after is None
+        assert check.after_problem == ""
+
+    async def test_the_ledger_a_what_if_was_struck_in_cannot_be_kept(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        """*Nothing is recorded* enforced where every ledger is written, not promised by
+        the page that happens not to write this one."""
+        await _two_holdings(db_session, book)
+        await risk_service.check_before_recording(
+            db_session,
+            context,
+            portfolio=book["portfolio"],
+            security=book["msft"],
+            as_of=AS_OF,
+            weight_after=Decimal("0.2"),
+        )
+
+        with pytest.raises(ValidationError, match="ADR 0137"):
+            await persist_context(db_session, context, job_id=uuid.uuid4())
+
+
+def _same(struck: Decimal, expected: Decimal) -> bool:
+    """Equal to well past any displayed place. The engine carries more digits than this
+    test's default decimal context, so its sums round later than the test's do."""
+    return abs(struck - expected) < Decimal("1e-20")
+
+
 class TestWhatTheCheckRefusesToDo:
-    def test_it_says_in_words_that_it_cannot_say_what_the_book_becomes(self) -> None:
-        """ADR 0104 refused a numeric intended size, so there is nothing to multiply. The
-        sentence is a constant rather than template prose, so the page and any other reader
-        quote the same one."""
-        assert "not what it becomes" in risk_service.NO_INTENDED_SIZE
+    def test_it_says_in_words_that_the_size_is_a_sentence_and_the_what_if_is_not_kept(
+        self,
+    ) -> None:
+        """ADR 0104 refused a numeric intended size, and ADR 0137 keeps the what-if out of
+        the record. The sentence is a constant rather than template prose, so the page and
+        any other reader quote the same one."""
+        assert "never a number" in risk_service.NO_INTENDED_SIZE
+        assert "nothing typed here is recorded" in risk_service.NO_INTENDED_SIZE
 
     def test_the_service_offers_no_ceiling_and_no_verdict(self) -> None:
         """ADR 0080's list, enforced by there being no function for any of it. A ceiling

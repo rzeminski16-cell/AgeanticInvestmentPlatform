@@ -417,9 +417,9 @@ async def finding_page(
                 else (0, 0)
             ),
             "decision_href": (
-                f"/decisions?security={finding.security.listing}"
+                f"/decisions/new?security={finding.security.listing}"
                 if finding.security is not None
-                else "/decisions"
+                else "/decisions/new"
             ),
             "sources": await _sources(session, finding),
             # ADR 0122 §2: what else rests on this premise, narrowly — a shared metric and a

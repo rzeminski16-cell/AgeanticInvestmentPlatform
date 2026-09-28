@@ -28,7 +28,9 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
+from urllib.parse import quote
 
 import structlog
 from fastapi import APIRouter, Request
@@ -37,8 +39,9 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
+from aer.core.dates import format_date
 from aer.core.enums import DecisionAction
-from aer.db.models import Decision, Portfolio, Security, Thesis, Transaction
+from aer.db.models import Decision, Portfolio, Report, Security, Thesis, Transaction
 from aer.errors import AerError
 from aer.services import decisions as decision_service
 from aer.services import portfolio as portfolio_service
@@ -255,10 +258,8 @@ def _journal_verdict(rows: list[DecisionRow], *, theses: int) -> verdicts.Verdic
 
 
 @router.get("/decisions", response_class=HTMLResponse, summary="Decisions")
-async def decisions_page(
-    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
-) -> Response:
-    """Every held decision, the form to write one, and the check that runs before it."""
+async def decisions_page(request: Request, session: DbSession, user: CurrentUser) -> Response:
+    """Every held decision, and the way to the page that records the next one."""
     withdrawn = request.query_params.get("withdrawn") == "1"
     rows = [
         _row(decision)
@@ -268,8 +269,6 @@ async def decisions_page(
     ]
     theses = await thesis_service.theses_for(session, user_id=user.id)
     named = request.query_params.get("security", "").strip()
-    check = await _pre_trade(session, named, user_id=user.id)
-    token = new_csrf_token(settings)
     response: Response = render(
         request,
         "decisions/index.html",
@@ -277,14 +276,51 @@ async def decisions_page(
             "rows": rows,
             "showing_withdrawn": withdrawn,
             "verdict": _journal_verdict(rows, theses=len(theses)),
-            "theses": [{"value": str(thesis.id), "label": thesis.title} for thesis in theses],
+            "has_theses": bool(theses),
+            # The record page takes the listing along, so a journal opened from a company
+            # starts the decision about that company.
+            "record_href": "/decisions/new" + (f"?security={quote(named)}" if named else ""),
+        },
+    )
+    return response
+
+
+@router.get("/decisions/new", response_class=HTMLResponse, summary="Record a decision")
+async def new_decision_page(
+    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
+) -> Response:
+    """The drawn page (page specification §11): the form, and beside it the check.
+
+    Declared above `/decisions/{decision_id}`, which would otherwise read *new* as an id.
+    The check's what-if reloads this page with scripting off; with it on, only the check
+    is asked for again (`/decisions/check`), so what the operator has typed stays put.
+    """
+    named = request.query_params.get("security", "").strip()
+    weight, typed_problem = _typed_weight(request.query_params.get("what_if", ""))
+    theses = await thesis_service.theses_for(session, user_id=user.id)
+    check = await _pre_trade(session, named, user_id=user.id, weight_after=weight)
+    if check is not None and typed_problem:
+        check["after_problem"] = typed_problem
+    token = new_csrf_token(settings)
+    chosen_action = request.query_params.get("action", "")
+    response: Response = render(
+        request,
+        "decisions/new.html",
+        {
+            "subject": await _subject_of(session, named),
+            "theses": await _thesis_choices(session, theses),
+            "chosen_thesis": request.query_params.get("thesis", ""),
             "actions": [
-                {"value": action.value, "label": ACTION_WORDS[action].capitalize()}
+                {"value": action.value, "label": _ACTION_BUTTONS[action]}
                 for action in ACTION_CHOICES
             ],
+            "chosen_action": chosen_action
+            if chosen_action in {action.value for action in ACTION_CHOICES}
+            else "",
             "securities": await _dealable(session),
             "named_security": named,
             "check": check,
+            "what_if": request.query_params.get("what_if", "").strip(),
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -292,6 +328,43 @@ async def decisions_page(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+async def _subject_of(session: Any, named: str) -> str:
+    """The listing as the page's eyebrow names it: the company's own name where the
+    platform holds the listing, else what was typed."""
+    try:
+        security = await _security(session, named)
+    except ValueError:
+        return named
+    if security is None:
+        return ""
+    return security.name or security.ticker
+
+
+@router.get(
+    "/decisions/check", response_class=HTMLResponse, summary="What a weight would do to the book"
+)
+async def decision_check(request: Request, session: DbSession, user: CurrentUser) -> Response:
+    """The check's body alone, for the record page to swap in as its what-if changes.
+
+    Records nothing (ADR 0137): the figures are struck in a ledger this request drops.
+    """
+    named = request.query_params.get("security", "").strip()
+    weight, typed_problem = _typed_weight(request.query_params.get("what_if", ""))
+    check = await _pre_trade(session, named, user_id=user.id, weight_after=weight)
+    if check is not None and typed_problem:
+        check["after_problem"] = typed_problem
+    fragment: Response = render(
+        request,
+        "decisions/_check.html",
+        {
+            "check": check,
+            "named_security": named,
+            "what_if": request.query_params.get("what_if", "").strip(),
+        },
+    )
+    return fragment
 
 
 @router.post("/decisions", summary="Record a decision")
@@ -548,10 +621,48 @@ async def _security(session: Any, typed: str) -> Security | None:
     return found[0]
 
 
+# The drawn buttons' words (page specification §11): the verb alone, and Pass the same weight
+# as the others rather than a footnote beneath them.
+_ACTION_BUTTONS: Final[dict[DecisionAction, str]] = {
+    DecisionAction.BUY: "Open",
+    DecisionAction.ADD: "Add",
+    DecisionAction.TRIM: "Trim",
+    DecisionAction.SELL: "Exit",
+    DecisionAction.HOLD: "Keep holding",
+    DecisionAction.PASS: "Pass",
+}
+
+
+async def _thesis_choices(session: Any, theses: list[Thesis]) -> list[dict[str, str]]:
+    """Each thesis as the drawn select names it: its title, when it was written, and the
+    report it was written against — which is the report a decision about it rests on (F10,
+    corrected 24 September 2026: the report is the thesis's own link, not the decision's)."""
+    report_ids = [thesis.report_id for thesis in theses if thesis.report_id is not None]
+    approved: dict[uuid.UUID, datetime | None] = {}
+    if report_ids:
+        found = await session.execute(
+            select(Report.id, Report.approved_at).where(Report.id.in_(report_ids))
+        )
+        approved = dict(found.tuples())
+    choices: list[dict[str, str]] = []
+    for thesis in theses:
+        parts = [thesis.title, f"written {format_date(thesis.created_at.date(), '%-d %b %Y')}"]
+        on = approved.get(thesis.report_id) if thesis.report_id is not None else None
+        parts.append(
+            f"on the report of {format_date(on.date(), '%-d %b %Y')}"
+            if on is not None
+            else "on no report"
+        )
+        choices.append({"value": str(thesis.id), "label": " · ".join(parts)})
+    return choices
+
+
 # -- The check before it is recorded -------------------------------------------------------
 
 
-async def _pre_trade(session: Any, named: str, *, user_id: uuid.UUID) -> dict[str, Any] | None:
+async def _pre_trade(
+    session: Any, named: str, *, user_id: uuid.UUID, weight_after: Decimal | None = None
+) -> dict[str, Any] | None:
     """What the book already says, for the form to show before it is submitted.
 
     ``None`` when this person keeps no book: a concentration figure with no denominator is
@@ -577,7 +688,12 @@ async def _pre_trade(session: Any, named: str, *, user_id: uuid.UUID) -> dict[st
     context = new_context()
     try:
         check = await risk_service.check_before_recording(
-            session, context, portfolio=book, security=security, as_of=as_of
+            session,
+            context,
+            portfolio=book,
+            security=security,
+            as_of=as_of,
+            weight_after=weight_after,
         )
     except AerError as problem:
         _log.warning("decisions.check_failed", portfolio=str(book.id), error=str(problem))
@@ -586,6 +702,10 @@ async def _pre_trade(session: Any, named: str, *, user_id: uuid.UUID) -> dict[st
             "as_of": f"{as_of:%d %B %Y}",
             "figures": [],
             "scenarios": [],
+            "after_rows": [],
+            "after_problem": "",
+            "ticker": "",
+            "caveat": risk_service.NO_INTENDED_SIZE,
         }
 
     currency = book.base_currency
@@ -636,8 +756,76 @@ async def _pre_trade(session: Any, named: str, *, user_id: uuid.UUID) -> dict[st
         "ticker": security.ticker if security is not None else "",
         "figures": figures,
         "scenarios": [scenario_row(row, currency) for row in check.scenarios],
+        "after_rows": _after_rows(check.after, ticker=security.ticker if security else ""),
+        "after_problem": check.after_problem,
+        "cash_short": check.after is not None and check.after.cash_after.value < 0,
         "caveat": risk_service.NO_INTENDED_SIZE,
     }
+
+
+def _after_rows(after: risk_service.BookAfter | None, *, ticker: str) -> list[dict[str, str]]:
+    """The drawn before-and-after rows (ADR 0137), each a fraction of the book in words."""
+    if after is None:
+        return []
+
+    def share(value: Decimal) -> str:
+        return risk_service.percent(value).lstrip("+")
+
+    rows = [
+        {
+            "label": f"Weight in {ticker}",
+            "before": share(after.weight_before.value),
+            "after": share(after.weight_after.value),
+        },
+        {
+            "label": "The five largest",
+            "before": share(after.top_before.value) if after.top_before is not None else "—",
+            "after": share(after.top_after.value),
+        },
+    ]
+    if after.sector is not None and after.sector_before is not None:
+        rows.append(
+            {
+                "label": f"In {after.sector}",
+                "before": share(after.sector_before.value),
+                "after": share(after.sector_after.value) if after.sector_after else "—",
+            }
+        )
+    rows.append(
+        {
+            "label": "Cash",
+            "before": share(after.cash_before.value),
+            "after": share(after.cash_after.value),
+        }
+    )
+    return rows
+
+
+# What the check's what-if accepts: a percentage of the book, as typed. Bounded to the whole
+# book because a position larger than it is not a weight this arithmetic can mean.
+_WHOLE_BOOK: Final = Decimal(100)
+
+
+def _typed_weight(raw: str) -> tuple[Decimal | None, str]:
+    """The position after the trade as a fraction of the book, or why the typing is not one."""
+    cleaned = raw.strip().rstrip("%").strip()
+    if not cleaned:
+        return None, ""
+    try:
+        value = Decimal(cleaned)
+    except InvalidOperation:
+        return None, _NOT_A_WEIGHT
+    if not value.is_finite() or value < 0 or value > _WHOLE_BOOK:
+        return None, _OUTSIDE_THE_BOOK
+    return value / _WHOLE_BOOK, ""
+
+
+_NOT_A_WEIGHT: Final = (
+    "Type the position after the trade as a percentage of the book, such as 12.5."
+)
+_OUTSIDE_THE_BOOK: Final = (
+    "A position after the trade is between none of the book and all of it: type 0 to 100."
+)
 
 
 async def _dealable(session: Any) -> list[dict[str, str]]:

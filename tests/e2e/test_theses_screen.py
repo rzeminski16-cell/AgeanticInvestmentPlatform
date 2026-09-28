@@ -1,4 +1,4 @@
-"""The theses tool, walked once: write a thesis, add a premise, withdraw it, retire the thesis.
+"""The theses tool, walked once: write a thesis, add a premise, revise it, withdraw it, retire.
 
 `test_theses.py` proves the record and drives the pages in-process. Nothing there proves a
 person can do it — that the radio decides which fields count and leads to them, that the
@@ -46,6 +46,26 @@ def _open_the_tool(page: Page, live_server: str) -> None:
     page.wait_for_url("**/theses")
 
 
+def _revise_the_first_premise(page: Page) -> None:
+    """Revise it in place (§10.3): the sentence is the control, the reason goes beside the
+    save, and the header's button submits the form it sits outside of. The old wording is
+    kept in the premise's history rather than overwritten."""
+    premise = page.locator('[data-premise="1"]')
+    premise.locator('[data-field="statement"]').fill("Management allocates capital very well.")
+    page.fill("#reason", "The buyback record held through the downturn.")
+    page.click("#save-revision")
+    page.wait_for_url("**/theses/*")
+    premise = page.locator('[data-premise="1"]')
+    expect(premise.locator('[data-field="statement"]')).to_have_value(
+        "Management allocates capital very well."
+    )
+    premise.get_by_text("How this premise has changed").click()
+    expect(premise.locator('[data-field="history"]')).to_contain_text(
+        "you believed: Management allocates capital well."
+    )
+    expect(page.locator('[data-field="revisions"]')).to_have_text("1")
+
+
 class TestAThesisFromNothing:
     def test_write_add_withdraw_retire(
         self, page: Page, live_server: str, database_url: str
@@ -62,7 +82,7 @@ class TestAThesisFromNothing:
         page.click("#write")
         page.wait_for_url("**/theses/*")
         expect(page.locator("#subject")).to_have_text("Contoso plc (CTSO)")
-        expect(page.get_by_text("Nothing is asserted yet")).to_be_visible()
+        expect(page.get_by_text("Nothing asserted yet")).to_be_visible()
 
         # Add a premise a person will review. The radio decides which fields count, and the
         # choice leads to its fields: the review branch is chosen by default, so the
@@ -83,19 +103,25 @@ class TestAThesisFromNothing:
         page.wait_for_url("**/theses/*")
         premise = page.locator('[data-premise="1"]')
         expect(premise).to_have_attribute("data-tested", "review")
+        expect(premise).to_have_attribute("data-state", "by hand")
         expect(premise.locator('[data-field="defeated-by"]')).to_contain_text("31 March 2027")
-        expect(page.get_by_text("1 premise held")).to_be_visible()
+        expect(page.locator('[data-field="testable"]')).to_have_text("0 of 1")
 
-        # Withdraw it, with a reason. The row stays, struck through, with the reason.
-        premise.locator("input[name='reason']").fill("The FY26 guide broke it.")
-        premise.locator("button[type='submit']").click()
+        _revise_the_first_premise(page)
+
+        # Withdraw it, with a reason, from the header's *Withdraw a premise*. It leaves the
+        # editor and stays below, struck through, with the reason.
+        page.click("#withdraw-a-premise")
+        withdraw = page.locator('[data-withdraw="1"]')
+        withdraw.locator("input[name='reason']").fill("The FY26 guide broke it.")
+        withdraw.locator("button[type='submit']").click()
         page.wait_for_url("**/theses/*")
-        premise = page.locator('[data-premise="1"]')
-        expect(premise).to_have_attribute("data-withdrawn", "yes")
-        expect(premise.locator('[data-field="withdrawn"]')).to_contain_text(
+        given_up = page.locator('#given-up [data-withdrawn="yes"]')
+        expect(given_up).to_have_count(1)
+        expect(given_up.locator('[data-field="withdrawn"]')).to_contain_text(
             "The FY26 guide broke it."
         )
-        expect(page.get_by_text("1 withdrawn, with the reason kept")).to_be_visible()
+        expect(page.locator('[data-premise="1"]')).to_have_count(0)
 
         # Retire it. The forms go; the record stays, on the retired list.
         page.fill("#retire-reason", "Replaced by a narrower thesis.")

@@ -1,0 +1,94 @@
+{% import "_ui/index.html" as ui with context %}
+{#
+  The check beside the record form (page specification §11.1, ADR 0137): what the book already
+  says about this listing, and — at a weight typed here — what it would become. The whole
+  panel's interior, so the page and the fragment the panel asks for again are one template.
+
+  **Nothing typed here is recorded.** The weight is struck in a ledger the request drops, and
+  the decision's size stays the sentence written in the form beside this. The weight's own
+  form is a plain GET, so with scripting off it reloads the page with the figures in; with
+  it on, htmx asks for this panel alone and what the operator has typed stays where it is.
+  The listing rides along hidden, refreshed whenever the record form's listing changes.
+#}
+<p class="type-eyebrow text-warning-ink">Before you record it</p>
+<h2 id="check-heading" class="mt-1 type-title-2 text-ink">What this does to the book</h2>
+
+<form method="get" action="/decisions/new" id="check-what-if" class="mt-4 flex flex-col gap-3"
+      hx-get="/decisions/check" hx-target="#pre-trade-check" hx-swap="innerHTML">
+  <input type="hidden" name="security" value="{{ named_security }}" />
+  {{ ui.field("what_if", "The position after it, as a share of the book", value=what_if, type="number",
+              minimum="0", maximum="100", step="0.1", placeholder="12.5",
+              hint="A percentage, for this check only. Nothing typed here is recorded.") }}
+  <div>
+    <button type="submit" id="show-what-it-does"
+            class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Show what it does</button>
+  </div>
+</form>
+
+<div class="mt-4" id="check-body">
+  {% if check is none %}
+    <p class="type-body-sm text-ink-muted">You keep no book yet, so there is nothing to set a decision against. A pass needs none.</p>
+  {% elif check.problem %}
+    <p class="type-body-sm text-ink-muted">{{ check.problem }}</p>
+  {% else %}
+    {% if check.after_problem %}
+      <p class="mb-3 type-body-sm text-failure-ink" role="alert" id="what-if-problem">{{ check.after_problem }}</p>
+    {% endif %}
+    {% if check.after_rows %}
+      <dl class="flex flex-col divide-y divide-line" id="check-after">
+        {% for row in check.after_rows %}
+          <div class="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 py-2">
+            <dt class="type-body-sm text-ink">{{ row.label }}</dt>
+            <dd class="type-data-sm text-ink-muted whitespace-nowrap">
+              <span data-when="before">{{ row.before }}</span>
+              <span aria-hidden="true">&rarr;</span><span class="sr-only">, and after it</span>
+              <span class="text-ink" data-when="after">{{ row.after }}</span>
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+      {% if check.cash_short %}
+        <p class="mt-3 rounded-sm border-l-[3px] border-warning-ink bg-decision-wash p-3 type-body-sm text-ink" id="cash-short">
+          The cash on hand does not cover it. The figures assume the position is paid for from cash alone, so something else would have to be sold.
+        </p>
+      {% endif %}
+      <p class="mt-3 type-caption text-ink-muted">As at {{ check.as_of }}, paid for from cash: nothing else in the book is sold, so only this holding and the cash move.</p>
+    {% elif check.figures %}
+      <dl class="flex flex-col divide-y divide-line" id="check-figures">
+        {% for row in check.figures %}
+          <div class="flex flex-col gap-0.5 py-2">
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="type-body-sm text-ink">{{ row.label }}</dt>
+              <dd class="type-data-sm text-ink">{{ row.value }}</dd>
+            </div>
+            <p class="type-caption text-ink-muted">{{ row.note }}</p>
+          </div>
+        {% endfor %}
+      </dl>
+    {% endif %}
+
+    {% if check.scenarios %}
+      {#
+        The same rows the risk page prints, built by its own `scenario_row`: one shock
+        rendered twice must be one number twice, and importing the formatter is what makes
+        that structural rather than something a test has to keep watching.
+      #}
+      <h3 class="mt-4 type-label text-ink">Your stated shocks that reach it</h3>
+      <ul class="mt-1 flex flex-col gap-1" id="check-scenarios">
+        {% for row in check.scenarios %}
+          <li class="type-body-sm text-ink" data-scenario="{{ row.id }}" data-loss="{{ 'yes' if row.is_loss else 'no' }}">
+            {{ row.name }}:
+            {% if row.problem %}<span class="text-ink-muted">{{ row.problem }}</span>{% else %}<span class="type-data-sm">{{ row.impact }}</span> of the book ({{ row.pnl }}){% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif check.ticker %}
+      <p class="mt-4 type-body-sm text-ink-muted">None of your stated shocks reaches {{ check.ticker }}. A shock is yours to state, on the risk page; the platform proposes none.</p>
+    {% endif %}
+  {% endif %}
+</div>
+
+{% if check %}
+  <p class="mt-4 type-caption text-ink-muted" id="check-caveat">{{ check.caveat }}</p>
+{% endif %}
+<p class="mt-2 type-caption text-ink-muted">The check never blocks. Your book is your own &mdash; it only makes sure you knew. <a href="/risk" class="text-verification underline underline-offset-[3px]">The same figures, in full, on the risk page</a>.</p>

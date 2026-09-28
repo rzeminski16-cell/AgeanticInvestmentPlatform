@@ -71,12 +71,17 @@ class TestADecisionThenTheTrade:
         page.wait_for_url("**/portfolio")
         page.locator('nav[aria-label="Portfolio"]').get_by_role("link", name="Decisions").click()
         page.wait_for_url("**/decisions")
+        # The journal leads to the page that records one, the check beside its form.
+        page.click("#record-a-decision")
+        page.wait_for_url("**/decisions/new")
         page.select_option("#thesis_id", index=0)
-        page.select_option("#action", "buy")
+        page.locator("#decision-actions").get_by_text("Open", exact=True).click()
         page.fill("#statement", "Open an initial position.")
         page.fill("#basis", "The FY25 report confirmed the margin structure.")
         page.fill("#security", "CTSO.LSE")
         page.fill("#size_statement", "about 2% of the book")
+        # The holding period is one of the optional details, behind their disclosure.
+        page.locator("#record-decision details > summary").click()
         page.fill("#horizon_months", "24")
         page.click("#record")
         page.wait_for_url("**/decisions/*")

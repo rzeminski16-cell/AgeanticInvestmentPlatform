@@ -2,15 +2,21 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  One thesis: what it asserts, premise by premise, and what would defeat each.
+  The thesis editor (page specification §10): what you believe, premise by premise, and what
+  would defeat each.
 
-  Two kinds of premise, styled the same. A premise tested by a threshold and one reviewed
-  by a person are both premises (ADR 0079), and a design that greyed the second out would
-  teach the operator to invent thresholds so the page lights up. The distinction is stated
-  in words beside each premise and nowhere in its weight.
+  **The premises are the form.** Each sentence and each test is a control, and *Save the
+  revision* saves every one that changed, with one reason, as new rows: the old wording is
+  withdrawn with the reason and kept in the premise's history (§10.3). Nothing is deleted,
+  ever — a view given up is struck through below with why, and a revision reads as a
+  narrative, never a diff.
 
-  Nothing is deleted. A withdrawn premise stays, struck through, with the reason beside it —
-  "I held this and gave it up because…" is the row the post-trade reviewer reads.
+  Two kinds of premise, styled the same. A premise tested by a threshold and one reviewed by a
+  person are both premises (ADR 0079), and a design that greyed the second out would teach the
+  operator to invent thresholds so the page lights up.
+
+  **Nothing formats a figure here.** Thresholds and measurements arrive in words from
+  `web/theses/pages.py`, through the document's own formatters.
 #}
 
 {% block title %}{{ item.title }} &middot; Thesis &middot; Ageantic{% endblock %}
@@ -22,205 +28,392 @@
 {% endblock %}
 
 {% block content %}
+  {% set editable = editor.rows and not item.is_retired %}
   {% call ui.page_header(
-    item.title,
-    eyebrow="THESIS",
-    identity=subject ~ " · written " ~ (item.written_at or item.created_at).strftime("%d %B %Y"),
+    "What you believe",
+    eyebrow=subject ~ " · Thesis",
+    identity="A premise is a sentence. Where something can test it, name the test — that is what the monitor runs. Where nothing can, give it a date and you will be asked to look again.",
     breadcrumbs=[{"href": "/theses", "label": "Theses"}],
   ) %}
     <span id="subject" class="sr-only">{{ subject }}</span>
-  {% endcall %}
-
-  {{ ui.verdict("WHAT THIS THESIS ASSERTS", verdict.composed, tone=verdict.tone.value) }}
-
-  {% if item.is_retired %}
-    <div id="retired-notice">
-      {{ ui.callout("info", "This thesis is retired", "Retired on " ~ item.retired_at.strftime("%d %B %Y") ~ ". " ~ item.retirement_reason ~ " It is kept as a record of what was believed; nothing can be added to it.") }}
-    </div>
-  {% endif %}
-
-  {% call ui.sheet("Reports on " ~ subject, subtitle="What the research tool has approved about the company. A query over the subject rather than a link the thesis depends on: a report written later is listed too, and is worth reading against these premises.", id="reports") %}
-    {% if reports %}
-      {% call ui.record_list("Reports") %}
-        {% for row in reports %}
-          {% call ui.record(
-            "Report as of " ~ row.as_of,
-            "/reports/" ~ row.report_id,
-            sentence=("The report this thesis was written against." if row.is_written_against else ""),
-            meta=("approved " ~ row.approved_on if row.approved_on else "")
-          ) %}
-            {% if row.is_written_against %}<span class="type-label text-ink-muted" data-field="written-against">Written against</span>{% endif %}
-          {% endcall %}
-        {% endfor %}
-      {% endcall %}
-    {% else %}
-      {{ ui.empty("No report yet", "Nothing has been approved about " ~ subject ~ ". A thesis does not need one, but the next report is the thing to read these premises against.", action_label="Start a research request", action_href="/requests/new") }}
+    {% if editable %}
+      <a href="#withdraw-premise" id="withdraw-a-premise"
+         class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Withdraw a premise</a>
+      <button type="submit" form="revise-thesis" id="save-revision"
+              class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Save the revision</button>
     {% endif %}
   {% endcall %}
 
-  {% call ui.sheet("Premises", id="premises") %}
-    {% if premises %}
-      <ol class="flex flex-col" aria-label="Premises">
-        {% for row in premises %}
-          <li
-            id="premise-{{ row.judgement_id }}"
-            class="grid grid-cols-1 gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
-            data-premise="{{ row.position }}"
-            data-tested="{{ 'threshold' if row.is_tested else 'review' }}"
-            data-withdrawn="{{ 'yes' if row.is_withdrawn else 'no' }}"
-          >
-            <div class="min-w-0">
-              <p class="type-eyebrow text-ink-muted">Premise {{ row.position }}{% if row.is_withdrawn %} &middot; withdrawn{% endif %}</p>
-              <p class="mt-1 type-subheading {% if row.is_withdrawn %}line-through text-ink-muted{% else %}text-ink{% endif %}" data-field="statement">
-                {{ row.statement }}
-              </p>
-              <p class="mt-2 type-body text-ink" data-field="basis">
-                <span class="type-label text-ink-muted">On the basis that</span>
-                {{ row.basis }}
-              </p>
-              <dl class="mt-3 grid grid-cols-1 gap-y-1 sm:grid-cols-[160px_1fr]">
-                <dt class="type-label text-ink-muted">{% if row.is_tested %}Tested by a threshold{% else %}Reviewed by a person{% endif %}</dt>
-                <dd class="type-data-sm text-ink" data-field="defeated-by">{{ row.defeated_by }}</dd>
-                <dt class="type-label text-ink-muted">Held</dt>
-                <dd class="type-body-sm text-ink">by {{ row.held_by }} since {{ row.held_on }}</dd>
-                {% if row.is_withdrawn %}
-                  <dt class="type-label text-ink-muted">Withdrawn</dt>
-                  <dd class="type-body-sm text-ink" data-field="withdrawn">on {{ row.withdrawn_on }}: {{ row.withdrawn_reason }}</dd>
-                {% endif %}
-              </dl>
-            </div>
-            {% if not row.is_withdrawn and not item.is_retired %}
-              <form
-                method="post"
-                action="/theses/{{ item.id }}/premises/{{ row.judgement_id }}/withdraw"
-                class="flex flex-wrap items-end gap-2"
-              >
-                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                <div>
-                  <label for="reason-{{ row.judgement_id }}" class="block type-label text-ink-muted">Withdraw, because</label>
-                  <input
-                    id="reason-{{ row.judgement_id }}"
-                    name="reason"
-                    required
-                    class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
-                  />
+  <div class="flex flex-col gap-6">
+    {% if item.is_retired %}
+      <div id="retired-notice">
+        {{ ui.callout("info", "This thesis is retired", "Retired on " ~ item.retired_at.strftime("%d %B %Y") ~ ". " ~ item.retirement_reason ~ " It is kept as a record of what was believed; nothing can be added to it.") }}
+      </div>
+    {% endif %}
+
+    {% if problem %}
+      <div id="revision-problem" tabindex="-1">
+        {{ ui.callout("failure", "Nothing was saved", problem) }}
+      </div>
+    {% elif notice %}
+      <p class="type-body text-ink-muted" id="revision-notice">{{ notice }}</p>
+    {% endif %}
+
+    {# §10.1 The premises, as the form that revises them. #}
+    <section id="premises" aria-labelledby="premises-heading" class="rounded-md border border-line bg-surface p-5 sm:p-6">
+      <h2 id="premises-heading" class="sr-only">Premises</h2>
+      {% if editor.rows %}
+        <form method="post" action="/theses/{{ item.id }}/revise" id="revise-thesis">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          {% for row in editor.rows %}
+            {% for waiting in row.open_findings %}
+              {% if waiting.gate_is_decidable %}
+                <input type="hidden" name="payload_hash-{{ waiting.finding_id }}" value="{{ waiting.payload_hash }}" />
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          <ol class="flex flex-col" aria-label="Premises held">
+            {% for row in editor.rows %}
+              <li id="premise-{{ row.judgement_id }}"
+                  class="flex flex-col gap-3 border-t border-line py-5 first:border-t-0 first:pt-0"
+                  data-premise="{{ row.number }}"
+                  data-tested="{{ 'threshold' if row.is_tested else 'review' }}"
+                  data-withdrawn="no"
+                  data-state="{{ row.state }}">
+                <div class="flex items-start gap-4">
+                  <label for="statement-{{ row.judgement_id }}" class="sr-only">Premise {{ row.number }}</label>
+                  {# One row that grows with its sentence, so the premise reads as text until it is edited. #}
+                  <textarea id="statement-{{ row.judgement_id }}" name="statement-{{ row.judgement_id }}" rows="1"
+                            {% if not editable %}readonly{% endif %}
+                            class="field-sizing-content min-w-0 flex-1 resize-none rounded-sm border border-transparent bg-transparent px-2 py-1 -mx-2 type-body-lg text-ink hover:border-line focus:border-control-boundary"
+                            data-field="statement">{{ row.statement }}</textarea>
+                  <span class="shrink-0" data-field="state">{{ ui.status(row.tone, row.state) }}</span>
                 </div>
-                <button
-                  type="submit"
-                  class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected"
-                >Withdraw</button>
-              </form>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ol>
-    {% else %}
-      {{
-        ui.empty(
+
+                <div class="flex flex-wrap items-center gap-2" data-field="test">
+                  {% if row.is_tested %}
+                    <span class="w-24 shrink-0 type-body-sm text-ink-muted">Defeated if</span>
+                    <label for="metric-{{ row.judgement_id }}" class="sr-only">Metric</label>
+                    <select id="metric-{{ row.judgement_id }}" name="metric-{{ row.judgement_id }}" {% if not editable %}disabled{% endif %}
+                            class="min-h-11 max-w-[18rem] rounded-sm border border-control-boundary bg-surface-sunken px-3 type-data-sm text-ink">
+                      {% if not row.metric_is_measurable %}
+                        <option value="{{ row.metric }}" selected>{{ row.metric_label }} — not one the monitor can measure</option>
+                      {% endif %}
+                      {% for group in metric_groups %}
+                        <optgroup label="{{ group.label }}">
+                          {% for choice in group.choices %}
+                            <option value="{{ choice.value }}" {% if choice.value == row.metric %}selected{% endif %}>{{ choice.label }}</option>
+                          {% endfor %}
+                        </optgroup>
+                      {% endfor %}
+                    </select>
+                    <label for="comparator-{{ row.judgement_id }}" class="sr-only">Comparator</label>
+                    <select id="comparator-{{ row.judgement_id }}" name="comparator-{{ row.judgement_id }}" {% if not editable %}disabled{% endif %}
+                            class="min-h-11 rounded-sm border border-control-boundary bg-surface-sunken px-3 type-data-sm text-ink">
+                      {% for choice in comparators %}
+                        <option value="{{ choice.value }}" {% if choice.value == row.comparator %}selected{% endif %}>{{ choice.label }}</option>
+                      {% endfor %}
+                    </select>
+                    <label for="threshold-{{ row.judgement_id }}" class="sr-only">Threshold</label>
+                    <input id="threshold-{{ row.judgement_id }}" name="threshold-{{ row.judgement_id }}" value="{{ row.threshold }}"
+                           inputmode="decimal" size="8" {% if not editable %}readonly{% endif %}
+                           class="min-h-11 w-28 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+                    <label for="unit-{{ row.judgement_id }}" class="sr-only">Unit</label>
+                    <select id="unit-{{ row.judgement_id }}" name="unit-{{ row.judgement_id }}" {% if not editable %}disabled{% endif %}
+                            class="min-h-11 rounded-sm border border-control-boundary bg-surface-sunken px-3 type-data-sm text-ink">
+                      {% set known = unit_choices | map(attribute="value") | list %}
+                      {% if row.unit not in known %}
+                        <option value="{{ row.unit }}" selected>{{ row.unit }}</option>
+                      {% endif %}
+                      {% for choice in unit_choices %}
+                        <option value="{{ choice.value }}" {% if choice.value | lower == row.unit | lower %}selected{% endif %}>{{ choice.label }}</option>
+                      {% endfor %}
+                    </select>
+                  {% else %}
+                    <span class="w-24 shrink-0 type-body-sm text-ink-muted">No test</span>
+                    <label for="review_by-{{ row.judgement_id }}" class="type-data-sm text-ink-muted">review by</label>
+                    <input id="review_by-{{ row.judgement_id }}" name="review_by-{{ row.judgement_id }}" type="date" value="{{ row.review_by }}"
+                           {% if not editable %}readonly{% endif %}
+                           class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+                  {% endif %}
+                </div>
+                <p class="sr-only" data-field="defeated-by">{{ row.defeat }}</p>
+
+                <p class="type-body-sm text-ink-muted" data-field="measured">{{ row.measured }}</p>
+                {% if row.kept %}
+                  <p class="type-body-sm text-ink" data-field="kept">{{ row.kept }}</p>
+                {% endif %}
+                {% if row.history %}
+                  {% call ui.disclosure("How this premise has changed") %}
+                    <ol class="flex flex-col gap-2" data-field="history">
+                      {% for line in row.history %}
+                        <li class="type-body-sm text-ink">{{ line }}</li>
+                      {% endfor %}
+                    </ol>
+                  {% endcall %}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+
+          {% if editable %}
+            <div class="mt-5 flex flex-col gap-3 border-t border-line pt-5">
+              {{ ui.field("reason", "Why you changed them", value=reason, rows=2,
+                          hint="Needed when you change anything above. The old wording is kept with this reason, and the grounds the premise rests on carry over. A premise keeps its kind: to test one that has only a date, or the other way round, withdraw it and add the other.") }}
+              <div>
+                <button type="submit" id="save-revision-below"
+                        class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Save the revision</button>
+              </div>
+            </div>
+          {% endif %}
+        </form>
+      {% else %}
+        {{ ui.empty(
           "Nothing asserted yet",
           "A thesis is its premises. Add the first below: what you believe, why, and what would show you were wrong.",
-        )
-      }}
-    {% endif %}
-  {% endcall %}
+        ) }}
+      {% endif %}
 
-  {% call ui.sheet("Decisions taken on it", subtitle="What you decided to do about this thesis, written before the outcome. Each is a judgement of its own, with the trades that carried it out.", id="decisions") %}
-    {% if decisions %}
-      {% call ui.record_list("Decisions") %}
-        {% for row in decisions %}
-          <li class="border-t border-line py-3" data-decision="{{ row.id }}" data-withdrawn="{{ 'yes' if row.is_withdrawn else 'no' }}">
-            <a href="/decisions/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2 {% if row.is_withdrawn %}line-through{% endif %}">{{ row.action | capitalize }}: {{ row.statement }}</a>
-            <p class="mt-1 type-data-sm text-ink-muted">Decided {{ row.decided_on }} · {{ row.carried_out }} trade{{ "" if row.carried_out == 1 else "s" }} carried it out</p>
-          </li>
-        {% endfor %}
-      {% endcall %}
-    {% else %}
-      {{ ui.empty("Nothing decided yet", "A decision is what you do about a thesis — open a position, add, trim, close, keep holding, or pass — written down before the outcome is known.", action_label="Record a decision", action_href="/decisions") }}
-    {% endif %}
-  {% endcall %}
-
-  {% call ui.sheet("The position", subtitle="What the book holds, or held, in the company. Open positions link to the book; closed ones to their review.", id="position") %}
-    {% if positions %}
-      {% call ui.record_list("Positions") %}
-        {% for row in positions %}
-          {{ ui.record(
-            row.listing ~ (", open in " if row.is_open else ", closed ") ~ (row.book if row.is_open else row.closed_on),
-            row.href,
-            sentence=("Opened " ~ row.opened_on ~ "." if row.is_open else "Held from " ~ row.opened_on ~ " to " ~ row.closed_on ~ " in " ~ row.book ~ (". Reviewed." if row.is_reviewed else ". Not yet reviewed.")),
-            meta=(row.trades ~ " trade" ~ ("" if row.trades == 1 else "s") ~ " on record")
-          ) }}
-        {% endfor %}
-      {% endcall %}
-    {% elif book %}
-      {{ ui.empty("Not held", book.name ~ " has never dealt in " ~ subject ~ ". A position starts with a decision, written before the trade.", action_label="Record a decision", action_href="/decisions") }}
-    {% else %}
-      {{ ui.empty("No book yet", "A position lives in a portfolio, and none is open. The book is where a decision on this thesis would be carried out.", action_label="Open the portfolio", action_href="/portfolio") }}
-    {% endif %}
-  {% endcall %}
-
-  {% if not item.is_retired %}
-    {% call ui.sheet("Add a premise", subtitle="What you believe, the basis for it, and what would defeat it — a threshold code can test, or a date a person will look again by.") %}
-      <form method="post" action="/theses/{{ item.id }}/premises" class="grid max-w-2xl gap-4" id="add-premise" data-branches="defeated_by">
-        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-        {{ ui.field("statement", "The premise", required=true, rows=2, hint="One claim about the company. \"Azure revenue keeps growing above 25% a year.\"") }}
-        {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What you read, saw or reasoned that makes you hold it. A view with no stated basis is a guess wearing a label.") }}
-        {{ ui.field("held_on", "Held since", type="date", value=today, maximum=today, hint="When you formed this view. Defaults to today.") }}
-
-        {{
-          ui.choice_group(
-            "defeated_by",
-            "What would defeat it",
-            [
-              {"value": defeat_threshold, "label": "A threshold code can test", "consequence": "Name a metric, a comparator and a number with its unit. The monitor tests it against stored facts as they arrive, and the arithmetic is code's."},
-              {"value": defeat_review, "label": "A person will look again", "consequence": "For a premise no filing measures — the quality of the people, the durability of the advantage. Name the date you will review it by. It is no less a premise for that."},
-            ],
-            chosen=defeat_review,
-          )
-        }}
-
-        <div class="grid gap-4 sm:grid-cols-2" id="threshold-fields" data-branch="{{ defeat_threshold }}">
-          {{ ui.field("metric", "Metric", datalist="measurable-metrics", hint="What is measured, in the monitor's words: a ratio such as operating_margin, a line's growth such as revenue_growth, or a line's level such as revenue. Anything else is recorded and read as unobservable.") }}
-          <datalist id="measurable-metrics">
-            {% for metric in metrics %}<option value="{{ metric }}"></option>{% endfor %}
-          </datalist>
-          {{ ui.field("comparator", "Comparator", choices=comparators, value="at_least") }}
-          {{ ui.field("threshold", "Threshold", type="text", hint="A number, in the unit below.") }}
-          {{ ui.field("unit", "Unit", hint="percent, USD, ratio — what the number is in. A bare number cannot be compared with a fact.") }}
+      {% if editor.given_up %}
+        <div class="mt-6 border-t border-line pt-5" id="given-up">
+          <h3 class="type-label text-ink-muted">Given up</h3>
+          <ul class="mt-2 flex flex-col gap-3">
+            {% for row in editor.given_up %}
+              <li id="premise-{{ row.judgement_id }}" data-premise-withdrawn="{{ row.judgement_id }}" data-withdrawn="yes">
+                <p class="type-body text-ink-muted line-through" data-field="statement">{{ row.statement }}</p>
+                <p class="type-body-sm text-ink-muted">{{ row.defeat }}</p>
+                <p class="type-body-sm text-ink" data-field="withdrawn">Held from {{ row.held_on }}, withdrawn on {{ row.withdrawn_on }}: {{ row.reason }}</p>
+              </li>
+            {% endfor %}
+          </ul>
         </div>
-        <div id="review-fields" data-branch="{{ defeat_review }}">
-          {{ ui.field("review_by", "Review by", type="date", minimum=today, hint="The date by which you will look at this premise again.") }}
-        </div>
+      {% endif %}
+    </section>
 
-        <div>
-          <button
-            id="add"
-            type="submit"
-            class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
-          >
-            Add the premise
-          </button>
-        </div>
-      </form>
-    {% endcall %}
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+      <div class="flex min-w-0 flex-col gap-6">
+        {# §10.3 When a premise has broken: three answers, each saying what it does. #}
+        {% if editor.broken and not item.is_retired %}
+          <section id="broken" aria-labelledby="broken-heading" class="rounded-md border border-warning-ink bg-decision-wash p-5 sm:p-6">
+            <p id="broken-heading" class="type-eyebrow text-warning-ink">
+              {% if editor.broken | length == 1 %}One premise broke{% else %}{{ editor.broken | length }} premises broke{% endif %}
+            </p>
+            <p class="mt-2 max-w-prose type-body text-ink">
+              You can <strong>revise</strong> it to what you now believe, <strong>withdraw</strong> it with a reason, or <strong>keep</strong> it and record that you think the miss is temporary.
+            </p>
+            <p class="mt-1 type-body-sm text-ink-muted">Whichever you choose, the old wording is kept. A belief you held is part of the record.</p>
 
-    {% call ui.sheet("Retire this thesis", subtitle="Put it away with the reason. Nothing is deleted: a retired thesis is a record of what was believed, and the reason is the first thing a later review asks.") %}
-      <form method="post" action="/theses/{{ item.id }}/retire" class="flex max-w-2xl flex-wrap items-end gap-2" id="retire-thesis">
-        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-        <div class="min-w-0 flex-1">
-          <label for="retire-reason" class="block type-label text-ink-muted">Because</label>
-          <input
-            id="retire-reason"
-            name="reason"
-            required
-            class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
-          />
-        </div>
-        <button
-          id="retire"
-          type="submit"
-          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected"
-        >Retire</button>
-      </form>
-    {% endcall %}
-  {% endif %}
+            {% for row in editor.broken %}
+              <div class="mt-5 border-t border-warning-ink/40 pt-4" data-broken="{{ row.judgement_id }}">
+                <p class="type-body text-ink">{{ row.statement }}</p>
+                <p class="mt-1 type-body-sm text-ink-muted">{{ row.measured }} Raised on {{ row.broken.raised_on }}.</p>
+                <div class="mt-3 flex flex-wrap items-start gap-2">
+                  <a href="#statement-{{ row.judgement_id }}" id="revise-{{ row.judgement_id }}"
+                     class="inline-flex min-h-11 items-center rounded-sm bg-warning-ink px-4 type-label text-surface hover:opacity-90">Revise it</a>
+                  <details class="group min-w-0">
+                    <summary class="inline-flex min-h-11 cursor-pointer items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink marker:content-none hover:bg-surface-sunken">Withdraw it</summary>
+                    <form method="post" action="/theses/{{ item.id }}/premises/{{ row.judgement_id }}/withdraw" class="mt-3 flex flex-col gap-2" id="withdraw-broken-{{ row.judgement_id }}">
+                      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                      {% for waiting in row.open_findings %}{% if waiting.gate_is_decidable %}<input type="hidden" name="payload_hash-{{ waiting.finding_id }}" value="{{ waiting.payload_hash }}" />{% endif %}{% endfor %}
+                      <label for="withdraw-reason-{{ row.judgement_id }}" class="type-label text-ink">Why you no longer hold it</label>
+                      <textarea id="withdraw-reason-{{ row.judgement_id }}" name="reason" rows="2" required
+                                class="rounded-sm border border-control-boundary bg-surface px-3 py-2 type-body text-ink"></textarea>
+                      <p class="type-body-sm text-ink-muted">It stops being tested and stays in the history.</p>
+                      <div><button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Withdraw it</button></div>
+                    </form>
+                  </details>
+                  <details class="group min-w-0">
+                    <summary class="inline-flex min-h-11 cursor-pointer items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink marker:content-none hover:bg-surface-sunken">Keep it &mdash; say why</summary>
+                    <form method="post" action="/theses/{{ item.id }}/premises/{{ row.judgement_id }}/keep" class="mt-3 flex flex-col gap-2" id="keep-{{ row.judgement_id }}">
+                      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                      {% for waiting in row.open_findings %}{% if waiting.gate_is_decidable %}<input type="hidden" name="payload_hash-{{ waiting.finding_id }}" value="{{ waiting.payload_hash }}" />{% endif %}{% endfor %}
+                      <label for="keep-reason-{{ row.judgement_id }}" class="type-label text-ink">Why you think the miss is temporary</label>
+                      <textarea id="keep-reason-{{ row.judgement_id }}" name="reason" rows="2" required
+                                class="rounded-sm border border-control-boundary bg-surface px-3 py-2 type-body text-ink"></textarea>
+                      <p class="type-body-sm text-ink-muted">The premise stands and goes on being tested; the next annual filing is read against it.</p>
+                      <div><button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Keep it</button></div>
+                    </form>
+                  </details>
+                </div>
+              </div>
+            {% endfor %}
+          </section>
+        {% endif %}
+
+        {% if not item.is_retired %}
+          {% call ui.sheet("Add a premise", subtitle="What you believe, the basis for it, and what would defeat it — a threshold code can test, or a date a person will look again by.") %}
+            <form method="post" action="/theses/{{ item.id }}/premises" class="grid max-w-2xl gap-4" id="add-premise" data-branches="defeated_by">
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              {{ ui.field("statement", "The premise", required=true, rows=2, hint="One claim about the company. \"Azure revenue keeps growing above 25% a year.\"") }}
+              {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What you read, saw or reasoned that makes you hold it. A view with no stated basis is a guess wearing a label.") }}
+              {{ ui.field("held_on", "Held since", type="date", value=today, maximum=today, hint="When you formed this view. Defaults to today.") }}
+
+              {{
+                ui.choice_group(
+                  "defeated_by",
+                  "What would defeat it",
+                  [
+                    {"value": defeat_threshold, "label": "A threshold code can test", "consequence": "Name a metric, a comparator and a number with its unit. The monitor tests it against stored facts as they arrive, and the arithmetic is code's."},
+                    {"value": defeat_review, "label": "A person will look again", "consequence": "For a premise no filing measures — the quality of the people, the durability of the advantage. Name the date you will review it by. It is no less a premise for that."},
+                  ],
+                  chosen=defeat_review,
+                )
+              }}
+
+              <div class="grid gap-4 sm:grid-cols-2" id="threshold-fields" data-branch="{{ defeat_threshold }}">
+                <div class="flex flex-col gap-2">
+                  <label for="metric" class="type-label text-ink">Metric <span class="text-ink-muted">(optional)</span></label>
+                  <select id="metric" name="metric" aria-describedby="metric-hint"
+                          class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink">
+                    {% for group in metric_groups %}
+                      <optgroup label="{{ group.label }}">
+                        {% for choice in group.choices %}
+                          <option value="{{ choice.value }}">{{ choice.label }}</option>
+                        {% endfor %}
+                      </optgroup>
+                    {% endfor %}
+                  </select>
+                  <p id="metric-hint" class="type-body-sm text-ink-muted">Only what the monitor can measure from the filings: a ratio, a line's growth on the year before, or a line as filed.</p>
+                </div>
+                {{ ui.field("comparator", "Comparator", choices=comparators, value="at_least") }}
+                {{ ui.field("threshold", "Threshold", type="text", hint="A number, in the unit beside it.") }}
+                {{ ui.field("unit", "Unit", choices=unit_choices, value="percent", hint="What the number is in. A bare number cannot be compared with a fact.") }}
+              </div>
+              <div id="review-fields" data-branch="{{ defeat_review }}">
+                {{ ui.field("review_by", "Review by", type="date", minimum=today, hint="The date by which you will look at this premise again.") }}
+              </div>
+
+              <div>
+                <button id="add" type="submit"
+                        class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Add the premise</button>
+              </div>
+            </form>
+          {% endcall %}
+
+          {% if editor.rows %}
+            {% call ui.sheet("Withdraw a premise", subtitle="You no longer hold it, and you say why. It stops being tested and stays in the history, struck through, with your reason.", id="withdraw-premise") %}
+              <ul class="flex flex-col">
+                {% for row in editor.rows %}
+                  <li class="border-t border-line py-3 first:border-t-0 first:pt-0" data-withdraw="{{ row.number }}">
+                    <form method="post" action="/theses/{{ item.id }}/premises/{{ row.judgement_id }}/withdraw" class="flex flex-col gap-2">
+                      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                      {% for waiting in row.open_findings %}{% if waiting.gate_is_decidable %}<input type="hidden" name="payload_hash-{{ waiting.finding_id }}" value="{{ waiting.payload_hash }}" />{% endif %}{% endfor %}
+                      <p class="type-body text-ink">{{ row.statement }}</p>
+                      <div class="flex flex-wrap items-end gap-2">
+                        <div class="min-w-0 flex-1">
+                          <label for="reason-{{ row.judgement_id }}" class="block type-label text-ink-muted">Withdraw, because</label>
+                          <input id="reason-{{ row.judgement_id }}" name="reason" required
+                                 class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+                        </div>
+                        <button type="submit" id="withdraw-{{ row.judgement_id }}"
+                                class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Withdraw</button>
+                      </div>
+                    </form>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endcall %}
+          {% endif %}
+        {% endif %}
+
+        {% call ui.sheet("Decisions taken on it", subtitle="What you decided to do about this thesis, written before the outcome. Each is a judgement of its own, with the trades that carried it out.", id="decisions") %}
+          {% if decisions %}
+            {% call ui.record_list("Decisions") %}
+              {% for row in decisions %}
+                <li class="border-t border-line py-3" data-decision="{{ row.id }}" data-withdrawn="{{ 'yes' if row.is_withdrawn else 'no' }}">
+                  <a href="/decisions/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2 {% if row.is_withdrawn %}line-through{% endif %}">{{ row.action | capitalize }}: {{ row.statement }}</a>
+                  <p class="mt-1 type-data-sm text-ink-muted">Decided {{ row.decided_on }} · {{ row.carried_out }} trade{{ "" if row.carried_out == 1 else "s" }} carried it out</p>
+                </li>
+              {% endfor %}
+            {% endcall %}
+          {% else %}
+            {{ ui.empty("Nothing decided yet", "A decision is what you do about a thesis — open a position, add, trim, close, keep holding, or pass — written down before the outcome is known.", action_label="Record a decision", action_href="/decisions/new?thesis=" ~ item.id) }}
+          {% endif %}
+        {% endcall %}
+
+        {% call ui.sheet("The position", subtitle="What the book holds, or held, in the company. Open positions link to the book; closed ones to their review.", id="position") %}
+          {% if positions %}
+            {% call ui.record_list("Positions") %}
+              {% for row in positions %}
+                {{ ui.record(
+                  row.listing ~ (", open in " if row.is_open else ", closed ") ~ (row.book if row.is_open else row.closed_on),
+                  row.href,
+                  sentence=("Opened " ~ row.opened_on ~ "." if row.is_open else "Held from " ~ row.opened_on ~ " to " ~ row.closed_on ~ " in " ~ row.book ~ (". Reviewed." if row.is_reviewed else ". Not yet reviewed.")),
+                  meta=(row.trades ~ " trade" ~ ("" if row.trades == 1 else "s") ~ " on record")
+                ) }}
+              {% endfor %}
+            {% endcall %}
+          {% elif book %}
+            {{ ui.empty("Not held", book.name ~ " has never dealt in " ~ subject ~ ". A position starts with a decision, written before the trade.", action_label="Record a decision", action_href="/decisions/new?thesis=" ~ item.id) }}
+          {% else %}
+            {{ ui.empty("No book yet", "A position lives in a portfolio, and none is open. The book is where a decision on this thesis would be carried out.", action_label="Open the portfolio", action_href="/portfolio") }}
+          {% endif %}
+        {% endcall %}
+
+        {% call ui.sheet("Reports on " ~ subject, subtitle="What the research tool has approved about the company. A query over the subject rather than a link the thesis depends on: a report written later is listed too, and is worth reading against these premises.", id="reports") %}
+          {% if reports %}
+            {% call ui.record_list("Reports") %}
+              {% for row in reports %}
+                {% call ui.record(
+                  "Report as of " ~ row.as_of,
+                  "/reports/" ~ row.report_id,
+                  sentence=("The report this thesis was written against." if row.is_written_against else ""),
+                  meta=("approved " ~ row.approved_on if row.approved_on else "")
+                ) %}
+                  {% if row.is_written_against %}<span class="type-label text-ink-muted" data-field="written-against">Written against</span>{% endif %}
+                {% endcall %}
+              {% endfor %}
+            {% endcall %}
+          {% else %}
+            {{ ui.empty("No report yet", "Nothing has been approved about " ~ subject ~ ". A thesis does not need one, but the next report is the thing to read these premises against.", action_label="Start a research request", action_href="/requests/new") }}
+          {% endif %}
+        {% endcall %}
+
+        {% if not item.is_retired %}
+          {% call ui.sheet("Retire this thesis", subtitle="Put it away with the reason. Nothing is deleted: a retired thesis is a record of what was believed, and the reason is the first thing a later review asks.") %}
+            <form method="post" action="/theses/{{ item.id }}/retire" class="flex max-w-2xl flex-wrap items-end gap-2" id="retire-thesis">
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              <div class="min-w-0 flex-1">
+                <label for="retire-reason" class="block type-label text-ink-muted">Because</label>
+                <input id="retire-reason" name="reason" required
+                       class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+              </div>
+              <button id="retire" type="submit"
+                      class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Retire</button>
+            </form>
+          {% endcall %}
+        {% endif %}
+      </div>
+
+      {# The thesis itself: what it is called, when it was written, and what it amounts to. #}
+      <aside id="this-thesis" aria-labelledby="this-thesis-heading" class="rounded-md border border-line bg-surface p-5 xl:sticky xl:top-6">
+        <h2 id="this-thesis-heading" class="type-title-2 text-ink">This thesis</h2>
+        <p class="mt-1 type-body text-ink" data-field="title">{{ item.title }}</p>
+        <dl class="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2">
+          <dt class="type-body-sm text-ink-muted">Written</dt>
+          <dd class="type-data-sm text-ink text-right" data-field="written">{{ written_on }}</dd>
+          <dt class="type-body-sm text-ink-muted">Written against</dt>
+          <dd class="type-body-sm text-right" data-field="written-against-report">
+            {% if written_against %}<a href="/reports/{{ written_against.report_id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">the report as of {{ written_against.as_of }}</a>{% else %}<span class="text-ink-muted">no report</span>{% endif %}
+          </dd>
+          <dt class="type-body-sm text-ink-muted">Revisions</dt>
+          <dd class="type-data-sm text-ink text-right" data-field="revisions">{{ editor.revisions }}</dd>
+          <dt class="type-body-sm text-ink-muted">Decisions on it</dt>
+          <dd class="type-data-sm text-right" data-field="decisions">
+            {% if decisions %}<a href="#decisions" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ decisions | length }}</a>{% else %}<span class="text-ink">0</span>{% endif %}
+          </dd>
+          <dt class="type-body-sm text-ink-muted">Testable premises</dt>
+          <dd class="type-data-sm text-ink text-right" data-field="testable">{{ editor.tested }} of {{ editor.rows | length }}</dd>
+        </dl>
+        {# §10.2 The rule, stated on the page; a warning, never a refusal, when nothing is testable. #}
+        {% if editor.rows and not editor.tested %}
+          <p class="mt-4 rounded-sm border-l-[3px] border-warning-ink bg-decision-wash p-3 type-body-sm text-ink" id="nothing-testable">
+            None of these premises carries a test, so the monitor has nothing to watch on your behalf. Each comes back to you on its date instead.
+          </p>
+        {% else %}
+          <p class="mt-4 type-body-sm text-ink-muted" id="the-rule">At least one premise must carry a test, or the monitor has nothing to watch on your behalf.</p>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
 {% endblock %}

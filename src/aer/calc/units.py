@@ -241,6 +241,14 @@ class SourceTable(StrEnum):
     the discount rate were half a point higher* is a number somebody chose for one answer,
     confirmed against nothing, and the lineage names the question it was stated in."""
 
+    UNRECORDED = "unrecorded"
+    """A number typed into a page for one answer and written nowhere (ADR 0137).
+
+    The decision check's what-if: the position after a trade, as a share of the book, typed
+    to see what the book would become. It has no row because it is not a record, and
+    `aer.services.calculations.persist_context` refuses a ledger that holds one — the way
+    ADR 0137's *nothing is recorded* is enforced rather than promised."""
+
 
 @dataclass(frozen=True, slots=True)
 class SourceRef:
@@ -401,6 +409,18 @@ class SourceRef:
             kind=SourceKind.ASSUMPTION,
             identifier=str(identifier),
             table=SourceTable.QUESTIONS,
+            label=label,
+        )
+
+    @classmethod
+    def what_if(cls, *, label: str = "") -> SourceRef:
+        """A weight typed into the decision check and never recorded (ADR 0137): an
+        assumption's guarantee with no relation behind it, because nothing is kept. The
+        identifier is fixed for the same reason — there is no row for it to name."""
+        return cls(
+            kind=SourceKind.ASSUMPTION,
+            identifier="what-if",
+            table=SourceTable.UNRECORDED,
             label=label,
         )
 

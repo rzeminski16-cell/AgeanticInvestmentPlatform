@@ -46,6 +46,7 @@ from aer.agents.risk_analyst import (
     ScenarioLine,
     commentary_problems,
 )
+from aer.calc import consequences as consequences_calc
 from aer.calc import performance as performance_calc
 from aer.calc import prices as price_calc
 from aer.calc import risk as calc
@@ -72,6 +73,7 @@ from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
 from aer.services.calculations import new_context, persist_context
 from aer.services.performance import (
+    CONCENTRATION_COUNT,
     ExposureSlice,
     ExposureView,
     country_of,
@@ -100,6 +102,7 @@ __all__ = [
     "TOOL",
     "WINDOW_DAYS",
     "WORKFLOW_VERSION",
+    "BookAfter",
     "HoldingRisk",
     "PreTradeCheck",
     "Reading",
@@ -108,6 +111,7 @@ __all__ = [
     "Shock",
     "ShockedPosition",
     "block_of",
+    "book_after",
     "check_before_recording",
     "last_trade_recorded_at",
     "latest_reading",
@@ -648,17 +652,178 @@ class PreTradeCheck:
 
     problem: str = ""
 
+    after: BookAfter | None = None
+    """What the book becomes at a weight typed into the check (ADR 0137), or ``None``."""
+
+    after_problem: str = ""
+    """Why a typed weight could not be set against the book, in a sentence."""
+
     @property
     def says_nothing(self) -> bool:
         """Whether there is no figure to show, so a surface prints the reason instead."""
         return self.net_assets is None
 
 
-# Why this check cannot say what the book becomes. Stated once, here, so the page and any
-# other reader quote the same sentence rather than each inventing one.
+@dataclass(frozen=True, slots=True)
+class BookAfter:
+    """What the book becomes with one listing at a stated weight (ADR 0137, ADR 0129).
+
+    Funded from cash — :mod:`aer.calc.consequences` states the assumption on every row — so
+    the only weights that move are the listing's and the cash's, and the five largest and
+    the listing's sector move with it. Each *before* is the quantity its *after* was struck
+    from, so the two read from one record in both directions.
+    """
+
+    weight_before: Quantity
+    weight_after: Quantity
+    cash_before: Quantity
+    cash_after: Figure
+    top_before: Figure | None
+    top_after: Figure
+    sector: str | None
+    sector_before: Quantity | None
+    sector_after: Figure | None
+
+
+def book_after(
+    context: CalculationContext,
+    *,
+    book: PortfolioView,
+    exposure_view: ExposureView,
+    security: Security | None,
+    ticker: str,
+    weight_after: Quantity,
+    when: str,
+) -> BookAfter:
+    """Strike the figures a position at ``weight_after`` moves, beside the book as it stands.
+
+    **One implementation for the two places that ask** (F12's rule): the report's closing
+    section, over the weight a request planned (ADR 0129), and the decision check, over one
+    typed into it (ADR 0137). The weight's source is the caller's to state — a request's
+    planned weight is a record, a typed one is not — and so is whether the ledger is kept.
+
+    Args:
+        book: The book as at the date, valued in ``context`` and with a positive total;
+            the callers check both before asking.
+        ticker: The listing as the zero-sourced labels name it, which is the request's own
+            ticker where the platform holds no listing row for it yet.
+        when: The date as the zero-sourced labels say it — *"the book as at 25 September
+            2026, which holds none of MSFT"*.
+    """
+    if book.net_assets is None:  # pragma: no cover -- both callers refuse this state first
+        message = "A book with no net assets has no weight to set a position against."
+        raise CalculationError(message)
+    denominator = book.net_assets.record.id
+    held = _held_in(book, security)
+    weight_before = (
+        held.weight.quantity
+        if held is not None and held.weight is not None
+        else _nil(denominator, f"the book as at {when}, which holds none of {ticker}")
+    )
+    cash_before = _cash_share(context, book, denominator=denominator, when=when)
+    cash_after = graded_figure(
+        context,
+        consequences_calc.cash_weight_after(
+            context,
+            cash_weight=cash_before,
+            current_weight=weight_before,
+            planned_weight=weight_after,
+        ),
+    )
+    others = [
+        row.weight.quantity
+        for row in book.holdings
+        if row.weight is not None
+        and row.problem != CLOSED
+        and (held is None or row.security.id != held.security.id)
+    ]
+    top_after = graded_figure(
+        context,
+        consequences_calc.top_holdings_share_after(
+            context, other_weights=others, planned_weight=weight_after, count=CONCENTRATION_COUNT
+        ),
+    )
+    sector = sector_of(security) if security is not None else None
+    sector_before: Quantity | None = None
+    sector_after: Figure | None = None
+    if sector is not None:
+        sector_before = _sector_share(exposure_view, sector)
+        if sector_before is None:
+            sector_before = _nil(
+                denominator, f"the book as at {when}, which holds nothing in {sector}"
+            )
+        sector_after = graded_figure(
+            context,
+            consequences_calc.exposure_after(
+                context,
+                sector_share=sector_before,
+                current_weight=weight_before,
+                planned_weight=weight_after,
+                sector=sector,
+            ),
+        )
+    return BookAfter(
+        weight_before=weight_before,
+        weight_after=weight_after,
+        cash_before=cash_before,
+        cash_after=cash_after,
+        top_before=exposure_view.top_holdings,
+        top_after=top_after,
+        sector=sector,
+        sector_before=sector_before,
+        sector_after=sector_after,
+    )
+
+
+def _held_in(book: PortfolioView, security: Security | None) -> HoldingRow | None:
+    if security is None:
+        return None
+    return next(
+        (row for row in book.holdings if row.security.id == security.id and row.problem != CLOSED),
+        None,
+    )
+
+
+def _cash_share(
+    context: CalculationContext, book: PortfolioView, *, denominator: uuid.UUID, when: str
+) -> Quantity:
+    """The cash's share of the book, by the same arithmetic the currency band uses."""
+    in_base = [row.in_base.quantity for row in book.cash if row.in_base is not None]
+    if not in_base or book.net_assets is None:
+        return _nil(denominator, f"the book as at {when}, which holds no cash")
+    return performance_calc.exposure(
+        context,
+        value=performance_calc.grouped_value(context, values=in_base),
+        net_assets=book.net_assets.quantity,
+    )
+
+
+def _nil(denominator: uuid.UUID, label: str) -> Quantity:
+    """A zero the book walk established, sourced to the total that saw the whole book.
+
+    An unsourced zero is still unsourced (the valuation's net-debt rule): a weight of
+    nothing is a fact about the book, and the row that read every position is where it
+    comes from.
+    """
+    return Quantity.of(
+        Decimal(0), DIMENSIONLESS, source=SourceRef.calculation(denominator, label=label)
+    )
+
+
+def _sector_share(exposure_view: ExposureView, sector: str) -> Quantity | None:
+    band = next((row for row in exposure_view.bands if row.kind == "sector"), None)
+    if band is None:
+        return None
+    found = next((row for row in band.slices if row.label == sector), None)
+    return found.share.quantity if found is not None else None
+
+
+# What the check says about the size, and why. Stated once, here, so the page and any other
+# reader quote the same sentence rather than each inventing one (ADR 0104, ADR 0137).
 NO_INTENDED_SIZE: Final = (
-    "This says what the book is now, not what it becomes. A decision's size is a sentence "
-    "rather than a number, so nothing here can be multiplied by it."
+    "The size you record is a sentence, never a number the platform could multiply. Type the "
+    "position after the trade here to see what the book would become; nothing typed here is "
+    "recorded."
 )
 
 
@@ -669,15 +834,17 @@ async def check_before_recording(
     portfolio: Portfolio,
     security: Security | None,
     as_of: date,
+    weight_after: Decimal | None = None,
 ) -> PreTradeCheck:
     """The book as it stands, cut to what a decision about ``security`` needs.
 
-    **It states the book now and never what the book becomes**, and that is ADR 0104's
-    decision rather than a gap here. `decisions.size_statement` is text — *"about two per
-    cent of the book"* — precisely so that no calculation can read an intended weight and
-    multiply it by a net asset value, because a position sized that way is a position sized
-    by a view. The page specification's §11.1 asks for *"top-five concentration before and
-    after"*; there is no *after* to compute, and an ADR outranks a page specification.
+    **It states the book now, and what it becomes only at a weight typed into the check.**
+    `decisions.size_statement` is text — *"about two per cent of the book"* — so that no
+    calculation can read an intended weight off a decision and multiply it by a net asset
+    value (ADR 0104). ADR 0137 adds the what-if beside it: a weight typed into the check,
+    struck by :func:`book_after` in ``context`` and nowhere else. Its source is
+    :meth:`SourceRef.what_if`, which ``persist_context`` refuses, so a caller that tried to
+    keep the ledger would be stopped rather than trusted.
 
     **It never blocks and has no ceiling to breach.** F12 says a breached ceiling turns the
     submit control into *"Record it anyway"*; no ceiling is stored anywhere in the platform,
@@ -688,6 +855,9 @@ async def check_before_recording(
         security: The decision's subject, or ``None`` — a decision may name none, because
             the listing may not exist yet (ADR 0104). The concentration and the scenarios
             still read, and ``held`` and ``sector`` are ``None``.
+        weight_after: The position after the trade as a fraction of the book, typed into
+            the check, or ``None``. It needs a listing to be the weight *of*; without one,
+            ``after_problem`` says so.
     """
     book = await book_as_at(session, context, portfolio=portfolio, as_of=as_of)
     exposure = await exposure_as_at(session, context, portfolio=portfolio, as_of=as_of, view=book)
@@ -734,6 +904,30 @@ async def check_before_recording(
         held=held is not None,
         scenarios=len(reaching),
     )
+    after: BookAfter | None = None
+    after_problem = ""
+    if weight_after is not None:
+        if security is None:
+            after_problem = (
+                "A weight is a weight of something: name the listing to see what it would do "
+                "to the book."
+            )
+        else:
+            after = book_after(
+                context,
+                book=book,
+                exposure_view=exposure,
+                security=security,
+                ticker=security.ticker,
+                weight_after=Quantity.of(
+                    weight_after,
+                    DIMENSIONLESS,
+                    source=SourceRef.what_if(
+                        label=f"the weight after a trade in {security.ticker}, typed in the check"
+                    ),
+                ),
+                when=f"{as_of:%d %B %Y}",
+            )
     return PreTradeCheck(
         as_of=as_of,
         net_assets=book.net_assets,
@@ -742,6 +936,8 @@ async def check_before_recording(
         sector=_sector_slice(exposure, security),
         scenarios=reaching,
         problem="",
+        after=after,
+        after_problem=after_problem,
     )
 
 

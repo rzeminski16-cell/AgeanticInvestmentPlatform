@@ -180,7 +180,7 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
             "that carried it out."
         ),
         action_label="Record a decision",
-        action_href="/decisions",
+        action_href="/decisions/new",
         adr="0104",
     ),
     Tool(

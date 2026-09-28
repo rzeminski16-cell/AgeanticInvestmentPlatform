@@ -97,7 +97,9 @@ from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 
 __all__ = [
+    "DIMENSIONLESS_UNITS",
     "GROWTH_SUFFIX",
+    "PERCENT_UNITS",
     "SUBJECT_THESIS",
     "TOOL",
     "WORKFLOW_VERSION",
@@ -134,8 +136,8 @@ GROWTH_SUFFIX: Final = "_growth"
 
 # The threshold units that mean "a fraction written a hundred times larger" (ADR 0027) and
 # the ones that mean "dimensionless as written". Anything else is parsed as a unit.
-_PERCENT_UNITS: Final[frozenset[str]] = frozenset({"percent", "per cent", "pct", "%", "percentage"})
-_DIMENSIONLESS_UNITS: Final[frozenset[str]] = frozenset({"ratio", "pure", "x", "times", ""})
+PERCENT_UNITS: Final[frozenset[str]] = frozenset({"percent", "per cent", "pct", "%", "percentage"})
+DIMENSIONLESS_UNITS: Final[frozenset[str]] = frozenset({"ratio", "pure", "x", "times", ""})
 _HUNDRED: Final = Decimal(100)
 
 # Two fiscal years: the one being read, and the one a growth rate needs behind it.
@@ -208,9 +210,9 @@ def threshold_quantity(threshold: Decimal, unit: str) -> Quantity:
         UnitMismatchError: If the unit is not one the platform can parse.
     """
     cleaned = unit.strip().lower()
-    if cleaned in _PERCENT_UNITS:
+    if cleaned in PERCENT_UNITS:
         return Quantity.of(threshold / _HUNDRED)
-    if cleaned in _DIMENSIONLESS_UNITS:
+    if cleaned in DIMENSIONLESS_UNITS:
         return Quantity.of(threshold)
     return Quantity.of(threshold, Unit.parse(unit.strip()))
 

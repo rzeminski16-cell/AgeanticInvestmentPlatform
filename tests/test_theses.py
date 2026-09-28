@@ -21,15 +21,28 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.calc.units import SourceKind, SourceRef, SourceTable
-from aer.core.enums import JobStatus, JudgementKind, PremiseComparator, TransactionKind, UserRole
+from aer.core.enums import (
+    Decision,
+    FindingAction,
+    FindingKind,
+    GateKind,
+    JobStatus,
+    JudgementKind,
+    PremiseComparator,
+    PremiseStatus,
+    TransactionKind,
+    UserRole,
+)
 from aer.db.base import Base
 from aer.db.models import (
+    Approval,
     AuditEvent,
     Company,
+    Finding,
     Job,
     Judgement,
     Portfolio,
@@ -43,6 +56,7 @@ from aer.errors import ConflictError, ValidationError
 from aer.services import theses as thesis_service
 from aer.services.theses import Predicate
 from aer.services.thesis_monitor import measurable_metrics
+from aer.web.theses.pages import metric_groups, metric_label, threshold_words
 from tests.api_fixtures import build_app, client_for
 from tests.portfolio_fixtures import trade
 from tests.report_fixtures import make_current
@@ -521,9 +535,9 @@ class TestThePages:
         assert opened.status_code == 200
         assert "Contoso holds its pricing power" in opened.text
         assert "Contoso plc (CTSO)" in opened.text
-        assert "Nothing is asserted yet" in opened.text
+        assert "Nothing asserted yet" in opened.text
         # The date the operator gave, not the day the row appeared (ADR 0075's two clocks).
-        assert "written 01 August 2026" in opened.text
+        assert 'data-field="written">1 August 2026<' in opened.text
 
     async def test_a_premise_of_each_kind_is_added_and_counted(
         self, api: Any, scene: dict[str, Any]
@@ -560,9 +574,10 @@ class TestThePages:
         assert reviewed.status_code == 303, reviewed.text
 
         opened = await api.get(location)
-        assert "2 premises held" in opened.text
-        assert "1 tested by a threshold, 1 reviewed by a person" in opened.text
-        assert "revenue growth at least 25 percent" in opened.text
+        assert 'data-field="testable">1 of 2<' in opened.text
+        # The test in words, in the unit it was stated in (§10.1).
+        assert "Revenue growth at least 25.0%" in opened.text
+        assert 'data-tested="threshold"' in opened.text
         assert 'data-tested="review"' in opened.text
 
     async def test_a_premise_with_nothing_to_defeat_it_is_refused_on_the_page(
@@ -614,7 +629,7 @@ class TestThePages:
         assert 'data-withdrawn="yes"' in after.text
         assert "Held for now." in after.text
         assert "The guide broke it." in after.text
-        assert "1 withdrawn, with the reason kept" in after.text
+        assert 'id="given-up"' in after.text
 
     async def test_retiring_closes_the_forms(self, api: Any, scene: dict[str, Any]) -> None:
         location = await _written(api, scene)
@@ -856,7 +871,7 @@ class TestWhatSurroundsAThesis:
         opened = await api.get(await _written(api, scene))
 
         assert "ISA has never dealt in Contoso plc (CTSO)" in opened.text
-        assert 'href="/decisions"' in opened.text
+        assert 'href="/decisions/new?thesis=' in opened.text
 
     async def test_with_no_book_the_position_says_so(self, api: Any, scene: dict[str, Any]) -> None:
         opened = await api.get(await _written(api, scene))
@@ -877,17 +892,17 @@ class TestTheAddForm:
         assert 'id="review-fields" data-branch="review"' in opened.text
         assert "/js/branches.js" in opened.text
 
-    async def test_the_metric_offers_the_monitors_words(
+    async def test_the_metric_offers_only_what_the_monitor_measures(
         self, api: Any, scene: dict[str, Any]
     ) -> None:
         """The monitor resolves a metric by name (ADR 0103); a name it does not know is read
-        as unobservable, which is late. The field offers the names, and still takes any."""
+        as unobservable, which is late. So the field is a select of the names it resolves,
+        in words (§10's *must not*: offer a metric the monitor cannot resolve)."""
         opened = await api.get(await _written(api, scene))
 
-        assert 'list="measurable-metrics"' in opened.text
-        assert '<datalist id="measurable-metrics">' in opened.text
+        assert '<select id="metric" name="metric"' in opened.text
         for metric in measurable_metrics():
-            assert f'<option value="{metric}">' in opened.text
+            assert f'<option value="{metric}">{metric_label(metric)}</option>' in opened.text
 
 
 class TestTheEmptyStates:
@@ -910,3 +925,526 @@ class TestTheEmptyStates:
         finally:
             async with db_engine.begin() as connection:
                 await connection.execute(text(f"TRUNCATE {_TABLES} RESTART IDENTITY CASCADE"))
+
+
+# -- The editor (page specification §10) -----------------------------------------------------------
+
+
+class TestARevisionIsTwoRows:
+    """§10.3: nothing deletes a premise. A revision withdraws the old wording with the reason
+    and writes the new one as a judgement that supersedes it, so the history can be read as
+    *on 3 March you believed…, on 14 September you revised it to…*."""
+
+    async def test_the_old_wording_is_kept_and_the_new_one_supersedes_it(
+        self, db_session: AsyncSession
+    ) -> None:
+        user = await _user(db_session)
+        thesis = await _thesis(db_session, user, await _company(db_session))
+        old = await thesis_service.add_premise(
+            db_session,
+            thesis=thesis,
+            actor=user,
+            statement="Revenue grows above 25% a year.",
+            basis="The segment disclosure.",
+            predicate=_growth(),
+            review_by=None,
+        )
+
+        new = await thesis_service.revise_premise(
+            db_session,
+            thesis=thesis,
+            premise=old,
+            actor=user,
+            statement="Revenue grows above 15% a year.",
+            predicate=Predicate(
+                metric="revenue growth",
+                comparator=PremiseComparator.AT_LEAST,
+                threshold=Decimal(15),
+                unit="percent",
+            ),
+            review_by=None,
+            reason="The FY26 guide cut the growth rate.",
+        )
+
+        assert old.judgement.withdrawn_reason == "The FY26 guide cut the growth rate."
+        assert old.statement == "Revenue grows above 25% a year.", "the old row is untouched"
+        assert new.judgement.supersedes_id == old.judgement_id
+        assert new.judgement.basis == "The segment disclosure.", "the grounds carry over"
+        assert new.threshold == Decimal(15)
+        assert new.position > old.position
+        revised = await db_session.scalar(
+            select(AuditEvent).where(AuditEvent.event_type == "thesis.premise_revised")
+        )
+        assert revised is not None
+        assert revised.payload["supersedes_id"] == str(old.judgement_id)
+        assert revised.subject_id == thesis.id
+
+    async def test_a_revision_needs_a_reason(self, db_session: AsyncSession) -> None:
+        user = await _user(db_session)
+        thesis = await _thesis(db_session, user, await _company(db_session))
+        premise = await thesis_service.add_premise(
+            db_session,
+            thesis=thesis,
+            actor=user,
+            statement="s",
+            basis="b",
+            predicate=None,
+            review_by=REVIEW_BY,
+        )
+
+        with pytest.raises(ValidationError, match="needs a reason"):
+            await thesis_service.revise_premise(
+                db_session,
+                thesis=thesis,
+                premise=premise,
+                actor=user,
+                statement="t",
+                predicate=None,
+                review_by=REVIEW_BY,
+                reason="  ",
+            )
+        assert not premise.judgement.is_withdrawn
+
+    async def test_a_premise_already_given_up_cannot_be_revised(
+        self, db_session: AsyncSession
+    ) -> None:
+        """A second revision of one row would fork its history; the unique supersession
+        would refuse it too, but the service says why first."""
+        user = await _user(db_session)
+        thesis = await _thesis(db_session, user, await _company(db_session))
+        premise = await thesis_service.add_premise(
+            db_session,
+            thesis=thesis,
+            actor=user,
+            statement="s",
+            basis="b",
+            predicate=None,
+            review_by=REVIEW_BY,
+        )
+        await thesis_service.withdraw_premise(
+            db_session, premise=premise, actor=user, reason="Gone."
+        )
+
+        with pytest.raises(ConflictError, match="already withdrawn or revised"):
+            await thesis_service.revise_premise(
+                db_session,
+                thesis=thesis,
+                premise=premise,
+                actor=user,
+                statement="t",
+                predicate=None,
+                review_by=REVIEW_BY,
+                reason="r",
+            )
+
+
+class TestAPremiseInWords:
+    """Thresholds and metrics as a person reads them — the §10.1 test controls and every
+    summary line show *Revenue growth at least 8.0%*, never `revenue_growth 8 percent`."""
+
+    def test_a_metric_is_named_in_words(self) -> None:
+        assert metric_label("revenue_growth") == "Revenue growth"
+        assert metric_label("revenue growth") == "Revenue growth"
+        assert metric_label("gross_margin") == "Gross margin"
+        assert metric_label("net_debt_to_ebitda") == "Net debt to EBITDA"
+        assert metric_label("customer churn") == "customer churn", "the operator's own words"
+
+    def test_a_threshold_is_shown_in_the_unit_it_was_stated_in(self) -> None:
+        assert threshold_words(Decimal("8.000000000000"), "percent") == "8.0%"
+        assert threshold_words(Decimal(2), "ratio") == "2\N{MULTIPLICATION SIGN}"
+        assert threshold_words(Decimal(45), "day") == "45 days"
+        assert threshold_words(Decimal("50000000"), "USD") == "50,000,000 USD"
+
+    def test_the_select_offers_exactly_what_the_monitor_can_measure(self) -> None:
+        """§10's *must not*: offer a metric the monitor cannot resolve."""
+        offered = [choice["value"] for group in metric_groups() for choice in group["choices"]]
+
+        assert sorted(offered) == sorted(measurable_metrics())
+        labels = [choice["label"] for group in metric_groups() for choice in group["choices"]]
+        assert not any("_" in label for label in labels)
+
+
+def _observed(value: str, *, holds: bool) -> dict[str, Any]:
+    """A reading's measurement, in the shape `thesis_monitor.Measurement.as_json` writes."""
+    return {
+        "metric": "revenue growth",
+        "value": value,
+        "unit": "ratio",
+        "period_end": "2025-12-31",
+        "prior_value": "",
+        "prior_period_end": "",
+        "threshold": "0.08",
+        "comparator": "at least",
+        "holds": holds,
+        "calculation_id": None,
+        "fact_id": None,
+        "threshold_unit": "ratio",
+    }
+
+
+async def _a_pass(session: AsyncSession, scene: dict[str, Any]) -> Job:
+    """A run root a gate's approval can hang off (ADR 0072). Any work order carries it."""
+    request = research_request(
+        user_id=scene["user"].id,
+        company_name="Contoso plc",
+        ticker="CTSO",
+        exchange="LSE",
+        as_of_date=date(2026, 9, 11),
+        base_currency="GBP",
+        reporting_currency="GBP",
+        investment_horizon_months=12,
+        max_cost_gbp="2.50",
+    )
+    session.add(request)
+    await session.flush()
+    job = Job(
+        work_order_id=request.id,
+        workflow_version="thesis_monitor_v1",
+        code_version="thesescode1234",
+        status=JobStatus.SUCCEEDED,
+    )
+    session.add(job)
+    await session.flush()
+    return job
+
+
+async def _editor_scene(scene: dict[str, Any], *, gate: bool = False) -> dict[str, Any]:
+    """A thesis the monitor has read: one premise broke, one holds, one not yet read, and
+    one a person reviews by a date."""
+    async with scene["factory"]() as session:
+        user = await session.get(User, scene["user"].id)
+        company = await session.get(Company, scene["company"].id)
+        assert user is not None
+        assert company is not None
+        thesis = await _thesis(session, user, company)
+
+        async def premise(statement: str, predicate: Predicate | None) -> Premise:
+            return await thesis_service.add_premise(
+                session,
+                thesis=thesis,
+                actor=user,
+                statement=statement,
+                basis="The annual report.",
+                predicate=predicate,
+                review_by=None if predicate else REVIEW_BY,
+            )
+
+        broke = await premise(
+            "The pipeline replaces the lost revenue.",
+            Predicate("revenue_growth", PremiseComparator.AT_LEAST, Decimal(8), "percent"),
+        )
+        holds = await premise(
+            "Gross margin holds.",
+            Predicate("gross_margin", PremiseComparator.AT_LEAST, Decimal(78), "percent"),
+        )
+        unread = await premise(
+            "Leverage stays low.",
+            Predicate("net_debt_to_ebitda", PremiseComparator.AT_MOST, Decimal(2), "ratio"),
+        )
+        await premise("Management allocates capital well.", None)
+        job = await _a_pass(session, scene) if gate else None
+        read = datetime(2026, 9, 11, 7, tzinfo=UTC)
+        broken = Finding(
+            user_id=user.id,
+            thesis_id=thesis.id,
+            judgement_id=broke.judgement_id,
+            job_id=job.id if job is not None else None,
+            kind=FindingKind.READING,
+            status=PremiseStatus.CONTRADICTED,
+            justification="Growth slowed.",
+            source_document_ids=[],
+            observed=_observed("0.041", holds=False),
+            window_from=date(2026, 3, 4),
+            window_to=date(2026, 9, 10),
+            opens_gate=True,
+            created_at=read,
+        )
+        held = Finding(
+            user_id=user.id,
+            thesis_id=thesis.id,
+            judgement_id=holds.judgement_id,
+            job_id=None,
+            kind=FindingKind.READING,
+            status=PremiseStatus.UNCHANGED,
+            justification="Margin held.",
+            source_document_ids=[],
+            observed=_observed("0.819", holds=True),
+            window_from=date(2026, 3, 4),
+            window_to=date(2026, 9, 10),
+            opens_gate=False,
+            created_at=read,
+        )
+        session.add_all([broken, held])
+        await session.commit()
+        return {
+            "thesis": thesis,
+            "broke": broke,
+            "holds": holds,
+            "unread": unread,
+            "finding": broken,
+            "location": f"/theses/{thesis.id}",
+        }
+
+
+def _row_of(html: str, judgement_id: uuid.UUID) -> str:
+    """One premise's row of the editor, for assertions that must not match its neighbours.
+
+    Up to the next premise's row rather than the first ``</li>``: a row's history is a list
+    of its own.
+    """
+    start = html.index(f'id="premise-{judgement_id}"')
+    following = html.find('<li id="premise-', start)
+    return html[start : following if following != -1 else html.find("</form>", start)]
+
+
+class TestTheEditor:
+    async def test_each_premise_says_what_the_monitor_last_read(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """§10.1: *holds*, *broke*, *by hand* — and *not read yet* for a test nothing has read,
+        because none of the three is true of it."""
+        editor = await _editor_scene(scene)
+
+        page = (await api.get(editor["location"])).text
+
+        broke = _row_of(page, editor["broke"].judgement_id)
+        assert 'data-state="broke"' in broke
+        assert "Measured 4.1% for the year to 31 December 2025, read on 11 September 2026." in broke
+        held = _row_of(page, editor["holds"].judgement_id)
+        assert 'data-state="holds"' in held
+        assert "Measured 81.9%" in held
+        assert 'data-state="not read yet"' in _row_of(page, editor["unread"].judgement_id)
+        assert page.count('data-state="by hand"') == 1
+        assert "Nothing files a number for this one. You will be asked on the date." in page
+        # The test controls carry the stored predicate, the metric by its key and in words.
+        assert '<option value="revenue_growth" selected>Revenue growth</option>' in broke
+        assert 'value="8"' in broke
+        # §10.2: the rule, and the count the panel keeps.
+        assert 'data-field="testable">3 of 4<' in page
+        assert 'id="the-rule"' in page
+
+    async def test_a_broken_premise_offers_three_answers(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        editor = await _editor_scene(scene)
+
+        page = (await api.get(editor["location"])).text
+
+        assert 'id="broken"' in page
+        assert "One premise broke" in page
+        jid = editor["broke"].judgement_id
+        assert f'href="#statement-{jid}"' in page
+        assert f'action="/theses/{editor["thesis"].id}/premises/{jid}/withdraw"' in page
+        assert f'action="/theses/{editor["thesis"].id}/premises/{jid}/keep"' in page
+        assert "Whichever you choose, the old wording is kept." in page
+
+    async def test_saving_the_revision_revises_only_what_changed(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+        broke = editor["broke"].judgement_id
+
+        saved = await api.post(
+            f"{editor['location']}/revise",
+            data={
+                "csrf_token": _csrf(page),
+                f"statement-{broke}": "The pipeline replaces most of the lost revenue.",
+                f"metric-{broke}": "revenue_growth",
+                f"comparator-{broke}": "at_least",
+                f"threshold-{broke}": "4",
+                f"unit-{broke}": "percent",
+                "reason": "Two launches slipped a year.",
+            },
+        )
+
+        assert saved.status_code == 303, saved.text
+        async with scene["factory"]() as session:
+            thesis = await thesis_service.thesis_of(
+                session, editor["thesis"].id, user_id=scene["user"].id
+            )
+            assert thesis is not None
+            by_statement = {premise.statement: premise for premise in thesis.premises}
+            assert len(thesis.premises) == 5, "one new row; nothing edited in place"
+            old = by_statement["The pipeline replaces the lost revenue."]
+            new = by_statement["The pipeline replaces most of the lost revenue."]
+            assert old.judgement.withdrawn_reason == "Two launches slipped a year."
+            assert new.judgement.supersedes_id == old.judgement_id
+            assert new.threshold == Decimal(4)
+            assert not by_statement["Gross margin holds."].judgement.is_withdrawn
+            # The reading about the old wording is closed, as a withdrawal.
+            finding = await session.get(Finding, editor["finding"].id)
+            assert finding is not None
+            await session.refresh(finding, attribute_names=["resolutions"])
+            assert [row.action for row in finding.resolutions] == [FindingAction.WITHDRAWN]
+
+        after = (await api.get(editor["location"])).text
+        assert "One premise broke" not in after
+        history = _row_of(after, new.judgement_id)
+        assert "How this premise has changed" in history
+        assert "you revised it, because Two launches slipped a year., to:" in history
+        # The revised premise sits where the old wording did, first.
+        assert after.index(f'id="premise-{new.judgement_id}"') < after.index(
+            f'id="premise-{editor["holds"].judgement_id}"'
+        )
+        assert 'data-field="revisions">1<' in after
+
+    async def test_a_revision_without_a_reason_is_refused_and_keeps_what_was_typed(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+        holds = editor["holds"].judgement_id
+
+        refused = await api.post(
+            f"{editor['location']}/revise",
+            data={
+                "csrf_token": _csrf(page),
+                f"statement-{holds}": "Gross margin holds above 75%.",
+                "reason": "",
+            },
+        )
+
+        assert refused.status_code == 422
+        assert 'id="revision-problem"' in refused.text
+        assert "needs a reason" in refused.text
+        assert "Gross margin holds above 75%." in refused.text, "what was typed survives"
+        async with scene["factory"]() as session:
+            count = await session.scalar(select(func.count()).select_from(Premise))
+            assert count == 4
+
+    async def test_nothing_changed_saves_nothing(self, api: Any, scene: dict[str, Any]) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+        holds = editor["holds"].judgement_id
+
+        response = await api.post(
+            f"{editor['location']}/revise",
+            data={
+                "csrf_token": _csrf(page),
+                # The stored metric by its key, the threshold with its trailing zeros: the
+                # same premise, so not a revision.
+                f"statement-{holds}": "Gross margin holds.",
+                f"metric-{holds}": "gross_margin",
+                f"threshold-{holds}": "78.0",
+                f"unit-{holds}": "percent",
+            },
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"].endswith("?unchanged=1")
+        after = await api.get(response.headers["location"])
+        assert "Nothing had changed, so nothing was saved." in after.text
+
+    async def test_keeping_a_broken_premise_closes_its_reading_as_seen(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+        jid = editor["broke"].judgement_id
+
+        kept = await api.post(
+            f"{editor['location']}/premises/{jid}/keep",
+            data={"csrf_token": _csrf(page), "reason": "One soft year; launches are late."},
+        )
+
+        assert kept.status_code == 303, kept.text
+        async with scene["factory"]() as session:
+            finding = await session.get(Finding, editor["finding"].id)
+            assert finding is not None
+            await session.refresh(finding, attribute_names=["resolutions"])
+            assert [row.action for row in finding.resolutions] == [FindingAction.DISMISSED]
+            judgement = await session.get(Judgement, jid)
+            assert judgement is not None
+            assert not judgement.is_withdrawn, "kept means the premise stands"
+        after = (await api.get(editor["location"])).text
+        assert "One premise broke" not in after
+        broke = _row_of(after, jid)
+        assert 'data-state="broke"' in broke, "the measurement still says what it said"
+        assert "One soft year; launches are late." in broke
+
+    async def test_keeping_needs_a_reason(self, api: Any, scene: dict[str, Any]) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+
+        refused = await api.post(
+            f"{editor['location']}/premises/{editor['broke'].judgement_id}/keep",
+            data={"csrf_token": _csrf(page), "reason": " "},
+        )
+
+        assert refused.status_code == 422
+        assert "needs a reason" in refused.text
+
+    async def test_withdrawing_a_broken_premise_closes_its_reading(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        editor = await _editor_scene(scene)
+        page = (await api.get(editor["location"])).text
+        jid = editor["broke"].judgement_id
+
+        withdrawn = await api.post(
+            f"{editor['location']}/premises/{jid}/withdraw",
+            data={"csrf_token": _csrf(page), "reason": "The cliff is steeper than I thought."},
+        )
+
+        assert withdrawn.status_code == 303, withdrawn.text
+        async with scene["factory"]() as session:
+            finding = await session.get(Finding, editor["finding"].id)
+            assert finding is not None
+            await session.refresh(finding, attribute_names=["resolutions"])
+            assert [row.action for row in finding.resolutions] == [FindingAction.WITHDRAWN]
+        after = (await api.get(editor["location"])).text
+        assert 'id="given-up"' in after
+        assert "The cliff is steeper than I thought." in after
+
+    async def test_a_gate_with_its_pass_on_record_is_decided_with_the_hash_shown(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """A contradiction whose pass is on record opens the thesis gate (ADR 0078); keeping
+        it from the editor decides that gate, bound to the finding as the page showed it."""
+        editor = await _editor_scene(scene, gate=True)
+        page = (await api.get(editor["location"])).text
+        assert f'name="payload_hash-{editor["finding"].id}"' in page
+
+        kept = await api.post(
+            f"{editor['location']}/premises/{editor['broke'].judgement_id}/keep",
+            data={
+                "csrf_token": _csrf(page),
+                "reason": "One soft year.",
+                f"payload_hash-{editor['finding'].id}": re.search(
+                    rf'name="payload_hash-{editor["finding"].id}" value="([0-9a-f]+)"', page
+                ).group(1),  # type: ignore[union-attr]
+            },
+        )
+
+        assert kept.status_code == 303, kept.text
+        async with scene["factory"]() as session:
+            approval = await session.scalar(select(Approval))
+            assert approval is not None
+            assert approval.gate is GateKind.THESIS
+            assert approval.decision is Decision.REJECTED
+            assert approval.notes == "One soft year."
+
+    async def test_nothing_testable_is_allowed_and_says_what_it_costs(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """§10.2: a thesis with no testable premise saves, and warns in terms of the
+        consequence rather than scolding."""
+        location = await _written(api, scene)
+        token = _csrf((await api.get(location)).text)
+        await api.post(
+            f"{location}/premises",
+            data={
+                "csrf_token": token,
+                "statement": "Management allocates capital well.",
+                "basis": "b",
+                "defeated_by": "review",
+                "review_by": (datetime.now(UTC).date() + timedelta(days=30)).isoformat(),
+            },
+        )
+
+        page = (await api.get(location)).text
+
+        assert 'id="nothing-testable"' in page
+        assert "the monitor has nothing to watch on your behalf" in page
+        assert 'data-field="testable">0 of 1<' in page

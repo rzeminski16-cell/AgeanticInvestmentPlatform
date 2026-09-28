@@ -148,9 +148,11 @@ src/aer/            application package
       watchlist.py  the queue's: a company followed and not yet researched
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
-    theses/pages.py     what you believe, as premises with what would defeat each; no figure
+    theses/pages.py     the thesis editor: premises as the form, revised as new rows, each
+                        labelled from the monitor's last reading; a threshold in words
     monitor/pages.py    the findings, labelled findings; the one gate a contradicted premise opens
-    decisions/pages.py  the journal: what you decided, on what basis, and the trades that followed
+    decisions/pages.py  the journal, and recording a decision beside the check, whose what-if
+                        is struck for the page and never saved (ADR 0137)
     review/pages.py     a closed position's outcome beside the reviewer's proposal, the review the
                         operator confirms, and the analytics with an n on every statistic
     risk/pages.py       the book's risk figures with their lineage, the scenarios the operator

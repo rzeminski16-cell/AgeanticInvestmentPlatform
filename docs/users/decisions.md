@@ -19,21 +19,39 @@ remember.
 
 ## Recording one
 
-Open **Decisions** from the menu. The form asks for:
+Press **Record a decision** on the journal (**Portfolio → Decisions**), on a thesis, or on a
+company's page, which arrives with the thesis and the listing already chosen. The page asks
+*What did you decide, and why?*:
 
-- **About the thesis** — the thesis this decision acts on. A decision with no thesis is a
-  trade with no reason, so the form needs one.
-- **What you decided** — one of six: open a position, add to it, trim it, close it, keep
-  holding, or not act. Keeping holding and passing are decisions too, and often the ones a
-  review most wants to see.
-- **In a line** and **on what basis** — what you decided and what led to it. The basis is
-  required; a decision with no grounds is the entry a review cannot score.
-- **Listing** — `TICKER.EXCHANGE`, if the platform already holds the listing. Leave it empty
-  if not; the trade form creates the listing at the first trade.
+- **What you decided** — one of six buttons of equal weight: open, add, trim, exit, keep
+  holding, or pass. Keeping holding and passing are decisions too, and often the ones a review
+  most wants to see. None is chosen for you.
+- **The thesis it expresses** — each named with the report it was written against, which is
+  the report the decision rests on. A decision with no thesis is a trade with no reason, so
+  the page needs one; with none open it offers to write one first.
+- **The listing** — `TICKER.EXCHANGE`, if the platform already holds the listing. Leave it
+  empty if not; the trade form creates the listing at the first trade.
 - **How much, in words** — *"about 2% of the book"*, *"half the position"*. A sentence, on
   purpose: the platform never stores a size it could multiply.
-- **Intended holding period**, **what would make you reverse it**, **review by** — the
-  commitments a later review holds you to. Fill in the ones you actually mean.
+- **In a line** and **why** — what you decided and what led to it. The reason is required; a
+  decision with no grounds is the entry a review cannot score.
+- **More about it** — when you decided, the intended holding period, a date to review it by,
+  and what would make you reverse it: the commitments a later review holds you to. Fill in the
+  ones you actually mean.
+
+## The check beside it
+
+Beside the form, **What this does to the book** states what your book already says about the
+listing: what the book is worth, what you hold in it, the five largest positions, the share in
+its sector, and your own stated shocks that reach it (the [risk page](risk.md)'s figures, by the
+same arithmetic).
+
+Type **the position after it, as a share of the book** and press **Show what it does**: each
+figure then reads before and after — the holding's weight, the five largest, the sector's share
+and cash — as if the trade were paid for from cash alone, with nothing else sold. If the cash
+does not cover it, the check says so. **Nothing typed there is recorded** (ADR 0137): the
+figures are worked out for the page and dropped, and the decision's size stays the sentence you
+write. The check never blocks; your book is your own.
 
 ## Carrying it out
 

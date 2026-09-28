@@ -668,7 +668,7 @@ class TestThePages:
         assert "Nothing has been filed since your last check" in body
         assert "Too many dismissals mean the threshold is wrong, not the market." in body
         assert "Alert past" in body
-        assert 'href="/decisions?security=MSFT.NASDAQ"' in body
+        assert 'href="/decisions/new?security=MSFT.NASDAQ"' in body
         assert "Read, and doing nothing about it" in body
         # The premise gate never appears: a price is an outcome, not evidence.
         assert 'id="thesis-gate"' not in body

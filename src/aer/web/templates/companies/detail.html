@@ -24,7 +24,7 @@
     identity=company.ticker ~ " · " ~ company.exchange,
     breadcrumbs=[{"href": "/companies", "label": "Companies"}],
   ) %}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" id="company-header">
+    <div class="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" id="company-header">
       <div class="flex flex-wrap items-center gap-2">
         {% for state in header.states %}
           {{ ui.status("info", state) }}
@@ -48,22 +48,24 @@
     </div>
   {% endcall %}
 
-  {{ ui.verdict("THE RECORD SAYS", verdict.composed, tone=verdict.tone.value) }}
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     {# §5.2 What you believe #}
     <div id="believe">
       {% if believe.thesis %}
         {% call ui.sheet("What you believe", subtitle=believe.thesis.title, id="what-you-believe") %}
+          <p class="-mt-2 mb-3 type-body-sm text-ink-muted" data-field="thesis-meta">{{ believe.meta }}</p>
           <ol class="flex flex-col" aria-label="Premises">
             {% for item in believe.premises %}
-              <li class="border-t border-line py-3 first:border-t-0 first:pt-0" data-premise="{{ item.row.position }}" data-premise-state="{{ item.status.label | lower | replace(' ', '_') }}">
+              <li class="border-t border-line py-3 first:border-t-0 first:pt-0" data-premise="{{ item.position }}" data-premise-state="{{ item.label | replace(' ', '_') }}">
                 <div class="flex flex-wrap items-start justify-between gap-2">
-                  <p class="type-body {% if item.row.is_withdrawn %}line-through text-ink-muted{% else %}text-ink{% endif %}">{{ item.row.statement }}</p>
-                  {{ ui.status(item.status.tone, item.status.label, detail=item.status.detail) }}
+                  <p class="min-w-0 flex-1 type-body text-ink">{{ item.statement }}</p>
+                  {{ ui.status(item.tone, item.label) }}
                 </div>
-                <p class="mt-1 type-data-sm text-ink-muted">{{ item.row.defeated_by }}</p>
+                <p class="mt-1 type-data-sm text-ink-muted">{{ item.test }}</p>
               </li>
+            {% else %}
+              <li class="type-body text-ink-muted">No premise is held. Every one was withdrawn; the thesis page keeps them, with the reasons.</li>
             {% endfor %}
           </ol>
           {% if believe.state_line %}
@@ -168,10 +170,14 @@
     {% endif %}
     <a href="{{ actions.decision_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="record-decision">Record a decision</a>
     {#
-      The fourth action does not exist. The workbook is F5 and is not built; a control
-      that opened nothing would be worse than a sentence that says so.
+      The workbook of the current report (F5), where one was archived with it. Where none
+      was, a sentence says why: a control that opened nothing would be worse.
     #}
-    <span class="inline-flex min-h-11 items-center px-2 type-body-sm text-ink-subtle" id="workbook-absent">Open the workbook &mdash; not built yet.</span>
+    {% if actions.workbook_href %}
+      <a href="{{ actions.workbook_href }}" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-4 type-label text-ink hover:bg-surface-selected" id="open-workbook">Open the workbook</a>
+    {% else %}
+      <span class="inline-flex min-h-11 items-center px-2 type-body-sm text-ink-subtle" id="workbook-absent">No workbook to open: {{ actions.workbook_absent }}</span>
+    {% endif %}
   </nav>
 
   {# What the research tool has concluded over time: the page as it was before §5. #}

@@ -51,6 +51,7 @@ __all__ = [
     "premise_of",
     "reports_to_write_against",
     "retire_thesis",
+    "revise_premise",
     "subject_name",
     "theses_for",
     "thesis_of",
@@ -206,11 +207,129 @@ async def add_premise(
         )
         raise ValidationError(message, context={"field": "review_by"})
 
+    premise = await _new_premise(
+        session,
+        thesis=thesis,
+        actor=actor,
+        statement=statement,
+        basis=basis,
+        predicate=predicate,
+        review_by=review_by,
+        held_at=held_at,
+    )
+    await _record(
+        session,
+        actor=actor.email,
+        event_type="thesis.premise_added",
+        thesis_id=thesis.id,
+        payload=_premise_payload(thesis, premise, predicate=predicate, review_by=review_by),
+    )
+    return premise
+
+
+async def revise_premise(
+    session: AsyncSession,
+    *,
+    thesis: Thesis,
+    premise: Premise,
+    actor: User,
+    statement: str,
+    predicate: Predicate | None,
+    review_by: date | None,
+    reason: str,
+) -> Premise:
+    """What the holder now believes in place of a premise, with the old wording kept.
+
+    Two rows, never an edit (page specification §10.3): the old premise is withdrawn with
+    the reason, and a new one takes its place with a judgement that supersedes the old. The
+    basis carries over — what the view rests on did not change because its wording did —
+    and the reason is why it changed, on the row it changed from. A premise quietly
+    rewritten after it failed is the row the post-trade reviewer exists to read (ADR 0081),
+    so the history reads *on 3 March you believed…, on 14 September you revised it to…*.
+
+    Raises:
+        ConflictError: If the thesis is retired, or the premise was already withdrawn or
+            revised — a second revision of one row would fork its history.
+        ValidationError: If the reason or the new statement is blank, or the new premise
+            has neither a predicate nor a review date.
+    """
+    if premise.thesis_id != thesis.id:
+        message = "That premise belongs to another thesis."
+        raise ValidationError(message, context={"judgement_id": str(premise.judgement_id)})
+    if thesis.is_retired:
+        message = (
+            f"The thesis {thesis.title!r} is retired, and a retired thesis is a record of what "
+            "was believed. Write a new one rather than revising this."
+        )
+        raise ConflictError(message, context={"thesis_id": str(thesis.id)})
+    old = premise.judgement
+    if old.is_withdrawn:
+        message = (
+            "This premise was already withdrawn or revised. Revise what replaced it, so its "
+            "history stays one line."
+        )
+        raise ConflictError(message, context={"judgement_id": str(old.id)})
+    if not reason.strip():
+        message = (
+            "Revising a premise needs a reason. The old wording is kept with it, and a change "
+            "of mind with no stated cause is the least reviewable row this table could hold."
+        )
+        raise ValidationError(message, context={"field": "reason"})
+    if not statement.strip():
+        message = "A premise states something; the revision states nothing."
+        raise ValidationError(message, context={"field": "statement"})
+    if predicate is None and review_by is None:
+        message = (
+            "A premise nothing can test needs a date somebody will look at it again by. "
+            "Otherwise it is a view the platform would stop asking about."
+        )
+        raise ValidationError(message, context={"field": "review_by"})
+
+    old.withdrawn_at = datetime.now(UTC)
+    old.withdrawn_reason = reason.strip()
+    await session.flush()
+    revised = await _new_premise(
+        session,
+        thesis=thesis,
+        actor=actor,
+        statement=statement,
+        basis=old.basis,
+        predicate=predicate,
+        review_by=review_by,
+        held_at=None,
+        supersedes=old,
+    )
+    payload = _premise_payload(thesis, revised, predicate=predicate, review_by=review_by)
+    payload["supersedes_id"] = str(old.id)
+    payload["reason"] = old.withdrawn_reason
+    await _record(
+        session,
+        actor=actor.email,
+        event_type="thesis.premise_revised",
+        thesis_id=thesis.id,
+        payload=payload,
+    )
+    return revised
+
+
+async def _new_premise(
+    session: AsyncSession,
+    *,
+    thesis: Thesis,
+    actor: User,
+    statement: str,
+    basis: str,
+    predicate: Predicate | None,
+    review_by: date | None,
+    held_at: datetime | None,
+    supersedes: Judgement | None = None,
+) -> Premise:
     judgement = Judgement(
         kind=JudgementKind.PREMISE,
         held_by=actor.email,
         held_at=held_at or datetime.now(UTC),
         basis=basis.strip(),
+        supersedes_id=supersedes.id if supersedes is not None else None,
     )
     session.add(judgement)
     await session.flush()
@@ -241,34 +360,32 @@ async def add_premise(
     await session.refresh(judgement)
     loaded = await session.scalar(select(Premise).where(Premise.judgement_id == judgement.id))
     assert loaded is not None
-    premise = loaded
+    return loaded
 
-    await _record(
-        session,
-        actor=actor.email,
-        event_type="thesis.premise_added",
-        thesis_id=thesis.id,
-        payload={
-            "thesis_id": str(thesis.id),
-            "judgement_id": str(judgement.id),
-            "position": premise.position,
-            "statement": premise.statement,
-            "basis": judgement.basis,
-            "held_at": judgement.held_at.isoformat(),
-            "predicate": (
-                {
-                    "metric": premise.metric,
-                    "comparator": premise.comparator.value if premise.comparator else None,
-                    "threshold": str(premise.threshold),
-                    "unit": premise.unit,
-                }
-                if predicate
-                else None
-            ),
-            "review_by": review_by.isoformat() if review_by else None,
-        },
-    )
-    return premise
+
+def _premise_payload(
+    thesis: Thesis, premise: Premise, *, predicate: Predicate | None, review_by: date | None
+) -> dict[str, Any]:
+    judgement = premise.judgement
+    return {
+        "thesis_id": str(thesis.id),
+        "judgement_id": str(judgement.id),
+        "position": premise.position,
+        "statement": premise.statement,
+        "basis": judgement.basis,
+        "held_at": judgement.held_at.isoformat(),
+        "predicate": (
+            {
+                "metric": premise.metric,
+                "comparator": premise.comparator.value if premise.comparator else None,
+                "threshold": str(premise.threshold),
+                "unit": premise.unit,
+            }
+            if predicate
+            else None
+        ),
+        "review_by": review_by.isoformat() if review_by else None,
+    }
 
 
 async def withdraw_premise(

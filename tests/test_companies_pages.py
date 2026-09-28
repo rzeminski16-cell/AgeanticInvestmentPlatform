@@ -18,10 +18,20 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from aer.core.enums import DecisionAction, JobStatus, TransactionKind, UserRole
+from aer.core.enums import (
+    DecisionAction,
+    FindingKind,
+    JobStatus,
+    PremiseComparator,
+    PremiseStatus,
+    TransactionKind,
+    UserRole,
+)
 from aer.db.models import (
+    Artefact,
     Company,
     Cost,
+    Finding,
     Job,
     Portfolio,
     PriceBar,
@@ -337,7 +347,7 @@ class TestTheCompanyPage:
         assert "Never researched" in body
         assert 'id="ask-needs-a-record"' in body
         assert 'id="refresh-refused"' in body
-        assert 'href="/decisions?security=CTSO.LSE"' in body
+        assert 'href="/decisions/new?security=CTSO.LSE' in body
         assert 'id="workbook-absent"' in body
         # The history sheets are still here.
         assert 'id="report-timeline"' in body
@@ -373,6 +383,98 @@ class TestTheCompanyPage:
         page = await api.get(f"/companies/{uuid.uuid4()}")
         assert page.status_code == 404
         assert "not in your record" in page.text
+
+    async def test_the_premises_are_in_the_thesis_editors_words(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """§5.2 and §10.1 read one premise one way: the same state label and the same test in
+        words on both pages, from the same functions, so they cannot disagree."""
+        async with scene["factory"]() as session:
+            user = await session.get(User, scene["user"].id)
+            thesis = await thesis_service.thesis_of(
+                session, scene["thesis"].id, user_id=scene["user"].id
+            )
+            assert user is not None
+            assert thesis is not None
+            margin = await thesis_service.add_premise(
+                session,
+                thesis=thesis,
+                actor=user,
+                statement="Gross margin stays above 40%.",
+                basis="The segment note.",
+                predicate=thesis_service.Predicate(
+                    "gross_margin", PremiseComparator.AT_LEAST, Decimal(40), "percent"
+                ),
+                review_by=None,
+            )
+            await thesis_service.add_premise(
+                session,
+                thesis=thesis,
+                actor=user,
+                statement="Management stays disciplined.",
+                basis="Ten years of buybacks.",
+                predicate=None,
+                review_by=date(2027, 3, 31),
+            )
+            session.add(
+                Finding(
+                    user_id=user.id,
+                    thesis_id=thesis.id,
+                    judgement_id=margin.judgement_id,
+                    kind=FindingKind.READING,
+                    status=PremiseStatus.CONTRADICTED,
+                    justification="Margin fell.",
+                    source_document_ids=[],
+                    observed={"value": "0.35", "unit": "ratio", "period_end": "2025-12-31"},
+                    window_from=date(2026, 3, 4),
+                    window_to=date(2026, 9, 10),
+                    opens_gate=True,
+                    created_at=datetime(2026, 9, 11, 7, tzinfo=UTC),
+                )
+            )
+            await session.commit()
+
+        body = (await api.get(f"/companies/{scene['fabrikam'].id}")).text
+
+        assert 'data-premise-state="broke"' in body
+        assert (
+            "Gross margin at least 40.0% · measured 35.0% for the year to 31 December 2025"
+        ) in body
+        assert 'data-premise-state="by_hand"' in body
+        assert "Reviewed by hand, next by 31 March 2027" in body
+        assert (
+            "One premise broke on 11 September. Until you revise or withdraw it, this thesis "
+            "is marked under review."
+        ) in body
+        assert "gross_margin" not in body
+
+    async def test_the_workbook_opens_where_one_was_archived(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """§5.6 corrected 28 September: a control where the current report archived a
+        workbook (F5), and a sentence saying why where it did not."""
+        before = (await api.get(f"/companies/{scene['fabrikam'].id}")).text
+        assert 'id="workbook-absent"' in before
+        assert "none was archived with this report" in before
+
+        async with scene["factory"]() as session:
+            workbook = Artefact(
+                sha256="d" * 64,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                size_bytes=10,
+                storage_key="dd/" + "d" * 64,
+            )
+            session.add(workbook)
+            await session.flush()
+            report = await session.get(Report, scene["report"].id)
+            assert report is not None
+            report.workbook_artefact_id = workbook.id
+            await session.commit()
+
+        after = (await api.get(f"/companies/{scene['fabrikam'].id}")).text
+        assert 'id="open-workbook"' in after
+        assert f'href="/api/reports/{scene["report"].id}/download/xlsx"' in after
+        assert 'id="workbook-absent"' not in after
 
 
 # -- Position (§3) ---------------------------------------------------------------------------

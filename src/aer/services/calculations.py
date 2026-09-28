@@ -322,6 +322,24 @@ async def persist_context(
         )
         raise ValidationError(message, context={"job_id": str(job_id)})
 
+    # ADR 0137: a figure struck over a number typed into a page for one answer is shown and
+    # never kept. Refused here, where every ledger is written, so no caller can keep one by
+    # forgetting — the decision check's what-if is the ledger this exists for.
+    unrecorded = [
+        record.name
+        for record in context.records
+        if any(item.source_table is SourceTable.UNRECORDED for item in record.inputs)
+    ]
+    if unrecorded:
+        message = (
+            "This ledger holds figures struck over a number typed into a page and never "
+            "recorded, so it cannot be written: a what-if is shown and then forgotten "
+            "(ADR 0137)."
+        )
+        raise ValidationError(
+            message, context={"job_id": str(job_id), "calculations": sorted(set(unrecorded))}
+        )
+
     carried = await _carried(session, context, job_id=job_id, read_from=read_from)
 
     # Sequences continue the job's ledger rather than restarting at zero, and the advisory
@@ -1016,6 +1034,16 @@ async def _question_node(session: AsyncSession, stored: _StoredInput) -> Lineage
     )
 
 
+async def _unrecorded_node(_session: AsyncSession, _stored: _StoredInput) -> LineageNode | None:
+    """A number typed into a page and written nowhere (ADR 0137): it resolves nowhere.
+
+    Registered so the registry stays total, and never reached: `persist_context` refuses a
+    ledger holding one, so no stored row can cite it. If one ever did, the walk would end
+    here at *not found* — which is the truth about a number nothing kept.
+    """
+    return None
+
+
 _LeafLoader = Callable[[AsyncSession, "_StoredInput"], Awaitable[LineageNode | None]]
 
 # One entry per relation a leaf can live in. Adding a source table is a line here and a
@@ -1035,6 +1063,7 @@ _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.RISK_SCENARIO_SHOCKS: _scenario_shock_node,
     SourceTable.RESEARCH_REQUESTS: _request_node,
     SourceTable.QUESTIONS: _question_node,
+    SourceTable.UNRECORDED: _unrecorded_node,
 }
 
 _KNOWN_TABLES: Final[Mapping[str, SourceTable]] = {table.value: table for table in SourceTable}

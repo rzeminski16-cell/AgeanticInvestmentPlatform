@@ -82,6 +82,15 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   attack report and §18's vocabulary queue are features, not drawings, and are recorded
   there. Item 91 is what the build found.*
 - **U4 — Decide.** The company page, the thesis editor, and the decision page's what-if.
+  *Built 28 September: recording a decision is its own page with the check beside it, and a
+  position typed into the check shows the book before and after — weight, five largest,
+  sector, cash — struck for the page and never saved, because `persist_context` refuses the
+  what-if's table (ADR 0137); the thesis editor's premises are its form, revised in place and
+  saved as new rows that supersede the old with the reason kept, each labelled holds, broke or
+  by hand from the monitor's last reading, with a broken premise's revise, withdraw and keep
+  closing the monitor's question with the same reason; the company page reads its premises
+  through the editor's own words and opens the report's workbook. The limit bands and *Record
+  it anyway* wait for U5.*
 - **U5 — Hold.** The operator's limits and everything that draws them; portfolio, position,
   risk, companies and the monitor alert to their drawings.
 - **U6 — Review and platform.** The review, the analytics page's honest empty state, and one

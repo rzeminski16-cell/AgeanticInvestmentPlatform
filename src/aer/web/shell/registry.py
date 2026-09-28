@@ -219,6 +219,10 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/monitor/findings/{finding_id}",
         # One decision, reached from the journal, from its thesis and from the work list.
         "/decisions/{decision_id}",
+        # Recording one, reached from the journal, a company, a thesis and a monitor finding;
+        # and the check beside the form, which the page asks for again as it changes.
+        "/decisions/new",
+        "/decisions/check",
         # A reviewer's proposal and a confirmed review, each reached from the review list.
         "/review/passes/{pass_id}",
         "/review/{review_id}",

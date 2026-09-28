@@ -434,6 +434,17 @@ outcomes it carried before this section existed.
 against the operator's single-position limit where one is stated (ADR 0136), and §5.6's *Open
 the workbook* is a control where a workbook was archived (§8's correction of the same date).
 
+*Built 28 September 2026* (`companies/detail.html`, `web/companies/pages.py::_believe`,
+`_actions`). §5.2 reads each held premise through the thesis editor's own functions
+(`web/theses/pages.py::premise_state`, `defeat_words`, `measurement_words`), so the two pages
+cannot call one premise two things: *holds*, *broke*, *by hand* or *not read yet*, and the test
+in words — *Gross margin at least 40.0% · measured 35.0% for the year to 31 December 2025* —
+never `gross_margin ≥ 0.4`. The state line is §5.2's own sentence, and the sheet names when the
+thesis was written and how many revisions it has had. §5.6's *Open the workbook* downloads the
+current report's workbook where one was archived, and otherwise says why there is none. The
+verdict sentence above the columns left the page: the drawing has none, and the header's labels
+already say it. The weight bar against the operator's limit waits for U5.
+
 ---
 
 ## 6. New request
@@ -680,6 +691,25 @@ last_measured, last_measured_at, review_date, history[]), `measurable_metrics[]`
 
 **Must not.** Offer a metric the monitor cannot resolve. Let a threshold be saved without a unit.
 
+*Built 28 September 2026* (`theses/detail.html`, `web/theses/pages.py`,
+`services/theses.py::revise_premise`). The premises are the form: each sentence and each test is
+a control, and *Save the revision* — in the header, beside the reason under the premises —
+revises every premise that changed, with one reason, as two rows each: the old wording withdrawn
+with the reason, and a new judgement superseding it (`judgements.supersedes_id`) with the same
+basis. A revised premise keeps its predecessor's place, and *How this premise has changed* reads
+the chain as a narrative. A premise keeps its kind; changing kind is a withdrawal and an addition,
+and the page says so. The metric is a select of exactly the names the monitor resolves, in words
+and grouped (ratios, growth, lines as filed); the unit is a select of what the monitor can
+compare. Two labels beyond the three specified, because neither of the three is true of them:
+*not read yet* for a test no filing has been read against, and *cannot be measured*. §10.3's
+panel appears for each premise with an open broken reading: *Revise it* goes to the premise,
+*Withdraw it* and *Keep it — say why* each take a reason, and all three close the reading with
+that reason — at the thesis gate, bound to the hash of the finding as shown, where its pass is
+on record (ADR 0078), and resolved otherwise. *Keep it* records no date to look again: a
+finding's resolution has no date, and the monitor reads the premise against the next annual
+filing in any case. A refused revision redraws the page with what was typed. The panel beside the
+premises states the rule, and warns — never refuses — when no premise carries a test.
+
 ---
 
 ## 11. Decision
@@ -746,6 +776,20 @@ it is never disabled. With the field empty, the check is as the correction above
 report: allowed, with a `warning` noting the decision rests on nothing recorded.
 
 **Must not.** Let a decision be recorded without a reason. Auto-fill the reason. Block a trade.
+
+*Built 28 September 2026* (`decisions/new.html`, `decisions/_check.html`,
+`web/decisions/pages.py`, `services/risk.py::book_after`, ADR 0137). Recording a decision is its
+own page, *What did you decide, and why?*, reached from the journal, a thesis, a company and a
+finding with what each knows already chosen. The six verbs are one row of equal buttons with none
+chosen; each thesis in the list names the report it was written against, which is the report the
+decision rests on (F10, corrected 24 September). The check is its own panel beside the form, with
+its own GET form, so it works with scripting off and never nests in the record form; htmx asks
+for the panel alone when the listing changes. With a weight typed, the holding's weight, the five
+largest, the sector's share and cash read before and after, funded from cash alone
+(`calc/consequences`), each after-figure struck with `SourceRef.what_if` — the unrecorded table —
+which `persist_context` refuses to save, so nothing typed there can reach the record. A cash
+shortfall is said, not hidden. *Record it anyway* and the limit bands wait for U5 (ADR 0136).
+*What would make this wrong* as a route to a premise is not built.
 
 ---
 

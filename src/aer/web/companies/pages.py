@@ -4,7 +4,7 @@
 about, why it is there, and when it is next looked at — three populations kept apart, sorted
 by what has been neglected. The company page is everything known about one of them and
 every action that concerns it: what you believe, what you hold, the record, a question, and
-the four actions — three of which exist and one of which, the workbook, does not and says so.
+the four actions — the workbook among them where one was archived with the report.
 
 **Every state on both pages is read from the record on the way to it**
 (:mod:`aer.services.company_record`): whether a company is held from the book's own walk,
@@ -46,7 +46,14 @@ from aer.charts import (
     svg_data_uri,
     valuation_history,
 )
-from aer.core.enums import CatalystOutcomeKind, JobStatus, PremiseStatus, WatchCadence
+from aer.core.dates import format_date
+from aer.core.enums import (
+    CatalystOutcomeKind,
+    FindingKind,
+    JobStatus,
+    PremiseStatus,
+    WatchCadence,
+)
 from aer.db.models import Company, Finding, Job, Report, Security
 from aer.errors import ValidationError
 from aer.render.document import NO_VIEW
@@ -65,7 +72,12 @@ from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csr
 from aer.web.pages import problem_page
 from aer.web.portfolio.pages import pounds, shares
 from aer.web.templating import render
-from aer.web.theses.pages import premise_rows
+from aer.web.theses.pages import (
+    defeat_words,
+    held_in_order,
+    measurement_words,
+    premise_state,
+)
 
 __all__ = ["router"]
 
@@ -386,11 +398,16 @@ async def company_page(
     now = datetime.now(UTC)
     record = await record_service.record_of(session, user=user, company=company, now=now)
     history = await _history(session, company)
-    findings = [
-        row
-        for row in await thesis_monitor.findings_for(session, user_id=user.id, open_only=True)
-        if record.thesis is not None and row.thesis_id == record.thesis.id
-    ]
+    opened, closed = await thesis_monitor.findings_partitioned(session, user_id=user.id)
+    findings = sorted(
+        (
+            row
+            for row in (*opened, *closed)
+            if record.thesis is not None and row.thesis_id == record.thesis.id
+        ),
+        key=lambda row: (row.created_at, str(row.id)),
+        reverse=True,
+    )
     listing = await _listing_of(session, record)
     can_ask = any(row.id == company.id for row in await companies_with_a_record(session, user=user))
     refresh_refusal = (
@@ -407,7 +424,6 @@ async def company_page(
         {
             "company": company,
             "record": record,
-            "verdict": _record_verdict(record),
             "header": _header(record),
             "believe": _believe(record, findings, company_id=company.id),
             "hold": _hold(record),
@@ -424,33 +440,6 @@ async def company_page(
     )
     set_csrf_cookie(page, token)
     return page
-
-
-def _record_verdict(record: CompanyRecord) -> verdicts.Verdict:
-    """The sentence the page leads with: what the record says, in the order §5 reads it."""
-    clauses: list[verdicts.Count | str] = [record.population_words]
-    if record.thesis_state == "none":
-        clauses.append("nothing is written down about why")
-    elif record.thesis_state == "under_review":
-        clauses.append("the thesis is under review")
-    elif record.thesis_state == "retired":
-        clauses.append("the thesis was retired")
-    else:
-        clauses.append("the thesis holds")
-    if record.report is None:
-        clauses.append("never researched")
-    else:
-        approved = record.report.approved_at
-        dated = f", approved {approved:%d %B %Y}" if approved is not None else ""
-        clauses.append(f"the report is {record.report_state}{dated}")
-    if record.run_state == "running":
-        clauses.append("a run is going")
-    tone = (
-        vocabulary.Tone.WARNING
-        if record.thesis_state in {"none", "under_review"} or record.report_state != "current"
-        else vocabulary.Tone.INFO
-    )
-    return verdicts.sentence(clauses, when_none="Nothing is known yet", tone=tone)
 
 
 def _header(record: CompanyRecord) -> dict[str, Any]:
@@ -488,8 +477,10 @@ def _move_words(move: Decimal | None) -> str:
 def _believe(
     record: CompanyRecord, findings: list[Finding], *, company_id: uuid.UUID
 ) -> dict[str, Any]:
-    """§5.2: each premise with its test and its status, and the line that says what the
-    state means. Statuses are what the monitor last read (ADR 0079), never re-measured."""
+    """§5.2: each held premise with its test and its state, and the line that says what the
+    state means. States are what the monitor last read (ADR 0079), never re-measured, and
+    in the thesis editor's own words (`premise_state`), so the two pages cannot call one
+    premise two things. ``findings`` is every finding on the thesis, newest first."""
     thesis = record.thesis
     if thesis is None:
         return {
@@ -498,51 +489,54 @@ def _believe(
             "write_href": f"/theses?company={company_id}",
             "premises": [],
             "state_line": "",
+            "meta": "",
         }
     latest: dict[uuid.UUID, Finding] = {}
-    for finding in findings:  # newest first, so the first seen is the latest reading
-        if finding.judgement_id is not None:
+    for finding in findings:
+        if finding.judgement_id is not None and finding.kind is FindingKind.READING:
             latest.setdefault(finding.judgement_id, finding)
     premises: list[dict[str, Any]] = []
-    for row in premise_rows(thesis):
-        reading = latest.get(row.judgement_id)
-        if reading is not None and reading.status is not None:
-            words = vocabulary.PREMISE_STATES[reading.status]
-            status = {"label": words.label, "tone": words.tone.value, "detail": words.detail}
-        elif row.is_tested:
-            status = {"label": "Not yet read", "tone": vocabulary.Tone.MUTED.value, "detail": ""}
-        else:
-            status = {
-                "label": "Reviewed by a person",
-                "tone": vocabulary.Tone.MUTED.value,
-                "detail": "",
+    for premise in held_in_order(thesis):
+        reading = latest.get(premise.judgement_id)
+        label, tone = premise_state(premise, reading)
+        measured = measurement_words(premise, reading)
+        premises.append(
+            {
+                "position": premise.position,
+                "statement": premise.statement,
+                "test": " · ".join(part for part in (defeat_words(premise), measured) if part),
+                "label": label,
+                "tone": tone,
             }
-        premises.append({"row": row, "status": status})
+        )
     broke = [
         finding
         for finding in findings
-        if finding.status is PremiseStatus.CONTRADICTED or finding.opens_gate
+        if finding.is_open and (finding.status is PremiseStatus.CONTRADICTED or finding.opens_gate)
     ]
     if broke:
         count = len({finding.judgement_id for finding in broke})
         newest = max(finding.created_at for finding in broke)
+        opening = "One premise" if count == 1 else f"{count} premises"
         state_line = (
-            f"{count} premise{'s' if count != 1 else ''} broke, the latest on "
-            f"{newest:%d %B}. Until you revise or withdraw it, this thesis is marked under "
-            "review."
+            f"{opening} broke on {format_date(newest, '%-d %B')}. Until you revise or "
+            f"withdraw {'it' if count == 1 else 'them'}, this thesis is marked under review."
         )
-    elif findings:
-        state_line = "Every premise holds as the monitor last read it."
-    elif any(row["row"].is_tested for row in premises):
+    elif any(row["label"] == "holds" for row in premises):
+        state_line = "Every premise the monitor has read holds."
+    elif any(premise.has_predicate for premise in thesis.premises):
         state_line = "Nothing has been read against these premises yet."
     else:
         state_line = "Every premise here is reviewed by a person; the monitor has nothing to read."
+    revisions = sum(1 for premise in thesis.premises if premise.judgement.supersedes_id)
+    written = format_date(thesis.written_at or thesis.created_at, "%-d %B %Y")
     return {
         "thesis": thesis,
         "was_retired": False,
         "write_href": f"/theses?company={company_id}",
         "premises": premises,
         "state_line": state_line,
+        "meta": f"written {written} · {revisions} revision{'s' if revisions != 1 else ''}",
     }
 
 
@@ -641,8 +635,10 @@ async def _record_rows(
                 else "Nothing open"
             ),
             "detail": f"{checked}{due}.",
-            "figure": CADENCE_WORDS.get(record.cadence, "no cadence"),
-            "figure_label": "cadence",
+            # A company nobody watches has no cadence to print, and "no cadence" above the
+            # word "cadence" read as a stutter; the sentence says it once.
+            "figure": CADENCE_WORDS.get(record.cadence, "not watched"),
+            "figure_label": "cadence" if record.cadence in CADENCE_WORDS else "",
             "href": "/monitor",
             "tone": (
                 vocabulary.Tone.WARNING.value
@@ -741,13 +737,36 @@ async def _report_row(
 
 
 def _actions(record: CompanyRecord, *, listing: str, company_id: uuid.UUID) -> dict[str, Any]:
-    """§5.6: the four actions, one of them honest about not existing."""
+    """§5.6: the four actions. The workbook is a control where one was archived with the
+    current report (F5), and otherwise a sentence saying why there is none — a control that
+    opened nothing would be worse than the sentence."""
     thesis = record.thesis
+    report = record.report
+    has_workbook = report is not None and report.workbook_artefact_id is not None
+    if has_workbook:
+        workbook_absent = ""
+    elif report is None:
+        workbook_absent = "there is no report yet to take one from."
+    else:
+        workbook_absent = "none was archived with this report."
     return {
+        "workbook_href": f"/api/reports/{report.id}/download/xlsx"
+        if report is not None and has_workbook
+        else "",
+        "workbook_absent": workbook_absent,
         "refresh_href": f"/reports/{record.report.id}/refresh" if record.report else "",
         "thesis_href": f"/theses/{thesis.id}" if thesis is not None else "",
         "write_href": f"/theses?company={company_id}",
-        "decision_href": f"/decisions?security={listing}" if listing else "/decisions",
+        # The record page, with what this page already knows chosen for the operator.
+        "decision_href": "/decisions/new?"
+        + "&".join(
+            part
+            for part in (
+                f"security={listing}" if listing else "",
+                f"thesis={thesis.id}" if thesis is not None else "",
+            )
+            if part
+        ),
         "position_href": (
             f"/portfolio/positions/{record.holding.security.id}"
             if record.holding is not None

@@ -35,29 +35,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from aer.calc import consequences as calc
 from aer.calc.attestation import Attested
 from aer.calc.comps import Audience
-from aer.calc.performance import exposure, grouped_value
 from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef
 from aer.core.enums import Grade
 from aer.db.models import Calculation, ResearchRequest, Security
 from aer.services.calculations import lineage, new_context, persist_context
 from aer.services.performance import (
-    CONCENTRATION_COUNT,
-    ExposureView,
     exposure_as_at,
-    sector_of,
 )
 from aer.services.portfolio import (
-    CLOSED,
     Figure,
-    HoldingRow,
-    PortfolioView,
     book_as_at,
     default_book,
-    graded_figure,
 )
+from aer.services.risk import book_after
 
 __all__ = [
     "CONSEQUENCES_TITLE",
@@ -205,9 +197,6 @@ async def _strike(
         session, context, portfolio=book_row, as_of=as_of, view=book
     )
     security = await _security_of(session, request)
-    held = _held(book, security)
-
-    denominator = book.net_assets.record.id
     planned_weight = Quantity.of(
         planned,
         DIMENSIONLESS,
@@ -215,59 +204,20 @@ async def _strike(
             request.id, label=f"planned weight for {request.ticker}, stated on the request"
         ),
     )
-    current_weight = (
-        held.weight.quantity
-        if held is not None and held.weight is not None
-        else _nil(denominator, f"the book as at {when}, which holds none of {request.ticker}")
+    # The same strike the decision check makes over a typed weight (ADR 0137): one
+    # implementation of what a weight does to the book, surfaced twice (F12's rule).
+    after = book_after(
+        context,
+        book=book,
+        exposure_view=exposure_view,
+        security=security,
+        ticker=request.ticker,
+        weight_after=planned_weight,
+        when=when,
     )
-
-    figures: list[Figure] = []
-    figures.append(
-        graded_figure(
-            context,
-            calc.cash_weight_after(
-                context,
-                cash_weight=_cash_share(context, book, denominator=denominator, when=when),
-                current_weight=current_weight,
-                planned_weight=planned_weight,
-            ),
-        )
-    )
-    others = [
-        row.weight.quantity
-        for row in book.holdings
-        if row.weight is not None
-        and row.problem != CLOSED
-        and (held is None or row.security.id != held.security.id)
-    ]
-    figures.append(
-        graded_figure(
-            context,
-            calc.top_holdings_share_after(
-                context,
-                other_weights=others,
-                planned_weight=planned_weight,
-                count=CONCENTRATION_COUNT,
-            ),
-        )
-    )
-    sector = sector_of(security) if security is not None else None
-    if sector is not None:
-        share = _sector_share(exposure_view, sector)
-        if share is None:
-            share = _nil(denominator, f"the book as at {when}, which holds nothing in {sector}")
-        figures.append(
-            graded_figure(
-                context,
-                calc.exposure_after(
-                    context,
-                    sector_share=share,
-                    current_weight=current_weight,
-                    planned_weight=planned_weight,
-                    sector=sector,
-                ),
-            )
-        )
+    figures: list[Figure] = [after.cash_after, after.top_after]
+    if after.sector_after is not None:
+        figures.append(after.sector_after)
 
     await persist_context(session, context, job_id=job_id)
     typed = tuple(
@@ -289,32 +239,6 @@ async def _strike(
     return _Struck(grade=Grade.ATTESTED if typed else Grade.DOCUMENTED, attested_inputs=typed)
 
 
-def _cash_share(
-    context: Any, book: PortfolioView, *, denominator: uuid.UUID, when: str
-) -> Quantity:
-    """The cash's share of the book, by the same arithmetic the currency band uses."""
-    in_base = [row.in_base.quantity for row in book.cash if row.in_base is not None]
-    if not in_base or book.net_assets is None:
-        return _nil(denominator, f"the book as at {when}, which holds no cash")
-    return exposure(
-        context,
-        value=grouped_value(context, values=in_base),
-        net_assets=book.net_assets.quantity,
-    )
-
-
-def _nil(denominator: uuid.UUID, label: str) -> Quantity:
-    """A zero the book walk established, sourced to the total that saw the whole book.
-
-    An unsourced zero is still unsourced (the valuation's net-debt rule): a weight of
-    nothing is a fact about the book, and the row that read every position is where it
-    comes from.
-    """
-    return Quantity.of(
-        Decimal(0), DIMENSIONLESS, source=SourceRef.calculation(denominator, label=label)
-    )
-
-
 async def _security_of(session: AsyncSession, request: ResearchRequest) -> Security | None:
     found: Security | None = await session.scalar(
         select(Security)
@@ -324,23 +248,6 @@ async def _security_of(session: AsyncSession, request: ResearchRequest) -> Secur
         .limit(1)
     )
     return found
-
-
-def _held(book: PortfolioView, security: Security | None) -> HoldingRow | None:
-    if security is None:
-        return None
-    return next(
-        (row for row in book.holdings if row.security.id == security.id and row.problem != CLOSED),
-        None,
-    )
-
-
-def _sector_share(exposure_view: ExposureView, sector: str) -> Quantity | None:
-    band = next((row for row in exposure_view.bands if row.kind == "sector"), None)
-    if band is None:
-        return None
-    found = next((row for row in band.slices if row.label == sector), None)
-    return found.share.quantity if found is not None else None
 
 
 # -- Reading the record back ------------------------------------------------------------------

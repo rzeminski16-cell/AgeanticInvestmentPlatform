@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 from markupsafe import escape
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import aer.calc
@@ -37,7 +37,9 @@ from aer.db.base import Base
 from aer.db.models import (
     Attestation,
     AuditEvent,
+    Calculation,
     Company,
+    Decision,
     Portfolio,
     PriceBar,
     Security,
@@ -837,38 +839,51 @@ class TestThePages:
         assert "Decided by owner@example.invalid on 01 August 2026" in opened.text
 
 
-class TestTheCheckBeforeItIsRecorded:
-    """F12's second surface: the exposure arithmetic beside the form that records a decision.
+class TestTheCheckBesideTheForm:
+    """F12's second surface: the exposure arithmetic beside the form that records a decision,
+    on the page the drawing gives it (page specification §11, ADR 0137).
 
     The figures themselves, and their agreement with the risk page, are pinned in
-    `tests/test_pre_trade_check.py`. What is asserted here is that the check reaches the page
-    at all, that it is honest about the one thing it cannot say, and that nothing it adds can
-    refuse a decision — F12's *"the check never blocks"*, which is a property of the controls
-    rather than of the numbers.
+    `tests/test_pre_trade_check.py`. What is asserted here is that the check reaches the page,
+    that it quotes the service's own sentence about the size, that a typed weight shows what
+    the book would become and records nothing, and that nothing it adds can refuse a decision
+    — F12's *"the check never blocks"*, a property of the controls rather than the numbers.
     """
 
-    async def test_the_check_renders_before_the_form(self, api: Any, committed: Any) -> None:
-        page = await api.get("/decisions")
+    async def test_the_record_page_carries_the_form_and_the_check_beside_it(
+        self, api: Any, committed: Any
+    ) -> None:
+        page = await api.get("/decisions/new")
 
         assert page.status_code == 200
+        assert 'id="record-decision"' in page.text
         assert 'id="pre-trade-check"' in page.text
-        assert page.text.index('id="pre-trade-check"') < page.text.index('id="record-decision"')
 
-    async def test_it_says_it_cannot_say_what_the_book_becomes(
+    async def test_the_journal_leads_to_it_and_carries_the_listing(
+        self, api: Any, committed: Any
+    ) -> None:
+        page = await api.get("/decisions?security=CTSO.LSE")
+
+        assert 'href="/decisions/new?security=CTSO.LSE"' in page.text
+        assert 'id="record-decision"' not in page.text
+
+    async def test_it_quotes_the_services_sentence_about_the_size(
         self, api: Any, committed: Any
     ) -> None:
         """The page quotes the service's own sentence rather than writing a second one, so
-        the reason a figure is absent cannot drift from the rule that makes it absent."""
-        page = await api.get("/decisions")
+        what it says about the size cannot drift from the rule."""
+        page = await api.get("/decisions/new")
 
         # Escaped as the template escapes it, so this compares the rendered sentence with
         # the constant rather than with a paraphrase that happens to contain no apostrophe.
         assert str(escape(risk_service.NO_INTENDED_SIZE)) in page.text
 
-    async def test_naming_a_listing_prefills_both_boxes(self, api: Any, committed: Any) -> None:
-        """One string, typed once. With scripting off this is a navigation, so the record
-        form must come back carrying the listing the check was asked about."""
-        page = await api.get("/decisions?security=CTSO.LSE")
+    async def test_naming_a_listing_fills_the_form_and_the_check(
+        self, api: Any, committed: Any
+    ) -> None:
+        """One string, typed once: the record form's listing and the check's own carry it,
+        so the check's what-if is about the listing the decision names."""
+        page = await api.get("/decisions/new?security=CTSO.LSE")
 
         assert page.status_code == 200
         assert page.text.count('value="CTSO.LSE"') >= 2
@@ -878,7 +893,7 @@ class TestTheCheckBeforeItIsRecorded:
     ) -> None:
         """A typo in a link, or a listing the platform has never priced. The book-wide half
         of the check still reads and the form still records."""
-        page = await api.get("/decisions?security=NOSUCH.XX")
+        page = await api.get("/decisions/new?security=NOSUCH.XX")
 
         assert page.status_code == 200
         assert 'id="record-decision"' in page.text
@@ -886,69 +901,123 @@ class TestTheCheckBeforeItIsRecorded:
     async def test_the_check_offers_no_control_that_could_refuse_a_decision(
         self, api: Any, committed: Any
     ) -> None:
-        """No ceiling exists in this platform, so there is nothing to breach and no
-        *"Record it anyway"* to fall back to: the submit control reads what it always read,
-        and the only other control the check adds asks a question."""
-        page = await api.get("/decisions")
+        """No limit is crossed here, so there is no *"Record it anyway"* — the submit
+        control reads what it always read, and the only control the check adds asks a
+        question."""
+        page = await api.get("/decisions/new")
 
-        check = page.text[
-            page.text.index('id="pre-trade-check"') : page.text.index("Record a decision")
-        ]
-        assert "Show what the book holds" in check
+        start = page.text.index('id="pre-trade-check"')
+        check = page.text[start : page.text.index("</aside>", start)]
+        assert "Show what it does" in check
         for word in ("anyway", "ceiling", "breach", "exceeds", "too large", "blocked"):
             assert word not in check.lower(), f"the check must not speak of {word}"
-        assert ">\n            Record it\n          </button>" in page.text
+        assert re.search(r'id="record" type="submit"[^>]*>Record it</button>', page.text)
 
     async def test_a_book_with_holdings_shows_its_figures(self, api: Any, committed: Any) -> None:
         """The empty-book path says why there is no figure; this is the other branch, and
         without it a template bug in the figures themselves would ship green."""
-        session = committed["session"]
-        security = committed["security"]
-        for kind, quantity, price, currency in (
-            (TransactionKind.DEPOSIT, "100000", None, "GBP"),
-            (TransactionKind.BUY, "1000", "250", "GBX"),
-        ):
-            attestation = Attestation(
-                kind=AttestationKind.TRANSACTION,
-                grade=Grade.ATTESTED,
-                effective_at=datetime(2026, 6, 1, 10, tzinfo=UTC),
-                recorded_by="owner@example.invalid",
-            )
-            session.add(attestation)
-            await session.flush()
-            session.add(
-                Transaction(
-                    attestation_id=attestation.id,
-                    portfolio_id=committed["book"].id,
-                    kind=kind,
-                    security_id=security.id if price is not None else None,
-                    trade_date=date(2026, 6, 1),
-                    quantity=Decimal(quantity),
-                    price=Decimal(price) if price is not None else None,
-                    fees=Decimal(0),
-                    currency=currency,
-                )
-            )
-        session.add(
-            PriceBar(
-                security_id=security.id,
-                bar_date=date(2026, 6, 30),
-                open=Decimal("248"),
-                high=Decimal("262"),
-                low=Decimal("247"),
-                close=Decimal("260"),
-            )
-        )
-        await session.commit()
+        await _a_book_holding_ctso(committed)
 
-        page = await api.get("/decisions?security=CTSO.LSE")
+        page = await api.get("/decisions/new?security=CTSO.LSE")
 
         assert page.status_code == 200
         assert 'id="check-figures"' in page.text
         assert "The book" in page.text
         assert "Already held in CTSO" in page.text
         assert "Largest five holdings" in page.text
-        # Every figure points at the page that shows the same numbers in full, because a
-        # number with no way to read where it came from is what this platform exists to
-        # prevent — and here it is literally the same recorded calculation.
+        # The same figures, in full, a click away, because a number with no way to read
+        # where it came from is what this platform exists to prevent.
         assert 'href="/risk"' in page.text
+
+    async def test_a_typed_weight_shows_what_the_book_becomes_and_records_nothing(
+        self, api: Any, committed: Any
+    ) -> None:
+        """ADR 0137's two halves in one request: the figures move, and the decisions, the
+        calculations and the audit trail are exactly as they were."""
+        await _a_book_holding_ctso(committed)
+        before = await _counts(committed["session"])
+
+        page = await api.get("/decisions/new?security=CTSO.LSE&what_if=40")
+
+        assert page.status_code == 200
+        assert 'id="check-after"' in page.text
+        assert "Weight in CTSO" in page.text
+        assert 'data-when="after">40.0%<' in page.text
+        assert "The five largest" in page.text
+        assert await _counts(committed["session"]) == before
+
+    async def test_the_panel_can_be_asked_for_alone(self, api: Any, committed: Any) -> None:
+        """What the page swaps in as the what-if changes, so what the operator has typed
+        into the form beside it stays put."""
+        await _a_book_holding_ctso(committed)
+
+        fragment = await api.get("/decisions/check?security=CTSO.LSE&what_if=40")
+
+        assert fragment.status_code == 200
+        assert "<html" not in fragment.text
+        assert 'id="check-after"' in fragment.text
+        assert 'name="security" value="CTSO.LSE"' in fragment.text
+
+    @pytest.mark.parametrize("typed", ["about ten", "150", "-5"])
+    async def test_a_weight_that_is_not_one_says_so(
+        self, api: Any, committed: Any, typed: str
+    ) -> None:
+        await _a_book_holding_ctso(committed)
+
+        page = await api.get("/decisions/new", params={"security": "CTSO.LSE", "what_if": typed})
+
+        assert page.status_code == 200
+        assert 'id="what-if-problem"' in page.text
+        assert 'id="check-after"' not in page.text
+
+
+async def _a_book_holding_ctso(committed: Any) -> None:
+    """Cash, a purchase of the scene's listing, and a close to value it at."""
+    session = committed["session"]
+    security = committed["security"]
+    for kind, quantity, price, currency in (
+        (TransactionKind.DEPOSIT, "100000", None, "GBP"),
+        (TransactionKind.BUY, "1000", "250", "GBX"),
+    ):
+        attestation = Attestation(
+            kind=AttestationKind.TRANSACTION,
+            grade=Grade.ATTESTED,
+            effective_at=datetime(2026, 6, 1, 10, tzinfo=UTC),
+            recorded_by="owner@example.invalid",
+        )
+        session.add(attestation)
+        await session.flush()
+        session.add(
+            Transaction(
+                attestation_id=attestation.id,
+                portfolio_id=committed["book"].id,
+                kind=kind,
+                security_id=security.id if price is not None else None,
+                trade_date=date(2026, 6, 1),
+                quantity=Decimal(quantity),
+                price=Decimal(price) if price is not None else None,
+                fees=Decimal(0),
+                currency=currency,
+            )
+        )
+    session.add(
+        PriceBar(
+            security_id=security.id,
+            bar_date=date(2026, 6, 30),
+            open=Decimal("248"),
+            high=Decimal("262"),
+            low=Decimal("247"),
+            close=Decimal("260"),
+        )
+    )
+    await session.commit()
+
+
+async def _counts(session: AsyncSession) -> tuple[int | None, ...]:
+    """Decisions, calculations and audit events, as the database holds them now."""
+    return tuple(
+        [
+            await session.scalar(select(func.count()).select_from(table))
+            for table in (Decision, Calculation, AuditEvent)
+        ]
+    )
