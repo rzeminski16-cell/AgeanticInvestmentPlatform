@@ -9,6 +9,7 @@ definition row's own policy rather than a pin.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -1528,7 +1529,12 @@ class TestTheBudgetIsStatedWithItsConsequence:
 
         [call] = provider.calls
         assert f"at most {budget} words" in _user_text(call)
-        assert str(word_ceiling(budget)) not in _user_text(call)
+        # The ceiling as a number standing on its own. A bare substring check matched a
+        # random id in the prompt's sources ("…-888a-…") about once in a few dozen runs
+        # (ROADMAP §3.19 item 90); a digit run bounded by non-word characters cannot sit
+        # inside an id, whose segments are four characters or more.
+        ceiling = word_ceiling(budget)
+        assert re.search(rf"(?<!\w){ceiling}(?!\w)", _user_text(call)) is None
 
 
 class TestTruncationCutsTheAsk:

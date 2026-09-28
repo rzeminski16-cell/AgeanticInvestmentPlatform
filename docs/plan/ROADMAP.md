@@ -3320,6 +3320,15 @@ found rather than as scope that was always there.
     **Fixed 28 September 2026.** `tests.scene_fixtures.lenient_section_definition` names the
     section — the newest `validation_disagreements` — and all seven scenes use it. The fourteen
     modules those scenes serve pass, 458 tests.
+90. **A section-writer test failed when a random id in its prompt contained the number it
+    forbids, 28 September 2026.** `test_a_real_call_carries_the_definitions_own_budget` asserts
+    the word ceiling never reaches the prompt with a bare substring check, and the prompt
+    carries the sources' random ids: one read `…-888a-…` in a full run, against a ceiling of
+    888. A chance failure on a few runs in a hundred, and a test measuring the wrong thing.
+
+    **Fixed 28 September 2026.** The assertion looks for the ceiling as a number standing on
+    its own — a digit run bounded by non-word characters, which cannot sit inside an id whose
+    segments are four characters or more — and still catches *at most 888 words*.
 
 ### Before this leaves one machine
 
