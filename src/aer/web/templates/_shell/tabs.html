@@ -1,0 +1,23 @@
+{# The destination's pages, as tabs — which is how the pages that left the menu stay
+   one click from where the operator is (ADR 0112, amended). Only where there are two:
+   a row of one tab is a heading pretending to be a control. Scrolls sideways rather
+   than wrapping at 320px, so the row keeps its height and the page does not jump. #}
+{% if shell.tabs %}
+<nav aria-label="{{ shell.group.label }}" class="border-b border-line bg-surface">
+  <ul class="flex w-full gap-1 overflow-x-auto px-2 sm:px-4">
+    {% for item in shell.tabs %}
+      {% set current = shell.active == item.key %}
+      <li class="shrink-0">
+        <a
+          href="{{ item.href }}"
+          {% if current %}aria-current="{{ 'page' if shell.path == item.href else 'true' }}"{% endif %}
+          class="flex min-h-11 items-center border-b-2 px-2 type-label
+                 {{ 'border-verification text-verification'
+                    if current
+                    else 'border-transparent text-ink-muted hover:border-line-strong hover:text-ink' }}"
+        >{{ item.label }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}

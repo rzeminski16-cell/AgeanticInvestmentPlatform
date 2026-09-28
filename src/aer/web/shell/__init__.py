@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Re-exported from `aer.web.nav`, which is where the types live so that a tool
 # contributing a section does not have to import this package and close a loop.
-from aer.web.nav import NavGroup, NavItem, NavSection, active_key
+from aer.web.nav import NavGroup, NavItem, NavSection, active_group, active_key
 from aer.web.shell.badges import Badge, BadgeProvider, cached_counts_for, registered_badges
 from aer.web.shell.context import (
     GUIDANCE_COOKIE,
@@ -13,12 +13,13 @@ from aer.web.shell.context import (
     Shell,
     shell_for,
 )
-from aer.web.shell.registry import GROUPS, NAV, UNLISTED, flat_items, flat_sections
+from aer.web.shell.registry import GROUPS, NAV, OWNERS, UNLISTED, flat_items, flat_sections
 
 __all__ = [
     "GROUPS",
     "GUIDANCE_COOKIE",
     "NAV",
+    "OWNERS",
     "THEMES",
     "THEME_COOKIE",
     "UNLISTED",
@@ -28,6 +29,7 @@ __all__ = [
     "NavItem",
     "NavSection",
     "Shell",
+    "active_group",
     "active_key",
     "cached_counts_for",
     "flat_items",

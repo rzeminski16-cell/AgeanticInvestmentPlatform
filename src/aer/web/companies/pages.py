@@ -21,10 +21,12 @@ with its catalyst form, unchanged.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Final
+from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, Request
@@ -261,6 +263,99 @@ async def change_cadence(
         )
     _log.info("companies.cadence_changed", entry_id=str(entry.id), cadence=entry.cadence)
     return RedirectResponse("/companies", status_code=HTTP_303_SEE_OTHER)
+
+
+# -- The search bar (02 §3's command bar) ----------------------------------------------------
+
+# Long enough for a company's full legal name, and no longer: the bar reads a name or a
+# ticker, and anything past this is not one.
+SEARCH_LIMIT: Final = 120
+
+# A query shaped like a ticker goes into the request form's ticker field rather than its name:
+# letters, digits, a dot or a dash, and short. `BRK.B` and `RR.` are tickers; `Rolls-Royce
+# Holdings` is not, and neither is anything with a space in it.
+_TICKER_SHAPE: Final = re.compile(r"^[A-Za-z0-9.\-]{1,10}$")
+
+
+@router.get("/search", response_class=HTMLResponse, summary="Search")
+async def search_page(request: Request, session: DbSession, user: CurrentUser) -> Response:
+    """Where the search bar lands: the company it names, or the ones it might mean.
+
+    A ticker or a name the account's record knows exactly jumps straight to that company's
+    page, which is the bar's first promise. Anything else lists what it might mean, and every
+    answer — none included — ends with the request form for the query, which is its second.
+    The record is the Companies list's own (`records_for`), so the bar finds exactly what that
+    page shows and nothing another operator holds.
+    """
+    query = " ".join(request.query_params.get("q", "").split())[:SEARCH_LIMIT]
+    rows: list[dict[str, str]] = []
+    if query:
+        exact, partial = matches_for(await record_service.records_for(session, user=user), query)
+        named = [record for record in exact if record.company is not None]
+        if len(exact) == 1 and named:
+            return RedirectResponse(named[0].href, status_code=HTTP_303_SEE_OTHER)
+        rows = [
+            {
+                "name": record.name,
+                "href": record.href,
+                "listing": f"{record.ticker} · {record.exchange}",
+                "population": record.population_words,
+            }
+            for record in (*exact, *partial)
+        ]
+    page: Response = render(
+        request,
+        "companies/search.html",
+        {
+            "query": query,
+            "rows": rows,
+            "heading": _search_heading(query, len(rows)),
+            "subtitle": (
+                "Every company you hold, watch or have researched, by name or ticker."
+                if rows
+                else "Nothing you hold, watch or have researched has that name or ticker."
+            ),
+            "research_href": research_href(query),
+        },
+    )
+    return page
+
+
+def _search_heading(query: str, found: int) -> str:
+    if not found:
+        return f"Nothing in your record is called “{query}”"
+    return f"{found} {'company might be' if found == 1 else 'companies might be'} “{query}”"
+
+
+def matches_for(
+    records: list[CompanyRecord], query: str
+) -> tuple[list[CompanyRecord], list[CompanyRecord]]:
+    """The records a query names exactly, and the ones it only might mean, by name.
+
+    Exact is the whole ticker or the whole name, in any case. Might-mean is a name containing
+    the query or a ticker starting with it: *micro* is Microsoft, *MS* is MSFT, and *soft* is
+    Microsoft too because a name is how people remember a company.
+    """
+    wanted = query.casefold()
+    exact = [
+        record for record in records if wanted in {record.ticker.casefold(), record.name.casefold()}
+    ]
+    named = {id(record) for record in exact}
+    partial = [
+        record
+        for record in records
+        if id(record) not in named
+        and (wanted in record.name.casefold() or record.ticker.casefold().startswith(wanted))
+    ]
+    return exact, sorted(partial, key=lambda record: record.name.casefold())
+
+
+def research_href(query: str) -> str:
+    """The request form, with the query where the operator would have typed it."""
+    if not query:
+        return "/requests/new"
+    field = "ticker" if _TICKER_SHAPE.match(query) else "company_name"
+    return f"/requests/new?{urlencode({field: query})}"
 
 
 # -- Company (§5) ----------------------------------------------------------------------------

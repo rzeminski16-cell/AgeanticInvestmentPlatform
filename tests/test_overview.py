@@ -210,12 +210,13 @@ class TestOverviewIsInTheNav:
     def test_it_leads_the_menu(self) -> None:
         assert next(section.key for section in flat_sections()) == "overview"
 
-    def test_it_sits_under_no_heading(self) -> None:
-        # ADR 0112. The home page is not a category, and a heading reading "Overview" over
-        # one link called "Overview" was the smallest version of what the grouping fixed.
+    def test_it_is_the_today_destination(self) -> None:
+        # ADR 0112, amended: the home page is *Today*, one destination of six, and a single
+        # page — so the menu's link is the page and there is no row of tabs to repeat it.
         first = NAV[0]
 
-        assert first.label == ""
+        assert first.label == "Today"
+        assert first.destination == "/"
         assert [section.key for section in first.sections] == ["overview"]
 
     def test_the_section_comes_from_its_own_module(self) -> None:

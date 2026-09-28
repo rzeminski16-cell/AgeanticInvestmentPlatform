@@ -1,4 +1,4 @@
-"""What the sidebar contains, composed from one entry per tool and grouped by the shell.
+"""What the menu contains, composed from one entry per tool and grouped by the shell.
 
 Explicit, in the shape `db/models/__init__.py` settled for models and
 `agents/registry.py` for capability: a tuple somebody edits, not a scan that discovers.
@@ -7,21 +7,21 @@ assembled itself from whatever happened to be importable would be a navigation n
 could read, and the test below could only ever confirm it agreed with itself.
 
 **`GROUPS` is where the menu is decided, and it is the only such place** (ADR 0112). A
-tool contributes a `NavSection` of destinations and says nothing about where they sit; the
-shell puts each section under a heading. That division is what stops nine tools from
-producing nine headings — which is what happened, and which read as organisation at the
-second tool and as a wall at the ninth: ten headings over eighteen links, seven of them
-standing over a single link, six of those repeating the word underneath.
+tool contributes a `NavSection` of pages and says nothing about where they sit; the shell
+puts each section inside a destination. That division is what stops nine tools from
+producing nine entries — which is what happened, and which read as organisation at the
+second tool and as a wall at the ninth: ten headings over eighteen links.
 
-**The group names are a judgement, and they are meant to be argued with.** They are four
-string literals in one tuple below, so rewording the menu is an edit to this file and
-nothing else — no tool learns a new word, no route moves, no test asserts a heading's
-prose. If "your book" is not how you think of it, the fix is three seconds long.
+**The menu is the six destinations the operator approved on 28 September 2026** (ADR 0112,
+amended): Today, Portfolio, Companies, Research and Review, with Platform set apart at the
+foot. A destination is one link in the menu; the pages its sections contribute are the row
+of tabs on its own pages, so nothing that was in the menu became unreachable by leaving it.
 
-`UNLISTED` is the other half of that test. Every server-rendered page either appears in the
-nav or is named there as deliberately reachable only from inside another page. A route in
+`UNLISTED` is the other half of the drift test. Every server-rendered page either is one of
+a destination's pages or is named there as reached from inside another page. A route in
 neither is the failure this file exists to catch: a page shipped with no way to reach it,
-which is indistinguishable from a page nobody finished.
+which is indistinguishable from a page nobody finished. `OWNERS` says which destination an
+unlisted page lights, so a run's console is inside Research although no tab names it.
 """
 
 from __future__ import annotations
@@ -39,16 +39,21 @@ from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
 from aer.web.watchlist.nav import WATCHLIST
 
-__all__ = ["GROUPS", "NAV", "UNLISTED", "flat_items", "flat_sections"]
+__all__ = ["GROUPS", "NAV", "OWNERS", "UNLISTED", "flat_items", "flat_sections"]
 
-# The research tool's own destinations. When a second tool arrives it contributes its own
+# The research tool's own pages. When a second tool arrives it contributes its own
 # NavSection from its own module and adds one line below, and nothing here changes.
+#
+# The library first, because it is where the Research destination opens: the drawing's
+# Research page is *Reports*, with commissioning one a control on it (page specification §9).
 RESEARCH: Final = NavSection(
     key="research",
     tool="research",
     items=(
+        NavItem(key="reports", label="Reports", href="/reports"),
         # The one item carrying a count. `badge_key` names it; `web/shell/badges.py`
-        # decides what it counts, and the number arrives after the page does.
+        # decides what it counts, and the number arrives after the page does. The menu
+        # draws it on the Research destination, which is on every page.
         NavItem(key="requests", label="Requests", href="/requests", badge_key="approvals"),
         # A literal href like any other item, matched by the same prefix logic and held
         # by the same drift test. What is behind it is a redirect rather than a page,
@@ -56,8 +61,9 @@ RESEARCH: Final = NavSection(
         # place (ADR 0089) — and the answer is resolved by the same function the console
         # uses, so the link and the page cannot disagree about which run is current.
         NavItem(key="active-run", label="Active run", href="/runs/active"),
-        NavItem(key="reports", label="Reports", href="/reports"),
-        NavItem(key="skills", label="Skills", href="/skills"),
+        # *Methods* is the page specification's word (§17): a section the operator writes
+        # is a method of research, and "skill" was the implementation's name for it.
+        NavItem(key="skills", label="Methods", href="/skills"),
         NavItem(key="knowledge", label="Knowledge", href="/knowledge"),
     ),
 )
@@ -73,32 +79,65 @@ PLATFORM: Final = NavSection(
     ),
 )
 
-# One import per tool, and one line here — inside the group the tool belongs to. That
+# One import per tool, and one line here — inside the destination the tool belongs to. That
 # "inside" is the whole change (ADR 0112): a new tool's author has to decide where their
-# work sits in somebody's day, and cannot answer by adding a heading.
+# work sits in somebody's day, and cannot answer by adding an entry to the menu.
 #
-# The four names are the arguable part, and they are grouped by what the operator is doing
-# rather than by which tool implements it. `""` is a heading nobody sees: the home page is
-# not a category, and "Overview · Overview" was the smallest version of the whole problem.
+# The six are the information architecture's (02 §3), in the drawn order, and each page
+# sits where its drawing lights it: a thesis, a question and the watchlist are about a
+# company; a decision, the risk page and the monitor's findings are about the book.
 GROUPS: Final[tuple[NavGroup, ...]] = (
-    NavGroup(key="start", label="", sections=(OVERVIEW,)),
-    # Watchlist sits here rather than beside the theses: it is a standing intention that
-    # commissions research runs (ADR 0107), and its output is a request like any other.
-    # Last in the group because a group's items are its sections' in order, and `Requests`
-    # is what an operator reaches for — leading with the queue that feeds it would put the
-    # secondary destination first.
-    # Ask sits between them: a question is asked over a research record, and its third
-    # tier commissions research (ADR 0130). After the tool whose record it reads, before
-    # the queue that feeds it.
-    NavGroup(key="research", label="Research", sections=(RESEARCH, ASK, WATCHLIST)),
-    # What you own, and everything that follows from owning it: what it is worth, what it
-    # exposes you to, what you decided, and how those decisions turned out.
-    NavGroup(key="book", label="Your book", sections=(PORTFOLIO, RISK, DECISIONS, REVIEW)),
-    # What you think, which is deliberately not the same thing: a thesis is a claim you
-    # have written down, and the monitor is the world disagreeing with one.
-    NavGroup(key="beliefs", label="What you believe", sections=(THESES, MONITOR)),
-    NavGroup(key="platform", label="Platform", sections=(PLATFORM,)),
+    NavGroup(key="today", label="Today", href="/", icon="today", sections=(OVERVIEW,)),
+    # What you own and everything that follows from owning it: what it exposes you to,
+    # what you decided, and what the monitor found. The drawn decision and alert pages both
+    # light Portfolio (page specification §11, §12).
+    NavGroup(
+        key="portfolio",
+        label="Portfolio",
+        href="/portfolio",
+        icon="portfolio",
+        sections=(PORTFOLIO, RISK, DECISIONS, MONITOR),
+    ),
+    # Companies *is* the watchlist (02 §6): the list, the queue that commissions research
+    # from it, what you believe about each, and the questions asked of their records.
+    NavGroup(
+        key="companies",
+        label="Companies",
+        href="/companies",
+        icon="companies",
+        sections=(WATCHLIST, THESES, ASK),
+    ),
+    NavGroup(
+        key="research", label="Research", href="/reports", icon="research", sections=(RESEARCH,)
+    ),
+    NavGroup(key="review", label="Review", href="/review", icon="review", sections=(REVIEW,)),
+    # Set apart at the foot, as drawn: the platform is where the operator goes about the
+    # tool rather than about their money.
+    NavGroup(
+        key="platform",
+        label="Platform",
+        href="/settings",
+        icon="platform",
+        foot=True,
+        sections=(PLATFORM,),
+    ),
 )
+
+# Which destination a page lights when no tab names it — the one mapping ADR 0112's
+# amendment keeps beside the groups. A prefix covers the path itself and everything under
+# it, and the longest wins. Only unlisted pages need a row: a page that is a destination's
+# item lights that destination by being one.
+OWNERS: Final[dict[str, str]] = {
+    # A run's console and every surface under it, whichever run it is.
+    "/runs": "research",
+    # The drawer's contents, fetched from a row that previews a run.
+    "/research": "research",
+    # The second and third clicks behind a report's figures and sentences. A calculation
+    # struck by the risk page or an answer is a minority, and its breadcrumb already leads
+    # back to where it came from (ROADMAP §3.19 item 88).
+    "/calculations": "research",
+    "/claims": "research",
+}
 
 # The name the rest of the application knows the navigation by. Kept because "the nav" is
 # what a shell, a template and five tests call it, and because what changed is its shape
@@ -126,9 +165,9 @@ def flat_items() -> tuple[NavItem, ...]:
     return tuple(found)
 
 
-# Pages reached from inside another page rather than from the sidebar: a run's own
-# sub-pages, a record's detail view, a form. Listing them is what turns "this route is not
-# in the nav" from a shrug into a decision somebody made and can be argued with.
+# Pages reached from inside another page rather than from the menu or a destination's tabs:
+# a run's own sub-pages, a record's detail view, a form. Listing them is what turns "this
+# route is not in the nav" from a shrug into a decision somebody made and can be argued with.
 #
 # **GET routes only.** `page_routes` in the drift test collects what an operator can *open*,
 # so a POST-only endpoint — `/_shell/theme`, `/_shell/guidance`, every gate decision — is
@@ -155,6 +194,10 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # The shell's own fragment, fetched by the nav after the page renders. Not a
         # destination: opening it in a browser yields a handful of spans.
         "/_shell/badges",
+        # Where the search bar on every page submits: a company it names, the companies it
+        # might mean, or the request form for one it does not know. Reached from the bar,
+        # and lighting no destination because it belongs to none.
+        "/search",
         # The drawer's contents, fetched from an attention row. Its trigger keeps an
         # `href` to the run console, so with scripting off nobody ever reaches this URL.
         "/research/runs/{job_id}/preview",

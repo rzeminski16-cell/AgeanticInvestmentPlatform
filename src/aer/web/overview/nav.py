@@ -25,5 +25,5 @@ __all__ = ["OVERVIEW"]
 OVERVIEW: Final = NavSection(
     key="overview",
     tool="overview",
-    items=(NavItem(key="overview", label="Overview", href="/"),),
+    items=(NavItem(key="overview", label="Today", href="/"),),
 )

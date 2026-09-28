@@ -1,0 +1,32 @@
+{#
+  The menu's six icons and the search bar's, as drawn (docs/V1.0_Alpha/design/screens).
+
+  Inline rather than a sprite or a font: seven small paths are cheaper than a request, and an
+  icon font is text a screen reader may read aloud. Each is decorative — the destination's
+  word is always beside it — so each is `aria-hidden` and carries no title.
+
+  `currentColor` rather than the drawing's literal inks, so an icon takes whatever its link
+  is: muted at rest, the verification teal on the page you are on, and the system's colour
+  under forced colours, where a literal would ignore the operator's own palette.
+#}
+{% macro icon(name, size=20) -%}
+<svg class="shrink-0" width="{{ size }}" height="{{ size }}" viewBox="0 0 20 20" fill="none"
+     stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" focusable="false">
+  {%- if name == "today" -%}
+    <path d="M3 6h11M3 10h7M3 14h9"/><path d="M13.5 13.5l2 2 3.5-4"/>
+  {%- elif name == "portfolio" -%}
+    <path d="M3 16h14"/><rect x="4" y="9" width="3" height="7"/><rect x="8.5" y="5" width="3" height="11"/><rect x="13" y="11" width="3" height="5"/>
+  {%- elif name == "companies" -%}
+    <path d="M3 17h14M5 17V5l7-2v14M12 17V8l5 1.5V17"/><path d="M7.5 7.5h1.5M7.5 10.5h1.5"/>
+  {%- elif name == "research" -%}
+    <path d="M5 3h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v3h3"/><circle cx="9" cy="11" r="2.5"/><path d="M11 13l2 2"/>
+  {%- elif name == "review" -%}
+    <path d="M4 10a6 6 0 1 1 1.8 4.3"/><path d="M4 15v-4h4"/><path d="M10 7v3.5l2.5 1.5"/>
+  {%- elif name == "platform" -%}
+    <path d="M4 6h12M4 10h12M4 14h12"/><circle cx="8" cy="6" r="1.8"/><circle cx="13" cy="10" r="1.8"/><circle cx="7" cy="14" r="1.8"/>
+  {%- elif name == "search" -%}
+    <circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/>
+  {%- endif -%}
+</svg>
+{%- endmacro %}

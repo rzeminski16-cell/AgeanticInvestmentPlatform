@@ -28,8 +28,12 @@ this platform keeps in exactly one.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-__all__ = ["NavGroup", "NavItem", "NavSection", "active_key"]
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+__all__ = ["NavGroup", "NavItem", "NavSection", "active_group", "active_key"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,27 +90,57 @@ class NavSection:
 
 @dataclass(frozen=True, slots=True)
 class NavGroup:
-    """A heading in the sidebar, over the sections of however many tools sit beneath it.
+    """One destination in the menu, over the sections of however many tools sit beneath it.
 
     The grouping is the **shell's** decision, not a tool's: a tool says what it offers, and
     where that sits in a menu is a judgement about the whole product that no single
     contributor can make. So a group is declared in `shell/registry.py` and a tool never
-    names one — which is also what stops a ninth tool from adding a ninth heading simply by
-    existing.
+    names one — which is also what stops a ninth tool from adding a ninth destination simply
+    by existing.
 
-    ``label`` may be empty, and that renders the items with no heading at all. The home
-    page needs it: a category of one, called the same thing as the link inside it, is the
-    noise this whole arrangement exists to remove.
+    **A group is a destination, not a heading** (ADR 0112, amended 28 September 2026). The
+    menu draws one link per group, and the pages its sections contribute appear as a row of
+    tabs on that destination's own pages. So ``href`` is where the destination opens,
+    ``icon`` names its drawing in `_shell/icons.html`, and ``foot`` sets it apart at the
+    bottom of the menu, as the drawing sets Platform.
     """
 
     key: str
     label: str
     sections: tuple[NavSection, ...] = field(default_factory=tuple)
+    href: str = ""
+    icon: str = ""
+    foot: bool = False
 
     @property
     def items(self) -> tuple[NavItem, ...]:
-        """Every destination under this heading, in the order its sections declared them."""
+        """Every page in this destination, in the order its sections declared them."""
         return tuple(item for section in self.sections for item in section.items)
+
+    @property
+    def destination(self) -> str:
+        """Where the menu's link goes: the stated ``href``, or the first page when none is."""
+        if self.href:
+            return self.href
+        return self.items[0].href if self.items else ""
+
+    @property
+    def badge_keys(self) -> tuple[str, ...]:
+        """The counts the destination carries in the menu: its pages', gathered.
+
+        On the destination rather than on its tab, because the menu is on every page and a
+        tab row is on one destination's pages only — a count that showed only once the
+        operator was already there would be a count that told them nothing. It is one slot
+        per key, so the id an out-of-band swap targets is still on the page exactly once.
+        """
+        return tuple(item.badge_key for item in self.items if item.badge_key)
+
+    def owns(self, key: str) -> bool:
+        """Whether the item ``key`` is one of this destination's pages or their children."""
+        return any(
+            item.key == key or any(child.key == key for child in item.children)
+            for item in self.items
+        )
 
 
 def active_key(groups: tuple[NavGroup, ...], path: str) -> str:
@@ -122,4 +156,27 @@ def active_key(groups: tuple[NavGroup, ...], path: str) -> str:
         for item in (*group.items, *(child for i in group.items for child in i.children)):
             if item.matches(path) and len(item.prefix) > best_length:
                 best, best_length = item.key, len(item.prefix)
+    return best
+
+
+def active_group(
+    groups: tuple[NavGroup, ...], path: str, owners: Mapping[str, str] | None = None
+) -> str:
+    """Which destination the current path is inside, or ``""``.
+
+    A page that is one of a destination's items lights that destination. A page that is no
+    item's — a run's console, a calculation — lights the destination ``owners`` names for
+    the longest prefix it sits under, which is the one mapping ADR 0112's amendment keeps
+    beside the groups. A path under neither lights nothing, and that is a real answer: the
+    search results belong to no destination, and lighting one would say they did.
+    """
+    item = active_key(groups, path)
+    if item:
+        return next((group.key for group in groups if group.owns(item)), "")
+    best = ""
+    best_length = -1
+    for prefix, group in (owners or {}).items():
+        under = path == prefix or path.startswith(f"{prefix}/")
+        if under and len(prefix) > best_length:
+            best, best_length = group, len(prefix)
     return best

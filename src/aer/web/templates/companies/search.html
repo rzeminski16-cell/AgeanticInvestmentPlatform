@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Where the search bar lands when it cannot jump straight to one company (02 §3).
+
+  Two promises, kept in order. The bar jumps to a company it names — that happened in the
+  handler, before this page, whenever the query was one ticker or one name exactly. What is
+  left is the companies the query might mean, from the Companies list's own record, and then
+  the request form for the query itself, which is offered whatever the list holds: a company
+  the account has never looked at is the one most worth starting a request for.
+#}
+
+{% block title %}{% if query %}{{ query }} &middot; {% endif %}Search &middot; Ageantic{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Search", eyebrow="JUMP TO A COMPANY") %}
+    {# Not `ui.field`: that macro says *(required)* or *(optional)* after every label, which
+       is right on a mandate and wrong on a search box, where neither word means anything. #}
+    <form role="search" method="get" action="/search" class="flex w-full max-w-xl flex-wrap items-end gap-3" id="search-again">
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
+        <label for="search-query" class="type-label text-ink">A company's name or ticker</label>
+        <input
+          id="search-query"
+          name="q"
+          type="search"
+          value="{{ query }}"
+          maxlength="120"
+          autocomplete="off"
+          spellcheck="false"
+          class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+        />
+      </div>
+      {{ ui.button("Search", type="submit") }}
+    </form>
+  {% endcall %}
+
+  {% if query %}
+    {% call ui.sheet(heading, subtitle=subtitle, id="matches") %}
+      {% if rows %}
+        {% call ui.record_list("Companies that might be " ~ query) %}
+          {% for row in rows %}
+            {{ ui.record(row.name, row.href, sentence=row.population, meta=row.listing) }}
+          {% endfor %}
+        {% endcall %}
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+
+  <p class="mt-6">
+    <a
+      href="{{ research_href }}"
+      id="research-query"
+      class="inline-flex min-h-10 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong"
+    >{% if query %}Start a request for “{{ query }}”{% else %}Start a request{% endif %}</a>
+  </p>
+{% endblock %}

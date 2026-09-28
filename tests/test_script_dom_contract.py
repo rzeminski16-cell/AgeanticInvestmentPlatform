@@ -41,6 +41,8 @@ REQUIRED_IDS: Final[dict[str, tuple[str, ...]]] = {
     # `run-status` left this list when the chip became the vocabulary's: the script now
     # re-fetches on any status change rather than patching a label it would have to invent.
     "console.js": ("run-console", "run-spend", "stream-note"),
+    # The menu's disclosure, closed below the rail width, and the search bar `/` focuses.
+    "nav.js": ("aer-menu", "aer-search"),
 }
 
 # Attributes the scripts key on instead of ids, because the thing they address repeats.

@@ -287,6 +287,21 @@ def _row_state(item: Any, run: JobStatus | None) -> vocabulary.HumanState:
 # optional or already holds its default.
 _BLANK_REQUEST: Final = {"base_currency": "GBP", "investment_horizon_months": "12"}
 
+# What another page may fill in on the way to the form: the search bar's query, today. Only
+# the company's identity, and only as text the operator reads and then submits themselves —
+# nothing arrives this way that the form would not have accepted typed, and nothing is saved
+# until they press the button.
+_PREFILLABLE: Final = ("company_name", "ticker", "exchange")
+_PREFILL_LIMIT: Final = 200
+
+
+def _prefilled(request: Request) -> dict[str, str]:
+    return {
+        key: value[:_PREFILL_LIMIT]
+        for key in _PREFILLABLE
+        if (value := request.query_params.get(key, "").strip())
+    }
+
 
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
 async def new_request_form(request: Request, session: DbSession, settings: SettingsDep) -> Response:
@@ -297,7 +312,7 @@ async def new_request_form(request: Request, session: DbSession, settings: Setti
         _form_context(
             _NEW_PAGE,
             csrf_token=token,
-            values=dict(_BLANK_REQUEST),
+            values={**_BLANK_REQUEST, **_prefilled(request)},
             cost_hint=await _cost_hint(session),
         ),
     )

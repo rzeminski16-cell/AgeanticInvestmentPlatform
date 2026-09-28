@@ -21,8 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from aer.web.nav import NavGroup, active_key
-from aer.web.shell.registry import NAV
+from aer.web.nav import NavGroup, NavItem, active_group, active_key
+from aer.web.shell.registry import NAV, OWNERS
 
 __all__ = ["THEMES", "Shell", "shell_for"]
 
@@ -67,6 +67,37 @@ class Shell:
     # in a cookie is somebody's hand-edited jar, and the answer to one is the default.
     theme: str = "system"
 
+    # The destination the page is inside, by key: the group whose item is `active`, or the
+    # one `OWNERS` names for a page no tab lists. Empty when neither applies.
+    active_group: str = ""
+
+    @property
+    def main(self) -> tuple[NavGroup, ...]:
+        """The destinations drawn at the top of the menu, in order."""
+        return tuple(group for group in self.nav if not group.foot)
+
+    @property
+    def foot(self) -> tuple[NavGroup, ...]:
+        """The destinations set apart at the foot of the menu: Platform, as drawn."""
+        return tuple(group for group in self.nav if group.foot)
+
+    @property
+    def group(self) -> NavGroup | None:
+        """The destination the page is inside, or ``None``."""
+        return next((group for group in self.nav if group.key == self.active_group), None)
+
+    @property
+    def tabs(self) -> tuple[NavItem, ...]:
+        """The row of tabs under the search bar: the destination's pages, when it has two.
+
+        One page is no row at all. Today is a single page, and a tab reading *Today* under
+        a menu item reading *Today* would be the echo ADR 0112 took out of the menu.
+        """
+        group = self.group
+        if group is None or len(group.items) < 2:  # noqa: PLR2004 -- a row needs two
+            return ()
+        return group.items
+
     @property
     def guidance_attr(self) -> str:
         """The value of ``data-guidance`` on ``<body>``.
@@ -86,20 +117,24 @@ class Shell:
         page itself becomes the only thing saying which page it is — which means opening the
         menu to find out where you already are.
 
-        Empty when nothing matches, which is a real state rather than an oversight: a page
-        reachable but unlisted (`UNLISTED` in the registry) has no navigation item to name,
-        and inventing one would put a label on the chrome that leads nowhere.
+        An unlisted page names its destination alone: a run's console is inside Research,
+        and no tab names it. Empty when the page is inside nothing, which is a real state
+        rather than an oversight — inventing a place would put a label on the chrome that
+        leads nowhere.
         """
-        for group in self.nav:
-            for item in group.items:
-                if item.key == self.active:
-                    # The group's word, not the tool's, and never both. This read
-                    # "Watchlist · Watchlist" and "Portfolio · Portfolio" while a section
-                    # was its own heading — the same duplication as the sidebar, in the one
-                    # place a 320px reader has to rely on (ADR 0112). An ungrouped item has
-                    # no category to name, so it is simply itself.
-                    return f"{group.label} · {item.label}" if group.label else item.label
-        return ""
+        group = self.group
+        if group is None:
+            return ""
+        for item in group.items:
+            if item.key == self.active:
+                # Never one word twice. This read "Watchlist · Watchlist" and "Portfolio ·
+                # Portfolio" while a tool was its own heading — the duplication ADR 0112
+                # removed from the menu, in the one place a 320px reader has to rely on. A
+                # destination's own page is simply the destination.
+                if item.label.casefold() == group.label.casefold():
+                    return group.label
+                return f"{group.label} · {item.label}"
+        return group.label
 
     @property
     def theme_attr(self) -> str:
@@ -121,4 +156,5 @@ def shell_for(path: str, *, guidance: bool = False, theme: str = "system") -> Sh
         guidance=guidance,
         path=path,
         theme=theme if theme in THEMES else "system",
+        active_group=active_group(NAV, path, OWNERS),
     )

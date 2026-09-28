@@ -165,7 +165,7 @@ def create_app(
             _log.info("application.stopped")
 
     app = FastAPI(
-        title="Tracework Invest",
+        title="Ageantic",
         description=_DESCRIPTION,
         version=version(),
         lifespan=lifespan,

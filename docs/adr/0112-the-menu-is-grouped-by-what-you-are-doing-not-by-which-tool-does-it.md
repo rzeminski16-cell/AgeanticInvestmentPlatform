@@ -131,7 +131,16 @@ service whose findings land on Today, the portfolio and the company page.
 Nothing above changes. `GROUPS` stays the one place the menu is decided, and the change is made
 there. The pages that leave the menu — requests, the active run, reports, methods, knowledge,
 Ask, the watchlist, risk, decisions, theses, the monitor, analytics, costs, health and the API —
-move to `UNLISTED`, each with the page that now links to it, so the drift test still holds every
-page to *in the menu or reached from a named page*. Each page lights the destination that owns
-it, from one mapping of path prefixes kept beside `GROUPS`: a run, a request or a report lights
-*Research*, and the risk page lights *Portfolio*.
+stay the items of the destination that owns them, and each destination's pages are drawn as a
+row of tabs under the search bar on that destination's own pages. So the drift test still holds
+every page to *in the menu, a tab, or reached from a named page*, and a page that left the menu
+is still one click from where the operator is. Each page lights the destination that owns it:
+an item lights its own, and a page no tab names lights the destination one mapping of path
+prefixes kept beside `GROUPS` (`OWNERS`) gives it — a run's console, a calculation or a claim
+lights *Research*. A destination with a single page, Today, has no row of tabs.
+
+*Recorded on building it, the same day.* The pages drawn under a company — a thesis, a
+question — sit in *Companies*, and the decision page and the monitor's alert in *Portfolio*,
+as their drawings light them. The rail is the page's own `surface`, as drawn, so the fixed-dark
+region ADR 0088 measured is no longer the rail; ADR 0088 stands for any region that is dark.
+The approvals count rides on *Research* in the menu, where it is on every page.

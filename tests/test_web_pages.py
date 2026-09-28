@@ -16,7 +16,7 @@ from aer.api.app import _LOCAL_MEDIA_TYPES
 from aer.api.security import CSRF_COOKIE_NAME
 from aer.config import load_settings
 from aer.version import version
-from aer.web.shell import flat_items, shell_for
+from aer.web.shell import NAV, shell_for
 from aer.web.templating import DISCLAIMER, STATIC_DIR, STYLES_DIR, TEMPLATES_DIR, templates
 from tests.api_fixtures import build_app, client_for
 
@@ -299,6 +299,28 @@ class TestCommittedBuildOutput:
             assert (TEMPLATES_DIR / "requests" / name).is_file()
 
 
+def _render(template: str, path: str) -> str:
+    """A shell partial as it renders at ``path``, with what the menu's forms need."""
+    return templates.env.get_template(template).render(
+        shell=shell_for(path),
+        disclaimer=DISCLAIMER,
+        # The menu carries the preference forms, so it names a token. Supplied rather than
+        # made optional: a form that rendered without one under `StrictUndefined` would be a
+        # control that silently does nothing, which is the failure the strict undefined
+        # exists to catch.
+        csrf_field="csrf_token",
+        csrf_token="test-token",
+    )
+
+
+def _main_menu(markup: str) -> str:
+    """The destinations alone: the colour-scheme control beside them marks its choice with
+    `aria-current` too, and is not what these tests are about."""
+    found = re.search(r'<nav aria-label="Main".*?</nav>', markup, re.DOTALL)
+    assert found is not None, "the menu rendered no Main landmark"
+    return found.group(0)
+
+
 class TestTheShellRendersFromData:
     """The nav is a loop over `shell.nav`, and the shell is injected rather than passed.
 
@@ -308,12 +330,24 @@ class TestTheShellRendersFromData:
     query. It does not, and this is where that stays true.
     """
 
-    async def test_every_nav_label_reaches_the_page(self, web_client):
+    async def test_every_destination_reaches_the_page(self, web_client):
         body = (await web_client.get("/")).text
 
-        for item in flat_items():
-            assert f'href="{item.href}"' in body, f"{item.key} is missing from the rendered nav"
-            assert item.label in body
+        for group in NAV:
+            assert f'href="{group.destination}"' in body, f"{group.key} is missing from the menu"
+            assert group.label in body
+
+    def test_every_page_of_a_destination_is_one_of_its_tabs(self):
+        """Asserted against the partial, for the reason the next test gives: every page
+        with a row of tabs needs the database, and this file's client is built on one that
+        is down on purpose."""
+        for group in NAV:
+            if len(group.items) < 2:
+                continue
+            markup = _render("_shell/tabs.html", group.items[0].href)
+            for item in group.items:
+                assert f'href="{item.href}"' in markup, f"{item.key} is not a tab of {group.key}"
+                assert item.label in markup
 
     def test_the_current_item_says_so(self):
         """Asserted against the template rather than a route, and deliberately.
@@ -322,34 +356,35 @@ class TestTheShellRendersFromData:
         is built on one that is down on purpose. Rendering the partial directly tests the
         one thing at issue — that the template marks the active item — without pretending
         to test a page it cannot reach.
-        """
-        markup = templates.env.get_template("_nav.html").render(
-            shell=shell_for("/requests"),
-            disclaimer=DISCLAIMER,
-            # The menu carries the preference forms, so it names a token. Supplied rather
-            # than made optional: a form that rendered without one under `StrictUndefined`
-            # would be a control that silently does nothing, which is the failure the strict
-            # undefined exists to catch.
-            csrf_field="csrf_token",
-            csrf_token="test-token",
-        )
 
-        assert markup.count('aria-current="page"') == 1
-        assert 'href="/requests"' in markup
+        Two marks, and they differ on purpose. The menu marks the destination the page is
+        *inside* — `true`, because its link opens the library rather than this page — and
+        the tab marks the page itself.
+        """
+        menu = _main_menu(_render("_nav.html", "/requests"))
+        tabs = _render("_shell/tabs.html", "/requests")
+
+        assert menu.count("aria-current=") == 1
+        assert re.search(r'href="/reports"\s+aria-current="true"', menu)
+        assert tabs.count('aria-current="page"') == 1
+        assert re.search(r'href="/requests"\s+aria-current="page"', tabs)
+
+    def test_a_destinations_own_page_is_the_page(self):
+        menu = _main_menu(_render("_nav.html", "/reports"))
+
+        assert re.search(r'href="/reports"\s+aria-current="page"', menu)
 
     async def test_the_main_menu_marks_itself_current(self, web_client):
-        # `/` used to be a landing page that was in no section. It is the Overview item's
+        # `/` used to be a landing page that was in no section. It is the Today
         # destination now, so marking nothing would be the bug.
         body = (await web_client.get("/")).text
 
         assert body.count('aria-current="page"') == 1
 
-    async def test_a_page_under_nothing_marks_nothing_current(self, web_client):
-        # A planned tool: reachable from the launcher, in no section, and needing no
-        # database — which is why it can be asked of this client at all.
-        body = (await web_client.get("/watchlist")).text
-
-        assert 'aria-current="page"' not in body
+    def test_a_page_under_nothing_marks_nothing_current(self):
+        # The search results: reached from the bar on every page, and inside no destination.
+        assert "aria-current=" not in _main_menu(_render("_nav.html", "/search"))
+        assert "aria-current=" not in _render("_shell/tabs.html", "/search")
 
     async def test_guidance_is_off_by_default(self, web_client):
         assert 'data-guidance="off"' in (await web_client.get("/")).text

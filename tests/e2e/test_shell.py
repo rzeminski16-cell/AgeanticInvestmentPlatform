@@ -470,6 +470,8 @@ class TestTheTypeface:
 # test; the CSS gets it from `min-[60rem]:`.
 RAIL = 960
 NARROW = 380
+# The menu the operator approved on 28 September 2026 (ADR 0112, amended), in its order.
+DESTINATIONS = ("Today", "Portfolio", "Companies", "Research", "Review", "Platform")
 
 
 class TestTheIndex:
@@ -497,7 +499,7 @@ class TestTheIndex:
         page.goto(f"{live_server}")
 
         index = page.locator('nav[aria-label="Main"]')
-        for label in ("Overview", "Requests", "Active run", "Reports", "Portfolio", "Settings"):
+        for label in DESTINATIONS:
             expect(index.get_by_role("link", name=label, exact=True)).to_be_visible()
 
     def test_the_summary_is_gone_at_the_rail_width(self, page: Page, live_server: str) -> None:
@@ -517,20 +519,17 @@ class TestTheIndex:
 
         expect(page.locator('nav[aria-label="Main"]')).to_be_hidden()
 
-    def test_opening_it_reveals_every_section(self, page: Page, live_server: str) -> None:
+    def test_opening_it_reveals_every_destination(self, page: Page, live_server: str) -> None:
         page.set_viewport_size({"width": NARROW, "height": 800})
         page.goto(f"{live_server}")
         page.locator("#aer-menu summary").click()
 
-        # By role, because a heading and a link can share a word — and since ADR 0112
-        # they no longer do: these are the four groups, and "Overview" and "Portfolio"
-        # are links under them rather than headings of their own.
+        # Six links and no headings: a destination is a link, not a heading over links
+        # (ADR 0112, amended 28 September 2026).
         index = page.locator('nav[aria-label="Main"]')
-        for label in ("Research", "Your book", "What you believe", "Platform"):
-            expect(index.get_by_role("heading", name=label)).to_be_visible()
-        for label in ("Overview", "Portfolio", "Watchlist"):
-            expect(index.get_by_role("link", name=label)).to_be_visible()
-            expect(index.get_by_role("heading", name=label)).to_have_count(0)
+        for label in DESTINATIONS:
+            expect(index.get_by_role("link", name=label, exact=True)).to_be_visible()
+        expect(index.get_by_role("heading")).to_have_count(0)
 
     def test_it_does_not_reopen_itself_after_the_operator_shuts_it(
         self, page: Page, live_server: str
@@ -548,12 +547,17 @@ class TestTheIndex:
         expect(page.locator("#aer-menu")).not_to_have_attribute("open", "")
 
     def test_the_page_you_are_on_is_marked(self, page: Page, live_server: str) -> None:
+        # Twice, and each says something different: the menu marks the destination the page
+        # is inside, and the tabs mark the page itself.
         page.set_viewport_size({"width": 1280, "height": 900})
-        page.goto(f"{live_server}/reports")
+        page.goto(f"{live_server}/requests")
 
-        current = page.locator('nav[aria-label="Main"] a[aria-current="page"]')
-        expect(current).to_have_count(1)
-        expect(current).to_have_text("Reports")
+        destination = page.locator('nav[aria-label="Main"] a[aria-current]')
+        expect(destination).to_have_count(1)
+        expect(destination).to_have_text("Research")
+        tab = page.locator('nav[aria-label="Research"] a[aria-current="page"]')
+        expect(tab).to_have_count(1)
+        expect(tab).to_have_text("Requests")
 
     def test_where_you_are_is_written_down_where_the_index_is_closed(
         self, page: Page, live_server: str
@@ -613,7 +617,7 @@ class TestTheIndex:
             page.goto(f"{live_server}")
 
             index = page.locator('nav[aria-label="Main"]')
-            for label in ("Overview", "Requests", "Reports", "Portfolio", "Settings"):
+            for label in DESTINATIONS:
                 expect(index.get_by_role("link", name=label, exact=True)).to_be_visible()
         finally:
             context.close()
@@ -655,10 +659,10 @@ class TestTheIndex:
     def test_a_focused_link_in_the_index_is_visible_against_it(
         self, page: Page, live_server: str
     ) -> None:
-        """ADR 0088, in the place it was written for. The index keeps the dark scheme's
-        colours whatever the page is doing, and the *light* focus ring measures 2.04:1 on it —
-        a WCAG 2.2 SC 1.4.11 failure, in the default theme, on the first link a keyboard user
-        reaches."""
+        """ADR 0088's lesson, kept where it was learnt: measure the ring against the surface
+        it is actually drawn on. The rail is the page's own `surface` now, as drawn, so the
+        ring is the page's own — the light teal at 7.3:1 on white in the light theme — and
+        not the dark accent a fixed-dark rail needed, which on white would all but vanish."""
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(f"{live_server}")
         page.evaluate("document.documentElement.setAttribute('data-theme', 'light')")
@@ -669,8 +673,51 @@ class TestTheIndex:
             'nav[aria-label="Main"] a',
         )
 
-        # The dark accent, #b5ecf0, at 11.43:1 on the rail. Not the light one at 2.04:1.
-        assert ring == "rgb(181, 236, 240)", ring
+        assert ring == "rgb(0, 96, 109)", ring
+
+
+class TestTheSearchBar:
+    """On every page, above the content (02 §3's command bar)."""
+
+    def test_the_slash_key_puts_you_in_it(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}/reports")
+        page.keyboard.press("/")
+
+        expect(page.locator("#aer-search")).to_be_focused()
+        expect(page.locator("#aer-search")).to_have_value("")
+
+    def test_a_slash_typed_into_a_field_is_a_slash(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}/requests/new")
+        page.locator("#company_name").click()
+        page.keyboard.type("A/B")
+
+        expect(page.locator("#company_name")).to_have_value("A/B")
+        expect(page.locator("#aer-search")).not_to_be_focused()
+
+    def test_a_query_nobody_knows_offers_the_form_filled_in(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.goto(f"{live_server}/reports")
+        page.locator("#aer-search").fill("FTNT")
+        page.keyboard.press("Enter")
+
+        page.wait_for_url("**/search?q=FTNT")
+        page.locator("#research-query").click()
+        page.wait_for_url("**/requests/new?ticker=FTNT")
+        expect(page.locator("#ticker")).to_have_value("FTNT")
+
+    def test_with_scripting_off_it_still_searches(self, browser: Browser, live_server: str) -> None:
+        context = browser.new_context(java_script_enabled=False)
+        try:
+            page = context.new_page()
+            page.goto(f"{live_server}/reports")
+            page.locator("#aer-search").fill("FTNT")
+            page.keyboard.press("Enter")
+
+            page.wait_for_url("**/search?q=FTNT")
+            expect(page.get_by_role("heading", level=1)).to_have_text("Search")
+        finally:
+            context.close()
 
 
 class TestTheLauncher:

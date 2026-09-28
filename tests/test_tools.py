@@ -185,30 +185,32 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_ten_tools_under_four_headings(self) -> None:
-        """Ten contributions; ten headings down to four (ADR 0112).
+    def test_the_navigation_is_eleven_contributions_in_six_destinations(self) -> None:
+        """Ten tools and the platform; ten headings down to six destinations (ADR 0112).
 
         Both halves, because the point of the grouping is that the first number is free to
-        grow and the second is not. A tenth tool adds a line to a group; it does not add a
-        heading, and the type it contributes has no way to ask for one.
+        grow and the second is not. A tenth tool adds a line to a destination; it does not
+        add an entry to the menu, and the type it contributes has no way to ask for one.
         """
         assert [section.key for section in flat_sections()] == [
             "overview",
-            "research",
-            "ask",
-            "watchlist",
             "portfolio",
             "risk",
             "decisions",
-            "review",
-            "theses",
             "monitor",
+            "watchlist",
+            "theses",
+            "ask",
+            "research",
+            "review",
             "platform",
         ]
-        assert [group.label for group in NAV if group.label] == [
+        assert [group.label for group in NAV] == [
+            "Today",
+            "Portfolio",
+            "Companies",
             "Research",
-            "Your book",
-            "What you believe",
+            "Review",
             "Platform",
         ]
 

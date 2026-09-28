@@ -790,6 +790,46 @@ input[type="radio"] {
   display: none;
 }
 
+/* The current destination's leading rule: the non-colour half of "you are here" on a rail
+   whose selected wash is decorative against white. A pseudo-element rather than a shadow,
+   because the focus rules above own `box-shadow` and a shadow here would take the focus gap
+   away from the one link a keyboard user is most likely to be on. */
+.aer-rail-current {
+  position: relative;
+}
+
+.aer-rail-current::before {
+  content: "";
+  position: absolute;
+  inset-block: 6px;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--aer-verification);
+}
+
+/* The search bar draws its focus ring round the whole box, where the eye already is, rather
+   than round the bare input inside it. `:focus-within` because a text field shows focus
+   however it was reached; the field's own ring is removed only here, where the box replaces
+   it, and nowhere else. */
+.aer-search:focus-within {
+  outline: 2px solid var(--aer-focus-ring);
+  outline-offset: 2px;
+}
+
+.aer-search input:focus,
+.aer-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  .aer-rail-current::before {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}
+
 /* ---------------------------------------------------------------------------------------
    Guidance mode.
 

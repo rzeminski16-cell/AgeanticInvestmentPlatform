@@ -1,9 +1,10 @@
+{% import "_shell/icons.html" as icons %}
 {#
-  The index. **One DOM, two layouts, and never two trees.**
+  The menu. **One DOM, two layouts, and never two trees.**
 
-  A `<details>` at compact and rail widths; the same node is the persistent 232px rail from
-  960px. Rendering it twice would put two `id="aer-badge-approvals"` nodes on every page, and
-  an out-of-band swap targets an id — the first would fill and the second would show nothing
+  A `<details>` at narrow widths; the same node is the persistent 232px rail from 960px.
+  Rendering it twice would put two `id="aer-badge-approvals"` nodes on every page, and an
+  out-of-band swap targets an id — the first would fill and the second would show nothing
   for ever. That constraint is why the responsive answer is CSS rather than markup.
 
   **It ships `open`, and script closes it when the window is narrow** (decision B7). The
@@ -15,22 +16,44 @@
   which at 320px is a panel above the content with every link reachable. That is the safe way
   to fail and it is now a decision rather than an accident.
 
-  **The rail is a fixed-dark region** (ADR 0088). `data-scheme="dark"` gives it the dark
-  scheme's accents in both themes, so a focus ring inside it resolves to `#b5ecf0` at 11.43:1
-  rather than the light `#00606d` at 2.04:1 — a WCAG 2.2 SC 1.4.11 failure that nothing
-  measured, because the rail's colours were in no token table.
+  **Six destinations, as the operator approved them on 28 September 2026** (ADR 0112,
+  amended): Today, Portfolio, Companies, Research and Review, with Platform set apart at the
+  foot, under the name *Ageantic*. The pages inside a destination are the row of tabs on its
+  own pages (`base.html`), so the menu stays six links however many tools arrive.
 
-  **Selection is never carried by the fill.** `#183945` on the rail is 1.21:1, which is
-  nothing. The teal leading rule at 11.43:1 carries it visually and `aria-current="page"`
-  carries it to everybody else; the fill is decorative and is written down as decorative so a
-  later simplification cannot quietly make it the only cue.
+  **The rail is the page's own `canvas`, behind a 1px ledger rule** (design system §8.1, which
+  is normative where a drawing differs on colour and size), so every colour on it is a token
+  already measured against the page — the focus ring included. The fixed-dark rail ADR 0088
+  measured is gone with the drawing that replaced it; its palette stays for any region that is
+  dark. Items are 44px high at 14/20 600, as §8.1 sets them.
+
+  **Selection is never carried by the fill alone.** The selected wash is decorative against
+  the canvas and is the hover state too; the verification teal's 3px leading rule carries it
+  visually, and `aria-current` carries it to everybody else.
 #}
+{% macro destination(group) -%}
+  {% set current = shell.active_group == group.key %}
+  <li>
+    <a
+      href="{{ group.destination }}"
+      {% if current %}aria-current="{{ 'page' if shell.path == group.destination else 'true' }}"{% endif %}
+      class="flex min-h-11 items-center gap-2.5 rounded-sm px-3 type-label
+             {{ 'aer-rail-current bg-surface-selected text-verification'
+                if current
+                else 'text-ink-muted hover:bg-surface-selected hover:text-ink' }}"
+    >{{ icons.icon(group.icon) }}<span>{{ group.label }}</span>{% for key in group.badge_keys %}<span
+        id="aer-badge-{{ key }}"
+        aria-live="polite"
+        class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-decision px-1.5 type-data-sm text-on-decision empty:hidden"
+      ></span>{% endfor %}</a
+    >
+  </li>
+{%- endmacro %}
 <div
   id="aer-nav"
-  data-scheme="dark"
-  class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto"
+  class="border-b border-line bg-canvas text-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto min-[60rem]:border-r min-[60rem]:border-b-0"
 >
-  <details id="aer-menu" open class="min-[60rem]:open:block">
+  <details id="aer-menu" open>
     <summary
       class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden"
       aria-controls="aer-nav-panel"
@@ -43,53 +66,27 @@
       <span class="aer-menu-close">Close index</span>
     </summary>
 
-    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
-      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+    {# A column the height of the window at the rail width, so the foot is the foot: the
+       drawing sets Platform at the bottom of the rail, apart from the five above it. The
+       viewport's height rather than a percentage, because a percentage would have to
+       resolve through the `<details>` element's own content box, which no engine agrees
+       on. #}
+    <div id="aer-nav-panel" class="flex flex-col px-3 pb-4 min-[60rem]:min-h-dvh min-[60rem]:pt-5">
+      <a href="/" class="flex min-h-11 items-center px-3 font-display text-xl/6 font-bold text-ink">Ageantic</a>
 
-      {#
-        Four headings over eighteen destinations, grouped by what the operator is doing
-        rather than by which tool implements it (ADR 0112).
-
-        **A heading per tool was never a decision.** A nav section is one tool's
-        contribution, and drawing each one under its own title is right at two tools and a
-        wall at nine: ten headings, seven of them over a single link, six of those saying
-        the same word as the link beneath. The grouping is `GROUPS` in `shell/registry.py`
-        and it is the shell's alone — nothing here reads a tool's opinion of where it sits.
-
-        A group with no label draws no heading, which is what the home page needs: a
-        category of one, named after the link inside it, is the problem in miniature.
-      #}
-      <nav aria-label="Main" class="mt-2">
-        {% for group in shell.nav %}
-          <div class="mt-4 first:mt-0">
-            {% if group.label %}
-              <h2 class="type-eyebrow text-nav-muted">{{ group.label }}</h2>
-            {% endif %}
-            <ul class="{{ 'mt-1' if group.label else '' }}">
-              {% for item in group.items %}
-                <li>
-                  <a
-                    href="{{ item.href }}"
-                    {% if shell.active == item.key %}aria-current="page"{% endif %}
-                    class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
-                           {{ 'border-nav-accent bg-nav-selected text-nav-ink'
-                              if shell.active == item.key
-                              else 'border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink' }}"
-                    >{{ item.label }}{% if item.badge_key %}<span
-                      id="aer-badge-{{ item.badge_key }}"
-                      aria-live="polite"
-                      class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"
-                    ></span>{% endif %}</a
-                  >
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% endfor %}
+      <nav aria-label="Main" class="mt-3 flex flex-1 flex-col">
+        <ul class="flex flex-col gap-0.5">
+          {% for group in shell.main %}{{ destination(group) }}{% endfor %}
+        </ul>
+        {% if shell.foot %}
+          <ul class="mt-6 flex flex-col gap-0.5 min-[60rem]:mt-auto min-[60rem]:pt-6">
+            {% for group in shell.foot %}{{ destination(group) }}{% endfor %}
+          </ul>
+        {% endif %}
       </nav>
 
       {#
-        The preference controls, in the index rather than on a settings page.
+        The preference controls, in the menu rather than on a settings page.
 
         Both are server state under ADR 0077 and both had a route and no control until this
         existed — a colour scheme that could only be changed by changing the operating system,
@@ -101,13 +98,13 @@
         put the whole thing behind JavaScript. `next` returns to the page the operator was on;
         the route only honours a same-site absolute path.
       #}
-      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
-        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+      <div class="mt-4 border-t border-line px-3 pt-3" id="aer-appearance">
+        <h2 class="type-caption text-ink-subtle">Appearance</h2>
 
         <form method="post" action="/_shell/theme" class="mt-2">
           <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
           <input type="hidden" name="next" value="{{ shell.path }}" />
-          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+          <div class="flex overflow-hidden rounded-sm border border-line" role="group" aria-label="Colour scheme">
             {% for choice, label in [("light", "Light"), ("dark", "Dark"), ("system", "Auto")] %}
               <button
                 type="submit"
@@ -116,8 +113,8 @@
                 id="aer-theme-{{ choice }}"
                 {% if shell.theme == choice %}aria-current="true"{% endif %}
                 class="flex-1 px-2 py-1 type-caption
-                       {{ 'bg-nav-accent text-nav-surface' if shell.theme == choice
-                          else 'text-nav-muted hover:bg-nav-selected hover:text-nav-ink' }}"
+                       {{ 'bg-verification text-on-verification' if shell.theme == choice
+                          else 'text-ink-muted hover:bg-surface-selected hover:text-ink' }}"
               >
                 {{ label }}
               </button>
@@ -132,7 +129,7 @@
           <button
             type="submit"
             id="aer-guidance-toggle"
-            class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink"
+            class="w-full rounded-sm border border-line px-2 py-1 type-caption text-ink-muted hover:bg-surface-selected hover:text-ink"
           >
             {{ "Hide" if shell.guidance else "Show" }} explanations
           </button>
@@ -142,7 +139,7 @@
       {#
         One request for every slot, fired once the page is on screen. `hx-swap="none"` because
         the counts arrive out of band and this element is only the trigger; it is empty and
-        hidden, so a browser with no scripting renders the index it already has and nothing
+        hidden, so a browser with no scripting renders the menu it already has and nothing
         else happens.
       #}
       <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden aria-hidden="true"></span>

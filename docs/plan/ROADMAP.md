@@ -55,7 +55,11 @@ three bars measure it. The build, in order, each step pushed when both suites pa
 
 - **U1 — the frame on every page.** The light menu with six destinations, the search bar that
   jumps to a company or starts a request, and the name. Pages leaving the menu stay reachable
-  from the page that owns them.
+  from the page that owns them. *Built 28 September: each destination's pages are a row of
+  tabs under the search bar, so nothing that left the menu became unreachable; `/search` jumps
+  to a ticker or name the record knows exactly and otherwise lists what the query might mean,
+  ending with the request form filled in; the name is on the menu and in every page title;
+  the footer is the drawing's. Skills is called Methods from here on.*
 - **U2 — Today**, the drawn hub, with the last visit recorded so the briefing knows where to
   start.
 - **U3 — Research.** The report reader with its section spine and evidence drawer; the request
