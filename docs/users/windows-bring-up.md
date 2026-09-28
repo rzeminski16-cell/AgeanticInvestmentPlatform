@@ -127,6 +127,7 @@ New-Item -ItemType Directory -Force C:\aer-backup | Out-Null
 $zips | ForEach-Object { Expand-Archive $_.FullName -DestinationPath C:\aer-backup -Force }
 Test-Path C:\aer-backup\backup-2026-09-25-v1\manifest.json     # True
 
+pg_restore --version                                          # 16.x
 uv run aer verify-backup --from C:\aer-backup\backup-2026-09-25-v1
 uv run aer restore --from C:\aer-backup\backup-2026-09-25-v1
 uv run alembic upgrade head
