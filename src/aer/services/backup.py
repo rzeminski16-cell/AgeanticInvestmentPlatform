@@ -26,7 +26,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Final
 
 import structlog
@@ -261,7 +261,10 @@ def _check_artefacts(directory: Path, manifest: BackupManifest) -> tuple[int, li
     for line in index_text.splitlines():
         if not line.strip():
             continue
-        digest, _, relative = line.partition(" ")
+        digest, _, written = line.partition(" ")
+        # An index written on Windows before `_index_key` spelt its keys with backslashes. A
+        # key is hex digits and slashes, never a backslash, so both spellings are one key.
+        relative = written.replace("\\", "/")
         listed.add(relative)
         path = root / relative
         if not path.is_file():
@@ -272,7 +275,7 @@ def _check_artefacts(directory: Path, manifest: BackupManifest) -> tuple[int, li
             problems.append(f"artefact {digest} does not hash to its name")
 
     if root.is_dir():
-        present = {str(path.relative_to(root)) for path in root.rglob("*") if path.is_file()}
+        present = {_index_key(path, root) for path in root.rglob("*") if path.is_file()}
         problems.extend(
             f"{extra} is in the backup but not in its index" for extra in sorted(present - listed)
         )
@@ -322,6 +325,17 @@ def restore_backup(
     return report
 
 
+def _index_key(path: PurePath, root: PurePath) -> str:
+    """A file's place under ``root`` as the index spells it: with forward slashes, everywhere.
+
+    A backup is taken on one machine and verified on another. ``str()`` of a relative path
+    is the host's own spelling, so on Windows every file on disk read ``00\\13\\…`` against
+    an index taken on Linux that says ``00/13/…``. All 1,836 files of the V1.0 corpus were
+    reported as missing from their index there, and the backup would not restore.
+    """
+    return path.relative_to(root).as_posix()
+
+
 def _copy_artefacts(source: Path, destination: Path) -> tuple[str, int, int]:
     """Copy the store and return its index, the file count and the total bytes.
 
@@ -347,7 +361,7 @@ def _copy_artefacts(source: Path, destination: Path) -> tuple[str, int, int]:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, target)
             digest = _digest_file(target)
-            lines.append(f"{digest} {relative}")
+            lines.append(f"{digest} {_index_key(path, source)}")
             count += 1
             total += target.stat().st_size
 

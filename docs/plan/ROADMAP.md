@@ -3249,6 +3249,20 @@ found rather than as scope that was always there.
       two parts, as MSFT's is. Before the fix, the test finds the valuation citing the two
       unrecorded subtotals.
     - The approved reports keep the walks they have. Runs from now on walk to the filings.
+85. **A backup taken on Linux would not verify on Windows, 28 September 2026.** Found by the
+    operator's first round on their own machine: `verify-backup` reported all 1,836 files of
+    the V1.0 corpus as "in the backup but not in its index", and `restore`, which verifies
+    first, refused. The index spells its keys `00/13/…`; the check compared them with
+    `str()` of each file's path relative to the backup, which Windows spells `00\13\…`.
+    The writer had the mirror image of the defect: an index written on Windows would have
+    held backslashes, verified nowhere else, and hashed differently for the same store.
+
+    **Fixed 28 September 2026.** One function, `_index_key`, spells a key with forward
+    slashes on every machine, and both the writer and the check use it. The reader also
+    accepts a key written with backslashes, since a key is hex digits and slashes and the two
+    spellings are one key. `tests/test_backup.py` keys a file found under a Windows path, and
+    verifies a real backup whose index was rewritten with backslashes. CI runs on Linux only,
+    so these are the only Windows paths any test sees.
 
 ### Before this leaves one machine
 

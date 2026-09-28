@@ -10,11 +10,12 @@ rows back out.
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import subprocess
 import uuid
 from collections.abc import AsyncIterator
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import pytest
@@ -268,6 +269,37 @@ class TestDamageIsFound:
 
         with pytest.raises(BackupError, match="not valid JSON"):
             verify_backup(destination)
+
+
+class TestAnIndexReadsTheSameOnEveryMachine:
+    """Taken on Linux, verified on Windows: the operator's first restore, 28 September 2026.
+
+    The index spells its keys with forward slashes, and the check compared them with the
+    host's own spelling of the files it found, so on Windows all 1,836 files of the V1.0
+    corpus were reported as not in their index and the restore refused.
+    """
+
+    def test_a_file_found_on_windows_is_keyed_with_forward_slashes(self) -> None:
+        root = PureWindowsPath(r"C:\aer-backup\backup-2026-09-25-v1\artefacts")
+        digest = hashlib.sha256(b"first artefact").hexdigest()
+        found = root / digest[:2] / digest[2:4] / digest
+
+        assert backup_module._index_key(found, root) == f"{digest[:2]}/{digest[2:4]}/{digest}"
+
+    def test_an_index_written_with_backslashes_still_verifies(self, tmp_path: Path) -> None:
+        """What a Windows machine wrote before the fix: the same keys, in its own spelling."""
+        destination, _ = _take(tmp_path)
+        index = destination / ARTEFACT_INDEX_NAME
+        windows = index.read_text(encoding="utf-8").replace("/", "\\")
+        index.write_text(windows, encoding="utf-8")
+        manifest = json.loads((destination / MANIFEST_NAME).read_text(encoding="utf-8"))
+        manifest["artefacts_sha256"] = hashlib.sha256(windows.encode("utf-8")).hexdigest()
+        (destination / MANIFEST_NAME).write_text(json.dumps(manifest), encoding="utf-8")
+
+        report = verify_backup(destination)
+
+        assert report.is_sound, report.problems
+        assert report.checked == 3
 
 
 class TestRestoring:
