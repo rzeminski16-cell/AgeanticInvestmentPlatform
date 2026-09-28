@@ -473,7 +473,7 @@ class TestThePage:
 
         response = await client.get("/")
 
-        assert "Nothing is waiting" in response.text
+        assert "Nothing needs you today." in response.text
         assert "Start with two things" not in response.text
 
     async def test_a_stopped_run_appears_with_the_gate_it_wants(
@@ -485,7 +485,7 @@ class TestThePage:
         body = (await client.get("/")).text
 
         assert f'data-attention="research.gate.{job_id}"' in body
-        assert "Contoso Corporation is waiting for you" in body
+        assert "A gate is waiting on Contoso Corporation" in body
         assert f"/runs/{job_id}" in body
         # The run has no paused step and no recorded approval, so `pending_gate` falls back
         # to the gate order and answers PLAN — which is what a run in this state is in fact
@@ -502,20 +502,22 @@ class TestThePage:
 
         assert "The SEC index was unreachable." in body
 
-    async def test_the_state_of_things_is_four_quiet_figures(self, client, seed: _Seeder) -> None:
-        # Band 3 (page specification §1.3): book value, companies watched, spend against
-        # the ceiling, reports held — each a figure read from the record, none an action.
+    async def test_the_verdict_carries_the_quiet_figures(self, client, seed: _Seeder) -> None:
+        # The hub's verdict (page specification §1, corrected 28 September 2026): with no book
+        # yet, the book is a dash, and the next check and the month's spend are still said —
+        # each a figure read from the record, none an action.
         await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
 
         body = (await client.get("/")).text
 
-        assert 'id="the-state-of-things"' in body
-        for key in ("book", "watched", "spent", "reports"):
+        assert 'id="verdict"' in body
+        assert "There is no book yet." in body
+        for key in ("book", "next_check", "spent"):
             assert f'data-state="{key}"' in body, key
         assert "Spent this month" in body
         assert "No check scheduled" in body  # the daily pass has never run
-        # And the gate row wears the specification's label at the head of the list.
-        assert "A gate is waiting" in body
+        # And the gate row leads the queue in the specification's words.
+        assert "A gate is waiting on" in body
 
     async def test_the_page_is_reachable_from_the_nav(self, client) -> None:
         body = (await client.get("/")).text

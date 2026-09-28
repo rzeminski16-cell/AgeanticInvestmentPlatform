@@ -6,9 +6,10 @@ is the sentence each row becomes, which is a presentation decision and belongs o
 of the boundary.
 
 **A gate is named, not counted.** "One run is waiting" sends an operator to a console to
-find out what it wants; "Contoso is waiting for you to confirm its peer set" is the same
-row doing the work. That costs two statements per stopped run — bounded at eight by
-`services/overview.py` — and it is the best two statements on the page.
+find out what it wants; "A gate is waiting on Contoso", with *the run stopped so you could
+confirm its peer set* beneath it, is the same row doing the work (page specification §1.1).
+That costs two statements per stopped run — bounded at eight by `services/overview.py` — and
+it is the best two statements on the page.
 """
 
 from __future__ import annotations
@@ -61,7 +62,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
                 key=f"research.gate.{job.id}",
                 tool=TOOL,
                 severity=Severity.BLOCKED,
-                title=f"{_named(request)} is waiting for you",
+                title=f"A gate is waiting on {_named(request)}",
                 detail=(
                     f"The run stopped so you could {asked}."
                     if asked

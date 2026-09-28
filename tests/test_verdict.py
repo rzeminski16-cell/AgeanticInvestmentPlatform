@@ -19,8 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from aer.web.overview.attention import Attention, Severity
-from aer.web.overview.verdict import NOTHING_WAITING, overview_verdict
 from aer.web.verdict import (
     Authored,
     Count,
@@ -33,18 +31,6 @@ from aer.web.verdict import (
 from aer.web.vocabulary import Tone
 
 ITEMS = "item is waiting for your decision", "items are waiting for your decision"
-
-
-def _item(*, key: str = "k", severity: Severity = Severity.BLOCKED, gap: bool = False) -> Attention:
-    return Attention(
-        key=key,
-        tool="research",
-        severity=severity,
-        title="Something",
-        detail="Something happened",
-        href="/somewhere",
-        feed_is_incomplete=gap,
-    )
 
 
 class TestAZeroIsNotACount:
@@ -276,94 +262,6 @@ class TestTheAuthoredHalfIsNotEvidence:
             Verdict(composed="", tone=Tone.INFO, authored=Authored("It reads well.", Tone.INFO))
 
 
-class TestTheFrontDoorCountsWhatItLists:
-    def test_an_ordinary_feed(self) -> None:
-        verdict = overview_verdict(
-            [
-                _item(key="a", severity=Severity.BLOCKED),
-                _item(key="b", severity=Severity.BLOCKED),
-                _item(key="c", severity=Severity.BROKEN),
-            ]
-        )
-        assert verdict.composed == (
-            "Two items are waiting for your decision; one item needs diagnosis."
-        )
-
-    def test_a_severity_with_nothing_in_it_says_nothing(self) -> None:
-        verdict = overview_verdict([_item(severity=Severity.IDLE)])
-        assert verdict.composed == "One item has not been started."
-
-    def test_an_empty_feed_that_was_read_is_the_all_clear(self) -> None:
-        verdict = overview_verdict([])
-        assert verdict.composed == "Nothing is waiting for you."
-        assert verdict.tone is Tone.SUCCESS
-        assert verdict.is_complete
-
-    def test_the_clauses_are_said_in_the_order_the_page_lists_them(self) -> None:
-        """A sentence leading with the idle work over a page listing the blocked work first
-        reads as being about a different screen."""
-        verdict = overview_verdict(
-            [
-                _item(key="i", severity=Severity.IDLE),
-                _item(key="b", severity=Severity.BROKEN),
-                _item(key="x", severity=Severity.BLOCKED),
-            ]
-        )
-        assert verdict.composed.index("waiting for your decision") < verdict.composed.index(
-            "needs diagnosis"
-        )
-        assert verdict.composed.index("needs diagnosis") < verdict.composed.index(
-            "has not been started"
-        )
-
-
-class TestTheFrontDoorsTone:
-    """Ordered by what has gone wrong, which is deliberately not the feed's order.
-
-    The feed leads with blocked work because a stopped run resumes the moment somebody
-    decides. The tone leads with the fault, because a fault is louder however you sort a list.
-    """
-
-    def test_a_fault_is_louder_than_a_decision(self) -> None:
-        verdict = overview_verdict(
-            [_item(key="x", severity=Severity.BLOCKED), _item(key="b", severity=Severity.BROKEN)]
-        )
-        assert verdict.tone is Tone.FAILURE
-
-    def test_waiting_on_a_person_is_not_a_fault(self) -> None:
-        assert overview_verdict([_item(severity=Severity.BLOCKED)]).tone is Tone.WARNING
-
-    def test_unstarted_work_is_neither(self) -> None:
-        assert overview_verdict([_item(severity=Severity.IDLE)]).tone is Tone.INFO
-
-
-class TestTheFrontDoorAdmitsWhatItCouldNotAsk:
-    def test_a_failed_provider_makes_the_verdict_incomplete(self) -> None:
-        verdict = overview_verdict([_item(key="research.unavailable", gap=True)])
-        assert not verdict.is_complete
-        assert "not the whole estate" in verdict.composed
-
-    def test_a_failed_provider_is_never_the_all_clear(self) -> None:
-        """The item itself is `BROKEN`, so the tone would be loud anyway. The flag is what
-        makes that true when the failure is the *only* thing in the feed and a future severity
-        happens to be quieter."""
-        assert overview_verdict([_item(key="x.unavailable", gap=True)]).tone is not Tone.SUCCESS
-
-    def test_a_feed_that_was_never_read_is_not_an_empty_feed(self) -> None:
-        """The main menu renders with the database down — that is its whole design. An empty
-        tuple there means "nothing was asked", and the obvious sentence for it is the one
-        wrong answer that looks exactly like the right one."""
-        verdict = overview_verdict([], gathered=False)
-        assert verdict.tone is not Tone.SUCCESS
-        assert not verdict.is_complete
-        assert NOTHING_WAITING not in verdict.composed
-        assert "could not be read" in verdict.composed
-
-    def test_a_feed_that_was_read_and_is_empty_still_says_so_plainly(self) -> None:
-        """The complement: the guard must not make the ordinary quiet day read as a problem."""
-        assert overview_verdict([], gathered=True).composed == "Nothing is waiting for you."
-
-
 class TestAClauseWorksInAnyPosition:
     """The property the lowercase-and-unpunctuated convention exists to give.
 
@@ -385,38 +283,3 @@ class TestAClauseWorksInAnyPosition:
             sentence(["the draft is complete."], when_none="nothing", tone=Tone.SUCCESS).composed
             == "The draft is complete."
         )
-
-
-class TestTheFrontDoorDoesNotArgueWithItself:
-    """An empty feed is two different facts, and the verdict is the first line of both pages.
-
-    Caught up and never started produce the same empty work list and want opposite sentences.
-    Shipping only one of them put "Nothing is waiting for you." two inches above a panel headed
-    "Start with two things" — the front door contradicting itself in its own opening line, on
-    the one screen a new operator sees first. Found by looking at the page, not by a test.
-    """
-
-    def test_a_new_operator_is_not_told_they_are_up_to_date(self) -> None:
-        verdict = overview_verdict([], first_run=True)
-
-        assert NOTHING_WAITING not in verdict.composed
-        assert "commissioned" in verdict.composed
-
-    def test_and_is_not_congratulated_for_it(self) -> None:
-        """Success green over "you have not started" is the platform congratulating somebody
-        for not using it."""
-        assert overview_verdict([], first_run=True).tone is not Tone.SUCCESS
-
-    def test_a_returning_operator_still_gets_the_all_clear(self) -> None:
-        """The complement: the guard must not turn an ordinary quiet day into a to-do list."""
-        verdict = overview_verdict([], first_run=False)
-
-        assert verdict.composed == "Nothing is waiting for you."
-        assert verdict.tone is Tone.SUCCESS
-
-    def test_a_new_operator_with_work_waiting_reads_as_normal(self) -> None:
-        """`first_run` only decides the *empty* sentence. Somebody who wrote a request and
-        started it has work waiting like anybody else, and the flag must not reword that."""
-        verdict = overview_verdict([_item(severity=Severity.BLOCKED)], first_run=True)
-
-        assert verdict.composed == "One item is waiting for your decision."

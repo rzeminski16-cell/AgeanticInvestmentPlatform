@@ -2,181 +2,198 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  The main menu.
+  Today, the hub (page specification §1, corrected 28 September 2026; the page guide's *The
+  hub*). **A hub leads with state; an inbox leads with events.** So, in order: the verdict on
+  the book with its figures and the conviction strip; what happened since the operator last
+  looked, beside the small numbered queue of what needs them; a way to start something; and
+  the suggestions the record has earned, last, so the page ends pointing forward.
 
-  The launcher first, because the first question on arrival is "what can this do", and it
-  is answered from the registry rather than from this file — a tool added there appears
-  here. The work list second, because that is the reason to come *back*.
-
-  Everything below the launcher needs the database; the launcher does not. When the
-  database is down the notice takes the work list's place and the tools still render, which
-  is the whole reason this page is the one an operator opens when something is wrong.
+  The launcher is gone: the menu is the launcher (ADR 0112, amended). Everything here needs
+  the database, and when it is down the page says which failure it is instead.
 #}
 
 {% block title %}Today &middot; Ageantic{% endblock %}
 
+{# Written out in full rather than composed from the tone, so the stylesheet's build — which
+   reads these files for class names — sees every one it has to generate. #}
+{% set _FILL = {
+  "success": "bg-success-ink",
+  "failure": "bg-failure-ink",
+  "warning": "bg-warning-ink",
+  "info": "bg-verification",
+  "muted": "bg-muted-ink",
+} %}
+
+{# The drawing's footer: when the book's figures were struck, beside the build. #}
+{% block footer_note %}{% if verdict and verdict.valued_at %}<span id="valued-at">Valued at the close of {{ verdict.valued_at }}</span>{% endif %}{% endblock %}
+
 {% block content %}
-  {% call ui.page_header("Today's work", identity="Research, positions and the decisions between them — each with its working shown, and every figure traceable to the formula and the source behind it.") %}{% endcall %}
+  <header class="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+    <h1 class="type-title-1 text-ink">{{ greeting }}</h1>
+    <p class="type-caption text-ink-subtle" id="today-date">{{ date_line }}</p>
+  </header>
 
-  {#
-    The verdict first, and composed rather than authored (ADR 0087). Its subject is live state
-    across every open run, so there is no moment at which it is frozen and nothing to write it
-    once about — and this is the page an operator opens when something is broken, which a
-    verdict needing a model provider would take down with it.
-  #}
-  {% if verdict %}
-    {{ ui.verdict("CURRENT STATE", verdict.composed, tone=verdict.tone.value) }}
-  {% endif %}
-
-  {#
-    The work list before the launcher. The first question on arrival is "what can this do";
-    the question on every arrival after that is "what needs me now", and there are many more
-    of the second. The launcher is still below the database boundary and still renders when
-    nothing else can.
-  #}
   {% if problem %}
     {# The id is a test hook and a support one: "tell me what the page says when the database
-       is down" is a question somebody asks over a chat window, and a stable anchor is how
-       they point at the answer. #}
+       is down" is a question somebody asks over a chat window. #}
     {% call ui.sheet(id="startup-problem") %}
       {{ ui.callout(
         "failure",
-        "The work list could not be read",
+        "Today could not be read",
         problem,
         "Check which dependencies are answering",
         "/healthz",
       ) }}
-      <p class="mt-3 type-body-sm text-ink-muted">
-        The tools below are listed from the registry, so they render either way. Everything
-        that reads data is waiting for this to be fixed.
-      </p>
     {% endcall %}
   {% else %}
-    {# Band 1 — needs you (§1.1), or the first-run card, or the quiet line. #}
-    {% include "overview/_attention.html" %}
 
-    {#
-      Band 2 — worth doing (§1.2). Every card is earned by a condition in the record, and
-      if nothing qualifies the band is absent entirely: no heading, no empty state. The
-      first-run card is band 2 too, rendered by the partial above.
-    #}
-    {% if suggestions and not first_run %}
-      <section aria-labelledby="worth-doing-heading" class="mt-10" id="worth-doing">
-        <h2 id="worth-doing-heading" class="type-eyebrow text-ink-muted">Worth doing</h2>
-        <ul class="mt-3 grid gap-3 sm:grid-cols-2" aria-label="Worth doing">
-          {% for card in suggestions %}
-            <li class="flex h-full flex-col rounded-md border border-line p-4" data-suggestion="{{ card.kind }}">
-              <p class="type-subheading text-ink">{{ card.title }}</p>
-              <p class="mt-1 flex-1 type-body-sm text-ink-muted" data-field="justification">{{ card.justification }}</p>
-              <p class="mt-3">
-                <a href="{{ card.action_href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ card.action_label }}</a>
-              </p>
-            </li>
-          {% endfor %}
-        </ul>
-        {% if more_suggestions %}
-          <p class="mt-2 type-caption text-ink-subtle" id="more-suggestions">
-            and {{ more_suggestions }} more &mdash;
-            <a href="/companies" class="underline underline-offset-[3px] hover:text-verification">the companies page</a>
-            and
-            <a href="/review" class="underline underline-offset-[3px] hover:text-verification">the review list</a>
-            hold the rest.
-          </p>
-        {% endif %}
-      </section>
-    {% endif %}
-
-    {#
-      Band 3 — the state of things (§1.3). Four quiet figures, no actions, no colour beyond
-      ink. Absent on first run, where there is nothing to state. Profit is never the
-      headline: the book's value is stated and its move is a line beneath.
-    #}
-    {% if state and not first_run %}
-      <section aria-labelledby="state-heading" class="mt-10" id="the-state-of-things">
-        <h2 id="state-heading" class="type-eyebrow text-ink-muted">The state of things</h2>
-        <dl class="mt-3 grid grid-cols-1 gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-          {% for figure in state %}
-            <div class="bg-surface-sunken p-4" data-state="{{ figure.key }}">
-              <dt class="type-label text-ink-muted">{{ figure.label }}</dt>
-              <dd class="mt-1 type-data text-ink" data-field="value">{{ figure.value }}</dd>
-              <dd class="mt-1 type-body-sm text-ink-muted" data-field="note">
+    {# -- The verdict: the book in one sentence, four figures, and the strip. ----------- #}
+    <section
+      id="verdict"
+      aria-labelledby="verdict-headline"
+      class="rounded-md border bg-surface p-5 sm:px-6 {{ 'border-warning-ink' if verdict.needs_attention else 'border-line' }}"
+    >
+      <div class="flex flex-col gap-6 min-[70rem]:flex-row min-[70rem]:items-start">
+        <div class="min-w-0 flex-1">
+          <p id="verdict-headline" class="font-display text-[28px]/8 font-bold text-ink">{{ verdict.headline }}</p>
+          <p class="mt-2 max-w-prose type-body text-ink-muted" data-field="verdict-detail">{{ verdict.detail }}</p>
+        </div>
+        <dl class="grid flex-none grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 min-[70rem]:w-[40rem]">
+          {% for figure in verdict.figures %}
+            <div data-state="{{ figure.key }}">
+              <dt class="type-eyebrow text-ink-subtle">{{ figure.label }}</dt>
+              <dd class="mt-1 type-data text-[20px]/[26px] {{ 'text-warning-ink' if figure.tone == 'warning' else 'text-ink' }}" data-field="value">{{ figure.value }}</dd>
+              <dd class="type-caption text-ink-subtle" data-field="note">
                 {% if figure.href %}<a href="{{ figure.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ figure.note }}</a>{% else %}{{ figure.note }}{% endif %}
               </dd>
             </div>
           {% endfor %}
         </dl>
+      </div>
+
+      {% if verdict.strip %}
+        {#
+          The conviction strip (§1): every position by weight, coloured by whether its
+          reasoning holds. A bar of weights, not a chart. Each colour is named in the legend
+          and each segment is named for a screen reader, so the colour carries nothing alone;
+          each segment is also a link to its position, because a reader who sees a red stretch
+          asks *which one* next.
+        #}
+        <div class="mt-5" id="conviction-strip">
+          {{ ui.guide(1, "Every position you hold, by weight. Green holds its reasoning, red is a position whose thesis broke, amber one under review or with nothing written down — the two-second read of how much of the book still has a reason behind it.") }}
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p class="type-eyebrow text-ink-subtle">Every position, by weight — coloured by whether its reasoning still holds</p>
+            <ul class="flex flex-wrap gap-x-3 gap-y-1" aria-label="What the colours mean">
+              {% for words, tone in verdict.legend %}
+                <li class="type-caption text-ink-subtle">
+                  <span class="mr-1 inline-block h-2 w-2 rounded-xs {{ _FILL[tone] }}" aria-hidden="true"></span>{{ words }}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+          <ol class="mt-2 flex h-6 overflow-hidden rounded-sm border border-line" aria-label="Positions by weight">
+            {% for segment in verdict.strip %}
+              <li style="width: {{ segment.width }}" class="h-full border-r border-surface last:border-r-0" data-state="{{ segment.state }}">
+                <a
+                  href="{{ segment.href }}"
+                  class="block h-full {{ _FILL[segment.tone] }} hover:opacity-80"
+                  title="{{ segment.spoken }}"
+                ><span class="sr-only">{{ segment.spoken }}</span></a>
+              </li>
+            {% endfor %}
+          </ol>
+          <div class="mt-1 flex justify-between gap-4 type-caption text-ink-subtle">
+            <span>{{ verdict.largest }}</span>
+            <span>{{ verdict.cash }}</span>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    <div class="mt-4 flex flex-col gap-4 min-[70rem]:flex-row min-[70rem]:items-start">
+      {# -- Since {day}: a briefing, with no controls (page guide). ------------------------ #}
+      <section id="since" aria-labelledby="since-heading" class="min-w-0 flex-1 rounded-md border border-line bg-surface px-5 pt-4 pb-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h2 id="since-heading" class="type-heading text-ink">{{ since_heading }}</h2>
+          <p class="type-caption text-ink-subtle">what the platform did while you were away</p>
+        </div>
+        {% if briefing.lines %}
+          <ul class="mt-2">
+            {% for line in briefing.lines %}
+              <li class="flex gap-3 border-b border-line py-3 last:border-b-0" data-briefing="{{ line.key }}">
+                <span class="mt-2 h-2 w-2 flex-none rounded-full {{ _FILL[line.tone] }}" aria-hidden="true"></span>
+                <div class="min-w-0 flex-1">
+                  <p class="type-body-strong text-ink">
+                    {% if line.href %}<a href="{{ line.href }}" class="hover:text-verification hover:underline">{{ line.title }}</a>{% else %}{{ line.title }}{% endif %}
+                  </p>
+                  <p class="type-body-sm text-ink-muted">{{ line.detail }}</p>
+                </div>
+                <p class="flex-none type-caption text-ink-subtle">{{ line.when }}</p>
+              </li>
+            {% endfor %}
+          </ul>
+          {% if briefing.more %}
+            <p class="pb-2 type-caption text-ink-subtle">and {{ briefing.more }} more, oldest first on <a href="/monitor" class="underline underline-offset-[3px] hover:text-verification">the monitor</a>.</p>
+          {% endif %}
+        {% else %}
+          <p class="py-3 type-body text-ink-muted" id="nothing-happened">Nothing happened {{ since_words }}.</p>
+        {% endif %}
       </section>
-    {% endif %}
-  {% endif %}
 
-  {#
-    The launcher. A `div` rather than a card-shaped anchor: a working tool carries a second
-    link — the thing you most often want to *do* with it — and an anchor inside an anchor is
-    invalid markup that browsers repair by guessing. The heading is the link; the whole card
-    is not clickable, which costs a little convenience and buys a card that holds two
-    destinations.
-  #}
-  {% set working = tools | selectattr("is_built") | list %}
-  {% set planned = tools | rejectattr("is_built") | list %}
+      <div class="flex flex-col gap-4 min-[70rem]:w-88 min-[70rem]:flex-none">
+        {# -- Needs you: numbered, in §1.1's fixed rank, one action each. Absent on a first
+           run, where nothing can be waiting and the start box is the page's one invitation. #}
+        {% if not first_run %}
+          {% include "overview/_attention.html" %}
+        {% endif %}
 
-  {% call ui.sheet("Working tools", id="working-tools") %}
-    {{ ui.guide(3, "Everything the platform is going to be, in one place. A tool that is not built yet says what it is waiting for.") }}
-    <ul class="grid gap-3 sm:grid-cols-2">
-      {% for tool in working %}
-        <li
-          data-tool="{{ tool.key }}"
-          data-status="{{ tool.status.value }}"
-          class="flex h-full flex-col rounded-sm border border-line p-4"
-        >
-          <p class="flex items-baseline justify-between gap-2">
-            <a href="{{ tool.href }}" data-field="open" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ tool.label }}</a>
-            {{ ui.status("success", tool.status.value) }}
+        {# -- Start something. ------------------------------------------------------------- #}
+        <section id="start-something" aria-labelledby="start-heading" class="rounded-md border border-verification bg-verification-wash px-4 py-4">
+          <h2 id="start-heading" class="type-eyebrow text-verification">{{ start.heading }}</h2>
+          {{ ui.guide(3, "A request costs nothing to write and starts nothing. The run it becomes stops for your approval before it spends anything.") }}
+          <p class="mt-2 type-body-sm text-ink">{{ start.text }}</p>
+          <p class="mt-3 flex flex-wrap gap-2">
+            <a href="/requests/new" class="inline-flex min-h-9 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong">{{ start.research }}</a>
+            {% if start.ask %}
+              <a href="/ask" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Ask</a>
+            {% endif %}
           </p>
-          <p class="mt-2 flex-1 type-body-sm text-ink-muted">{{ tool.summary }}</p>
-          {% if tool.action_label %}
-            <p class="mt-3">
-              <a
-                href="{{ tool.action_href }}"
-                data-field="action"
-                class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
-                >{{ tool.action_label }}</a
-              >
+          {% if start.settings %}
+            <p class="mt-3 type-body-sm text-ink-muted">
+              No provider configured yet?
+              <a href="/settings" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">Set one up in Settings</a>.
             </p>
           {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% endcall %}
+        </section>
+      </div>
+    </div>
 
-  {#
-    Planned instruments as a quieter requirements index, in a native disclosure. Every
-    specific "what it needs first" is preserved: a planned tool that said only "coming soon"
-    would be a row carrying no information, and the whole reason these are listed is that the
-    shape of the product is visible on arrival rather than discovered — which is why the
-    disclosure ships open. It collapses for the reader who wants it out of the way; it must
-    not hide the product's shape from the reader meeting it for the first time. Absent
-    altogether once every row works, rather than a disclosure announcing nothing.
-  #}
-  {% if planned %}
-  {% call ui.sheet() %}
-    {% call ui.disclosure("Planned instruments ({} more)".format(planned | length), open=true) %}
-      <ul class="flex flex-col">
-        {% for tool in planned %}
-          <li
-            data-tool="{{ tool.key }}"
-            data-status="{{ tool.status.value }}"
-            class="grid grid-cols-1 gap-1 border-t border-line py-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
-          >
-            <div class="min-w-0">
-              <a href="{{ tool.href }}" data-field="open" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ tool.label }}</a>
-              <p class="mt-1 type-body-sm text-ink-muted">{{ tool.summary }}</p>
-            </div>
-            {{ ui.status("muted", tool.status.value) }}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endcall %}
-  {% endcall %}
+    {# -- Worth doing, at the foot (§1.2): each card earned by the record, else absent. ---- #}
+    {% if suggestions %}
+      <section aria-labelledby="worth-doing-heading" class="mt-4 flex flex-col gap-3 min-[70rem]:flex-row" id="worth-doing">
+        <div class="flex-none min-[70rem]:w-28 min-[70rem]:pt-1">
+          <h2 id="worth-doing-heading" class="type-eyebrow text-ink-subtle">Worth doing</h2>
+          <p class="mt-1 type-caption text-ink-subtle">each earned by the record</p>
+        </div>
+        <ul class="grid flex-1 gap-3 sm:grid-cols-2 min-[70rem]:grid-cols-4" aria-label="Worth doing">
+          {% for card in suggestions %}
+            <li class="flex flex-col rounded-md border border-line bg-surface px-4 py-3" data-suggestion="{{ card.kind }}">
+              <a href="{{ card.action_href }}" class="type-subheading text-ink hover:text-verification hover:underline">{{ card.title }}</a>
+              <p class="mt-1 type-caption text-ink-subtle" data-field="justification">{{ card.justification }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% if more_suggestions %}
+        <p class="mt-2 type-caption text-ink-subtle" id="more-suggestions">
+          and {{ more_suggestions }} more —
+          <a href="/companies" class="underline underline-offset-[3px] hover:text-verification">the companies page</a>
+          and
+          <a href="/review" class="underline underline-offset-[3px] hover:text-verification">the review list</a>
+          hold the rest.
+        </p>
+      {% endif %}
+    {% endif %}
   {% endif %}
 
   <p class="sr-only" id="build-identity">{{ build }}</p>

@@ -62,7 +62,7 @@ def _commission(page: Page, live_server: str) -> None:
     testing the cap rather than the tool.
     """
     page.goto(live_server)
-    page.locator('[data-tool="research"] [data-field="action"]').click()
+    page.locator('#start-something a[href="/requests/new"]').click()
     page.wait_for_url("**/requests/new")
 
     fill_valid(page, max_cost_gbp=str(DEFAULT_PER_RUN_BUDGET_GBP))
@@ -184,10 +184,10 @@ class TestTheWholeThing:
         page.goto(live_server)
 
         expect(page.locator(f'[data-attention="research.gate.{job_id}"]')).to_be_visible()
-        # `exact`, because the row's drawer trigger is "Preview Microsoft Corporation is
-        # waiting for you" and a substring match resolves to both links.
+        # `exact`, because the row's action word is named "Open: A gate is waiting on
+        # Microsoft Corporation" for a screen reader, and a substring match resolves to both.
         expect(
-            page.get_by_role("link", name=f"{COMPANY} is waiting for you", exact=True)
+            page.get_by_role("link", name=f"A gate is waiting on {COMPANY}", exact=True)
         ).to_be_visible()
 
     def test_a_request_nobody_ran_is_listed_as_idle(self, page: Page, live_server: str) -> None:
@@ -198,4 +198,5 @@ class TestTheWholeThing:
 
         page.goto(live_server)
 
-        expect(page.get_by_text(f"{COMPANY} has never been run")).to_be_visible()
+        # `exact`: the row's action word repeats the title for a screen reader.
+        expect(page.get_by_text(f"{COMPANY} has never been run", exact=True)).to_be_visible()

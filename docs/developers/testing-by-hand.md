@@ -512,19 +512,24 @@ just worker     # a second terminal
 
 Open `http://127.0.0.1:8000`.
 
-### 8.1 The launcher
+### 8.1 Today
 
-**Expect:** the main menu, naming the two tools that work — Equity Research and Portfolio —
-and the seven that are planned, **shown openly rather than hidden behind a disclosure**. A
-planned tool has a real page saying what it would be and what it is waiting on.
+**Expect:** the hub. A verdict on the book in one sentence with its figures and, once you
+hold something, the conviction strip beneath — every position by weight, coloured by whether
+its reasoning holds, each colour named. Then what happened since you last looked, beside a
+small numbered list of what needs you, a box to start something, and the suggestions the
+record has earned at the foot. Reload it: the briefing keeps its window.
 
-**Wrong:** a planned tool that looks available, or a link that 404s. Honest absence is the
-whole design; a dead link is not absence, it is a defect.
+**Wrong:** a grid of tool cards (the menu is the launcher now), a briefing that empties on a
+reload, or *you last looked* on a day you did not.
 
 ### 8.2 The shell
 
-**Expect:** one navigation rail, one badge (on Requests), the build identity in the footer,
-and the disclaimer on every page. Change the colour scheme in the menu.
+**Expect:** one menu with six destinations — Today, Portfolio, Companies, Research and
+Review, with Platform at the foot — one badge (on Research), the search bar above every page,
+a row of tabs on any destination with several pages, the build identity in the footer, and
+the disclaimer on every page. Press `/` and type a ticker you have researched: Enter opens its
+company. Change the colour scheme in the menu.
 
 **Expect:** it persists across a reload and across a restart of the server — the choice is a
 cookie the server renders from, not a class a script adds after paint.

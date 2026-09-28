@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import UserRole
 from aer.db.base import Base, created_at_column
-from aer.db.types import Timestamp, UuidPk
+from aer.db.types import Timestamp, TimestampOptional, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
@@ -47,6 +47,12 @@ class User(Base):
     )
 
     created_at: Mapped[Timestamp] = created_at_column()
+
+    # When Today was last opened, and the last look before that visit began — NULL during a
+    # first visit (revision 0092). Two rather than one because a visit is not a page load
+    # (`aer.core.visits`): a reload must not empty a briefing nobody has finished reading.
+    today_seen_at: Mapped[TimestampOptional]
+    looked_before: Mapped[TimestampOptional]
 
     # **Work orders, not requests.** Who asked is a property of the run root since
     # ADR 0072: a monitor run belongs to somebody too, and a collection that could only

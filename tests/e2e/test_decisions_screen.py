@@ -64,9 +64,12 @@ class TestADecisionThenTheTrade:
     ) -> None:
         run_async(_seed(database_url))
 
-        # From the launcher to the journal, and a decision written before the trade.
+        # From the menu to the journal — Portfolio, then its Decisions tab (ADR 0112,
+        # amended) — and a decision written before the trade.
         page.goto(live_server)
-        page.locator('[data-tool="decisions"] [data-field="action"]').click()
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Portfolio").click()
+        page.wait_for_url("**/portfolio")
+        page.locator('nav[aria-label="Portfolio"]').get_by_role("link", name="Decisions").click()
         page.wait_for_url("**/decisions")
         page.select_option("#thesis_id", index=0)
         page.select_option("#action", "buy")

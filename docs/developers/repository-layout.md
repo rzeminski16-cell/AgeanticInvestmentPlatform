@@ -134,7 +134,7 @@ src/aer/            application package
       context.py    the `shell` object; constructible with no database, deliberately
       badges.py     counts, off the critical render path, behind GET /_shell/badges
       provenance.py ProvenanceRef: a badge is a link, and one chip cannot carry two axes
-    overview/       the main menu: launcher, work list, and the attention registry
+    overview/       Today: the hub's verdict, briefing and queue, and the attention registry
       pages.py      the front door, and the one page that renders when nothing else can
       attention.py  Attention/Severity; Overview owns no query, it asks a registry
       verdict.py    what is waiting, in one sentence; composed permanently, never authored

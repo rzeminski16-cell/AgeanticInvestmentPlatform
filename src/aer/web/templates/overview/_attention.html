@@ -1,112 +1,75 @@
 {#
-  Band 1 — needs you (page specification §1.1): one ranked list of action rows.
+  Needs you (page specification §1.1, as the hub's correction of 28 September 2026 places it):
+  the six kinds of row in their fixed rank, numbered, each with its one action as a word at the
+  right. Small and beside the briefing, because on most days it is short — the one queue on
+  the page must never dominate it (page guide, *The hub*).
 
-  The rank is fixed and not user-sortable: a gate waiting, a premise broken, a holding with
-  no thesis, a price past its threshold, a closed position unreviewed, a report gone stale
-  — then every other row a tool contributes, worst first. Never re-sorted by date: a
-  date-sorted feed answers "what happened last", and the question on this page is "what
-  needs me now". Each row carries a status label in its semantic tone, a title, a reason
-  that stands on its own, one primary action and how long it has waited.
+  The rank is fixed and not user-sortable: a gate waiting, a premise broken, a holding with no
+  thesis, a price past its threshold, a closed position unreviewed, a report gone stale — then
+  every other row a tool contributes, worst first. Every row still says why it is there, in a
+  line beneath its title: a row that cannot say why in one sentence must not be shown.
 
-  A partial because the page is long enough already, and because the ranking is the part
-  somebody will come back to argue with.
+  **The title previews and the word goes.** Where a row has a close-up — a stopped run — its
+  title is an ordinary link to the full page that htmx turns into the drawer (ADR 0006: the
+  drawer is an enhancement over the link, never a replacement for it). The action word always
+  navigates, so the common path is one click.
 #}
 {% import "_ui/index.html" as ui with context %}
-
-{% if first_run %}
-  {#
-    First run, no data at all (§1.3's states): bands 1 and 3 are absent and band 2 shows
-    one card, rendered here so the page has one place for the empty states. An empty work
-    list reads as *caught up* to somebody who has been using the platform and as *nothing
-    here works* to somebody who installed it ten minutes ago, and only the second reader
-    needs telling what to do.
-  #}
-  <section aria-labelledby="worth-doing-heading" id="worth-doing">
-    <h2 id="worth-doing-heading" class="type-eyebrow text-ink-muted">Worth doing</h2>
-    {% call ui.sheet() %}
-      {{ ui.empty(
-        "Research your first company",
-        "Start with two things: connect a model provider, then commission your first report. Writing a request costs nothing and starts nothing — the run stops for your approval before it spends anything.",
-        "Commission research",
-        "/requests/new",
-      ) }}
-      <p class="mt-4 type-body-sm text-ink-muted">
-        No provider configured yet?
-        <a href="/settings" class="text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Set one up in Settings</a>.
-      </p>
-    {% endcall %}
-  </section>
-{% elif not attention %}
-  {#
-    Everything quiet: one line on the sunken surface, and it does not manufacture work. The
-    heading keeps the words the shell's own test reads by role.
-  #}
-  <section aria-labelledby="needs-you-heading" id="needs-you">
-    <h2 id="needs-you-heading" class="type-eyebrow text-ink-muted">Nothing is waiting</h2>
-    <div class="rounded-md bg-surface-sunken p-5" id="nothing-needs-you">
-      <p class="type-body-lg text-ink">Nothing needs you today.</p>
-      <p class="mt-2 type-body-sm text-ink-muted">
-        No run is stopped at a gate, no premise has broken, and nothing you hold is without a
-        thesis.
-        <a href="/requests/new" class="text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Commission research</a>
-        when you are ready.
-      </p>
-    </div>
-  </section>
-{% else %}
-  <section aria-labelledby="needs-you-heading" id="needs-you">
-    <h2 id="needs-you-heading" class="type-eyebrow text-ink-muted">
-      Needs you <span class="text-ink-subtle">({{ attention | length }})</span>
-    </h2>
-    {{ ui.guide(1, "Ranked, and the rank is fixed: a gate waiting on you comes before a premise that broke, which comes before a holding with no thesis behind it. Each row says why it is here and where to deal with it.") }}
-    {% call ui.record_list("Needs you") %}
+{% set _ACTION_TONE = {
+  "warning": "text-warning-ink",
+  "failure": "text-failure-ink",
+  "info": "text-verification",
+  "muted": "text-ink-muted",
+  "success": "text-success-ink",
+} %}
+<section
+  id="needs-you"
+  aria-labelledby="needs-you-heading"
+  class="rounded-md border bg-surface px-4 pt-4 pb-2 {{ 'border-warning-ink' if attention else 'border-line' }}"
+>
+  <div class="flex items-baseline justify-between gap-3">
+    <h2 id="needs-you-heading" class="type-heading text-ink">Needs you</h2>
+    {% if attention %}
+      <p class="type-data text-warning-ink" data-field="count">{{ attention | length }}</p>
+    {% endif %}
+  </div>
+  {{ ui.guide(2, "Ranked, and the rank is fixed: a gate waiting on you comes before a premise that broke, which comes before a holding with no thesis behind it. The word at the right of each row is the one thing to do about it.") }}
+  {% if attention %}
+    <ol class="mt-1" aria-label="Needs you, in order">
       {% for item in attention %}
         {% set kind = item.kind %}
         <li
-          class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
+          class="flex items-baseline gap-2 border-b border-line py-2 last:border-b-0"
           data-attention="{{ item.key }}"
           data-tool="{{ item.tool }}"
           data-rank="{{ item.rank }}"
         >
-          <div class="min-w-0">
-            <p class="mb-1">{{ ui.status(kind.tone, kind.label) }}</p>
-            <a href="{{ item.href }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ item.title }}</a>
-            <p class="mt-1 max-w-prose type-body-sm text-ink-muted" data-field="reason">{{ item.detail }}</p>
-            {% if item.waited or item.cost %}
-              <p class="mt-1 type-caption text-ink-subtle" data-field="meta">
-                {%- if item.waited %}Waiting {{ item.waited }}{% endif -%}
-                {%- if item.waited and item.cost %} · {% endif -%}
-                {%- if item.cost %}{{ item.cost }}{% endif -%}
-              </p>
-            {% endif %}
-          </div>
-          <p class="flex flex-wrap items-center gap-3">
+          <span class="w-4 flex-none type-data-sm text-ink-subtle" aria-hidden="true">{{ loop.index }}</span>
+          <div class="min-w-0 flex-1">
             {% if item.preview_href %}
-              {#
-                The drawer trigger, and it is an ordinary link first. `href` goes to the
-                full page, so with scripting off this click is a navigation; htmx
-                intercepts it and swaps the fragment into the shell's drawer instead.
-                `hx-target` is the whole contract — `static/js/drawer.js` opens because
-                content arrived, not because anything told it to.
-              #}
               <a
                 href="{{ item.href }}"
                 hx-get="{{ item.preview_href }}"
                 hx-target="#aer-drawer-body"
                 hx-swap="innerHTML"
                 data-drawer-title="{{ item.title }}"
-                class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
-                >Preview {{ item.title }}</a
-              >
+                data-field="title"
+                class="type-body-sm text-ink hover:text-verification hover:underline"
+              >{{ item.title }}</a>
+            {% else %}
+              <p class="type-body-sm text-ink" data-field="title">{{ item.title }}</p>
             {% endif %}
-            <a
-              href="{{ item.href }}"
-              class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
-              >{{ item.action or "Open" }}</a
-            >
-          </p>
+            <p class="type-caption text-ink-subtle" data-field="reason">{{ item.reason }}</p>
+          </div>
+          <a
+            href="{{ item.href }}"
+            class="flex-none type-label {{ _ACTION_TONE[kind.tone] }} hover:underline"
+            data-field="action"
+          >{{ item.verb }}<span class="sr-only">: {{ item.title }}</span></a>
         </li>
       {% endfor %}
-    {% endcall %}
-  </section>
-{% endif %}
+    </ol>
+  {% else %}
+    <p class="py-3 type-body text-ink" id="nothing-needs-you">Nothing needs you today.</p>
+  {% endif %}
+</section>

@@ -34,6 +34,7 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     Calculation,
     Claim,
+    Company,
     FinancialFact,
     Job,
     JobStep,
@@ -45,6 +46,7 @@ from aer.db.models import (
     ResearchRequest,
     Thesis,
     User,
+    WorkOrder,
 )
 from aer.errors import ConflictError
 from aer.render import display
@@ -70,6 +72,7 @@ __all__ = [
     "diff_runs",
     "estimate_refresh",
     "figures_named_by_sections",
+    "finished_since",
     "mark_changes_read",
     "premise_watch",
     "refusal_to_refresh",
@@ -510,6 +513,57 @@ async def mark_changes_read(session: AsyncSession, *, job: Job, now: datetime | 
         job.changes_read_at = now or datetime.now(UTC)
         await session.flush()
     return job
+
+
+async def finished_since(
+    session: AsyncSession, *, user_id: uuid.UUID, since: datetime
+) -> list[tuple[Job, str, uuid.UUID | None]]:
+    """This person's refreshes that finished after ``since``, newest first (Today's briefing).
+
+    Each with the company's name and the report it produced — ``None`` when it produced none,
+    which is how a refresh that found nothing material ends.
+    """
+    runs = await session.scalars(
+        select(Job)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(
+            WorkOrder.user_id == user_id,
+            Job.refresh_kind == REFRESH,
+            Job.status == JobStatus.SUCCEEDED,
+            Job.finished_at.is_not(None),
+            Job.finished_at > since,
+        )
+        .order_by(Job.finished_at.desc())
+    )
+    found: list[tuple[Job, str, uuid.UUID | None]] = []
+    for job in runs:
+        produced = await session.scalar(select(Report).where(Report.job_id == job.id))
+        found.append(
+            (job, await _named(session, job=job), produced.id if produced is not None else None)
+        )
+    return found
+
+
+async def _named(session: AsyncSession, *, job: Job) -> str:
+    """The company as the operator named it on the request, else as the filer names itself.
+
+    The request's words first: *Microsoft Corporation* is what the operator typed, and
+    *MICROSOFT CORP* is how EDGAR spells the registrant.
+    """
+    request = await session.get(ResearchRequest, job.work_order_id)
+    if request is not None and request.company_name.strip():
+        return request.company_name
+    report = (
+        await session.get(Report, job.refreshes_report_id)
+        if job.refreshes_report_id is not None
+        else None
+    )
+    company = (
+        await session.get(Company, report.company_id)
+        if report is not None and report.company_id is not None
+        else None
+    )
+    return company.name if company is not None else "A company"
 
 
 def sections_moved(changes: Sequence[Change], claims: dict[str, set[tuple[str, str]]]) -> set[str]:

@@ -170,7 +170,7 @@ class TestAReviewFromTheWorkList:
         row = page.locator('[data-tool="review"][data-attention]')
         expect(row).to_have_count(1)
         expect(row).to_contain_text("waiting for you")
-        row.get_by_role("link", name="Read the proposal").click()
+        row.locator('[data-field="action"]').click()
         page.wait_for_url("**/review/passes/*")
 
         # The outcome is code's, and it links to its formula.

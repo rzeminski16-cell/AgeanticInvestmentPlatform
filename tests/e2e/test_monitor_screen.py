@@ -133,7 +133,9 @@ class TestADecisionFromTheWorkList:
         row = page.locator('[data-tool="monitor"][data-attention]')
         expect(row).to_have_count(1)
         expect(row).to_contain_text("was contradicted")
-        row.get_by_role("link", name="Decide what to do").click()
+        # Its one action, as a word (Today's *Needs you*): a broken premise is settled.
+        expect(row.locator('[data-field="action"]')).to_contain_text("Settle")
+        row.locator('[data-field="action"]').click()
         page.wait_for_url("**/monitor/findings/*")
 
         # The gate: what code measured, what the model read, and two answers.
@@ -156,8 +158,11 @@ class TestADecisionFromTheWorkList:
         page.goto(live_server)
         expect(page.locator('[data-tool="monitor"][data-attention]')).to_have_count(0)
 
-    def test_the_monitor_opens_from_the_launcher(self, page: Page, live_server: str) -> None:
+    def test_the_monitor_opens_from_the_menu(self, page: Page, live_server: str) -> None:
+        # Portfolio, then its Monitor tab: the menu is the launcher (ADR 0112, amended).
         page.goto(live_server)
-        page.locator('[data-tool="monitor"] [data-field="action"]').click()
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Portfolio").click()
+        page.wait_for_url("**/portfolio")
+        page.locator('nav[aria-label="Portfolio"]').get_by_role("link", name="Monitor").click()
         page.wait_for_url("**/monitor")
         expect(page.get_by_text("No open thesis to monitor")).to_be_visible()

@@ -24,7 +24,6 @@ from aer.core.enums import JobStatus
 from aer.db.models import Job
 from aer.services.runs import awaiting_approval_count
 from aer.web.shell import GUIDANCE_COOKIE
-from aer.web.tools.registry import ToolStatus, installed_tools
 from tests.db_fixtures import run_async
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP, the_only_user
@@ -212,7 +211,8 @@ class TestTheOverviewScreen:
 
         rows = page.locator("[data-attention]")
         expect(rows).to_have_count(stopped_runs.count)
-        expect(rows.first.get_by_role("link", name="Open the run")).to_be_visible()
+        # One action, as a word at the right (page specification §1, corrected 28 September).
+        expect(rows.first.locator('[data-field="action"]')).to_contain_text("Open")
 
     def test_a_new_operator_is_told_where_to_start(self, page: Page, live_server: str) -> None:
         # An empty database is the first-run state, deliberately distinct from caught-up
@@ -229,10 +229,8 @@ class TestTheOverviewScreen:
     ) -> None:
         page.goto(f"{live_server}/overview")
 
-        # The heading specifically: the verdict above it also says "Nothing is waiting
-        # for you", and a bare text match resolves to both.
-        expect(page.get_by_role("heading", name="Nothing is waiting", exact=True)).to_be_visible()
-        expect(page.get_by_role("link", name="Commission research")).to_be_visible()
+        expect(page.locator("#nothing-needs-you")).to_have_text("Nothing needs you today.")
+        expect(page.get_by_role("link", name="Research a company")).to_be_visible()
 
     def test_the_callouts_are_hidden_until_guidance_is_on(
         self, page: Page, live_server: str
@@ -271,9 +269,10 @@ class TestTheDrawer:
     ) -> None:
         page.goto(f"{live_server}/overview")
         row = page.locator("[data-attention]").first
-        title = row.locator("a").first.inner_text()
+        trigger = row.locator('[data-field="title"]')
+        title = trigger.inner_text()
 
-        row.get_by_role("link", name="Preview").click()
+        trigger.click()
 
         expect(page.locator("#aer-drawer-title")).to_have_text(title)
         expect(page.locator('#aer-drawer [data-field="status"]')).to_have_text("AWAITING_APPROVAL")
@@ -282,7 +281,7 @@ class TestTheDrawer:
         self, page: Page, live_server: str, stopped_runs: StoppedRuns
     ) -> None:
         page.goto(f"{live_server}/overview")
-        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        page.locator("[data-attention]").first.locator('[data-field="title"]').click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
         assert page.evaluate(
@@ -302,7 +301,7 @@ class TestTheDrawer:
         self, page: Page, live_server: str, stopped_runs: StoppedRuns
     ) -> None:
         page.goto(f"{live_server}/overview")
-        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        page.locator("[data-attention]").first.locator('[data-field="title"]').click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
         for _ in range(4):
@@ -321,7 +320,7 @@ class TestTheDrawer:
         otherwise, every time, which is the difference between a panel and an interruption.
         """
         page.goto(f"{live_server}/overview")
-        trigger = page.locator("[data-attention]").first.get_by_role("link", name="Preview")
+        trigger = page.locator("[data-attention]").first.locator('[data-field="title"]')
         trigger.click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
@@ -336,7 +335,7 @@ class TestTheDrawer:
         self, page: Page, live_server: str, stopped_runs: StoppedRuns
     ) -> None:
         page.goto(f"{live_server}/overview")
-        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        page.locator("[data-attention]").first.locator('[data-field="title"]').click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
         page.get_by_role("button", name="Close").click()
@@ -349,7 +348,7 @@ class TestTheDrawer:
         page.goto(f"{live_server}/overview")
 
         assert not page.evaluate("document.documentElement.classList.contains('overflow-hidden')")
-        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        page.locator("[data-attention]").first.locator('[data-field="title"]').click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
         assert page.evaluate("document.documentElement.classList.contains('overflow-hidden')")
@@ -363,7 +362,7 @@ class TestTheDrawer:
         # the next request landed, and a reader who opened the wrong row would see the
         # right-looking answer to the wrong question.
         page.goto(f"{live_server}/overview")
-        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        page.locator("[data-attention]").first.locator('[data-field="title"]').click()
         expect(page.locator("#aer-drawer-title")).not_to_be_empty()
 
         page.keyboard.press("Escape")
@@ -384,7 +383,7 @@ class TestTheDrawer:
             page = context.new_page()
             page.goto(f"{live_server}/overview")
 
-            page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+            page.locator("[data-attention]").first.locator('[data-field="title"]').click()
 
             page.wait_for_url(re.compile(r"/runs/[0-9a-f-]{36}$"))
             expect(page.locator("#aer-drawer")).to_be_hidden()
@@ -720,66 +719,15 @@ class TestTheSearchBar:
             context.close()
 
 
-class TestTheLauncher:
-    def test_the_front_page_leads_with_every_tool(self, page: Page, live_server: str) -> None:
+class TestTheFrontDoor:
+    def test_the_common_action_is_one_click_away(self, page: Page, live_server: str) -> None:
+        """The launcher's button, which the hub's start box carries now (the menu is the
+        launcher, ADR 0112, amended)."""
         page.goto(f"{live_server}")
 
-        expect(page.locator("[data-tool]")).to_have_count(10)
-        expect(page.locator('[data-tool="research"][data-status="Working"]')).to_be_visible()
-        # Portfolio shipped, so the launcher's claim about it changed. That the front page
-        # is where a status change becomes visible is the whole point of the row being data.
-        expect(page.locator('[data-tool="portfolio"][data-status="Working"]')).to_be_visible()
-        # The tenth: a question over a company's record (ADR 0130), working from its first
-        # commit, so it never had a placeholder card to grow out of.
-        expect(page.locator('[data-tool="ask"][data-status="Working"]')).to_be_visible()
-
-    def test_the_once_planned_tool_is_the_tool_now(self, page: Page, live_server: str) -> None:
-        """The watchlist was the last placeholder, and the placeholder said what it waited
-        for. The same card now opens the tool, and the page no longer explains itself."""
-        page.goto(f"{live_server}")
-
-        page.locator('[data-tool="watchlist"] [data-field="open"]').click()
-
-        page.wait_for_url("**/watchlist")
-        expect(page.get_by_role("heading", name="Follow a company")).to_be_visible()
-        expect(page.get_by_text("What it needs first")).to_have_count(0)
-
-    def test_the_common_action_is_one_click_from_the_front_door(
-        self, page: Page, live_server: str
-    ) -> None:
-        """The old landing page had this button and the launcher took it away.
-
-        A browser test noticed, which is what that test is for. It is back as a field on
-        the working tool's row rather than as a line in this template, so the second tool's
-        action appears when its row grows one.
-        """
-        page.goto(f"{live_server}")
-
-        page.locator('[data-tool="research"] [data-field="action"]').click()
+        page.locator('#start-something a[href="/requests/new"]').click()
 
         page.wait_for_url("**/requests/new")
-
-    def test_a_tool_that_cannot_be_used_offers_no_action(
-        self, page: Page, live_server: str
-    ) -> None:
-        # A button on a tool that does not exist is a button that goes nowhere, which is
-        # the failure the placeholder pages avoid rather than relocate. Every tool works
-        # today, so the check is the converse: each card offers its action.
-        page.goto(f"{live_server}")
-
-        for tool in installed_tools():
-            actions = page.locator(f'[data-tool="{tool.key}"] [data-field="action"]')
-            expect(actions).to_have_count(1 if tool.status is ToolStatus.WORKING else 0)
-
-    def test_the_working_tool_leads_to_its_own_pages(self, page: Page, live_server: str) -> None:
-        # The one card that is not a placeholder. A launcher whose only working entry led
-        # to another placeholder would be a menu of nothing.
-        page.goto(f"{live_server}")
-
-        page.locator('[data-tool="research"] [data-field="open"]').click()
-
-        page.wait_for_url("**/requests")
-        expect(page.get_by_role("heading", name="Requests").first).to_be_visible()
 
 
 class TestWithScriptingOff:

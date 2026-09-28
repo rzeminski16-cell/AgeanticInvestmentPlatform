@@ -82,11 +82,13 @@ _ORDER: Final[dict[Severity, int]] = {
 @dataclass(frozen=True, slots=True)
 class Kind:
     """How the page specification (§1.1) reads one kind of row: its fixed rank, the tone
-    it is shown in, and the words on its status label."""
+    it is shown in, the words on its status label, and its one action as a word — Today's
+    *Needs you* ends each row with it, as drawn (§1, corrected 28 September 2026)."""
 
     rank: int
     tone: str
     label: str
+    verb: str = "Open"
 
 
 # The six kinds the page specification ranks, by the prefix of the key each provider
@@ -95,17 +97,17 @@ class Kind:
 # outside these six takes its place after them, by severity (`_AFTER`), so a tool's own
 # rows still appear and still appear worst first.
 KINDS: Final[dict[str, Kind]] = {
-    "research.gate": Kind(rank=1, tone="warning", label="A gate is waiting"),
-    "monitor.gate": Kind(rank=2, tone="failure", label="A premise broke"),
-    "companies.no_thesis": Kind(rank=3, tone="warning", label="No thesis"),
-    "monitor.moved": Kind(rank=4, tone="info", label="A price moved"),
-    "review.unreviewed": Kind(rank=5, tone="muted", label="Not reviewed"),
-    "companies.stale": Kind(rank=6, tone="muted", label="Report stale"),
+    "research.gate": Kind(rank=1, tone="warning", label="A gate is waiting", verb="Open"),
+    "monitor.gate": Kind(rank=2, tone="failure", label="A premise broke", verb="Settle"),
+    "companies.no_thesis": Kind(rank=3, tone="warning", label="No thesis", verb="Write"),
+    "monitor.moved": Kind(rank=4, tone="info", label="A price moved", verb="Read"),
+    "review.unreviewed": Kind(rank=5, tone="muted", label="Not reviewed", verb="Review"),
+    "companies.stale": Kind(rank=6, tone="muted", label="Report stale", verb="Open"),
 }
 _AFTER: Final[dict[Severity, Kind]] = {
-    Severity.BLOCKED: Kind(rank=7, tone="warning", label="Waiting for you"),
-    Severity.BROKEN: Kind(rank=8, tone="failure", label="Needs diagnosis"),
-    Severity.IDLE: Kind(rank=9, tone="muted", label="Not started"),
+    Severity.BLOCKED: Kind(rank=7, tone="warning", label="Waiting for you", verb="Open"),
+    Severity.BROKEN: Kind(rank=8, tone="failure", label="Needs diagnosis", verb="Diagnose"),
+    Severity.IDLE: Kind(rank=9, tone="muted", label="Not started", verb="Open"),
 }
 
 
@@ -184,6 +186,21 @@ class Attention:
     @property
     def rank(self) -> int:
         return self.kind.rank
+
+    @property
+    def verb(self) -> str:
+        """The row's one action, as a word (Today's *Needs you*)."""
+        return self.kind.verb
+
+    @property
+    def reason(self) -> str:
+        """The detail's first sentence: why the row is here, in the room *Needs you* has.
+
+        The row must say why it is there in one sentence (§1.1), and the first sentence is
+        the one each provider writes to do that; the rest is on the page the row leads to.
+        """
+        head, stop, _ = self.detail.partition(". ")
+        return f"{head}." if stop else self.detail
 
 
 class AttentionItems(Protocol):

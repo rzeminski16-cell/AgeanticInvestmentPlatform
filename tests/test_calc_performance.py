@@ -30,6 +30,7 @@ from aer.calc.performance import (
     exposure,
     grouped_value,
     money_weighted_return,
+    share_of_the_book,
     time_weighted_return,
     top_holdings_share,
 )
@@ -380,6 +381,44 @@ class TestConcentration:
         percentage, which is the error most likely to survive a glance."""
         with pytest.raises(UnitMismatchError, match="not a fraction of the book"):
             top_holdings_share(context, weights=[gbp(500)], count=5)
+
+
+class TestTheShareOfNamedHoldings:
+    """Today's *together 15.9% of the book*, and the strip's cash left out."""
+
+    def test_it_is_the_sum_of_the_weights_named(self, context: CalculationContext) -> None:
+        weights = [share("0.114"), share("0.045")]
+
+        assert share_of_the_book(context, weights=weights).value == Decimal("0.159")
+
+    def test_the_holdings_are_named_by_the_caller_not_ranked(
+        self, context: CalculationContext
+    ) -> None:
+        # Unlike the top five: the smallest holding counts when it is the one named.
+        assert share_of_the_book(context, weights=[share("0.01")]).value == Decimal("0.01")
+
+    def test_nothing_named_is_a_question_not_a_zero(self, context: CalculationContext) -> None:
+        with pytest.raises(CalculationError, match="No holdings were named"):
+            share_of_the_book(context, weights=[])
+
+    def test_a_value_passed_where_a_weight_belongs_is_refused(
+        self, context: CalculationContext
+    ) -> None:
+        with pytest.raises(UnitMismatchError, match="not a fraction of the book"):
+            share_of_the_book(context, weights=[gbp(500)])
+
+    @settings(max_examples=200, deadline=None)
+    @given(
+        basis=st.lists(st.integers(min_value=0, max_value=10_000), min_size=1, max_size=20),
+    )
+    def test_it_is_never_less_than_its_largest_part(self, basis: list[int]) -> None:
+        context = CalculationContext(code_version="property")
+        weights = [share(str(Decimal(points).scaleb(-4))) for points in basis]
+
+        total = share_of_the_book(context, weights=weights).value
+
+        assert total >= max(weight.value for weight in weights)
+        assert total == sum((weight.value for weight in weights), Decimal(0))
 
 
 # -- Properties --------------------------------------------------------------------------------

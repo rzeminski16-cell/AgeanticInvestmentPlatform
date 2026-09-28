@@ -3238,6 +3238,10 @@ async def reports_index(
         .order_by(Report.as_of_date.desc(), Report.created_at.desc())
     )
     rows: list[tuple[Report, ResearchRequest]] = [(report, req) for report, req in fetched.tuples()]
+    # What Today's state band used to say, said where the reports are (page specification §1,
+    # corrected 28 September 2026): how many are held, and how many of those are current.
+    held = [report for report, _ in rows if report.immutable]
+    current = sum(1 for report in held if report.is_current)
     if company_filter:
         needle = company_filter.lower()
         rows = [
@@ -3292,6 +3296,11 @@ async def reports_index(
             "groups": list(groups.values()),
             "company_filter": company_filter,
             "total": len(rows),
+            "held": (
+                f"{len(held)} approved and held, {current} of them current."
+                if held
+                else "None approved yet."
+            ),
         },
     )
     return page

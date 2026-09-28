@@ -215,23 +215,28 @@ class TestWhereEachStatePutsATool:
         ]
 
 
-class TestTheLauncher:
-    async def test_it_lists_every_tool_with_its_state(self, client) -> None:
+class TestTheMenuIsTheLauncher:
+    """Today led with a launcher of every tool until the approved hub replaced it (page
+    specification §1, corrected 28 September 2026): the drawn menu is the launcher."""
+
+    async def test_every_working_tool_is_reachable_from_the_menu(self) -> None:
+        reachable = {item.href for item in flat_items()}
+        stranded = sorted(
+            tool.href for tool in installed_tools() if tool.is_built and tool.href not in reachable
+        )
+
+        assert not stranded, f"working tools no menu destination or tab reaches: {stranded}"
+
+    async def test_today_carries_no_launcher(self, client) -> None:
         body = (await client.get("/")).text
 
-        for tool in installed_tools():
-            assert f'data-tool="{tool.key}"' in body, tool.key
-            assert f'data-status="{tool.status.value}"' in body, tool.key
-            assert str(escape(tool.summary)) in body, tool.key
+        assert "data-tool=" not in body
 
-    async def test_the_working_tool_carries_its_common_action(self, client) -> None:
-        # The old landing page's "Start a research request" button, back as a field on the
-        # row rather than a line in the template — so the second tool's action appears when
-        # its row grows one.
+    async def test_the_common_action_is_one_click_from_the_front_door(self, client) -> None:
+        # Commissioning research, from the start box, whether or not the database answered.
         body = (await client.get("/")).text
 
-        assert 'href="/requests/new"' in body
-        assert "Start a research request" in body
+        assert 'href="/requests/new"' in body or 'id="startup-problem"' in body
 
     async def test_a_tool_that_cannot_be_used_carries_no_action(self) -> None:
         # Refused at construction rather than hidden at render: a button on a tool that
@@ -262,7 +267,7 @@ class TestTheLauncher:
             )
 
     async def test_it_renders_with_the_database_down(self, client) -> None:
-        """The whole reason the launcher and the work list are separated.
+        """Today renders whatever is down, and says which failure it is.
 
         The front page of a local tool is the page you open when something is not working,
         and the most likely reason you are looking at it is that Postgres is not running.
@@ -270,7 +275,6 @@ class TestTheLauncher:
         response = await client.get("/")
 
         assert response.status_code == 200
-        assert 'data-tool="research"' in response.text
         assert "not reachable" in response.text
 
     async def test_the_work_list_is_not_shown_as_empty_when_it_is_unknown(self, client) -> None:
@@ -278,8 +282,8 @@ class TestTheLauncher:
         # with the database down it is a claim nobody checked.
         body = (await client.get("/")).text
 
-        assert "Nothing is waiting" not in body
-        assert "Your attention" not in body
+        assert "Nothing needs you today." not in body
+        assert "Nothing happened" not in body
 
     async def test_the_former_address_still_leads_somewhere(self, client) -> None:
         response = await client.get("/overview", follow_redirects=False)

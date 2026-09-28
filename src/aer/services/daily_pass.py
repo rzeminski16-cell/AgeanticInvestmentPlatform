@@ -62,6 +62,7 @@ __all__ = [
     "last_pass",
     "listings_to_read",
     "pass_state",
+    "passes_since",
     "run_daily_pass",
 ]
 
@@ -260,6 +261,23 @@ async def last_pass(session: AsyncSession, *, user_id: uuid.UUID) -> Job | None:
         .limit(1)
     )
     return found
+
+
+async def passes_since(session: AsyncSession, *, user_id: uuid.UUID, since: datetime) -> list[Job]:
+    """This person's passes that finished after ``since``, newest first (Today's briefing)."""
+    return list(
+        await session.scalars(
+            select(Job)
+            .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+            .where(
+                WorkOrder.user_id == user_id,
+                WorkOrder.tool == TOOL,
+                Job.finished_at.is_not(None),
+                Job.finished_at > since,
+            )
+            .order_by(Job.finished_at.desc())
+        )
+    )
 
 
 def pass_state(last_finished: datetime | None, *, now: datetime) -> PassState:

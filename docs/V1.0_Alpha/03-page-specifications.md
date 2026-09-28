@@ -158,6 +158,17 @@ drawn menu is the launcher. States: with no book, the verdict speaks of the rese
 operator holds and draws no strip; with nothing at all, it says so and *Start something* offers
 the first request; on a quiet day *Needs you* reads *Nothing needs you today.*
 
+*Built 28 September 2026* (`index.html`, `overview/_attention.html`, `web/overview/{hub,briefing}.py`,
+`core/visits.py`, revision 0092). The verdict's shares — the book resting on reasons not
+standing, and the cash the strip leaves out — are struck by `share_of_the_book`, never added in a
+template. *{day}* is the operator's last look before the current visit, so a reload does not
+empty the briefing and never claims a look that did not happen; a visit ends after three hours
+away. A premise read and found holding is counted into the daily pass's line rather than given
+one of its own. The greeting names no time of day, because the platform does not know the
+operator's; the footer says when the book was valued, as drawn. The fifth suggestion waits for
+the operator's limits (ADR 0136, U5), and the reports held and current are stated on the Reports
+library.
+
 ---
 
 ## 2. Portfolio

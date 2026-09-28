@@ -1,10 +1,12 @@
-"""Today, in three bands (page specification §1).
+"""Today, as the drawn hub (page specification §1, corrected 28 September 2026).
 
-Band 1 is one list ranked by the specification's six kinds, over every tool's rows; band
-2 is suggestions each earned by a condition in the record, absent when nothing qualifies;
-band 3 is four quiet figures. The scene holds one of each kind the fake record can hold:
-a run at a gate, a listing held with no thesis, a report older than its window, a listing
-followed and never researched, and a refresh whose change summary nobody has read.
+The verdict first — the book in a sentence, its figures and the conviction strip — then what
+happened since the operator last looked, beside *Needs you*: one list ranked by the
+specification's six kinds over every tool's rows, numbered, one action each. *Worth doing* is
+last, each suggestion earned by a condition in the record and the band absent when nothing
+qualifies. The scene holds one of each kind the fake record can hold: a run at a gate, a
+listing held with no thesis, a report older than its window, a listing followed and never
+researched, and a refresh whose change summary nobody has read.
 """
 
 from __future__ import annotations
@@ -19,9 +21,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from aer.core.enums import JobStatus, TransactionKind, UserRole
+from aer.core.enums import FindingKind, JobStatus, TransactionKind, UserRole
 from aer.db.models import (
     Company,
+    Finding,
     Job,
     Portfolio,
     PriceBar,
@@ -29,12 +32,14 @@ from aer.db.models import (
     Security,
     User,
     WatchlistEntry,
+    WorkOrder,
 )
+from aer.services import daily_pass
 from aer.services import refresh as refresh_service
 from aer.services import theses as thesis_service
 from aer.web.overview import attention as attention_module
 from aer.web.overview.attention import Attention, AttentionProvider, Severity, kind_of
-from aer.web.overview.state import state_for
+from aer.web.overview.hub import book_verdict
 from aer.web.overview.suggestions import suggestions_for
 from tests.api_fixtures import build_app, client_for
 from tests.db_cleanup import delete_all
@@ -281,11 +286,11 @@ def _order_of(body: str, *keys: str) -> list[int]:
     return [body.index(f'data-attention="{key}"') for key in keys]
 
 
-# -- Band 1 -----------------------------------------------------------------------------------
+# -- Needs you --------------------------------------------------------------------------------
 
 
 class TestNeedsYou:
-    async def test_the_list_is_one_ranked_list_with_a_status_label_per_row(
+    async def test_the_list_is_one_ranked_list_numbered_with_one_action_each(
         self, api: Any, scene: dict[str, Any]
     ) -> None:
         body = (await api.get("/")).text
@@ -298,14 +303,14 @@ class TestNeedsYou:
         assert 'data-rank="1"' in body
         assert 'data-rank="3"' in body
         assert 'data-rank="6"' in body
-        # The specification's labels, in their tones.
-        assert "A gate is waiting" in body
-        assert "No thesis" in body
-        assert "Report stale" in body
+        # The specification's row wording (§1.1).
+        assert "A gate is waiting on Northwind Traders" in body
         assert "Contoso plc is held with no thesis behind it" in body
         assert re.search(r"Fabrikam Inc was last researched \d+ days ago", body)
-        # Every row carries a reason.
+        # Every row still says why it is there, and ends in one word.
         assert body.count('data-field="reason"') >= 3
+        assert re.search(r'data-field="action"\s*>Open<', body)
+        assert re.search(r'data-field="action"\s*>Write<', body)
 
     async def test_the_no_thesis_row_leads_to_the_form_with_the_company_chosen(
         self, api: Any, scene: dict[str, Any]
@@ -313,8 +318,19 @@ class TestNeedsYou:
         body = (await api.get("/")).text
         assert f'href="/theses?company={scene["contoso"].id}"' in body
 
+    async def test_a_stopped_run_previews_from_its_title_and_opens_from_its_word(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        # ADR 0006: the drawer is an enhancement over a link, so the title is a link to the
+        # run that htmx turns into the preview, and the word always goes.
+        body = (await api.get("/")).text
+        job = scene["gate_job"].id
 
-# -- Band 2 -----------------------------------------------------------------------------------
+        assert f'hx-get="/research/runs/{job}/preview"' in body
+        assert body.count(f'href="/runs/{job}"') >= 2
+
+
+# -- Worth doing -------------------------------------------------------------------------------
 
 
 class TestWorthDoing:
@@ -403,16 +419,25 @@ class TestWorthDoing:
                 assert 'id="worth-doing"' not in body
                 assert 'id="nothing-needs-you"' in body
                 assert "Nothing needs you today." in body
-                assert 'id="the-state-of-things"' in body
+                assert 'id="verdict"' in body
         finally:
             await delete_all(db_engine)
 
 
-# -- Band 3 -----------------------------------------------------------------------------------
+# -- The verdict -------------------------------------------------------------------------------
 
 
-class TestTheStateOfThings:
-    async def test_the_four_figures_are_read_from_the_record(
+class TestTheVerdict:
+    async def test_it_leads_with_the_book_in_a_sentence(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        body = (await api.get("/")).text
+
+        assert "Your book needs attention." in body
+        # One position, held with nothing written down: named as a state, not counted.
+        assert "Nothing is written down about why you hold it — 23.8% of the book." in body
+
+    async def test_its_figures_are_read_from_the_record(
         self, api: Any, scene: dict[str, Any]
     ) -> None:
         body = (await api.get("/")).text
@@ -420,35 +445,158 @@ class TestTheStateOfThings:
         assert 'data-state="book"' in body
         assert "£5,250.00" in body  # 4,000 cash and 100 shares at 12.50
         assert "+1.0% on the day" in body  # from 5,200 at the close before
-        assert 'data-state="watched"' in body
-        assert "3 companies" in body  # Contoso held, Fabrikam researched, Wingtip followed
-        assert "No check scheduled" in body
+        assert 'data-state="reasoning"' in body
+        assert "0 of 1" in body
+        assert 'data-state="next_check"' in body
         assert 'data-state="spent"' in body
-        assert 'data-state="reports"' in body
-        assert "1 report" in body
+        assert "Spent this month" in body
+        # And the footer says when those figures were struck, as drawn.
+        assert re.search(r'id="valued-at">Valued at the close of \d+ \w+ 2026<', body)
 
-    async def test_the_figures_are_computed_and_never_actions(
+    async def test_the_strip_is_every_position_by_weight_named_for_a_reader(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        body = (await api.get("/")).text
+
+        assert 'id="conviction-strip"' in body
+        assert body.count('data-state="doubt"') == 1
+        assert "Contoso plc, 23.8% of the book, under review or no thesis" in body
+        assert f'href="/portfolio/positions/{scene["security"].id}"' in body
+        # Each colour is named beside it, and the cash the strip leaves out is said.
+        legend = body[body.index('aria-label="What the colours mean"') :]
+        assert "under review or no thesis" in legend[: legend.index("</ul>")]
+        assert "76.2% cash is not shown" in body
+
+    async def test_the_share_it_states_is_struck_rather_than_added_up(
         self, scene: dict[str, Any], api_settings: Any
     ) -> None:
         async with scene["factory"]() as session:
             user = await session.get(User, scene["user"].id)
             assert user is not None
-            figures = await state_for(session, user=user, settings=api_settings, now=NOW)
-        assert [figure.key for figure in figures] == ["book", "watched", "spent", "reports"]
-        book, watched, spent, reports = figures
-        assert book.value == "£5,250.00"
-        assert watched.value == "3 companies"
-        assert watched.href == "/settings"  # no check scheduled leads to the platform
-        assert spent.value == "£0.00"
-        assert reports.value == "1 report"
-        assert "1 current" in reports.note
+            verdict = await book_verdict(session, user=user, settings=api_settings, now=NOW)
+
+        assert verdict.needs_attention
+        assert [figure.key for figure in verdict.figures] == [
+            "book",
+            "reasoning",
+            "next_check",
+            "spent",
+        ]
+        assert [segment.state for segment in verdict.strip] == ["doubt"]
+        assert verdict.strip[0].width == "100.00%"
+        assert verdict.largest == "Contoso plc 23.8%"
+
+
+# -- Since the last look -------------------------------------------------------------------------
+
+
+class TestTheBriefing:
+    async def test_a_first_look_covers_the_last_seven_days(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        body = (await api.get("/")).text
+
+        assert "The last seven days" in body
+        assert "your first look" in body
+        assert "Welcome, Today" in body
+
+    async def test_a_reload_keeps_the_window_and_claims_no_look(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        await api.get("/")
+        body = (await api.get("/")).text
+
+        assert "The last seven days" in body
+        assert "you last looked" not in body
+        async with scene["factory"]() as session:
+            user = await session.get(User, scene["user"].id)
+            assert user is not None
+            assert user.today_seen_at is not None
+            assert user.looked_before is None
+
+    async def test_the_next_morning_starts_from_the_last_look(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        await _seen(scene, ago=timedelta(days=1))
+
+        body = (await api.get("/")).text
+
+        assert "Since yesterday" in body
+        assert "you last looked yesterday" in body
+        assert "Welcome back, Today" in body
+
+    async def test_it_says_what_happened_and_offers_nothing_to_press(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            session.add(
+                Finding(
+                    user_id=scene["user"].id,
+                    security_id=scene["security"].id,
+                    kind=FindingKind.PRICE_MOVE,
+                    justification="The close fell past the threshold you set. Nothing was filed.",
+                    observed={"company": "Contoso plc", "move_pct": "-12.4%", "window_days": 5},
+                )
+            )
+            session.add(
+                Job(
+                    work_order_id=scene["request"].id,
+                    workflow_version=refresh_service.WORKFLOW_VERSION,
+                    code_version="todayseed12345",
+                    status=JobStatus.SUCCEEDED,
+                    refresh_kind=refresh_service.REFRESH,
+                    refreshes_report_id=scene["report"].id,
+                    started_at=datetime.now(UTC) - timedelta(hours=2),
+                    finished_at=datetime.now(UTC) - timedelta(hours=1),
+                )
+            )
+            order = WorkOrder(user_id=scene["user"].id, tool=daily_pass.TOOL, as_of_date=AS_OF)
+            session.add(order)
+            await session.flush()
+            session.add(
+                Job(
+                    work_order_id=order.id,
+                    workflow_version=daily_pass.WORKFLOW_VERSION,
+                    code_version="todayseed12345",
+                    status=JobStatus.SUCCEEDED,
+                    started_at=datetime.now(UTC) - timedelta(minutes=20),
+                    finished_at=datetime.now(UTC) - timedelta(minutes=10),
+                )
+            )
+            await session.commit()
+
+        body = (await api.get("/")).text
+        since = body[body.index('id="since"') : body.index('id="needs-you"')]
+
+        assert "Contoso plc moved -12.4%" in since
+        assert "Fabrikam Inc&#39;s report was refreshed" in since
+        assert "The summary of what changed has not been read." in since
+        assert "The daily pass ran" in since
+        assert "<button" not in since
+        assert "<form" not in since
+
+    async def test_a_quiet_week_says_so(self, api: Any, scene: dict[str, Any]) -> None:
+        body = (await api.get("/")).text
+
+        assert 'id="nothing-happened"' in body
+        assert "Nothing happened in the last seven days." in body
+
+
+async def _seen(scene: dict[str, Any], *, ago: timedelta) -> None:
+    """The operator last opened Today ``ago``, having looked the week before that too."""
+    async with scene["factory"]() as session:
+        user = await session.get(User, scene["user"].id)
+        assert user is not None
+        user.today_seen_at = datetime.now(UTC) - ago
+        user.looked_before = datetime.now(UTC) - ago - timedelta(days=7)
+        await session.commit()
 
 
 # -- The first run ----------------------------------------------------------------------------
 
 
 class TestTheFirstRun:
-    async def test_bands_one_and_three_are_absent_and_band_two_is_one_card(
+    async def test_it_says_nothing_is_recorded_and_offers_the_first_request(
         self, api_settings: Any, db_engine: Any, fake_redis: Any
     ) -> None:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
@@ -460,11 +608,13 @@ class TestTheFirstRun:
                 build_app(api_settings, engine=db_engine, redis=fake_redis)
             ):
                 body = (await client.get("/")).text
+                assert "Nothing is recorded yet." in body
                 assert "Research your first company" in body
                 assert "Start with two things" in body
                 assert 'id="needs-you"' not in body
-                assert 'id="the-state-of-things"' not in body
+                assert 'id="worth-doing"' not in body
                 assert 'href="/requests/new"' in body
+                assert 'href="/settings"' in body
         finally:
             await delete_all(db_engine)
 

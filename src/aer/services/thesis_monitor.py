@@ -109,6 +109,7 @@ __all__ = [
     "finding_of",
     "finding_payload",
     "findings_for",
+    "findings_since",
     "measurable_metrics",
     "predicate_holds",
     "predicate_sentence",
@@ -1205,6 +1206,28 @@ async def _all_findings(session: AsyncSession, *, user_id: uuid.UUID) -> list[Fi
             # Scoped on the finding's own column (ADR 0120 §1), not through its thesis: a
             # price move on a watched listing has no thesis, and a join would drop it.
             .where(Finding.user_id == user_id)
+            .order_by(Finding.created_at.desc())
+        )
+    )
+
+
+async def findings_since(
+    session: AsyncSession, *, user_id: uuid.UUID, since: datetime
+) -> list[Finding]:
+    """This person's findings written after ``since``, open or resolved, newest first.
+
+    What Today's briefing reads: what the monitor noticed while the operator was away,
+    whether or not anybody has acted on it since.
+    """
+    return list(
+        await session.scalars(
+            select(Finding)
+            .options(
+                selectinload(Finding.thesis),
+                selectinload(Finding.premise),
+                selectinload(Finding.security),
+            )
+            .where(Finding.user_id == user_id, Finding.created_at > since)
             .order_by(Finding.created_at.desc())
         )
     )

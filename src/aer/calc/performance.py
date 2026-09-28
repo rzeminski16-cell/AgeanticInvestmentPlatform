@@ -52,6 +52,7 @@ __all__ = [
     "grouped_value",
     "investor_side",
     "money_weighted_return",
+    "share_of_the_book",
     "time_weighted_return",
     "top_holdings_share",
     "value_before_flows",
@@ -382,6 +383,45 @@ def top_holdings_share(
 
     ranked = sorted((weight.value for weight in weights), reverse=True)
     return Quantity.of(sum(ranked[:count], Decimal(0)), DIMENSIONLESS)
+
+
+@traced(
+    name="share_of_the_book",
+    formula="share = Σ weights",
+    assumptions=(
+        "The weights are the holdings the caller names, each already a fraction of the same "
+        "book's net assets. The sum is theirs and says nothing about the rest of the book.",
+    ),
+)
+def share_of_the_book(_context: CalculationContext, *, weights: Sequence[Quantity]) -> Quantity:
+    """How much of the book the named holdings are, together.
+
+    Today's verdict states it for the positions whose reasoning is not standing — *together
+    15.9% of the book* — and the strip beneath it for the cash it leaves out. A sum of weights
+    rather than :func:`top_holdings_share`, because the holdings are chosen by what the record
+    says about them, not by size, and a lineage naming a ranking would describe a different
+    figure.
+
+    Raises:
+        CalculationError: If there are no weights: the share of nothing named is a question
+            about what was meant, not zero.
+        UnitMismatchError: If any weight carries a unit — a weight is a fraction, and a
+            currency here is an argument passed in the wrong place.
+    """
+    if not weights:
+        message = (
+            "No holdings were named, so there is no share to state. Zero would be a claim "
+            "that the named holdings are worth nothing."
+        )
+        raise CalculationError(message, context={"weights": 0})
+    for weight in weights:
+        if weight.unit != DIMENSIONLESS:
+            message = (
+                f"A weight in {weight.unit.symbol} is not a fraction of the book. A value "
+                "passed where a weight belongs makes the share a currency amount."
+            )
+            raise UnitMismatchError(message, context={"unit": weight.unit.symbol})
+    return Quantity.of(sum((weight.value for weight in weights), Decimal(0)), DIMENSIONLESS)
 
 
 # -- Shared guards ---------------------------------------------------------------------------

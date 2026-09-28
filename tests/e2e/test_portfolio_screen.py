@@ -29,7 +29,7 @@ TRADE_DATE = "2026-06-15"
 def _open_the_book(page: Page, live_server: str) -> None:
     """Everything a person does to get from the front page to a book that exists."""
     page.goto(live_server)
-    page.locator('[data-tool="portfolio"] [data-field="action"]').click()
+    page.locator('nav[aria-label="Main"]').get_by_role("link", name="Portfolio").click()
     page.wait_for_url("**/portfolio")
 
     # A book is one row and the table has held it since day one, so this is a create form
@@ -86,14 +86,14 @@ class TestTheBookFromNothing:
         expect(page.get_by_text("Nothing recorded yet")).to_be_visible()
 
     def test_the_tool_is_reachable_from_the_front_page(self, page: Page, live_server: str) -> None:
-        # The launcher's claim, checked: portfolio works now, and its row carries the one
-        # thing you most often want to do with it.
+        # The menu's claim, checked: Portfolio is one of the six destinations, and it opens
+        # on the book — here, the form that starts one.
         page.goto(live_server)
 
-        row = page.locator('[data-tool="portfolio"]')
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Portfolio").click()
 
-        expect(row).to_have_attribute("data-status", "Working")
-        expect(row.locator('[data-field="action"]')).to_contain_text("Record a transaction")
+        page.wait_for_url("**/portfolio")
+        expect(page.locator("#create-book")).to_be_visible()
 
     def test_a_sale_entered_positive_is_refused_rather_than_adding_shares(
         self, page: Page, live_server: str

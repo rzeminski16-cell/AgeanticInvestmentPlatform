@@ -61,7 +61,10 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   ending with the request form filled in; the name is on the menu and in every page title;
   the footer is the drawing's. Skills is called Methods from here on.*
 - **U2 — Today**, the drawn hub, with the last visit recorded so the briefing knows where to
-  start.
+  start. *Built 28 September: the verdict with the book's figures and the conviction strip,
+  the briefing since the last look (revision 0092), the numbered queue with one word each, the
+  start box and the earned suggestions; the launcher left the page, and its tests now walk the
+  menu. The fifth suggestion waits for U5's limits.*
 - **U3 — Research.** The report reader with its section spine and evidence drawer; the request
   form with its price on the button; the run page's five stages and decision panel; the
   library's collapsed versions; Ask's tiers; Methods; Knowledge.
