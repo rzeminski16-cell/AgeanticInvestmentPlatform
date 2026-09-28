@@ -13,6 +13,7 @@ which resolve to nothing and exercise none of it.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -24,12 +25,14 @@ from aer.calc.units import Quantity, SourceRef
 from aer.core.enums import JobStatus, ShockKind, UserRole
 from aer.db.models import (
     Company,
+    Job,
     Portfolio,
     Question,
     RiskScenario,
     RiskScenarioShock,
     Security,
     User,
+    WorkOrder,
 )
 from aer.services import calculations as calculation_service
 from aer.services.calculations import new_context
@@ -107,7 +110,13 @@ async def scene(db_engine: Any) -> Any:
         ratio(ledger, numerator=priced, denominator=stated)
         rows = await calculation_service.persist_context(session, ledger, job_id=job.id)
         await session.commit()
-        yield {"top": rows[-1].id, "rows": [row.id for row in rows]}
+        yield {
+            "top": rows[-1].id,
+            "rows": [row.id for row in rows],
+            "job": job.id,
+            "user": user.id,
+            "company": company.id,
+        }
     await delete_all(db_engine)
 
 
@@ -150,3 +159,81 @@ class TestEveryLeafRenders:
             "questions",
         }
         assert all(leaf.is_resolved for leaf in tree.leaves)
+
+
+class TestTheWayBack:
+    """The page links back to where its figure came from (ROADMAP §3.19 item 88).
+
+    Five kinds of work strike calculations, and the breadcrumb said *The valuation* on all of
+    them, sending a risk figure's or an answer's walk to a research page about a run that had
+    no valuation.
+    """
+
+    async def test_a_research_figure_goes_back_to_its_valuation(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        page = (await api.get(f"/calculations/{scene['top']}")).text
+
+        assert f'href="/runs/{scene["job"]}/valuation"' in page
+        assert "The valuation" in page
+
+    async def test_a_risk_figure_goes_back_to_risk(
+        self, api: Any, scene: dict[str, Any], db_engine: Any
+    ) -> None:
+        calculation = await _struck_under(db_engine, scene, tool="risk")
+
+        page = (await api.get(f"/calculations/{calculation}")).text
+
+        assert 'href="/risk"' in page
+        assert "The valuation" not in page
+
+    async def test_an_answer_figure_goes_back_to_its_question(
+        self, api: Any, scene: dict[str, Any], db_engine: Any
+    ) -> None:
+        calculation = await _struck_under(db_engine, scene, tool="ask", with_question=True)
+
+        page = (await api.get(f"/calculations/{calculation}")).text
+
+        assert 'href="/ask/' in page
+        assert "The answer" in page
+        assert "The valuation" not in page
+
+
+async def _struck_under(
+    db_engine: Any, scene: dict[str, Any], *, tool: str, with_question: bool = False
+) -> Any:
+    """One calculation, struck by a run of another tool for the scene's operator."""
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        order = WorkOrder(user_id=scene["user"], tool=tool, as_of_date=AS_OF_DATE)
+        session.add(order)
+        await session.flush()
+        job = Job(
+            work_order_id=order.id,
+            workflow_version="test",
+            code_version="test",
+            status=JobStatus.SUCCEEDED,
+            started_at=datetime.now(UTC),
+        )
+        session.add(job)
+        await session.flush()
+        if with_question:
+            session.add(
+                Question(
+                    user_id=scene["user"],
+                    company_id=scene["company"],
+                    job_id=job.id,
+                    question="What if the discount rate were a point higher?",
+                    tier=1,
+                    tier_rationale="A changed input to a stored model.",
+                )
+            )
+        ledger = new_context()
+        ratio(
+            ledger,
+            numerator=Quantity.of(Decimal("2"), source=SourceRef.assumption("stated")),
+            denominator=Quantity.of(Decimal("4"), source=SourceRef.assumption("stated")),
+        )
+        rows = await calculation_service.persist_context(session, ledger, job_id=job.id)
+        await session.commit()
+        return rows[-1].id

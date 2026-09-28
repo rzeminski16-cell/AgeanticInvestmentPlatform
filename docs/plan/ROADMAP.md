@@ -3295,6 +3295,17 @@ found rather than as scope that was always there.
     `tests/test_request_form.py` builds runs with cost rows under a request and reads the row:
     finished and £1.37; the newer of two runs, with both runs' spend; and a request that never
     ran, still *Draft* at £0.00. The first two failed before the fix.
+88. **A figure's walk from the risk page or an answer led back to a research page, 28 September
+    2026.** Found in the same audit. The calculation page's one way back was hard-wired to
+    *The valuation* of the run that struck the figure. A research run, a risk reading, a
+    question, a review and the daily pass all strike calculations, and only the first has a
+    valuation, so every other walk ended on a page about a run with nothing to show.
+
+    **Fixed 28 September 2026.** The way back is chosen by the kind of work that struck the
+    figure: the risk page, the answer the question was asked on, the review, the monitor, the
+    portfolio or the watchlist, and the valuation for a research run as before.
+    `tests/test_calculation_page.py` strikes a figure under a risk run and under a question and
+    reads each page's way back; both failed before the fix.
 
 ### Before this leaves one machine
 

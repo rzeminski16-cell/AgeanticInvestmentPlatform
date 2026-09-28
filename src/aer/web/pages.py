@@ -66,6 +66,7 @@ from aer.db.models import (
     Job,
     JobStep,
     ObsidianExport,
+    Question,
     Report,
     ReportSection,
     ResearchPlan,
@@ -2927,7 +2928,7 @@ async def calculation_detail(
             "lineage": rows,
             "request_id": job.work_order_id,
             "job_id": job.id,
-            "back_href": f"/runs/{job.id}/valuation",
+            "back": await _calculation_back(session, job=job),
             "shown_output": display.scalar(
                 calculation.output_value,
                 style=style,
@@ -3629,6 +3630,37 @@ async def report_preview(
 
 
 # -- Internals ---------------------------------------------------------------------------
+
+
+# Where a figure's walk returns to, by the kind of work that struck it. A research run, a risk
+# reading, a question, a review and the daily pass all strike calculations, and a breadcrumb
+# that always said "The valuation" sent every one but the first to a research page about a run
+# that had no valuation (ROADMAP §3.19 item 88).
+_CALCULATION_BACK: Final[dict[str, tuple[str, str]]] = {
+    "risk": ("/risk", "Risk"),
+    "review": ("/review", "Post-trade review"),
+    "monitor": ("/monitor", "Monitor"),
+    "daily": ("/monitor", "Monitor"),
+    "portfolio": ("/portfolio", "Portfolio"),
+    "watchlist": ("/watchlist", "Watchlist"),
+}
+
+
+async def _calculation_back(session: AsyncSession, *, job: Job) -> dict[str, str]:
+    """The link a calculation page offers back to the page its figure came from."""
+    order = await session.get(WorkOrder, job.work_order_id) if job.work_order_id else None
+    tool = order.tool if order is not None else "research"
+    if tool == "ask":
+        question = await session.scalar(
+            select(Question.id).where(Question.job_id == job.id).limit(1)
+        )
+        if question is not None:
+            return {"href": f"/ask/{question}", "label": "The answer"}
+        return {"href": "/ask", "label": "Ask"}
+    if tool in _CALCULATION_BACK:
+        href, label = _CALCULATION_BACK[tool]
+        return {"href": href, "label": label}
+    return {"href": f"/runs/{job.id}/valuation", "label": "The valuation"}
 
 
 async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> Job | None:

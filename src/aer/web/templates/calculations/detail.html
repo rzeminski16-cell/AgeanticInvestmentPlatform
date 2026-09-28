@@ -21,7 +21,7 @@
   {{ ui.page_header(
     calculation.name,
     eyebrow="CALCULATION",
-    breadcrumbs=([{"href": back_href, "label": "The valuation"}] if back_href else []),
+    breadcrumbs=[back],
   ) }}
 
   {{ ui.verdict("HOW THIS NUMBER EXISTS", verdict.composed, tone=verdict.tone.value) }}
