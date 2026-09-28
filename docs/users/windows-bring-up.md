@@ -63,16 +63,19 @@ docker compose ps           # both healthy
 
 - [ ] **Fill in the lines `.env` already has; add none.** *(28 September 2026.)* The copy has
       an empty line for each of the five, and where a name appears twice the later line wins,
-      so a filled line added above the template's empty one reads as blank. The first command
-      below names any variable set twice and should print nothing. The second should print
+      so a filled line added above the template's empty one reads as blank. Open it from the
+      repository folder with `notepad .env`, so the edit lands in this exact file. The first
+      command below names any variable set twice and should print nothing. The second prints
+      `set` or `EMPTY` for each of the five, never a value. The third should print
       `settings ok:` with your user agent and the month's budget:
 
       ```powershell
       Select-String -Path .env -Pattern '^\s*(?:export\s+)?(AER_\w+)\s*=' | Group-Object { $_.Matches[0].Groups[1].Value } | Where-Object Count -gt 1 | Select-Object Name, Count
+      uv run python -c "from dotenv import dotenv_values; v = dotenv_values('.env'); [print(k, 'set' if v.get(k) else 'EMPTY') for k in ('AER_HTTP_USER_AGENT', 'AER_ANTHROPIC_API_KEY', 'AER_EODHD_API_KEY', 'AER_FRED_API_KEY', 'AER_COMPANIES_HOUSE_API_KEY')]; print('AER_MONTHLY_BUDGET_GBP', v.get('AER_MONTHLY_BUDGET_GBP'))"
       uv run python -c "from aer.config import load_settings; s = load_settings(); print('settings ok:', s.http_user_agent, '| month', s.monthly_budget_gbp)"
       ```
 
-      If the second still calls `AER_HTTP_USER_AGENT` blank, this says whether the blank comes
+      If the third still calls `AER_HTTP_USER_AGENT` blank, this says whether the blank comes
       from `.env` or from a Windows environment variable, which overrides the file:
 
       ```powershell
