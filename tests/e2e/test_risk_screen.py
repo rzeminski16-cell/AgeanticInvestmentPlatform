@@ -113,9 +113,10 @@ class TestTheRiskPage:
     ) -> None:
         run_async(_seed(database_url, tmp_path))
 
-        # From the launcher, the book's own figures with their lineage, and the reading.
+        # Through the menu, the book's own figures with their lineage, and the reading.
         page.goto(live_server)
-        page.locator('[data-tool="risk"] [data-field="action"]').click()
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Portfolio").click()
+        page.locator('nav[aria-label="Portfolio"]').get_by_role("link", name="Risk").click()
         page.wait_for_url("**/risk**")
         expect(page.locator('[data-figure="annualised-volatility"]')).to_be_visible()
         # Computed on the way to the page and persisted nowhere, so no calculation link is

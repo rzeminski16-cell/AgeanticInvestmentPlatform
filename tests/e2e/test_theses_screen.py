@@ -39,8 +39,10 @@ async def _seed_a_company(database_url: str) -> None:
 
 
 def _open_the_tool(page: Page, live_server: str) -> None:
+    # Through the menu: the theses are a tab of Companies since the launcher left Today.
     page.goto(live_server)
-    page.locator('[data-tool="theses"] [data-field="action"]').click()
+    page.locator('nav[aria-label="Main"]').get_by_role("link", name="Companies").click()
+    page.locator('nav[aria-label="Companies"]').get_by_role("link", name="Theses").click()
     page.wait_for_url("**/theses")
 
 

@@ -113,8 +113,9 @@ class TestHappyPath:
         expect(page.get_by_role("link", name="Microsoft Corporation", exact=True)).to_be_visible()
 
     def test_reaching_the_form_from_the_landing_page(self, page: Page, live_server: str):
+        # Today's start box is where a first request begins (page specification §1).
         page.goto(live_server)
-        page.get_by_role("link", name="Start a research request").click()
+        page.locator("#start-something").get_by_role("link", name="Commission research").click()
 
         expect(page).to_have_url(f"{live_server}/requests/new")
 

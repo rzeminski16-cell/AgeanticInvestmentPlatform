@@ -19,9 +19,10 @@ pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
 class TestFollowThenCommission:
     def test_follow_commission_and_stop(self, page: Page, live_server: str) -> None:
-        # From the launcher to the form.
+        # Through the menu to the form: the watchlist is a tab of Companies.
         page.goto(live_server)
-        page.locator('[data-tool="watchlist"] [data-field="action"]').click()
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Companies").click()
+        page.locator('nav[aria-label="Companies"]').get_by_role("link", name="Watchlist").click()
         page.wait_for_url("**/watchlist")
         expect(page.get_by_text("Nothing followed")).to_be_visible()
 
