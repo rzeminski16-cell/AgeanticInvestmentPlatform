@@ -43,7 +43,7 @@ from aer.api.deps import (
 )
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
-from aer.core.enums import AnalysisMode
+from aer.core.enums import AnalysisMode, JobStatus
 from aer.core.schemas.request import (
     SUPPORTED_CURRENCIES,
     EsgSensitivity,
@@ -243,14 +243,14 @@ async def list_requests_page(
             "counterpart": counterpart,
             "csrf_token": token,
             "csrf_field": CSRF_FIELD_NAME,
-            # The sentence and the colour for each state, from the one vocabulary. `SUBMITTED`
-            # is a database value; "Waiting for your plan decision" is what the row is for, and
-            # deriving both here means the list and every other surface cannot disagree.
-            "request_labels": {
-                status: state.label for status, state in vocabulary.REQUEST_STATES.items()
-            },
-            "request_tones": {
-                status: state.tone.value for status, state in vocabulary.REQUEST_STATES.items()
+            # Each row's state in the one vocabulary: the newest run's, as its console words
+            # it, or the request's own for a request that never ran. The request's column
+            # alone said *Draft* beside every approved report (ROADMAP §3.19 item 87).
+            "state_by_request": {
+                item.id: _row_state(item, run)
+                for item, run in zip(
+                    rows, await request_service.latest_runs_for(session, rows=rows), strict=True
+                )
             },
             # What each request has cost so far, already rendered. A row that showed a mandate
             # and not its spend is a row that answers the cheaper half of the question.
@@ -268,6 +268,13 @@ async def list_requests_page(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+def _row_state(item: Any, run: JobStatus | None) -> vocabulary.HumanState:
+    """A list row's state: its newest run's, or the request's own when it never ran."""
+    if run is not None:
+        return vocabulary.JOB_STATES[run]
+    return vocabulary.REQUEST_STATES[item.work_order.status]
 
 
 # The blank form holds the defaults its own hints promise. The schema defaults the base

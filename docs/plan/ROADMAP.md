@@ -3280,6 +3280,21 @@ found rather than as scope that was always there.
     listing, a stated shock, a planned weight and a question, and asserts every leaf resolved,
     so the page cannot pass by showing them as missing. `tests/test_provenance_surfaces.py`
     renders a claim that names a stored fact. Each test answered 500 before its fix.
+87. **The requests list said Draft and £0.00 beside every approved report, 28 September
+    2026.** Found auditing the build against the approved page specification. Two halves.
+    Nothing in the research workflow moves a research request's status past *Draft* — the
+    daily pass, the monitor, Ask, the risk page and the post-trade review each set their own
+    order's status, and a research run never did — and the list printed that column. And the
+    spend column summed `jobs.total_cost_gbp`, which a research run never writes: every
+    research job in the V1.0 corpus holds 0.0000 while its cost rows hold £1.37 to £7.46. The
+    console's spend and the costs page read the cost rows, so only the list was wrong.
+
+    **Fixed 28 September 2026.** A row's state is its newest run's, in the words the console
+    uses, and a request that never ran keeps the status it was written with; the spend is the
+    sum of its runs' cost rows, the source the other two surfaces read.
+    `tests/test_request_form.py` builds runs with cost rows under a request and reads the row:
+    finished and £1.37; the newer of two runs, with both runs' spend; and a request that never
+    ran, still *Draft* at £0.00. The first two failed before the fix.
 
 ### Before this leaves one machine
 

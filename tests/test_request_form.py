@@ -17,14 +17,15 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.api.security import CSRF_COOKIE_NAME, issue_csrf_token
-from aer.core.enums import UserRole
-from aer.db.models import JobCancellation, ResearchRequest, User
+from aer.core.enums import JobStatus, UserRole
+from aer.db.models import Cost, Job, JobCancellation, ResearchRequest, User
 from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
@@ -711,6 +712,87 @@ class TestTheListPageIssuesATokenForItsActions:
 
         assert f'action="/requests/{request_id}/archive"' in body
         assert f'href="/requests/{request_id}/remove"' in body
+
+
+class TestTheListSaysWhatEachRequestBecame:
+    """A row's state is its newest run's, and its spend is what its runs were billed.
+
+    Nothing in the research workflow moves a request past *Draft*, and no research run writes
+    the job's running total, so the list said *Draft* and £0.00 beside every report the
+    operator had approved (ROADMAP §3.19 item 87). It reads the run and the cost rows now,
+    which are what the console and the costs page read.
+    """
+
+    async def test_a_request_that_ran_shows_its_run_and_what_it_cost(self, web, db_engine):
+        request_id = uuid.UUID(await a_saved_request(web))
+        await _a_run(db_engine, request_id, JobStatus.SUCCEEDED, costs=("1.20", "0.17"))
+
+        row = _row_of((await web.get(LIST)).text, request_id)
+
+        assert "Finished" in row
+        assert "Draft" not in row
+        assert "£1.37" in row
+
+    async def test_the_newest_run_is_the_one_shown(self, web, db_engine):
+        request_id = uuid.UUID(await a_saved_request(web))
+        await _a_run(db_engine, request_id, JobStatus.CANCELLED, costs=("0.50",), hours_ago=2)
+        await _a_run(db_engine, request_id, JobStatus.AWAITING_APPROVAL, costs=("0.25",))
+
+        row = _row_of((await web.get(LIST)).text, request_id)
+
+        assert "Waiting for you" in row
+        assert "Cancelled" not in row
+        # Every run the request has had, not only the newest one's.
+        assert "£0.75" in row
+
+    async def test_a_request_that_never_ran_is_still_a_draft_that_cost_nothing(self, web):
+        request_id = uuid.UUID(await a_saved_request(web))
+
+        row = _row_of((await web.get(LIST)).text, request_id)
+
+        assert "Draft" in row
+        assert "£0.00" in row
+
+
+async def _a_run(
+    db_engine,
+    request_id: uuid.UUID,
+    status: JobStatus,
+    *,
+    costs: tuple[str, ...],
+    hours_ago: int = 0,
+) -> None:
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        job = Job(
+            work_order_id=request_id,
+            workflow_version="test",
+            code_version="test",
+            status=status,
+            started_at=datetime.now(UTC) - timedelta(hours=hours_ago),
+        )
+        session.add(job)
+        await session.flush()
+        session.add_all(
+            Cost(
+                job_id=job.id,
+                category="llm_output",
+                provider="anthropic",
+                units=Decimal(1000),
+                unit_type="tokens",
+                amount_usd=Decimal(amount),
+                amount_gbp=Decimal(amount),
+                fx_rate=Decimal(1),
+            )
+            for amount in costs
+        )
+        await session.commit()
+
+
+def _row_of(page: str, request_id: uuid.UUID) -> str:
+    """The list's table row for one request, so an assertion cannot pass on another row."""
+    start = page.index(f'href="/requests/{request_id}"')
+    return page[page.rindex("<tr", 0, start) : page.index("</tr>", start)]
 
 
 class TestTheDestructiveRoutesAreCsrfProtected:

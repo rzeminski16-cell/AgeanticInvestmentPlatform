@@ -53,7 +53,7 @@ from sqlalchemy import ColumnElement, Select, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
-from aer.core.enums import RequestStatus
+from aer.core.enums import JobStatus, RequestStatus
 from aer.core.schemas.request import (
     FieldProblem,
     PortfolioContext,
@@ -1149,13 +1149,19 @@ async def spend_for(session: AsyncSession, *, rows: Sequence[ResearchRequest]) -
 
     Zero where a request has never run, which is a true statement about it: nothing has been
     spent, and the row saying `£0.00` is different from a row that cannot say.
+
+    **Summed from the cost rows, never from the job's running total.** A research run writes
+    a cost row for every call it pays for and never writes ``jobs.total_cost_gbp``, so the
+    total read zero beside every report an operator had paid for (ROADMAP §3.19 item 87).
+    The rows are what the console's spend and the costs page read, so the three agree.
     """
     if not rows:
         return []
     found = await session.execute(
         # Grouped by the run root, which is the mandate's own id: a job's spend belongs to
         # the run, and a request is one run's subject.
-        select(Job.work_order_id, func.coalesce(func.sum(Job.total_cost_gbp), 0))
+        select(Job.work_order_id, func.coalesce(func.sum(Cost.amount_gbp), 0))
+        .join(Cost, Cost.job_id == Job.id)
         .where(Job.work_order_id.in_([item.id for item in rows]))
         .group_by(Job.work_order_id)
     )
@@ -1163,3 +1169,29 @@ async def spend_for(session: AsyncSession, *, rows: Sequence[ResearchRequest]) -
         work_order_id: total for work_order_id, total in found.all() if work_order_id is not None
     }
     return [totals.get(item.id, Decimal(0)) for item in rows]
+
+
+async def latest_runs_for(
+    session: AsyncSession, *, rows: Sequence[ResearchRequest]
+) -> list[JobStatus | None]:
+    """Where each request's newest run stands, in the order given, or ``None`` if it never ran.
+
+    A request's own status column says *Draft* for ever: nothing in the research workflow
+    moves it on, and a run's state lives on the run (ROADMAP §3.19 item 87). So the list asks
+    the run, as the console does, and a request that never ran keeps the status it was written
+    with. One query for the page, for the reason :func:`spend_for` gives.
+    """
+    if not rows:
+        return []
+    newest = (
+        select(Job.work_order_id, Job.status)
+        .where(Job.work_order_id.in_([item.id for item in rows]))
+        .distinct(Job.work_order_id)
+        .order_by(Job.work_order_id, Job.started_at.desc().nulls_last(), Job.id.desc())
+    )
+    found: dict[uuid.UUID, JobStatus] = {
+        work_order_id: status
+        for work_order_id, status in (await session.execute(newest)).all()
+        if work_order_id is not None
+    }
+    return [found.get(item.id) for item in rows]

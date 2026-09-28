@@ -53,11 +53,12 @@
             </td>
             <td class="border-b border-line py-3 pr-4">
               {#
-                The sentence rather than the enum. `SUBMITTED` is a database value; "Waiting
-                for your plan decision" is what the row is for. The raw value stays reachable
-                in the request's own technical record.
+                The sentence rather than the enum, and the run's rather than the request's: a
+                request's own status never moves past Draft, and its newest run is where it
+                stands. The raw values stay reachable in the request's own technical record.
               #}
-              {{ ui.status(request_tones[item.work_order.status], request_labels[item.work_order.status]) }}
+              {% set state = state_by_request[item.id] %}
+              {{ ui.status(state.tone.value, state.label) }}
             </td>
             {{ ui.cell(spend_by_request.get(item.id, "—"), numeric=true) }}
             <td class="border-b border-line py-3 whitespace-nowrap">
