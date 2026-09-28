@@ -3263,6 +3263,23 @@ found rather than as scope that was always there.
     spellings are one key. `tests/test_backup.py` keys a file found under a Windows path, and
     verifies a real backup whose index was rewritten with backslashes. CI runs on Linux only,
     so these are the only Windows paths any test sees.
+86. **The walk from a figure to its source answered 500 whenever it passed a price, 28
+    September 2026.** Found while diagnosing the operator's stage 5, where walking a figure is
+    the check. The calculation page read a leaf's detail by attribute, and under strict
+    undefined a key that relation never writes is a server error. A listing's leaf names no
+    document, so every valuation struck on market weights (Phase 4.2) failed the walk the
+    report's footnotes send a reader on. Three assumption-kind leaves carry no justification —
+    a stated shock, a planned weight, a question's what-if — so the risk page's working, the
+    closing section's figures and Ask's recomputes failed the same way. The claim page had the
+    same defect for every claim that names a stored fact or an attestation, whose figure has no
+    formula. No test had built any of these leaves: the valuation tests cite made-up ids,
+    which resolve to *missing*, and the claim fixtures name no figure.
+
+    **Fixed 28 September 2026.** Both templates read a leaf's detail with `.get`.
+    `tests/test_calculation_page.py` renders the page over one calculation resting on a
+    listing, a stated shock, a planned weight and a question, and asserts every leaf resolved,
+    so the page cannot pass by showing them as missing. `tests/test_provenance_surfaces.py`
+    renders a claim that names a stored fact. Each test answered 500 before its fix.
 
 ### Before this leaves one machine
 

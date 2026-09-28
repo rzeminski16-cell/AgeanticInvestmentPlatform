@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import ClaimKind, SourceTier
-from aer.db.models import Extraction
+from aer.db.models import Claim, Extraction, FinancialFact
 from aer.services import provenance
 from aer.services.citations import override_citation
 from aer.storage.local import LocalArtefactStore
@@ -581,6 +581,28 @@ class TestTheClaimPage:
         client, _ = served
 
         assert (await client.get(f"/claims/{uuid.uuid4()}")).status_code == 404
+
+    async def test_a_claim_on_a_stored_fact_shows_the_page(
+        self, served: Any, db_engine: Any
+    ) -> None:
+        # A fact's figure has no formula. Reading the key by attribute under strict
+        # undefined made every claim that names a fact a server error (ROADMAP §3.19
+        # item 86); the fixture's claims name no figure, so nothing here had built one.
+        client, built = served
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            fact = (await session.execute(select(FinancialFact).limit(1))).scalar_one()
+            claim = await session.get(Claim, built["supported_claim"].id)
+            assert claim is not None
+            claim.kind = ClaimKind.NUMERIC
+            claim.financial_fact_id = fact.id
+            await session.commit()
+
+        page = await client.get(f"/claims/{built['supported_claim'].id}")
+
+        assert page.status_code == 200, page.text[:2000]
+        assert SUPPORTED_SENTENCE in page.text
 
 
 @pytest.mark.integration

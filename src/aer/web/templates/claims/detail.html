@@ -66,8 +66,10 @@
               >the full walk to its inputs</a>
             {% endif %}
           </dd>
-          {% if claim.figure.detail.formula %}
-            <dd class="mt-2 type-data-sm text-ink-muted">{{ claim.figure.detail.formula }}</dd>
+          {# Only a calculation has a formula; a stored fact or an attestation has none,
+             and a key read by attribute under strict undefined is a server error. #}
+          {% if claim.figure.detail.get('formula') %}
+            <dd class="mt-2 type-data-sm text-ink-muted">{{ claim.figure.detail.get('formula') }}</dd>
           {% endif %}
         </div>
       </dl>

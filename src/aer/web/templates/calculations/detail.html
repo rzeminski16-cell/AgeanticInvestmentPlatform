@@ -69,7 +69,14 @@
               <tr>
                 <th scope="row" class="py-3 pr-4 text-left">
                   <span class="type-body text-ink" style="padding-left: {{ node.depth }}rem">{{ node.label or node.kind }}</span>
-                  {% if node.kind == 'assumption' and node.detail.justification %}
+                  {#
+                    A leaf's detail is read with `.get`, never by attribute: the keys differ
+                    by relation, and under strict undefined a key one relation never writes
+                    is a server error. Only a gate's assumption carries a justification — a
+                    stated shock, a planned weight or a question's what-if is an assumption
+                    with none — and a listing names no document (ROADMAP §3.19 item 86).
+                  #}
+                  {% if node.kind == 'assumption' and node.detail.get('justification') %}
                     {# The justification, in place. An assumption is the judgement in a
                        chain of measurements; naming it without saying why would make the
                        one arguable input the one nobody can argue with. #}
@@ -77,7 +84,7 @@
                       class="mt-1 block max-w-prose type-body-sm text-ink-muted"
                       style="padding-left: {{ node.depth }}rem"
                       data-field="justification"
-                    >{{ node.detail.justification }}</span>
+                    >{{ node.detail.get('justification') }}</span>
                   {% endif %}
                 </th>
                 <td class="py-3 pr-4 text-right type-data text-ink">
@@ -85,7 +92,7 @@
                 </td>
                 <td class="py-3 pr-4">
                   {% if node.figure.provenance %}
-                    {% if node.kind == 'fact' and node.detail.source_document_id %}
+                    {% if node.kind == 'fact' and node.detail.get('source_document_id') %}
                       <span data-field="fact-source">{{ ui.provenance(node.figure.provenance) }}</span>
                     {% else %}
                       {{ ui.provenance(node.figure.provenance) }}
