@@ -68,13 +68,19 @@ docker compose ps           # both healthy
       `settings ok:` with your user agent and the month's budget:
 
       ```powershell
-      Select-String -Path .env -Pattern '^(AER_\w+)\s*=' | Group-Object { $_.Matches[0].Groups[1].Value } | Where-Object Count -gt 1 | Select-Object Name, Count
+      Select-String -Path .env -Pattern '^\s*(?:export\s+)?(AER_\w+)\s*=' | Group-Object { $_.Matches[0].Groups[1].Value } | Where-Object Count -gt 1 | Select-Object Name, Count
       uv run python -c "from aer.config import load_settings; s = load_settings(); print('settings ok:', s.http_user_agent, '| month', s.monthly_budget_gbp)"
       ```
 
-      If the second still calls `AER_HTTP_USER_AGENT` blank, an empty Windows environment
-      variable of that name is overriding the file:
-      `Get-ChildItem Env: | Where-Object Name -like 'AER_*'` names any.
+      If the second still calls `AER_HTTP_USER_AGENT` blank, this says whether the blank comes
+      from `.env` or from a Windows environment variable, which overrides the file:
+
+      ```powershell
+      uv run python -c "import os; from dotenv import dotenv_values; print('.env says:', repr(dotenv_values('.env').get('AER_HTTP_USER_AGENT'))); print('environment says:', repr(os.environ.get('AER_HTTP_USER_AGENT')))"
+      ```
+
+      If `git status` lists `.env.example`, the values went into the template: move them to
+      `.env` and run `git checkout -- .env.example`, so no key sits in a tracked file.
 
 - [ ] **Clone the branch, not `main`.** *(27 September 2026.)* V1.0 is on
       `claude/v1-0-dev-plan-h1ege7` until it is merged. `main` is 138 commits behind: it stops
