@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import subprocess
 import sys
 import time
@@ -573,26 +574,39 @@ class TestTheSandbox:
 
 
 def _child_processes() -> int:
-    """How many parse children are alive.
+    """How many parse children of this test process are alive.
 
     Reads ``/proc``, so it counts nothing on Windows or macOS. That is tolerable because the
     test compares against a baseline taken the same way: where the count is unavailable both
     numbers are zero and the assertion is vacuous rather than wrong. A leaked process is the
     kind of defect CI catches, and CI is Linux.
+
+    **Children of this process only**, by the parent id in ``/proc/<pid>/status``. Counted by
+    name alone, a second test run on the same machine — the suite is run concurrently, one
+    process per database — was a parse child this process never started, and the malformed
+    PDF test failed for a leak that was somebody else's live parse.
     """
     proc = Path("/proc")
     if not proc.is_dir():  # pragma: no cover -- not Linux
         return 0
 
+    me = str(os.getpid())
     count = 0
     for entry in proc.iterdir():
         if not entry.name.isdigit():
             continue
         try:
-            if "aer.extract._child" in (entry / "cmdline").read_bytes().decode("utf-8", "replace"):
-                count += 1
+            command = (entry / "cmdline").read_bytes().decode("utf-8", "replace")
+            if "aer.extract._child" not in command:
+                continue
+            status = (entry / "status").read_text(encoding="utf-8", errors="replace")
         except OSError:  # pragma: no cover -- the process exited between listing and reading
             continue
+        parent = next(
+            (line.split()[1] for line in status.splitlines() if line.startswith("PPid:")), ""
+        )
+        if parent == me:
+            count += 1
     return count
 
 

@@ -49,11 +49,6 @@ LEDGER: dict[str, tuple[int, str]] = {
         "A skill's key, which the operator wrote themselves when they authored it. Their "
         "own word for their own file, and the version and kind beside it now read as words.",
     ),
-    "skills/list.html": (
-        2,
-        "The same operator-authored skill key, as the list's identity and in the toggle's "
-        "accessible name.",
-    ),
     "skills/import.html": (
         2,
         "The key of the skill being imported, which is what the operator is confirming they "
@@ -74,10 +69,6 @@ LEDGER: dict[str, tuple[int, str]] = {
         "The name of one input to a calculation, from the stored ledger row. Provenance: "
         "the reader is being shown what the formula called it, and renaming that would "
         "break the correspondence with the record.",
-    ),
-    "reports/detail.html": (
-        1,
-        "The same, for a report's own provenance listing.",
     ),
     "_ui/signatures.html": (
         1,
