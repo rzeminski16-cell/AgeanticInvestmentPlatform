@@ -45,6 +45,11 @@ day, in order. [Getting started](getting-started.md) has the detail behind each 
 - [ ] **The PostgreSQL 16 command-line tools.** The database runs inside Docker, but backup and
       restore call `pg_dump` and `pg_restore` on your machine. From the PostgreSQL 16 installer,
       tick only *Command Line Tools*, then add `C:\Program Files\PostgreSQL\16\bin` to `PATH`.
+      *(28 September 2026.)* The download page lists the newest version first: pick the 16.x
+      row, to match the database in Docker. PostgreSQL does not promise that a newer
+      `pg_restore` loads into an older server, and a backup taken with a newer `pg_dump`
+      restores only with that version's tools. Never tick the server: it would compete with
+      Docker's database for port 5432.
       Open a new terminal and check that `pg_restore --version` prints 16.
 - [ ] Optionally **just** (`winget install Casey.Just`). Every recipe is one `uv run …` line, so
       nothing below needs it.
