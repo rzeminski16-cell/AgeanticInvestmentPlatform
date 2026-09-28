@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from aer.core.enums import DecisionAction, JobStatus, TransactionKind, UserRole
 from aer.db.models import (
     Company,
+    Cost,
     Job,
     Portfolio,
     PriceBar,
@@ -128,9 +129,22 @@ async def scene(db_engine: Any) -> Any:
             status=JobStatus.SUCCEEDED,
             started_at=NOW - timedelta(days=2),
             finished_at=NOW - timedelta(days=2, hours=-1),
-            total_cost_gbp=Decimal("3.20"),
         )
         session.add(job)
+        await session.flush()
+        # Spent as a research run spends: cost rows, never the job's running total.
+        session.add(
+            Cost(
+                job_id=job.id,
+                category="llm_output",
+                provider="anthropic",
+                units=Decimal(1000),
+                unit_type="tokens",
+                amount_usd=Decimal("3.20"),
+                amount_gbp=Decimal("3.20"),
+                fx_rate=Decimal(1),
+            )
+        )
         await session.flush()
         report = Report(
             job_id=job.id,

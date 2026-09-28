@@ -25,7 +25,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.api.security import CSRF_COOKIE_NAME, issue_csrf_token
 from aer.core.enums import JobStatus, UserRole
-from aer.db.models import Cost, Job, JobCancellation, ResearchRequest, User
+from aer.db.models import Cost, Job, JobCancellation, Report, ResearchRequest, User
+from aer.errors import ValidationError
+from aer.runtime import Registers
 from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
@@ -95,7 +97,7 @@ class TestFormRenders:
         response = await web.get(NEW)
 
         assert response.status_code == 200
-        assert "New research request" in response.text
+        assert "Commission a report" in response.text
 
     async def test_it_issues_a_csrf_cookie_and_a_matching_hidden_input(self, web):
         response = await web.get(NEW)
@@ -902,3 +904,286 @@ class TestTheRemovalConfirmation:
         assert response.status_code == 303
         assert response.headers["location"] == "/requests"
         assert await count_requests(db_engine) == 0
+
+
+class TestWhatYouAreBuying:
+    """The panel beside the new form (page specification §6): every depth counted and
+    priced, the price on the button that buys it, and the decisions a run will ask for.
+
+    **A depth nobody has run is still priced as what it is.** The fallback was one flat
+    declared figure for every depth without history of its own, so an operator with ten
+    standard runs saw the quick screen at twice the price of the report it is a lighter
+    version of — the setting's effect on the estimate shown backwards, which the page
+    specification names as a thing the page must not do.
+    """
+
+    async def test_every_depth_says_what_it_writes_and_what_it_costs(self, web):
+        panel = _panel((await web.get(NEW)).text)
+
+        for depth, sections in (("quick", "9 sections"), ("standard", "18 sections")):
+            row = _depth_row(panel, depth)
+            assert sections in row
+            assert "about £" in row
+
+    async def test_a_depth_is_priced_from_its_own_finished_runs(self, web, db_engine):
+        await _finished_runs(web, db_engine, "standard", ("2.00", "4.00", "6.00"))
+
+        panel = _panel((await web.get(NEW)).text)
+
+        assert _price(panel, "standard") == Decimal("4.00")
+        assert "£2.00 to £6.00 over your 3 finished runs at this depth" in panel
+
+    async def test_a_depth_nobody_has_run_is_scaled_from_the_one_they_have(self, web, db_engine):
+        await _finished_runs(web, db_engine, "standard", ("2.00", "4.00", "6.00"))
+
+        panel = _panel((await web.get(NEW)).text)
+
+        # The factor the drafting budgets scale by: quick reads and writes 60% as much.
+        assert _price(panel, "quick") == Decimal("2.40")
+        assert _price(panel, "full") == Decimal("5.60")
+        assert "Scaled from your 3 finished standard runs" in panel
+
+    async def test_with_no_history_at_all_the_depths_still_differ(self, web):
+        panel = _panel((await web.get(NEW)).text)
+
+        assert _price(panel, "quick") < _price(panel, "standard") < _price(panel, "full")
+        assert "The workflow&#39;s own estimate" in panel
+
+    async def test_the_blank_form_opens_at_standard_and_the_button_says_its_price(self, web):
+        page = (await web.get(NEW)).text
+
+        assert re.search(r'value="standard"\s+checked', page)
+        start = page.index('id="commission"')
+        button = page[start : page.index("</button>", start)]
+        shown = re.findall(r'<span data-branch="(\w+)" >([^<]+)</span>', button)
+        assert shown == [("standard", f"Commission &mdash; about £{_price(page, 'standard')}")]
+
+    async def test_the_decisions_are_counted_from_the_gates_themselves(self, web):
+        panel = _panel((await web.get(NEW)).text)
+
+        assert 'id="decisions-asked">2 to 7<' in panel
+        assert "Every run stops for the plan and the report" in panel
+
+
+class TestCommissioning:
+    """*Commission* saves the request and starts its run in one press; *Save as a draft*
+    stays the other button and spends nothing. Both are the same POST, told apart by the
+    button that sent it, so the form has one set of rules whichever was pressed."""
+
+    async def test_commission_starts_the_run_and_opens_its_console(self, web, db_engine, enqueued):
+        token = await fresh_token(web)
+
+        response = await web.post(NEW, data=valid_form(csrf_token=token, intent="commission"))
+
+        assert response.status_code == 303
+        location = response.headers["location"]
+        assert re.fullmatch(r"/runs/[0-9a-f-]{36}", location)
+        job_id = location.rsplit("/", 1)[-1]
+        assert enqueued.job_ids == [job_id]
+        async with async_sessionmaker(bind=db_engine)() as session:
+            job = await session.get(Job, uuid.UUID(job_id))
+        assert job is not None
+
+    async def test_saving_as_a_draft_starts_nothing(self, web, db_engine, enqueued):
+        token = await fresh_token(web)
+
+        response = await web.post(NEW, data=valid_form(csrf_token=token))
+
+        assert response.headers["location"].startswith("/requests/")
+        assert enqueued.job_ids == []
+        async with async_sessionmaker(bind=db_engine)() as session:
+            assert (await session.scalars(select(Job))).all() == []
+
+    async def test_a_subject_the_register_refuses_is_refused_before_anything_is_saved(
+        self, api_settings, db_engine, fake_redis, web, enqueued
+    ):
+        refusing = Registers(
+            sec_client=_RefusingRegister(),  # type: ignore[arg-type]
+            companies_house_client=_RefusingRegister(),  # type: ignore[arg-type]
+        )
+        app = build_app(api_settings, engine=db_engine, redis=fake_redis, registers=refusing)
+        async for client in client_for(app):
+            token = await fresh_token(client)
+            response = await client.post(
+                NEW, data=valid_form(csrf_token=token, intent="commission")
+            )
+
+        assert response.status_code == 422
+        assert _REFUSAL in response.text
+        # The form as the operator left it, ready to correct and press again.
+        assert "How durable is the Azure margin?" in response.text
+        assert enqueued.job_ids == []
+        assert await count_requests(db_engine) == 0
+
+    async def test_a_company_with_a_current_report_is_offered_its_refresh_first(
+        self, web, db_engine, enqueued
+    ):
+        """Page specification §6: a warning band offering the refresh at its lower price,
+        before a new report is bought — a question, so nothing is saved or started."""
+        report_id = await _a_current_report(web, db_engine)
+        before = await count_requests(db_engine)
+        token = await fresh_token(web)
+
+        response = await web.post(NEW, data=valid_form(csrf_token=token, intent="commission"))
+
+        assert response.status_code == 200
+        offer = response.text[response.text.index('id="refresh-offer"') :]
+        assert "Microsoft Corporation (MSFT) already has a current report" in offer
+        assert f'action="/reports/{report_id}/refresh"' in offer
+        assert "Refresh — about £" in offer
+        assert 'value="commission_new"' in offer
+        assert await count_requests(db_engine) == before
+        assert enqueued.job_ids == []
+
+    async def test_a_new_report_anyway_is_commissioned_without_asking_again(
+        self, web, db_engine, enqueued
+    ):
+        await _a_current_report(web, db_engine)
+        token = await fresh_token(web)
+
+        response = await web.post(NEW, data=valid_form(csrf_token=token, intent="commission_new"))
+
+        assert response.status_code == 303
+        assert re.fullmatch(r"/runs/[0-9a-f-]{36}", response.headers["location"])
+        assert len(enqueued.job_ids) == 1
+
+    async def test_a_report_that_is_no_longer_current_offers_nothing(
+        self, web, db_engine, enqueued
+    ):
+        """A withdrawn report answers nothing about the company now, so there is nothing
+        to refresh and the commission goes ahead."""
+        await _a_current_report(web, db_engine, withdrawn=True)
+        token = await fresh_token(web)
+
+        response = await web.post(NEW, data=valid_form(csrf_token=token, intent="commission"))
+
+        assert response.status_code == 303
+        assert len(enqueued.job_ids) == 1
+
+
+async def _a_current_report(web, db_engine, *, withdrawn: bool = False) -> uuid.UUID:
+    """An approved report on the form's own company, from a request saved through it."""
+    request_id = uuid.UUID(await a_saved_request(web))
+    await _a_run(db_engine, request_id, JobStatus.SUCCEEDED, costs=("5.00",))
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        request = await session.get(ResearchRequest, request_id)
+        job = await session.scalar(select(Job).where(Job.work_order_id == request_id))
+        approved = datetime(2026, 9, 12, 10, 0, tzinfo=UTC)
+        report = Report(
+            job_id=job.id,
+            request_id=request_id,
+            as_of_date=request.work_order.as_of_date,
+            content={"markdown": "approved"},
+            content_hash="c" * 64,
+            approved_at=approved,
+            immutable=True,
+            superseded_at=approved + timedelta(days=1) if withdrawn else None,
+            supersession_reason="Found wrong after approval." if withdrawn else None,
+        )
+        session.add(report)
+        await session.commit()
+        return report.id
+
+
+class TestTheSubjectIsNamedBeforeSubmit:
+    """Page specification §6: the resolved name is on the page before anything is saved, so
+    the operator sees which company a ticker names before paying to research it."""
+
+    async def test_a_ticker_the_register_knows_is_named_with_the_register(self, web):
+        response = await web.get(RESOLVE, params={"ticker": "msft", "exchange": "NASDAQ"})
+
+        assert response.status_code == 200
+        assert 'data-resolved="yes"' in response.text
+        assert "SEC EDGAR lists" in response.text
+        assert "on NASDAQ as" in response.text
+
+    async def test_a_ticker_it_does_not_know_gets_the_registers_own_refusal(
+        self, api_settings, db_engine, fake_redis, web
+    ):
+        refusing = Registers(
+            sec_client=_RefusingRegister(),  # type: ignore[arg-type]
+            companies_house_client=_RefusingRegister(),  # type: ignore[arg-type]
+        )
+        app = build_app(api_settings, engine=db_engine, redis=fake_redis, registers=refusing)
+        async for client in client_for(app):
+            response = await client.get(RESOLVE, params={"ticker": "ZZZZ", "exchange": "NYSE"})
+
+        assert 'data-resolved="no"' in response.text
+        assert _REFUSAL in response.text
+
+    @pytest.mark.parametrize(
+        "params",
+        [{"ticker": "MSFT"}, {"exchange": "NASDAQ"}, {"ticker": "MSFT", "exchange": "OTC"}],
+    )
+    async def test_an_incomplete_pair_is_answered_with_nothing(self, web, params):
+        """Half a question is not asked of the register, and a venue the form does not
+        offer is not either: the form's own validation says what is wrong with it."""
+        response = await web.get(RESOLVE, params=params)
+
+        assert response.status_code == 200
+        assert "data-resolved" not in response.text
+
+    async def test_the_form_asks_as_the_ticker_or_exchange_changes(self, web):
+        page = (await web.get(NEW)).text
+
+        start = page.index('id="resolved-subject"')
+        asking = page[start : page.index(">", start)]
+        assert 'hx-get="/requests/resolve"' in asking
+        assert "change from:#ticker" in asking
+        assert "change from:#exchange" in asking
+
+
+RESOLVE = "/requests/resolve"
+_REFUSAL = "EDGAR lists no company under that ticker."
+
+
+class _RefusingRegister:
+    """A register that recognises nothing, and reaches no network."""
+
+    async def resolve_entity(self, ticker: str, **_: object) -> object:
+        raise ValidationError(_REFUSAL)
+
+
+@pytest.fixture
+def enqueued(monkeypatch: pytest.MonkeyPatch) -> _Enqueued:
+    """What the form handed to the queue, recorded instead of sent."""
+    recorder = _Enqueued()
+    monkeypatch.setattr("aer.web.routes.enqueue_run", recorder)
+    return recorder
+
+
+class _Enqueued:
+    def __init__(self) -> None:
+        self.job_ids: list[str] = []
+
+    async def __call__(self, redis: object, job_id: uuid.UUID) -> str:
+        self.job_ids.append(str(job_id))
+        return f"task-{job_id}"
+
+
+async def _finished_runs(web, db_engine, depth: str, costs: tuple[str, ...]) -> None:
+    """One finished run per cost, each on its own request at ``depth``."""
+    for cost in costs:
+        token = await fresh_token(web)
+        created = await web.post(NEW, data=valid_form(csrf_token=token, analysis_mode=depth))
+        request_id = uuid.UUID(created.headers["location"].rsplit("/", 1)[-1])
+        await _a_run(db_engine, request_id, JobStatus.SUCCEEDED, costs=(cost,))
+
+
+def _panel(page: str) -> str:
+    start = page.index('id="what-you-buy"')
+    return page[start : page.index("</aside>", start)]
+
+
+def _depth_row(panel: str, depth: str) -> str:
+    start = panel.index(f'data-depth="{depth}"')
+    return panel[start : panel.index("</div>", start)]
+
+
+def _price(page: str, depth: str) -> Decimal:
+    """A depth's price as the panel prints it, read back as a number to compare."""
+    row = _depth_row(page, depth)
+    match = re.search(r"about £([0-9,.]+)", row)
+    assert match, f"no price for {depth}"
+    return Decimal(match.group(1).replace(",", ""))

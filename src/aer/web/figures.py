@@ -73,13 +73,11 @@ NEAR_CEILING: Final = Decimal("0.8")
 def pounds(amount: Decimal) -> str:
     """Operator spend, in pounds, decided in Python rather than in a template.
 
-    **A total that rounds to nothing says so.** "We have spent nothing this month" and "we
-    have spent a third of a penny" are different answers, and ``£0.00`` is only one of them —
-    the wrong one, on a screen whose whole subject is what a run has cost.
+    The implementation is :func:`aer.render.display.spend`, which the run's event stream
+    formats with too: a figure the page renders and a figure the stream patches in must be
+    the same words.
     """
-    if amount and abs(amount) < Decimal("0.01"):
-        return "under £0.01"
-    return f"£{amount:,.2f}"
+    return display.spend(amount)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +113,11 @@ class CostContext:
     def summary(self) -> str:
         """The one line every surface shows: what is spent, out of what."""
         return f"{self.spent_display} of {self.ceiling_display}"
+
+    @property
+    def bar_width(self) -> str:
+        """The fraction as a CSS width for the spend bar. Geometry, never a shown figure."""
+        return f"{self.fraction * 100:.1f}%"
 
 
 def cost_context(*, spent: Decimal, ceiling: Decimal | None, scope: str = "run") -> CostContext:

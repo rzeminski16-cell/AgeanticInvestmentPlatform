@@ -127,7 +127,9 @@ src/aer/            application package
     figures.py      pounds, a cost against its ceiling, a figure carrying its lineage
     verdict.py      the composed half of a leading sentence (ADR 0087); never evidence
     pages.py        the run console, the seven gates, the evidence surfaces, settings, costs
-    routes.py       requests: list, new, edit, remove, assumptions; the shell's own POSTs
+    stages.py       the run page's five stages and who did each step, read from its step rows
+    reader.py       the report reader's evidence drawer: one footnote, as the kind of thing it is
+    routes.py       requests: list, new (and what it buys), edit, remove, assumptions; shell POSTs
     skills_pages.py the skills library, editor, import diff and dry run
     shell/          the frame no tool owns
       registry.py   NAV and UNLISTED: every page is in the nav or named as reachable

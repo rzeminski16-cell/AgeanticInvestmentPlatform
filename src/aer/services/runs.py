@@ -32,6 +32,7 @@ from aer.db.models import Job, JobStep, Report, ResearchRequest, WorkOrder
 from aer.errors import ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
+from aer.render import display
 from aer.services.mandate import mandate_of
 from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
@@ -319,6 +320,9 @@ class TimelineEntry:
             "status": self.status.value,
             "attempt": self.attempt,
             "cost_gbp": str(self.cost_gbp),
+            # The same words the page rendered, so a patched row never shows the ledger's
+            # four places where the page showed pence.
+            "cost_display": display.spend(self.cost_gbp) if self.cost_gbp else "",
             "error": self.error,
             # The server's clock, so the console can tick an elapsed time without asking
             # the browser to guess when the step began.
@@ -433,6 +437,7 @@ class RunState:
             "job_id": str(self.job.id),
             "status": self.job.status.value,
             "spend_gbp": str(self.spend_gbp),
+            "spend_display": display.spend(self.spend_gbp),
             "steps_total": len(timeline),
             "steps_done": sum(1 for entry in timeline if entry.status is JobStatus.SUCCEEDED),
             "current_step": self.current_step.step_key if self.current_step else None,

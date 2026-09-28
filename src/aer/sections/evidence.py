@@ -67,6 +67,7 @@ if TYPE_CHECKING:
 __all__ = [
     "EVIDENCE_ITEM_CAP",
     "MAX_GENERATION_ATTEMPTS",
+    "MODE_FACTORS",
     "Evidence",
     "EvidenceDealt",
     "EvidenceUnit",
@@ -88,8 +89,10 @@ __all__ = [
 MAX_GENERATION_ATTEMPTS: Final = 2
 
 # How a request's depth scales the drafting budgets (gap O5). Quick reads and writes
-# roughly half, full half as much again; standard is the calibrated baseline.
-_MODE_FACTORS: Final[dict[AnalysisMode, float]] = {
+# roughly half, full half as much again; standard is the calibrated baseline. Public because
+# the request form prices a depth nobody has run yet by the same factor (page specification
+# §6: a setting whose effect on the estimate is not shown must not be offered).
+MODE_FACTORS: Final[dict[AnalysisMode, float]] = {
     AnalysisMode.QUICK: 0.6,
     AnalysisMode.STANDARD: 1.0,
     AnalysisMode.FULL: 1.4,
@@ -286,7 +289,7 @@ class SectionPolicy:
         ceiling never move, because depth is how much work a run does — not how little
         support a claim may stand on.
         """
-        factor = _MODE_FACTORS[mode]
+        factor = MODE_FACTORS[mode]
         if factor == 1:
             return self
         return replace(

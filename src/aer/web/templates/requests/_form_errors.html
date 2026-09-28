@@ -34,13 +34,42 @@
   {{ ui.callout("warning", "Before this can be saved", banner) }}
 {% endif %}
 
+{% if refresh_offer %}
+  {#
+    A company with a current report is offered its refresh first, at its lower price (page
+    specification §6). A question, not a refusal: nothing was saved, and either button
+    answers it. The refresh is its own small form, posting to the report's refresh route;
+    *a new report anyway* submits the request form again with the answer, through the
+    `form` attribute because this band sits above that form rather than inside it.
+  #}
+  <section id="refresh-offer" role="status" aria-labelledby="refresh-offer-heading" tabindex="-1" autofocus
+           class="mb-4 rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5">
+    <h2 id="refresh-offer-heading" class="type-subheading text-ink">{{ refresh_offer.company }} already has a current report</h2>
+    <p class="mt-1 max-w-[65ch] type-body-sm text-ink">
+      Approved {{ refresh_offer.approved }}. A refresh re-reads what has been filed since and
+      re-runs only what changed, for less than a new report.
+      <a href="{{ refresh_offer.report_href }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">Read the current report</a>
+    </p>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <form method="post" action="{{ refresh_offer.refresh_action }}">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button type="submit" id="refresh-instead"
+                class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">{{ refresh_offer.refresh_label }}</button>
+      </form>
+      <button type="submit" form="request-form" name="intent" value="commission_new" id="commission-anyway"
+              class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Commission a new report anyway</button>
+    </div>
+  </section>
+{% endif %}
+
 {% if errors %}
   {#
-    `tabindex="-1"` so the handler can move focus here after a rejected submission. A form
-    this long that reported failure without moving focus leaves the operator at the submit
-    button with the reason somewhere above them.
+    `tabindex="-1"` and `autofocus` so focus moves here after a rejected submission — the
+    browser's on a full page, htmx's after a swap. A form this long that reported failure
+    without moving focus leaves the operator at the submit button with the reason somewhere
+    above them, and the commission panel's button sits a screen below this summary.
   #}
-  <div role="alert" tabindex="-1" id="error-summary" class="mb-4">
+  <div role="alert" tabindex="-1" autofocus id="error-summary" class="mb-4">
     {% set total = errors.values() | map("length") | sum %}
     {% call ui.sheet() %}
       <div class="aer-callout rounded-sm border-l-[3px] border-failure-ink bg-failure-wash p-4">

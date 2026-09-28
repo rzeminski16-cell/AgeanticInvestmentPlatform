@@ -1,0 +1,15 @@
+{#
+  The register's name for the ticker typed so far (page specification §6), swapped in beneath
+  the subject's fields as the operator leaves the ticker or the exchange. Said as the register
+  says it, with the register named, so the operator can tell Tesco in London from Tractor
+  Supply on NASDAQ before anything is saved. A refusal is the register's own sentence; the
+  full check — has it filed, and in a form this platform reads — comes with *Commission*.
+#}
+{% if resolution and resolution.resolved %}
+  <p class="type-body-sm text-ink" data-resolved="yes">
+    {{ register }} lists <span class="type-data-sm">{{ ticker }}</span> on {{ exchange }} as
+    <strong>{{ resolution.name }}</strong>.
+  </p>
+{% elif resolution and resolution.reason %}
+  <p class="type-body-sm text-failure-ink" data-resolved="no">{{ resolution.reason }}</p>
+{% endif %}

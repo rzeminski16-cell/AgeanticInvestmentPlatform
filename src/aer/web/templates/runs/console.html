@@ -15,7 +15,7 @@
   the operator there.
 #}
 
-{% block title %}Run &middot; {{ research_request.ticker if research_request else job.id }}{% endblock %}
+{% block title %}{{ research_request.company_name if research_request else "Research run" }} &middot; Run &middot; Ageantic{% endblock %}
 
 {% block head_extra %}
   <script src="{{ url_for('static', path='/js/console.js') }}" defer></script>
@@ -49,7 +49,7 @@
   >
     {% call ui.page_header(
       research_request.company_name if research_request else "Research run",
-      eyebrow="RESEARCH RUN",
+      eyebrow="Research · run" if is_terminal else "Research · active run",
       identity=(research_request.ticker ~ " · as at " ~ research_request.work_order.as_of_date.isoformat())
                if research_request else "",
       breadcrumbs=([{"href": "/requests", "label": "Requests"},
@@ -57,104 +57,48 @@
                    if research_request else [{"href": "/requests", "label": "Requests"}]),
     ) %}
       <span id="run-status">{{ ui.status(run_words.tone.value, run_words.label) }}</span>
+      <span class="type-data-sm text-ink-muted" id="run-time">{{ run_time }}</span>
     {% endcall %}
 
-    {{ ui.verdict("CURRENT STATE", plain_status, tone=run_words.tone.value) }}
+    {#
+      The five stages (page specification §7.1) — the only progress indicator on the page.
+      Each carries its state as a word as well as a mark, and one line: what the stage is
+      doing, what stopped it, or what it produced.
+    #}
+    {% set _STAGE_MARK = {
+      "done": "border-success-ink bg-success-wash text-success-ink",
+      "running": "border-info-ink bg-info-wash text-info-ink",
+      "stopped": "border-warning-ink bg-warning-wash text-warning-ink",
+      "failed": "border-failure-ink bg-failure-wash text-failure-ink",
+      "waiting": "border-line-strong bg-surface text-ink-subtle",
+    } %}
+    {# A shape per state as well as a colour, so the rail reads in greyscale and in print. #}
+    {% set _STAGE_GLYPH = {"done": "✓", "running": "•", "stopped": "!", "failed": "✕", "waiting": ""} %}
+    <ol id="run-stages" aria-label="Stages" class="grid gap-4 rounded-md border border-line bg-surface p-5 sm:grid-cols-2 lg:grid-cols-5">
+      {% for stage in stages %}
+        <li data-stage="{{ stage.key }}" data-state="{{ stage.state.value }}" class="flex gap-2">
+          <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-round border type-caption {{ _STAGE_MARK[stage.state.value] }}" aria-hidden="true">{{ _STAGE_GLYPH[stage.state.value] }}</span>
+          <span class="min-w-0">
+            <span class="block type-label text-ink">{{ stage.number }}. {{ stage.name }}<span class="sr-only"> — {{ stage.words | lower }}</span></span>
+            <span class="mt-1 block type-body-sm text-ink-muted">{{ stage.detail }}</span>
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
 
-    {% if awaiting and pause_reason == 'gate_stale_page_moved' %}
-      {#
-        The decision on record was taken over an earlier version of the page (ADR 0123).
-        The way forward is the page itself: deciding on what it shows now supersedes the
-        earlier decision, and both stay on the record.
-      #}
-      <section
-        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
-        role="alert"
-        id="stale-page-moved"
-      >
-        <h2 class="type-title-2 text-ink">The page moved after your decision</h2>
-        <p class="mt-2 type-body text-ink">
-          Your decision on {{ pending_words.name | lower }} was taken over an earlier version
-          of its page. The run does not continue on a decision about something else. Open it
-          again and decide on what it shows now; the new decision supersedes the old one, and
-          both stay on the record. Nothing is spent until you do.
-        </p>
-        <div class="mt-4">
-          <a href="{{ pending_page }}" id="decide-again"
-             class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Decide again on {{ pending_words.name | lower }}</a>
-        </div>
-      </section>
-    {% elif awaiting and pause_reason == 'gate_stale_seal_drift' %}
-      {#
-        The run's own seal moved after the decision (ADR 0123): the approval matches the
-        page and the seal matches neither, so no decision can release it. Re-sealing is the
-        remedy, and it spends nothing.
-      #}
-      <section
-        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
-        role="alert"
-        id="stale-seal-drift"
-      >
-        <h2 class="type-title-2 text-ink">The run&rsquo;s own record moved after your decision</h2>
-        <p class="mt-2 type-body text-ink">
-          What this run sealed for {{ pending_words.name | lower }} and what its page shows
-          have drifted apart, so no decision taken from that page can match. Re-sealing
-          re-derives the seal from the run&rsquo;s own record and continues the run: on your
-          recorded decision if it then matches, or back here asking you to decide again if it
-          was taken over older content. Re-sealing spends nothing.
-        </p>
-        <form method="post" action="/runs/{{ job.id }}/reseal" id="reseal-form" class="mt-4">
-          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-          <button type="submit" id="reseal-run"
-                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Re-seal and continue</button>
-        </form>
-      </section>
-    {% elif awaiting %}
-      <section
-        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
-        role="alert"
-        id="awaiting-approval"
-      >
-        <h2 class="type-title-2 text-ink">Waiting for you</h2>
-        <p class="mt-2 type-body text-ink">
-          Nothing further happens, and nothing further is spent, until you approve or
-          reject it.
-        </p>
-        <div class="mt-4 flex flex-wrap gap-3">
-          {#
-            The pending gate leads. The plan and the draft stay reachable on every stopped
-            run; the conditional gates appear only when this run actually stopped there,
-            because offering them on every run sends most operators to a page saying there
-            is nothing to confirm.
-          #}
-          {% if pending_gate == 'SECTOR_SPECIALIST' %}
-            <a href="/runs/{{ job.id }}/sector" id="review-sector"
-               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the sector</a>
-          {% endif %}
-          {% if pending_gate == 'PEER_SET' %}
-            <a href="/runs/{{ job.id }}/peers" id="review-peers"
-               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the peer set</a>
-          {% endif %}
-          {% if pending_gate == 'THEME_SET' %}
-            <a href="/runs/{{ job.id }}/themes" id="review-themes"
-               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the themes</a>
-          {% endif %}
-          {% if pending_gate == 'ASSUMPTIONS' %}
-            <a href="/runs/{{ job.id }}/assumptions" id="review-assumptions"
-               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the assumptions</a>
-          {% endif %}
-          {% if pending_gate == 'UNMAPPED_CONCEPTS' %}
-            <a href="/runs/{{ job.id }}/financials" id="review-financials"
-               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the financials</a>
-          {% endif %}
-          <a href="/runs/{{ job.id }}/plan" id="review-plan"
-             class="inline-flex min-h-11 items-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'PLAN' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the plan</a>
-          <a href="/runs/{{ job.id }}/review" id="review-draft"
-             class="inline-flex min-h-11 items-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'FINAL' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the draft</a>
-        </div>
-      </section>
+    {% if awaiting and pending_gate %}
+      {{ ui.verdict("CURRENT STATE", plain_status, tone=run_words.tone.value,
+                    provenance_href="#decision-panel", provenance_label="Go to the decision") }}
+    {% else %}
+      {{ ui.verdict("CURRENT STATE", plain_status, tone=run_words.tone.value) }}
     {% endif %}
 
+    {#
+      Two columns at wide widths (page specification §7): what the run has done and spent,
+      and — after it in reading order, beside it on the screen — the decision it waits on.
+    #}
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start">
+    <div class="flex min-w-0 flex-col gap-6">
     {% if awaiting and pending_gate == 'FINAL' and failed_checks %}
       {#
         A refused check, with its remedy where the refusal is met (ADR 0123, F-22). The
@@ -348,33 +292,73 @@
       </form>
     {% endif %}
 
-    {#
-      The run's decisions, without overstating: a conditional gate whose moment has not
-      come is a possibility, never a promised step.
-    #}
-    {% call ui.sheet("The decisions", id="run-journey") %}
-      <ol class="flex flex-wrap gap-x-5 gap-y-2">
-        {% for entry in journey.entries %}
-          <li class="flex items-baseline gap-2" data-journey-gate="{{ entry.gate.value }}" data-journey-state="{{ entry.state.value }}">
-            <span class="type-label {{ 'text-warning-ink' if entry.state.value == 'current' else ('text-ink' if entry.state.value == 'decided' else 'text-ink-muted') }}">{{ entry.name }}</span>
-            <span class="type-body-sm {{ 'text-warning-ink' if entry.state.value == 'current' else 'text-ink-subtle' }}">
-              {%- if entry.state.value == 'decided' %}{{ entry.decision_label | lower }}
-              {%- elif entry.state.value == 'current' %}now
-              {%- elif entry.state.value == 'not_needed' %}not needed
-              {%- elif entry.state.value == 'upcoming' %}to come
-              {%- else %}if needed{% endif -%}
+    <section aria-labelledby="steps-heading" class="rounded-md border border-line bg-surface p-5 sm:p-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="steps-heading" class="type-title-2 text-ink">What it has done</h2>
+        <p class="type-body-sm text-ink-muted">
+          <span data-field="steps-done">{{ state.steps_done }}</span> of
+          <span data-field="steps-total">{{ state.steps_total }}</span> done
+        </p>
+      </div>
+
+      {#
+        Every declared step, not only the ones that have started: "nothing is happening"
+        and "step one of thirty is thinking" must never look identical. The row's status
+        lives in `data-status`, which the stylesheet keys the dot on and the script keys
+        its clock on — the visible words stay the vocabulary's.
+      #}
+      <ol class="mt-3 divide-y divide-line" id="run-steps">
+        {% for step in steps_display %}
+          <li
+            class="grid grid-cols-[3rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[3rem_minmax(0,1fr)_auto]"
+            data-step="{{ step.key }}"
+            data-status="{{ step.status }}"
+            data-label="{{ step.label }}"
+            data-started-at="{{ step.started_at or '' }}"
+          >
+            <span class="type-data-sm text-ink-muted">{{ step.started_display }}</span>
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body {{ 'text-ink-muted' if step.status == 'QUEUED' else 'text-ink' }}">{{ step.label }}</span>
+              </span>
             </span>
+            <span class="col-start-2 flex flex-wrap items-baseline gap-3 sm:col-start-auto sm:justify-end">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">{{ step.status_words.label }}</span>
+              <span class="type-body-sm text-ink-subtle">{{ step.actor }}</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">{{ step.cost_display }}</span>
+            </span>
+            {% if step.error %}
+              {# The message, not the dictionary: the most important sentence on the page
+                 deserves better than an unpunctuated error payload. #}
+              {# The code rides in the title, for the worker terminal's vocabulary, never
+                 in the text the operator reads. #}
+              <p class="col-span-full type-body-sm text-failure-ink" data-field="error"
+                 title="{{ step.error.get('code') or '' }}">
+                {{ step.error.get("message") or step.error }}
+              </p>
+            {% endif %}
           </li>
+        {% else %}
+          <li class="py-2 type-body-sm text-ink-muted">This run has not started a step yet.</li>
         {% endfor %}
       </ol>
-      <p class="mt-3 type-body-sm text-ink-muted" id="decisions-remaining">{{ journey.remaining_display }}</p>
-    {% endcall %}
+    </section>
 
-    {% call ui.sheet("Spend against ceiling") %}
+    {% call ui.sheet("What it has spent") %}
       <p class="type-data-xl text-ink">
         <span id="run-spend">{{ cost.spent_display }}</span>
         <span class="text-ink-muted">of {{ cost.ceiling_display }}</span>
       </p>
+      <div class="mt-3 h-2 w-full overflow-hidden rounded-round bg-surface-sunken" aria-hidden="true">
+        <div class="h-full {{ 'bg-warning-ink' if cost.is_near_ceiling else 'bg-verification' }}" style="width: {{ cost.bar_width }}"></div>
+      </div>
+      {% if spend_breakdown %}
+        <p class="mt-2 type-body-sm text-ink-muted" id="spend-by-stage">
+          {% for name, amount in spend_breakdown %}{{ name }} {{ amount }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
+        </p>
+      {% endif %}
       <p class="mt-1 type-body-sm text-ink-muted">
         The run stops before any step that would cross the ceiling, rather than after
         paying for it.
@@ -436,58 +420,6 @@
       </a>
     </nav>
 
-    <section aria-labelledby="steps-heading">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="steps-heading" class="type-title-2 text-ink">The steps</h2>
-        <p class="type-body-sm text-ink-muted">
-          <span data-field="steps-done">{{ state.steps_done }}</span> of
-          <span data-field="steps-total">{{ state.steps_total }}</span> done
-        </p>
-      </div>
-
-      {#
-        Every declared step, not only the ones that have started: "nothing is happening"
-        and "step one of thirty is thinking" must never look identical. The row's status
-        lives in `data-status`, which the stylesheet keys the dot on and the script keys
-        its clock on — the visible words stay the vocabulary's.
-      #}
-      <ol class="mt-3 divide-y divide-line" id="run-steps">
-        {% for step in steps_display %}
-          <li
-            class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5"
-            data-step="{{ step.key }}"
-            data-status="{{ step.status }}"
-            data-label="{{ step.label }}"
-            data-started-at="{{ step.started_at or '' }}"
-          >
-            <span class="flex min-w-0 items-baseline gap-2">
-              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
-              <span class="min-w-0">
-                <span class="type-body {{ 'text-ink-muted' if step.status == 'QUEUED' else 'text-ink' }}">{{ step.label }}</span>
-              </span>
-            </span>
-            <span class="flex items-baseline gap-3">
-              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
-              <span class="type-body-sm text-ink-muted" data-field="status">{{ step.status_words.label }}</span>
-              <span class="type-data-sm text-ink-muted" data-field="cost">£{{ step.cost_gbp }}</span>
-            </span>
-            {% if step.error %}
-              {# The message, not the dictionary: the most important sentence on the page
-                 deserves better than an unpunctuated error payload. #}
-              {# The code rides in the title, for the worker terminal's vocabulary, never
-                 in the text the operator reads. #}
-              <p class="w-full type-body-sm text-failure-ink" data-field="error"
-                 title="{{ step.error.get('code') or '' }}">
-                {{ step.error.get("message") or step.error }}
-              </p>
-            {% endif %}
-          </li>
-        {% else %}
-          <li class="py-2 type-body-sm text-ink-muted">This run has not started a step yet.</li>
-        {% endfor %}
-      </ol>
-    </section>
-
     {% if not is_terminal %}
       {#
         What "still working" looks like when nothing has changed for four minutes. Every
@@ -522,6 +454,134 @@
         </p>
       </section>
     {% endif %}
+
+    </div>
+    <aside class="flex flex-col gap-4 xl:sticky xl:top-6" aria-label="Your decision" id="decision-column">
+    <div id="decision-panel" class="flex flex-col gap-4">
+    {% if awaiting and pause_reason == 'gate_stale_page_moved' %}
+      {#
+        The decision on record was taken over an earlier version of the page (ADR 0123).
+        The way forward is the page itself: deciding on what it shows now supersedes the
+        earlier decision, and both stay on the record.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
+        role="alert"
+        id="stale-page-moved"
+      >
+        <h2 class="type-title-2 text-ink">The page moved after your decision</h2>
+        <p class="mt-2 type-body text-ink">
+          Your decision on {{ pending_words.name | lower }} was taken over an earlier version
+          of its page. The run does not continue on a decision about something else. Open it
+          again and decide on what it shows now; the new decision supersedes the old one, and
+          both stay on the record. Nothing is spent until you do.
+        </p>
+        <div class="mt-4">
+          <a href="{{ pending_page }}" id="decide-again"
+             class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Decide again on {{ pending_words.name | lower }}</a>
+        </div>
+      </section>
+    {% elif awaiting and pause_reason == 'gate_stale_seal_drift' %}
+      {#
+        The run's own seal moved after the decision (ADR 0123): the approval matches the
+        page and the seal matches neither, so no decision can release it. Re-sealing is the
+        remedy, and it spends nothing.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
+        role="alert"
+        id="stale-seal-drift"
+      >
+        <h2 class="type-title-2 text-ink">The run&rsquo;s own record moved after your decision</h2>
+        <p class="mt-2 type-body text-ink">
+          What this run sealed for {{ pending_words.name | lower }} and what its page shows
+          have drifted apart, so no decision taken from that page can match. Re-sealing
+          re-derives the seal from the run&rsquo;s own record and continues the run: on your
+          recorded decision if it then matches, or back here asking you to decide again if it
+          was taken over older content. Re-sealing spends nothing.
+        </p>
+        <form method="post" action="/runs/{{ job.id }}/reseal" id="reseal-form" class="mt-4">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <button type="submit" id="reseal-run"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Re-seal and continue</button>
+        </form>
+      </section>
+    {% elif awaiting %}
+      {#
+        The decision panel (page specification §7.2): the page's visual focus while a gate
+        waits — the gate, where it sits in the run, what deciding commits, the control, and
+        the line every gate ends with. The pending gate's control leads; the plan and the
+        draft stay reachable on every stopped run, and a conditional gate's control appears
+        only when this run actually stopped there.
+      #}
+      <section class="overflow-hidden rounded-md border border-warning-ink bg-surface" role="alert" id="awaiting-approval">
+        <header class="border-b border-warning-ink bg-decision-wash px-5 py-4">
+          <p class="type-eyebrow text-warning-ink" id="gate-position">{{ gate_position or "Waiting for you" }}</p>
+          <h2 class="mt-1 type-title-2 text-ink">{{ pending_words.name if pending_words else "Waiting for you" }}</h2>
+        </header>
+        <div class="flex flex-col gap-4 p-5">
+          {% if pending_words %}
+            <p class="type-body text-ink">The run stopped so you could {{ pending_words.asks }}.</p>
+          {% endif %}
+          {% if pending_consequence %}
+            <p class="type-body-sm text-ink-muted">{{ pending_consequence }}</p>
+          {% endif %}
+          <div class="flex flex-col gap-2">
+            {% if pending_gate == 'SECTOR_SPECIALIST' %}
+              <a href="/runs/{{ job.id }}/sector" id="review-sector"
+                 class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the sector</a>
+            {% endif %}
+            {% if pending_gate == 'PEER_SET' %}
+              <a href="/runs/{{ job.id }}/peers" id="review-peers"
+                 class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the peer set</a>
+            {% endif %}
+            {% if pending_gate == 'THEME_SET' %}
+              <a href="/runs/{{ job.id }}/themes" id="review-themes"
+                 class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the themes</a>
+            {% endif %}
+            {% if pending_gate == 'ASSUMPTIONS' %}
+              <a href="/runs/{{ job.id }}/assumptions" id="review-assumptions"
+                 class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the assumptions</a>
+            {% endif %}
+            {% if pending_gate == 'UNMAPPED_CONCEPTS' %}
+              <a href="/runs/{{ job.id }}/financials" id="review-financials"
+                 class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the financials</a>
+            {% endif %}
+            <a href="/runs/{{ job.id }}/plan" id="review-plan"
+               class="inline-flex min-h-11 items-center justify-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'PLAN' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the plan</a>
+            <a href="/runs/{{ job.id }}/review" id="review-draft"
+               class="inline-flex min-h-11 items-center justify-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'FINAL' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the draft</a>
+          </div>
+          <p class="type-body-sm text-ink-muted">Nothing is spent while this waits.</p>
+        </div>
+      </section>
+    {% endif %}
+
+    </div>
+    {#
+      The run's decisions, without overstating: a conditional gate whose moment has not
+      come is a possibility, never a promised step.
+    #}
+    {% call ui.sheet("The decisions", id="run-journey") %}
+      <ol class="flex flex-col divide-y divide-line">
+        {% for entry in journey.entries %}
+          <li class="flex items-baseline justify-between gap-3 py-2" data-journey-gate="{{ entry.gate.value }}" data-journey-state="{{ entry.state.value }}">
+            <span class="type-label {{ 'text-warning-ink' if entry.state.value == 'current' else ('text-ink' if entry.state.value == 'decided' else 'text-ink-muted') }}">{{ entry.name }}</span>
+            <span class="type-body-sm {{ 'text-warning-ink' if entry.state.value == 'current' else 'text-ink-subtle' }}">
+              {%- if entry.state.value == 'decided' %}{{ entry.decision_label | lower }}
+              {%- elif entry.state.value == 'current' %}now
+              {%- elif entry.state.value == 'not_needed' %}not needed
+              {%- elif entry.state.value == 'upcoming' %}to come
+              {%- else %}if needed{% endif -%}
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="mt-3 type-body-sm text-ink-muted" id="decisions-remaining">{{ journey.remaining_display }}</p>
+    {% endcall %}
+
+    </aside>
+    </div>
 
     {% if can_cancel and not cancellation %}
       {#

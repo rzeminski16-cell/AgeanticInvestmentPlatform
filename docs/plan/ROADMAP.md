@@ -67,7 +67,20 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   menu. The fifth suggestion waits for U5's limits.*
 - **U3 — Research.** The report reader with its section spine and evidence drawer; the request
   form with its price on the button; the run page's five stages and decision panel; the
-  library's collapsed versions; Ask's tiers; Methods; Knowledge.
+  library's collapsed versions; Ask's tiers; Methods; Knowledge. *Built 28 September: the
+  reader leads with the document — a section spine with each section's figures and citations
+  counted, and every marker a control that opens the evidence drawer on the figure's kind,
+  verdict, formula or excerpt; the request form beside what it buys, each depth priced from
+  the operator's own runs with the price on the button, the register's name for the ticker
+  shown as it is typed, a current report's refresh offered first, and Commission starting
+  the run in one press; the run page's five-stage rail, a ledger naming who did each step, the spend by
+  stage and the decision panel with its gate position; the library one row per company with
+  earlier versions folded and a state filter; Ask's three tiers as cards; Methods and
+  Knowledge in words; and every page's title names the product — fifteen did not, though U1
+  said they all did — asserted over every page the application serves. Two pages are
+  restyled but not what the specification describes — §17's
+  attack report and §18's vocabulary queue are features, not drawings, and are recorded
+  there. Item 91 is what the build found.*
 - **U4 — Decide.** The company page, the thesis editor, and the decision page's what-if.
 - **U5 — Hold.** The operator's limits and everything that draws them; portfolio, position,
   risk, companies and the monitor alert to their drawings.
@@ -77,7 +90,7 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   command on any page, asserted over every page the application serves.
 
 §3.19 items 86–90 are what the first audit of the build against the specification found and
-fixed on the way in.
+fixed on the way in, and item 91 what U3 found.
 
 The operator also brought three features back into V1.0 that the pre-registered consequence
 left out:
@@ -3365,6 +3378,29 @@ found rather than as scope that was always there.
     **Fixed 28 September 2026.** The assertion looks for the ceiling as a number standing on
     its own — a digit run bounded by non-word characters, which cannot sit inside an id whose
     segments are four characters or more — and still catches *at most 888 words*.
+91. **Five more surfaces read the run total nobody writes, and the request form priced a depth
+    nobody had run at a flat figure, 28 September 2026.** Found building U3's request form,
+    whose price for every depth read *about £9.30*. Item 87 fixed the requests list and left
+    the same read in five places: the typical cost behind every estimate and the watchlist's
+    guidance, *Needs you*'s gate and ceiling rows, the run preview drawer, the company page's
+    report card and the watchlist's rows. Each printed £0.00 beside a run that had spent
+    pounds, and the typical cost — every finished run at zero, and zero excluded — said the
+    operator had no history at all. The library summed its runs' step costs, which agree with
+    the cost rows except where something is billed outside a step (£5.84 against £5.88 on one
+    run in the corpus). And with history at one depth only, the form priced the others at
+    the workflow's declared estimate — the same figure at every depth — so the quick screen
+    read twice the price of the standard report it is a lighter version of.
+
+    **Fixed 28 September 2026.** `services.spend.spend_by_job` sums a set of runs' cost rows
+    in one query, and every surface beside a run reads it, the library included, so no two
+    pages price one run differently; the typical cost groups the cost rows per run. A depth
+    without history of its own is priced from the operator's standard runs, or the declared
+    estimate, scaled by the factor the drafting budgets scale by (`sections.evidence.
+    MODE_FACTORS`: 60 per cent for quick, 140 for full) and says so. `tests/test_spend.py`,
+    `tests/test_typical_cost.py`, `tests/test_companies_pages.py` and
+    `tests/test_request_form.py` record spend as cost rows with the run total left at zero,
+    as a research run leaves it; the typical cost's and the company page's tests failed on
+    that before the fix.
 
 ### Before this leaves one machine
 

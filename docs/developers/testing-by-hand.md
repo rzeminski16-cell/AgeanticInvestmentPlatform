@@ -751,8 +751,10 @@ insurer is a deliberately harder case and is §15.
 
 ### 10.1 The request
 
-`/requests/new`. The form has six parts: Company, Timing and currency, Mandate, Portfolio
-context, Your priorities, and a Cost ceiling.
+`/requests/new`. The form has four parts — The subject, How deep, The brief and Your context
+— with the rest behind *Refine this mandate*, and beside it *What you are buying*: each depth
+with its sections and its price, the machine time, the decisions a run will ask for, and a
+button that says the price of the depth chosen.
 
 First, **try to break it**. Submit it empty.
 
@@ -769,7 +771,21 @@ should read GBP and the investment horizon twelve months, both *before* you open
 is a form that fails on something you were never shown, and that defect shipped once —
 found by the §8.3 sweep, and the reason the check is here.
 
-Submit. **Expect:** a request detail page with a button to start a run.
+Type `TSCO`, choose NASDAQ and move on. **Expect:** beneath the fields, *SEC EDGAR lists TSCO
+on NASDAQ as TRACTOR SUPPLY CO /DE/* — the register's name, not Tesco's. **Wrong:** nothing
+until you press a button, or a name the register did not give.
+
+**Check the prices against each other.** Quick should read less than Standard, and Full more;
+each depth says where its price came from — your own finished runs at it, or your standard
+runs scaled to it, or the workflow's own estimate. **Wrong:** one figure at every depth, or
+any depth at £0.00 once you have finished runs (§3.19 item 91).
+
+Now type a ticker you already have a current report on and press *Commission*. **Expect:** a
+band offering the refresh at its price, with *Commission a new report anyway* beside it, in
+view without scrolling, and nothing saved. **Wrong:** a second request in the list.
+
+Save it as a draft. **Expect:** a request detail page with a button to start a run. Pressing
+*Commission* instead starts the run and opens its console in one step.
 
 ### 10.2 Start it, and watch
 
@@ -777,7 +793,11 @@ Submit. **Expect:** a request detail page with a button to start a run.
 
 **Expect** on the console:
 
-- **Every step the workflow declares**, not only the ones that have started.
+- **Five stages** across the top — Plan, Acquire, Compute, Write, Approve — each with its
+  state and one line, and no percentage anywhere.
+- **Every step the workflow declares**, not only the ones that have started, each naming who
+  did it: *you*, *code* or *a model*.
+- **What it has spent**, against the ceiling, broken down by stage.
 - A **pulsing marker and a ticking elapsed clock** on the step that is running.
 - A **"server last checked at …"** line that keeps advancing.
 
@@ -946,7 +966,10 @@ Open the finished report at `/reports/{id}`.
 
 ### 11.1 Walk a footnote to the bytes
 
-Pick any numeric footnote marker and follow it to `/runs/{id}/footnotes/{n}`.
+Pick any numeric footnote marker and press it. **Expect:** the evidence drawer opens over the
+right of the report, naming what the figure is and the verifier's verdict; the section spine on
+the left counts each section's figures and citations and marks the one you are reading. With
+scripting off, the same marker is a link to `/runs/{id}/footnotes/{n}` — follow it.
 
 **Expect** exactly one of two answers, never a third:
 

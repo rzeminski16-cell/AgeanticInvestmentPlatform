@@ -114,9 +114,10 @@
       return;
     }
 
+    // The server's own words for the figure: this script formats nothing (ADR 0077).
     var spend = document.getElementById("run-spend");
-    if (spend && state.spend_gbp) {
-      spend.textContent = "£" + state.spend_gbp;
+    if (spend && state.spend_display) {
+      spend.textContent = state.spend_display;
     }
 
     setField(root, "steps-done", state.steps_done);
@@ -142,7 +143,7 @@
       row.dataset.startedAt = step.started_at || "";
       row.dataset.status = step.status || "";
       setField(row, "status", labels[step.status] || step.status);
-      setField(row, "cost", "£" + step.cost_gbp);
+      setField(row, "cost", step.cost_display || "");
       if (step.error) {
         // The sentence, not the payload. `String(anObject)` is "[object Object]".
         setField(row, "error", step.error.message || JSON.stringify(step.error));

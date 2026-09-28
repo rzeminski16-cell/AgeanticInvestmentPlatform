@@ -7,8 +7,8 @@
   the set of fields. A copy of this for editing would eventually be missing a field added to
   the other, and the symptom is an edit that silently blanks something the operator never saw.
 
-  **Four decisions, then everything else.** The essential path is company, date and hindsight,
-  depth and spending, and the questions the report must answer. The rest genuinely refines a
+  **The essential path, then everything else.** The company, the depth and the spending, the
+  questions the report must answer and what the answer is for. The rest genuinely refines a
   mandate rather than defining one, and it sits behind a native disclosure — which is only
   honest because every field inside it is optional or already carries a server default. A
   required field hidden behind a closed disclosure is a form that fails on a field the reader
@@ -29,20 +29,32 @@
   what the answer is. `novalidate` because the server owns validation: a browser that stopped
   the submission would stop the operator seeing the real rules.
 #}
+{#
+  On the new page the form sits beside what it buys (page specification §6): the depth is a
+  choice between priced options, and the panel's *Commission* button says the price of the
+  depth chosen. `data-branches` lets `branches.js` show the price for the depth picked; with
+  scripting off the button keeps the price of the depth the page opened with.
+#}
+{% set chosen_mode = values.get("analysis_mode") or (panel.chosen if panel else "") %}
 <form
   method="post"
   action="{{ form_action }}"
   hx-post="{{ form_action }}"
   hx-target="#form-errors"
-  hx-swap="innerHTML"
-  hx-disabled-elt="#submit"
-  class="mt-6 flex flex-col gap-6"
+  hx-swap="innerHTML show:#form-errors:top"
+  hx-disabled-elt="#submit, #commission"
+  class="mt-6"
+  id="request-form"
+  {% if panel %}data-branches="analysis_mode"{% endif %}
   novalidate
 >
   {# The id is what lets an htmx error response refresh this token out of band. #}
   <input type="hidden" id="csrf-input" name="{{ csrf_field }}" value="{{ csrf_token }}" />
 
-  {% call ui.sheet("Company", subtitle="The listed entity to research, not its parent.") %}
+  <div class="{{ 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start' if panel else '' }}">
+  <div class="flex min-w-0 flex-col gap-6">
+
+  {% call ui.sheet("The subject", subtitle="The listed entity to research, not its parent.") %}
     <div class="grid gap-5 sm:grid-cols-2">
       {{ ui.field("company_name", "Company name", value=values.get("company_name", ""), required=true,
                   error=errors.get("company_name", [""])[0], placeholder="Contoso plc") }}
@@ -57,10 +69,18 @@
                   error=errors.get("isin", [""])[0], placeholder="US5949181045",
                   hint="Checked for a valid check digit when given.") }}
     </div>
-  {% endcall %}
-
-  {% call ui.sheet("Hindsight", subtitle="What the research is allowed to have known.") %}
-    <div class="flex flex-col gap-5">
+    {#
+      Who the ticker names, asked of the register as the operator leaves the ticker or the
+      exchange (§6). The request is triggered from this element so the fields' own macro stays
+      as it is; with scripting off nothing is asked here, and *Commission* asks anyway.
+    #}
+    <div id="resolved-subject" class="mt-3" aria-live="polite"
+         hx-get="/requests/resolve"
+         hx-trigger="change from:#ticker, change from:#exchange"
+         hx-include="#ticker, #exchange, #company_name"
+         hx-target="this"
+         hx-swap="innerHTML"></div>
+    <div class="mt-5">
       {#
         The as-of date is stated, not asked for (ADR 0110). A report is written about a
         company as it stands, and the date it stands at is the day the run is commissioned
@@ -78,43 +98,35 @@
         The report and every price, rate and statistic it reads are dated to it, and the
         run's own record carries it.
       </p>
-      {#
-        Two radios rather than one checkbox, and the difference is not cosmetic. A checkbox has
-        one label, so the state it is *not* in goes unnamed: the reader sees "refuse undated
-        pages" and has to work out what unticking it does. Naming both outcomes and putting the
-        consequence beside each is what makes the unusual choice a decision rather than a slip.
-
-        Its own control since ADR 0111, and the only source policy a run carries since ADR
-        0113: it used to ride on a second pair of radios, so refusing evidence published
-        after today also refused every page whose publication date nothing could establish,
-        which is why a run's plan named news sources and its evidence table held none.
-      #}
-      {{ ui.choice_group(
-        "undated_sources_admissible",
-        "May this run read a page it cannot date?",
-        [
-          {"value": "true",
-           "label": "Yes, and never as a primary source — recommended",
-           "consequence": "An undated page counts as tier 5 whoever published it, so it can corroborate and can never be the primary source a section requires. It is marked as undated wherever it appears."},
-          {"value": "false",
-           "label": "No, refuse it at acquisition",
-           "consequence": "Every page without a discoverable publication date is quarantined, including most news reporting. The run keeps the document and the record of refusing it."},
-        ],
-        chosen=(values.get("undated_sources_admissible") or "true"),
-      ) }}
     </div>
   {% endcall %}
 
-  {% call ui.sheet("Depth and spending", subtitle="How much work to do, and the most it may cost.") %}
+  {% call ui.sheet("How deep", subtitle="How much work to do, and the most it may cost. Depth is most of what a run costs.") %}
     <div class="grid gap-5 sm:grid-cols-2">
-      {{ ui.field("analysis_mode", "Depth", value=values.get("analysis_mode", ""), required=true,
-                  error=errors.get("analysis_mode", [""])[0], choices=analysis_modes,
-                  hint="Depth is most of what a run costs.") }}
+      {% if panel %}
+        {{ ui.choice_group(
+          "analysis_mode",
+          "Depth",
+          panel.options,
+          chosen=chosen_mode,
+        ) }}
+      {% else %}
+        {{ ui.field("analysis_mode", "Depth", value=values.get("analysis_mode", ""), required=true,
+                    error=errors.get("analysis_mode", [""])[0], choices=analysis_modes,
+                    hint="Depth is most of what a run costs.") }}
+      {% endif %}
       {{ ui.field("max_cost_gbp", "Most this report may cost", value=values.get("max_cost_gbp", ""),
                   type="number", required=true, error=errors.get("max_cost_gbp", [""])[0],
                   minimum="0.01", step="0.01", placeholder="8.00",
                   hint=cost_hint) }}
     </div>
+  {% endcall %}
+
+  {% call ui.sheet("The brief", subtitle="Optional, and the part that shapes the plan most.") %}
+    {{ ui.field("focus_questions", "Questions you want answered", value=values.get("focus_questions", ""),
+                rows=5, error=errors.get("focus_questions", [""])[0],
+                placeholder="Is the margin recovery durable?\nWhat would have to be true for the multiple to hold?",
+                hint="One per line. These shape what the research goes looking for, not what it concludes.") }}
   {% endcall %}
 
   {#
@@ -143,12 +155,6 @@
                 error=errors.get("horizon_label", [""])[0], placeholder="Through the next cycle") }}
   {% endcall %}
 
-  {% call ui.sheet("Questions this report must answer", subtitle="Optional, and the part that shapes the plan most.") %}
-    {{ ui.field("focus_questions", "Questions you want answered", value=values.get("focus_questions", ""),
-                rows=5, error=errors.get("focus_questions", [""])[0],
-                placeholder="Is the margin recovery durable?\nWhat would have to be true for the multiple to hold?",
-                hint="One per line. These shape what the research goes looking for, not what it concludes.") }}
-  {% endcall %}
 
   {#
     Everything below refines a mandate rather than defining one. Closed by default, and that is
@@ -159,6 +165,31 @@
   {% call ui.sheet() %}
     {% call ui.disclosure("Refine this mandate — optional") %}
       <div class="flex flex-col gap-6">
+      {#
+        Two radios rather than one checkbox, and the difference is not cosmetic. A checkbox has
+        one label, so the state it is *not* in goes unnamed: the reader sees "refuse undated
+        pages" and has to work out what unticking it does. Naming both outcomes and putting the
+        consequence beside each is what makes the unusual choice a decision rather than a slip.
+
+        Its own control since ADR 0111, and the only source policy a run carries since ADR
+        0113: it used to ride on a second pair of radios, so refusing evidence published
+        after today also refused every page whose publication date nothing could establish,
+        which is why a run's plan named news sources and its evidence table held none.
+      #}
+      {{ ui.choice_group(
+        "undated_sources_admissible",
+        "May this run read a page it cannot date?",
+        [
+          {"value": "true",
+           "label": "Yes, and never as a primary source — recommended",
+           "consequence": "An undated page counts as tier 5 whoever published it, so it can corroborate and can never be the primary source a section requires. It is marked as undated wherever it appears."},
+          {"value": "false",
+           "label": "No, refuse it at acquisition",
+           "consequence": "Every page without a discoverable publication date is quarantined, including most news reporting. The run keeps the document and the record of refusing it."},
+        ],
+        chosen=(values.get("undated_sources_admissible") or "true"),
+      ) }}
+
         <div class="grid gap-5 sm:grid-cols-2">
           {{ ui.field("base_currency", "Base currency", value=values.get("base_currency", ""),
                       required=true, error=errors.get("base_currency", [""])[0], choices=currencies,
@@ -199,16 +230,72 @@
     {% endcall %}
   {% endcall %}
 
-  <div class="flex flex-wrap items-center gap-4 border-t border-line pt-6">
-    <button
-      type="submit"
-      id="submit"
-      class="inline-flex min-h-11 items-center justify-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
-    >
-      {{ submit_label }}
-    </button>
-    <a href="{{ cancel_href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
-      Cancel
-    </a>
+  {% if not panel %}
+    <div class="flex flex-wrap items-center gap-4 border-t border-line pt-6">
+      <button
+        type="submit"
+        id="submit"
+        class="inline-flex min-h-11 items-center justify-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+      >
+        {{ submit_label }}
+      </button>
+      <a href="{{ cancel_href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Cancel
+      </a>
+    </div>
+  {% endif %}
+  </div>
+
+  {% if panel %}
+    {#
+      What you are buying (page specification §6): the price of each depth and where it
+      comes from, how long a run works, how many decisions it asks for, and the button that
+      buys it saying the price. A plan comes first, and the run stops for the operator's
+      approval before anything more is spent — which is true of the plan's own cost too,
+      so the panel says what that is rather than calling it nothing.
+    #}
+    <aside class="flex flex-col gap-4 rounded-md border border-line bg-surface p-5 xl:sticky xl:top-6" id="what-you-buy" aria-labelledby="what-you-buy-heading">
+      <h2 id="what-you-buy-heading" class="type-title-2 text-ink">What you are buying</h2>
+      <dl class="flex flex-col divide-y divide-line">
+        {% for estimate in panel.estimates %}
+          <div class="flex items-baseline justify-between gap-3 py-2" data-depth="{{ estimate.value }}">
+            <dt class="type-body-sm text-ink-muted">{{ estimate.label }}{% if estimate.sections %}<span class="block type-caption">{{ estimate.sections }}</span>{% endif %}</dt>
+            <dd class="type-data-sm text-ink">{{ estimate.about }}</dd>
+          </div>
+        {% endfor %}
+        {% if panel.runtime %}
+          <div class="flex items-baseline justify-between gap-3 py-2">
+            <dt class="type-body-sm text-ink-muted">Machine time</dt>
+            <dd class="type-data-sm text-ink">{{ panel.runtime }}</dd>
+          </div>
+        {% endif %}
+        <div class="flex items-baseline justify-between gap-3 py-2">
+          <dt class="type-body-sm text-ink-muted">Your decisions</dt>
+          <dd class="type-data-sm text-ink" id="decisions-asked">{{ panel.decisions }}</dd>
+        </div>
+      </dl>
+      <p class="type-caption text-ink-muted" id="estimate-basis">
+        {% for estimate in panel.estimates %}<span data-branch="{{ estimate.value }}" {% if estimate.value != chosen_mode %}hidden{% endif %}>{{ estimate.basis }}.</span>{% endfor %}
+        Every run stops for {{ panel.decisions_always }}; up to {{ panel.decisions_more }} more
+        stops come only when the company makes them necessary.
+      </p>
+      <p class="rounded-sm bg-surface-sunken p-3 type-body-sm text-ink">
+        A plan comes first, for well under a pound, and the run stops for your approval before
+        anything more is spent. <strong>The ceiling you set is enforced in code</strong>, not warned about.
+      </p>
+      <button type="submit" name="intent" value="commission" id="commission"
+              class="inline-flex min-h-11 items-center justify-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">
+        {% for estimate in panel.estimates %}<span data-branch="{{ estimate.value }}" {% if estimate.value != chosen_mode %}hidden{% endif %}>Commission &mdash; {{ estimate.about }}</span>{% endfor %}
+      </button>
+      <button type="submit" id="submit"
+              class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">
+        {{ submit_label }}, and start it later
+      </button>
+      {% if panel.month %}
+        <p class="text-center type-caption text-ink-muted" id="month-spend">Spent this month: {{ panel.month }}</p>
+      {% endif %}
+      <a href="{{ cancel_href }}" class="text-center type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">Cancel</a>
+    </aside>
+  {% endif %}
   </div>
 </form>

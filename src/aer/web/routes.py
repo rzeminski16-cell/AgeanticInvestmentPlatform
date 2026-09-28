@@ -16,16 +16,17 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Final
 
 import structlog
 from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
+    HTTP_200_OK,
     HTTP_303_SEE_OTHER,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
@@ -37,12 +38,14 @@ from aer.api.deps import (
     CurrentUser,
     DbSession,
     RedisClient,
+    RegistersDep,
     SettingsDep,
     current_user_or_none,
     get_current_user,
 )
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
+from aer.core.dates import format_date
 from aer.core.enums import AnalysisMode, JobStatus
 from aer.core.schemas.request import (
     SUPPORTED_CURRENCIES,
@@ -51,8 +54,11 @@ from aer.core.schemas.request import (
     RiskTolerance,
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
-from aer.db.models import Assumption, Job, Report, ResearchRequest
+from aer.db.models import Assumption, Job, Report, ResearchRequest, User, WorkOrder
 from aer.errors import AerError, ConflictError, ValidationError
+from aer.queue import enqueue_run
+from aer.sections.evidence import MODE_FACTORS
+from aer.sections.registry import resolve_sections
 from aer.services import assumptions as assumption_service
 from aer.services import overview as overview_service
 from aer.services import requests as request_service
@@ -60,13 +66,20 @@ from aer.services import runs as run_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumption_gate import outstanding_for
+from aer.services.availability import check_availability, resolve_subject
+from aer.services.refresh import estimate_refresh
 from aer.web import figures, vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
+from aer.web.gates import GATE_STEPS
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, THEMES
 from aer.web.shell.badges import cached_counts_for
 from aer.web.templating import percent, render
-from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
+from aer.workflow.workflows.vertical_slice_v1 import (
+    FORECAST_YEARS,
+    build_steps,
+    projected_runtime_seconds,
+)
 
 __all__ = ["router"]
 
@@ -101,7 +114,7 @@ class _FormPage:
 _NEW_PAGE = _FormPage(
     template="requests/new.html",
     action="/requests/new",
-    submit_label="Save draft request",
+    submit_label="Save as a draft",
     cancel_href="/requests",
     error_summary_heading="This request was not created",
 )
@@ -125,6 +138,11 @@ def _is_htmx(request: Request) -> bool:
     return request.headers.get("HX-Request", "").lower() == "true"
 
 
+# The depth a blank form opens at, and the one the guidance describes until another is
+# chosen: the calibrated baseline the drafting budgets scale from, and the watchlist's own.
+_DEFAULT_DEPTH: Final = AnalysisMode.STANDARD
+
+
 async def _cost_hint(session: DbSession, *, values: dict[str, str] | None = None) -> str:
     """What runs at the chosen depth have cost, rendered, or an honest admission of no history.
 
@@ -140,11 +158,11 @@ async def _cost_hint(session: DbSession, *, values: dict[str, str] | None = None
     """
     chosen = (values or {}).get("analysis_mode", "")
     try:
-        mode = AnalysisMode(chosen) if chosen else AnalysisMode.STANDARD
+        mode = AnalysisMode(chosen) if chosen else _DEFAULT_DEPTH
     except ValueError:
         # A depth the enum does not have is a rejected submission being re-rendered. The
         # guidance for the default is better than none while the operator fixes it.
-        mode = AnalysisMode.STANDARD
+        mode = _DEFAULT_DEPTH
 
     try:
         user = await get_current_user(session)
@@ -165,6 +183,8 @@ def _form_context(
     oob_csrf: bool = False,
     values: dict[str, str] | None = None,
     cost_hint: str = "",
+    panel: dict[str, Any] | None = None,
+    refresh_offer: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Everything ``requests/_form.html`` needs, for both the new and the edit page.
 
@@ -212,6 +232,12 @@ def _form_context(
         # builder is deliberately free of I/O and the guidance needs a query.
         "cost_hint": cost_hint,
         "error_summary_heading": page.error_summary_heading,
+        # What the operator is buying, beside the form that buys it (page specification §6):
+        # the new page only. The edit page saves a draft and spends nothing.
+        "panel": panel,
+        # A company with a current report is offered its refresh first (§6): see
+        # `_refresh_offer`.
+        "refresh_offer": refresh_offer,
         **page.extra,
     }
 
@@ -314,24 +340,251 @@ async def new_request_form(request: Request, session: DbSession, settings: Setti
             csrf_token=token,
             values={**_BLANK_REQUEST, **_prefilled(request)},
             cost_hint=await _cost_hint(session),
+            panel=await _commission_panel(session, settings),
         ),
     )
     set_csrf_cookie(response, token)
     return response
 
 
+# What a run costs by the workflow's own reckoning: every step's declared estimate, the
+# figure the plan gate starts from. Said as an estimate, and used only where the operator
+# has no finished run to say better.
+_DECLARED_RUN_GBP: Final = sum((step.estimated_cost_gbp for step in build_steps()), Decimal(0))
+_TEN_PENCE: Final = Decimal("0.1")
+
+
+async def _commission_panel(session: DbSession, settings: SettingsDep) -> dict[str, Any]:
+    """What the operator is buying (page specification §6): each depth's sections and price,
+    how long a run works, how many decisions it asks for, and what the month has spent.
+
+    **A database failure degrades to the declared estimate** rather than failing the form,
+    for the reason `_cost_hint` gives: the form has to draw when a nicety cannot.
+    """
+    blank = overview_service.TypicalCost(low=None, high=None, sample=0)
+    typical: dict[AnalysisMode, overview_service.TypicalCost] = dict.fromkeys(AnalysisMode, blank)
+    sections: dict[AnalysisMode, int] = {}
+    spent: Decimal | None = None
+    minutes: int | None = None
+    try:
+        user = await get_current_user(session)
+        typical = {
+            mode: await overview_service.typical_cost(session, user_id=user.id, mode=mode)
+            for mode in AnalysisMode
+        }
+        # From the section rows themselves, which is where depth decides what is written
+        # (gap O5): a transient request at each depth, resolved and counted, never saved.
+        sections = {
+            mode: len(await resolve_sections(session, request=ResearchRequest(analysis_mode=mode)))
+            for mode in AnalysisMode
+        }
+        spent = await overview_service.spend_since(
+            session, since=overview_service.start_of_month(datetime.now(UTC))
+        )
+        minutes = round(await projected_runtime_seconds(session) / 60)
+    except (AerError, SQLAlchemyError, OSError):
+        pass
+    estimates = [
+        _depth_estimate(
+            mode,
+            words.label,
+            typical[mode],
+            baseline=typical[_DEFAULT_DEPTH],
+            sections=sections.get(mode),
+        )
+        for mode, words in vocabulary.ANALYSIS_MODES.items()
+    ]
+    always = [
+        gate
+        for gate in GATE_STEPS.values()
+        if vocabulary.GATES[gate].certainty is vocabulary.GateCertainty.ALWAYS
+    ]
+    return {
+        "estimates": estimates,
+        "chosen": _DEFAULT_DEPTH.value,
+        # The depth as radios, each with its price beside it: a choice between priced
+        # options rather than a word in a list whose cost is somewhere else.
+        "options": [
+            {
+                "value": estimate["value"],
+                "label": estimate["label"],
+                "consequence": " · ".join(
+                    part
+                    for part in (
+                        estimate["about"].capitalize(),
+                        estimate["sections"],
+                        vocabulary.ANALYSIS_MODES[AnalysisMode(estimate["value"])].detail,
+                    )
+                    if part
+                ),
+            }
+            for estimate in estimates
+        ],
+        "runtime": f"about {minutes} minutes" if minutes else "",
+        # Read from the gates' own vocabulary, so the panel and the console's "gate 3 of up
+        # to 7" cannot count the same decisions differently.
+        "decisions": f"{len(always)} to {len(GATE_STEPS)}",
+        "decisions_always": " and ".join(vocabulary.GATES[gate].name.lower() for gate in always),
+        "decisions_more": len(GATE_STEPS) - len(always),
+        "month": (
+            f"{figures.pounds(spent)} of {figures.pounds(settings.monthly_budget_gbp)}"
+            if spent is not None
+            else ""
+        ),
+    }
+
+
+def _depth_estimate(
+    mode: AnalysisMode,
+    label: str,
+    typical: overview_service.TypicalCost,
+    *,
+    baseline: overview_service.TypicalCost,
+    sections: int | None,
+) -> dict[str, str]:
+    """One depth's price and where it comes from, as the panel and the button say it.
+
+    The midpoint of the operator's own finished runs at the depth, where there are enough to
+    say. Otherwise the baseline depth's runs — or, with none of those either, the workflow's
+    declared estimate — **scaled by the factor the drafting budgets scale by**: a depth
+    nobody has run yet is still priced as the lighter or heavier thing it is, rather than at
+    one flat figure that made the quick screen look dearer than a standard report.
+    """
+    factor = Decimal(str(MODE_FACTORS[mode]))
+    share = f"{factor * 100:.0f}%"
+    if typical.low is not None and typical.high is not None:
+        about = (typical.low + typical.high) / 2
+        basis = (
+            f"{figures.pounds(typical.low)} to {figures.pounds(typical.high)} over your "
+            f"{typical.sample} finished runs at this depth"
+        )
+    elif baseline.low is not None and baseline.high is not None:
+        about = (baseline.low + baseline.high) / 2 * factor
+        basis = (
+            f"No run of yours at this depth has finished yet. Scaled from your "
+            f"{baseline.sample} finished {_DEFAULT_DEPTH.value} runs: this depth reads and "
+            f"writes about {share} as much"
+        )
+    elif factor == 1:
+        about = _DECLARED_RUN_GBP
+        basis = "The workflow's own estimate: no run of yours at this depth has finished yet"
+    else:
+        about = _DECLARED_RUN_GBP * factor
+        basis = (
+            f"The workflow's own estimate, scaled to this depth — it reads and writes about "
+            f"{share} as much: no run of yours has finished yet"
+        )
+    return {
+        "value": mode.value,
+        "label": label,
+        "about": f"about {figures.pounds(about.quantize(_TEN_PENCE, rounding=ROUND_HALF_UP))}",
+        "sections": f"{sections} sections" if sections else "",
+        "basis": basis,
+    }
+
+
+@router.get("/requests/resolve", response_class=HTMLResponse, summary="Who a ticker names")
+async def resolve_request_subject(
+    request: Request,
+    registers: RegistersDep,
+    user: CurrentUser,  # noqa: ARG001 -- authentication; the answer is the register's
+) -> Response:
+    """The register's name for the ticker and exchange typed so far (page specification §6).
+
+    A fragment the form's subject fieldset asks for as the operator leaves the ticker or the
+    exchange, so the company a ticker names is on the page before anything is saved or paid
+    for. Nothing is written, and an incomplete pair answers with nothing rather than a guess.
+    """
+    ticker = request.query_params.get("ticker", "").strip()[:_PREFILL_LIMIT]
+    exchange = request.query_params.get("exchange", "").strip()
+    company_name = request.query_params.get("company_name", "").strip()[:_PREFILL_LIMIT]
+    resolution = None
+    if ticker and exchange in SUPPORTED_EXCHANGES:
+        resolution = await resolve_subject(
+            ticker=ticker,
+            exchange=exchange,
+            company_name=company_name,
+            sec_client=registers.sec_client,
+            companies_house_client=registers.companies_house_client,
+        )
+    fragment: Response = render(
+        request,
+        "requests/_resolved.html",
+        {
+            "resolution": resolution,
+            "ticker": ticker.upper(),
+            "exchange": exchange,
+            "register": (
+                vocabulary.PROVIDERS.get(resolution.register.value, "")
+                if resolution is not None
+                else ""
+            ),
+        },
+    )
+    return fragment
+
+
+# The two buttons that start a run from the new form: *Commission*, and *Commission a new
+# report anyway* — the second is the answer to the refresh offer, and asks nothing again.
+_COMMISSIONING: Final = frozenset({"commission", "commission_new"})
+
+
+async def _refresh_offer(
+    session: DbSession, settings: SettingsDep, *, user: User, request: ResearchRequest
+) -> dict[str, str] | None:
+    """The refresh a company's current report offers instead of a new report, or ``None``.
+
+    Page specification §6: a company with a current report gets a warning band offering the
+    refresh at its lower price before a new report is bought. Matched on the ticker and the
+    exchange the operator typed against the requests this account's reports answered — the
+    key the form itself has, where a company row may not exist until a run resolves one.
+    """
+    current = await session.scalar(
+        select(Report)
+        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(
+            WorkOrder.user_id == user.id,
+            func.upper(ResearchRequest.ticker) == request.ticker.upper(),
+            ResearchRequest.exchange == request.exchange,
+            Report.immutable.is_(True),
+            Report.superseded_by.is_(None),
+            Report.superseded_at.is_(None),
+        )
+        .order_by(Report.approved_at.desc())
+        .limit(1)
+    )
+    if current is None:
+        return None
+    approved = current.approved_at or current.created_at
+    return {
+        "company": f"{request.company_name} ({request.ticker.upper()})",
+        "approved": format_date(approved.date(), "%-d %B %Y"),
+        "report_href": f"/reports/{current.id}",
+        "refresh_action": f"/reports/{current.id}/refresh",
+        "refresh_label": estimate_refresh(settings).label,
+    }
+
+
 @router.post("/requests/new", summary="Submit a research request")
-async def submit_request_form(
+async def submit_request_form(  # noqa: PLR0917 -- every one is an injected dependency
     request: Request,
     session: DbSession,
     settings: SettingsDep,
+    redis: RedisClient,
+    registers: RegistersDep,
     user: CurrentUser,
 ) -> Response:
-    """Validate and create, then redirect to the new request.
+    """Validate and create — and, when the operator pressed *Commission*, start the run.
 
     Returns the same page with inline errors on failure, so nothing the operator typed is
     lost. When the submission came from HTMX only the error fragment is re-rendered; the
     validation performed is identical either way.
+
+    **Commissioning asks the register first** (ADR 0128), exactly as starting from the
+    request page does: a subject the platform cannot research is refused before anything is
+    saved or spent, in the register's own words, with the form as the operator left it.
+    Saving as a draft stays the other button, and spends nothing.
     """
     submitted = await _submitted_values(request)
 
@@ -351,11 +604,57 @@ async def submit_request_form(
         except ValidationError as exc:
             parsed.add_problems(_problems_from(exc))
         else:
+            intent = submitted.get("intent", "")
+            if intent not in _COMMISSIONING:
+                await session.commit()
+                return _go_to(request, f"/requests/{created.id}")
+            offer = (
+                await _refresh_offer(session, settings, user=user, request=created)
+                if intent == "commission"
+                else None
+            )
+            if offer is not None:
+                # Not a refusal: a question, answered by either button in the band. Nothing
+                # is saved until it is, so pressing *Commission a new report anyway* does
+                # not leave a second copy of this request behind.
+                await session.rollback()
+                return _render_failure(
+                    request,
+                    settings,
+                    parsed,
+                    page=_NEW_PAGE,
+                    status=HTTP_200_OK,
+                    panel=await _commission_panel(session, settings),
+                    refresh_offer=offer,
+                )
+            available = await check_availability(
+                created,
+                sec_client=registers.sec_client,
+                companies_house_client=registers.companies_house_client,
+            )
+            if not available.researchable:
+                await session.rollback()
+                return _render_failure(
+                    request,
+                    settings,
+                    parsed,
+                    page=_NEW_PAGE,
+                    status=HTTP_422_UNPROCESSABLE_CONTENT,
+                    banner=available.reason,
+                    panel=await _commission_panel(session, settings),
+                )
+            job = await run_service.start_run(session, request=created)
             await session.commit()
-            return _go_to(request, f"/requests/{created.id}")
+            await enqueue_run(redis, job.id)
+            return _go_to(request, f"/runs/{job.id}")
 
     return _render_failure(
-        request, settings, parsed, page=_NEW_PAGE, status=HTTP_422_UNPROCESSABLE_CONTENT
+        request,
+        settings,
+        parsed,
+        page=_NEW_PAGE,
+        status=HTTP_422_UNPROCESSABLE_CONTENT,
+        panel=await _commission_panel(session, settings),
     )
 
 
@@ -912,6 +1211,8 @@ def _render_failure(
     status: int,
     banner: str | None = None,
     cost_hint: str = "",
+    panel: dict[str, Any] | None = None,
+    refresh_offer: dict[str, str] | None = None,
 ) -> Response:
     """Re-render the form, or just its errors for an HTMX submission.
 
@@ -933,6 +1234,8 @@ def _render_failure(
             banner=banner,
             oob_csrf=htmx,
             cost_hint=cost_hint,
+            panel=panel,
+            refresh_offer=refresh_offer,
         ),
         status_code=status,
     )

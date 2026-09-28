@@ -1,21 +1,27 @@
 {% extends "base.html" %}
 {% import "_ui/index.html" as ui with context %}
 
-{% block title %}New research request &middot; Ageantic{% endblock %}
+{#
+  Commission a report (page specification §6): the form, and beside it what the operator is
+  buying — the price of each depth, how long a run works, how many decisions it will ask for —
+  with the price on the button that buys it. Saving a draft instead stays one button away and
+  spends nothing.
+#}
+
+{% block title %}Commission a report &middot; Ageantic{% endblock %}
+
+{% block head_extra %}
+  {# The button's price follows the depth chosen. Chrome only: the choice is the radio's. #}
+  <script src="{{ url_for('static', path='/js/branches.js') }}" defer></script>
+{% endblock %}
 
 {% block content %}
   {% call ui.page_header(
-    "New research request",
-    eyebrow="RESEARCH",
-    identity="Four decisions shape the run. Everything else refines it.",
+    "Commission a report",
+    eyebrow="Research",
+    identity="Name the company, say what you want answered, choose how deep. What it costs is beside the form, before you press anything.",
     breadcrumbs=[{"href": "/requests", "label": "Requests"}],
   ) %}{% endcall %}
-
-  {{ ui.callout(
-    "info",
-    "Nothing is fetched and nothing is spent when you save this",
-    "The request is saved as a draft. Starting it produces a costed plan, which you approve before any research is carried out.",
-  ) }}
 
   {% include "requests/_form.html" %}
 {% endblock %}

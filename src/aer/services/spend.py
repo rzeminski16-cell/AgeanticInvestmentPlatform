@@ -20,6 +20,7 @@ was metered at the time, which is the honest figure even after a price change.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -28,7 +29,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.db.models import AgentRun, Cost, Job, JobStep
 
-__all__ = ["RoleSpend", "SpendSummary", "spend_by_role", "spend_summary"]
+__all__ = ["RoleSpend", "SpendSummary", "spend_by_job", "spend_by_role", "spend_summary"]
+
+
+async def spend_by_job(
+    session: AsyncSession, job_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, Decimal]:
+    """What each run has spent, summed from its cost rows, in one query.
+
+    **The cost rows, never ``jobs.total_cost_gbp``.** A research run writes a cost row for
+    every call it pays for and never writes the running total, so a surface reading the
+    column showed £0.00 beside a run that had spent £7 (ROADMAP §3.19 item 87 fixed the
+    requests list; this is the same answer for every other surface). A run with no cost
+    rows is absent from the result, and a caller reads that as nothing spent.
+    """
+    if not job_ids:
+        return {}
+    totals = await session.execute(
+        select(Cost.job_id, func.coalesce(func.sum(Cost.amount_gbp), 0))
+        .where(Cost.job_id.in_(list(job_ids)))
+        .group_by(Cost.job_id)
+    )
+    return {job_id: Decimal(str(total)) for job_id, total in totals.tuples() if job_id is not None}
 
 
 @dataclass(frozen=True, slots=True)

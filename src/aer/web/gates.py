@@ -154,6 +154,18 @@ class Journey:
     """Conditional gates whose deciding step has not run: they may fire, or may not."""
 
     @property
+    def position_display(self) -> str:
+        """*Gate 3 of 5* while the run is stopped at one — *of up to* while a conditional gate
+        may still fire, because a count that promised a stop the run never makes is the
+        overstatement this type exists to refuse. Empty when the run is not at a gate."""
+        if not any(entry.state is JourneyState.CURRENT for entry in self.entries):
+            return ""
+        decided = sum(entry.state is JourneyState.DECIDED for entry in self.entries)
+        total = decided + self.remaining_certain + self.remaining_possible
+        of = f"of up to {total}" if self.remaining_possible else f"of {total}"
+        return f"Gate {decided + 1} {of}"
+
+    @property
     def remaining_display(self) -> str:
         """The range, in words, without promising a stop the run may never make."""
         certain, possible = self.remaining_certain, self.remaining_possible

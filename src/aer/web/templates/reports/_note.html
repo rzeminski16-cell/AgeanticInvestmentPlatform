@@ -1,0 +1,110 @@
+{#
+  One note, beside the report (page specification §8.2). Swapped into the shell's drawer.
+
+  A fragment: no `extends`, because the page it lands in is already rendered. Every figure
+  arrived as text the server had already decided — the value in the house style, each input
+  with its provenance reference — so nothing here formats a number (ADR 0077).
+
+  The order is the question a reader is asking: what the figure is, what kind of thing it is,
+  then one step of where it came from — the formula and its inputs, or the document and the
+  passage — and the whole walk one link further.
+#}
+{% import "_ui/index.html" as ui with context %}
+
+<div class="flex flex-col gap-5" id="note-{{ note.number }}" data-kind="{{ note.kind }}">
+  <p>{{ ui.status(note.tone, note.verdict) }}</p>
+
+  {% if note.figure %}
+    <div>
+      <p class="type-data-xl text-ink" data-field="figure">{{ note.figure }}</p>
+      {% if note.caption %}<p class="mt-1 type-body-sm text-ink-muted">{{ note.caption }}</p>{% endif %}
+    </div>
+  {% elif note.caption %}
+    <p class="type-body-strong text-ink" data-field="caption">{{ note.caption }}</p>
+  {% endif %}
+
+  <section class="border-t border-line pt-4">
+    <h3 class="type-eyebrow text-ink-muted">What kind of figure this is</h3>
+    <p class="mt-2 type-body text-ink" data-field="what-it-is">{{ note.what_it_is }}</p>
+  </section>
+
+  {% if note.statement %}
+    <p class="type-body text-ink" data-field="statement">{{ note.statement }}</p>
+  {% endif %}
+
+  {% if note.formula %}
+    <section>
+      <h3 class="type-eyebrow text-ink-muted">The formula</h3>
+      <p class="mt-2 rounded-sm bg-surface-sunken px-3 py-2 type-data-sm text-ink" data-field="formula">{{ note.formula }}</p>
+    </section>
+  {% endif %}
+
+  {% if note.inputs %}
+    <section>
+      <h3 class="type-eyebrow text-ink-muted">Its inputs</h3>
+      <ul class="mt-2 flex flex-col divide-y divide-line" data-field="inputs">
+        {% for input in note.inputs %}
+          <li class="flex items-baseline justify-between gap-4 py-2">
+            <span class="type-body-sm text-ink">{{ input.label }}</span>
+            <span class="text-right">
+              <span class="type-data-sm text-ink">{{ input.figure.value_display }}</span>
+              <span class="block type-caption text-ink-muted">
+                {% if input.figure.provenance %}
+                  <a href="{{ input.figure.provenance.href }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ input.origin }}</a>
+                {% else %}
+                  {{ input.figure.unavailable_because }}
+                {% endif %}
+              </span>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if note.source %}
+    <section>
+      <h3 class="type-eyebrow text-ink-muted">Where it came from</h3>
+      <p class="mt-2 type-body-sm text-ink" data-field="document">{{ note.source.title }}</p>
+      <p class="mt-1 type-body-sm text-ink-muted">
+        {% if note.source.publisher %}{{ note.source.publisher }} &middot; {% endif %}published {{ note.source.published }}
+        &middot; retrieved {{ note.source.retrieved }} &middot; {{ note.source.tier }}
+      </p>
+      {% if note.source.digest %}
+        <p class="mt-1 type-data-sm text-verification" data-field="digest">
+          stored copy {{ note.source.digest }}{% if note.code_version %} &middot; code version {{ note.code_version }}{% endif %}
+        </p>
+      {% endif %}
+      {% if note.source.excerpt %}
+        {#
+          Text, never markup: the passage came out of a document nobody vetted. The state is
+          said in words beside it, because a quotation that failed verification must not
+          read like one that passed.
+        #}
+        <blockquote class="mt-3 border-l-[3px] border-line-strong pl-3 type-body-sm text-ink" data-field="excerpt">{{ note.source.excerpt }}</blockquote>
+        <p class="mt-1 type-caption text-ink-muted" data-field="excerpt-state">
+          {% if note.source.excerpt_state == "verified" %}
+            The passage was found in the stored copy when the claim was checked.
+          {% elif note.source.excerpt_state == "overridden" %}
+            The passage was not found in the stored copy; a person accepted it anyway.
+          {% else %}
+            The passage was not found in the stored copy.
+          {% endif %}
+        </p>
+      {% endif %}
+    </section>
+  {% elif note.code_version %}
+    <p class="type-data-sm text-ink-muted" data-field="code-version">code version {{ note.code_version }}</p>
+  {% endif %}
+
+  <div class="flex flex-wrap gap-3 border-t border-line pt-4">
+    {% if note.source %}
+      <a href="{{ note.source.url }}" rel="noopener noreferrer"
+         class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-sunken">Open the document</a>
+    {% endif %}
+    <a href="{{ note.record_href }}" id="note-record"
+       class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-sunken">
+      {% if note.kind == "calculation" %}The whole calculation{% else %}The whole note{% endif %}
+    </a>
+  </div>
+</div>

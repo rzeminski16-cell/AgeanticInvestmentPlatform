@@ -164,6 +164,11 @@ class TestTheWholeThing:
         # The one sentence that has to be on every surface this platform produces.
         expect(page.get_by_text("not regulated investment advice").first).to_be_visible()
 
+        # 9. And a figure in it is a control: its marker opens the evidence drawer on what
+        #    the figure is and what the verifier said of it (page specification §8.2).
+        page.locator("#report-body a[data-drawer-title^='Note']").first.click()
+        expect(page.locator("#aer-drawer-body [data-kind]")).to_be_visible()
+
     def test_the_finished_run_shows_up_on_the_front_page(
         self, page: Page, live_server: str, database_url: str
     ) -> None:

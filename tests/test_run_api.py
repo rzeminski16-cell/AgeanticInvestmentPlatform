@@ -2069,6 +2069,123 @@ class TestTheWebPages:
         assert f"/runs/{body['job_id']}" in page.text
 
 
+_AS_THE_DRAWER: dict[str, str] = {"HX-Request": "true"}
+
+
+class TestTheReader:
+    """The report page is the document, and a marker opens its note (page specification §8).
+
+    The document is read on the page rather than as Markdown in a box, every marker is a
+    control, and the note it opens says what kind of figure it is and walks it one step —
+    while the archived Markdown stays on the page, byte for byte, as the record.
+    """
+
+    async def _approved(self, api: Any, committed: dict, driver: Driver, db_session: Any) -> Any:
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
+        await driver.advance(job_id)
+        report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
+        assert report is not None
+        return report
+
+    async def test_the_page_is_the_document_with_a_spine_and_its_record(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+
+        page = await api.get(f"/reports/{report.id}")
+
+        assert page.status_code == 200
+        assert 'id="report-body"' in page.text
+        assert 'id="report-spine"' in page.text
+        assert page.text.count('data-section="') >= 2 * 9
+        # The record the document is read beside, as approved.
+        markdown = str((report.content or {}).get("markdown", ""))
+        first_line = markdown.splitlines()[0]
+        assert 'id="report-markdown"' in page.text
+        assert first_line in page.text
+
+    async def test_every_marker_opens_its_note_and_is_a_link_without_scripting(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+
+        page = await api.get(f"/reports/{report.id}")
+        markers = re.findall(
+            r'href="/runs/([^"/]+)/footnotes/(\d+)" hx-get="/reports/([^"/]+)/notes/(\d+)"'
+            r' hx-target="#aer-drawer-body" data-drawer-title="Note (\d+)"',
+            page.text,
+        )
+
+        assert markers
+        for job, page_number, shown_report, panel_number, titled in markers:
+            assert job == str(report.job_id)
+            assert shown_report == str(report.id)
+            assert page_number == panel_number == titled
+
+    async def test_a_calculation_note_names_its_formula_and_its_inputs(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+        page = await api.get(f"/reports/{report.id}")
+        calculated = re.search(
+            r'<a title="Calculated:[^"]*" href="[^"]*/footnotes/(\d+)"', page.text
+        )
+        assert calculated is not None
+
+        note = await api.get(
+            f"/reports/{report.id}/notes/{calculated.group(1)}", headers=_AS_THE_DRAWER
+        )
+
+        assert note.status_code == 200
+        assert "<html" not in note.text
+        assert 'data-kind="calculation"' in note.text
+        assert "A recorded calculation" in note.text
+        assert 'data-field="formula"' in note.text
+        assert 'data-field="inputs"' in note.text
+        assert 'href="/calculations/' in note.text
+
+    async def test_a_source_note_names_the_document_and_its_stored_copy(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+        page = await api.get(f"/reports/{report.id}")
+        cited = re.search(
+            r'<a title="[^"]*Follow the note to the excerpt behind it\."'
+            r' href="[^"]*/footnotes/(\d+)"',
+            page.text,
+        )
+        assert cited is not None
+
+        note = await api.get(f"/reports/{report.id}/notes/{cited.group(1)}", headers=_AS_THE_DRAWER)
+
+        assert note.status_code == 200
+        assert "Where it came from" in note.text
+        assert 'data-field="digest"' in note.text
+        assert "Open the document" in note.text
+
+    async def test_a_note_asked_for_as_a_page_hands_over_to_its_own_page(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+
+        response = await api.get(f"/reports/{report.id}/notes/1")
+
+        assert response.status_code == 303
+        assert response.headers["location"] == f"/runs/{report.job_id}/footnotes/1"
+
+    async def test_a_note_the_report_does_not_have_is_not_found(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        report = await self._approved(api, committed, driver, db_session)
+
+        missing = await api.get(f"/reports/{report.id}/notes/100000", headers=_AS_THE_DRAWER)
+        stranger = await api.get(f"/reports/{uuid.uuid4()}/notes/1", headers=_AS_THE_DRAWER)
+
+        assert missing.status_code == 404
+        assert stranger.status_code == 404
+
+
 class TestTheObsidianSurface:
     """The report page's export door: honest states, and refusal wired through."""
 
@@ -2175,6 +2292,40 @@ class TestTheHistorySurfaces:
 
         filtered = await api.get("/reports", params={"company": "zzz"})
         assert 'id="no-reports"' in filtered.text
+
+    async def test_the_library_is_one_row_per_company_with_earlier_versions_folded(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """Page specification §9: the newest report leads its company's row and every
+        earlier version folds under it with a count — kept and readable, never deleted."""
+        await self._seed_approved(committed, db_engine)
+
+        page = (await api.get("/reports")).text
+
+        assert 'id="company-group-1"' in page
+        assert 'id="company-group-2"' not in page
+        assert "1 earlier version, kept and readable" in page
+
+    async def test_a_state_chip_filters_to_reports_in_that_state(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        await self._seed_approved(committed, db_engine)
+
+        everything = (await api.get("/reports")).text
+        assert re.search(r">All 2</a>", everything)
+        assert re.search(r">Current 1</a>", everything)
+        assert re.search(r">Draft 1</a>", everything)
+        # A state no report is in offers no chip to a page of nothing.
+        assert ">Withdrawn" not in everything
+
+        drafts = (await api.get("/reports", params={"state": "draft"})).text
+        assert "<span>Draft</span>" in drafts
+        assert "<span>Current</span>" not in drafts
+        assert "earlier version" not in drafts
+
+        # A state the library does not know is no filter, not an empty page.
+        unknown = (await api.get("/reports", params={"state": "deleted"})).text
+        assert 'id="no-reports"' not in unknown
 
     async def test_the_company_page_shows_history_and_only_history(
         self, api: Any, committed: dict, db_engine: Any
@@ -2622,3 +2773,74 @@ class TestTheRenderStepIsReEntrant:
         assert len(reports) == 1
         assert reports[0].pdf_artefact_id is not None
         assert reports[0].immutable is True
+
+
+class TestTheConsoleAsDrawn:
+    """The run page as page specification §7 draws it: five stages as the only progress
+    indicator, a ledger that names who did each step, and the decision beside them.
+
+    The rail is read from the step rows the ledger shows, so the two agree by construction;
+    these tests pin what each says at the two moments an operator most often opens the page —
+    stopped at the first gate, and finished.
+    """
+
+    async def test_at_the_first_gate_the_rail_stops_at_the_plan(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        page = (await api.get(f"/runs/{job_id}")).text
+
+        assert _rail(page) == [
+            ("plan", "stopped"),
+            ("acquire", "waiting"),
+            ("compute", "waiting"),
+            ("write", "waiting"),
+            ("approve", "waiting"),
+        ]
+        # A count that never promises a stop the run may not make: five of the seven gates
+        # fire only when the company makes them necessary.
+        assert re.search(r'id="gate-position">\s*Gate 1 of up to 7\s*<', page)
+
+    async def test_the_ledger_names_who_did_each_step(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        page = (await api.get(f"/runs/{job_id}")).text
+
+        # The plan is a model's work; the gate it stopped at is the operator's to decide.
+        assert _actor(page, "plan") == "a model"
+        assert _actor(page, "gate_plan") == "you"
+
+    async def test_a_finished_run_reads_done_at_every_stage(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
+        await driver.advance(job_id)
+
+        page = (await api.get(f"/runs/{job_id}")).text
+
+        assert {state for _, state in _rail(page)} == {"done"}
+        assert "Approved and rendered" in page
+        assert 'id="gate-position"' not in page
+        # Code rendered the report; nobody is still being asked for anything.
+        assert _actor(page, "render") == "code"
+
+
+def _rail(page: str) -> list[tuple[str, str]]:
+    return re.findall(r'<li data-stage="(\w+)" data-state="(\w+)"', page)
+
+
+def _actor(page: str, step: str) -> str:
+    """Who the ledger says did one step, read from that step's own row."""
+    start = page.index(f'data-step="{step}"')
+    row = page[start : page.index("</li>", start)]
+    found = re.search(r'<span class="type-body-sm text-ink-subtle">([^<]+)</span>', row)
+    assert found, f"no actor on the {step} row"
+    return found.group(1)

@@ -42,7 +42,7 @@ from aer.db.models import ResearchRequest
 from aer.errors import AerError
 from aer.sources.uk.companies_house import NOT_TAGGED_STATUS
 
-__all__ = ["Availability", "check_availability"]
+__all__ = ["Availability", "Resolution", "check_availability", "resolve_subject"]
 
 _log = structlog.get_logger("aer.services.availability")
 
@@ -102,6 +102,56 @@ async def check_availability(
     if register is Provider.COMPANIES_HOUSE:
         return await _uk(request, companies_house_client)
     return await _us(request, sec_client)
+
+
+@dataclass(frozen=True, slots=True)
+class Resolution:
+    """Who a ticker names on its venue's register, or the register's refusal."""
+
+    register: Provider
+    name: str = ""
+    identifier: str = ""
+    reason: str = ""
+
+    @property
+    def resolved(self) -> bool:
+        return bool(self.name)
+
+
+async def resolve_subject(
+    *,
+    ticker: str,
+    exchange: str,
+    company_name: str = "",
+    sec_client: Any = None,
+    companies_house_client: Any = None,
+) -> Resolution:
+    """The register's own name for a subject, asked while the form is being filled in.
+
+    Page specification §6: the request form shows the resolved name before submit, so the
+    operator sees which company a ticker names before paying to research it — `TSCO` is Tesco
+    in London and Tractor Supply on NASDAQ. Only the first of `check_availability`'s questions,
+    *does the register know it*, and asked of the register the venue names in the same words
+    the run will use; whether the company has filed, and in a form this platform reads, is
+    asked when the operator presses *Commission*. A register this machine has no client for
+    answers nothing, rather than a refusal about the company.
+    """
+    register = registry_of(exchange)
+    if register is Provider.COMPANIES_HOUSE:
+        if companies_house_client is None:
+            return Resolution(register=register)
+        resolving = companies_house_client.resolve_entity(
+            ticker, exchange=exchange, name=company_name
+        )
+    else:
+        if sec_client is None:
+            return Resolution(register=register)
+        resolving = sec_client.resolve_entity(ticker, exchange=exchange)
+    try:
+        entity = await resolving
+    except AerError as refused:
+        return Resolution(register=register, reason=refused.message)
+    return Resolution(register=register, name=entity.name, identifier=entity.identifier)
 
 
 async def _us(request: ResearchRequest, client: Any) -> Availability:

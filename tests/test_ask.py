@@ -848,6 +848,21 @@ class TestThePages:
         assert 'id="ask-form"' in response.text
         assert "Nothing asked yet" in response.text
 
+    async def test_the_three_tiers_are_explained_before_anything_is_asked(
+        self, api: Any, committed: dict[str, Any]
+    ) -> None:
+        """Page specification §13.1: what each tier does and what it costs, on the page
+        before the form — and the one that spends drawn apart from the two that do not."""
+        await _valued(committed)
+        await committed["session"].commit()
+
+        page = (await api.get("/ask")).text
+
+        assert re.findall(r'data-tier-card="(\d)"', page) == ["1", "2", "3"]
+        assert page.index('id="ask-tiers"') < page.index('id="ask-form"')
+        assert "Free &middot; instant" in page
+        assert "Priced, and approved by you first" in page
+
     async def test_a_tier_one_question_shows_its_figures_with_their_walks(
         self, api: Any, committed: dict[str, Any]
     ) -> None:

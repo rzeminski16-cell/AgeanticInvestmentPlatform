@@ -13,95 +13,91 @@
 {% block title %}Methods &middot; Ageantic{% endblock %}
 
 {% block content %}
-  {% call ui.page_header("Your methods", eyebrow="RESEARCH") %}
-    <a href="/skills/import" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" id="import-link">
-      Import a file
-    </a>
-    <a href="/skills/examples" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">
-      Start from an example
-    </a>
+  {% call ui.page_header(
+    "Your methods",
+    eyebrow="Research",
+    identity="Report sections you write yourself, in plain language. They can add a requirement; they can never relax one, and the platform enforces that rather than asking.",
+  ) %}
     <a
       href="/skills/new"
-      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong"
       id="new-skill"
-    >
-      Write a skill
-    </a>
+    >Write a method</a>
+    <a href="/skills/examples" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">Start from an example</a>
+    <a href="/skills/import" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" id="import-link">Import a file</a>
   {% endcall %}
 
-  {{ ui.verdict(
-    "THE BOUNDARY",
-    "Skills may add requirements. They cannot remove citations, set a rating, or relax the platform's source rules.",
-    detail="A skill file adds a section to the report, or adds methodology to an existing one. What a file asks for is composed against the platform floor, and the editor shows you exactly what that composition did.",
-    tone="info",
-  ) }}
-
-  {% if not skills %}
-    <div id="no-skills">
-      {{ ui.empty(
-        "No skills yet",
-        "Writing one takes a paragraph of prose and a dozen lines of frontmatter. Start from a worked example, or write a method from scratch — every import is reviewed before it is saved.",
-        action_label="Start from an example",
-        action_href="/skills/examples",
-      ) }}
+  <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+    <div class="min-w-0">
+      {% if not skills %}
+        <div id="no-skills">
+          {{ ui.empty(
+            "No methods yet",
+            "Writing one takes a paragraph of prose and a dozen lines of frontmatter. Start from a worked example, or write a method from scratch — every import is reviewed before it is saved.",
+            action_label="Start from an example",
+            action_href="/skills/examples",
+          ) }}
+        </div>
+      {% else %}
+        {% call ui.sheet("Your library") %}
+          <ul class="flex flex-col divide-y divide-line" id="skills">
+            {% for skill in skills %}
+              <li class="py-4 first:pt-0 last:pb-0" id="skill-{{ skill.key }}">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <a href="/skills/{{ skill.key }}"
+                       class="type-subheading text-ink underline-offset-[3px] hover:text-verification hover:underline">{{ skill.title or "An untitled method" }}</a>
+                    <p class="mt-1 type-body-sm text-ink-muted">
+                      {{ skill.kind | in_words }}{% if skill.version %} &middot; version {{ skill.version }}{% endif %}
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3">
+                    {% if skill.enabled %}
+                      {{ ui.status("success", "Enabled") }}
+                    {% else %}
+                      {{ ui.status("muted", "Disabled") }}
+                    {% endif %}
+                    {% if skill.kind == "custom_section" %}
+                      <a href="/skills/{{ skill.key }}#dry-run" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" data-try="{{ skill.key }}">Try it</a>
+                    {% endif %}
+                    <form method="post" action="/skills/{{ skill.key }}/enable">
+                      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                      <input type="hidden" name="enabled" value="{{ 'false' if skill.enabled else 'true' }}" />
+                      <button type="submit" id="toggle-{{ skill.key }}"
+                              class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">
+                        {{ "Disable" if skill.enabled else "Enable" }}<span class="sr-only"> {{ skill.title or "this method" }}</span>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                {% if skill.record %}
+                  {# Its record over the approved reports your runs pinned it in (ADR 0122 §2):
+                     read from your own runs, a reading and never a source. Absent, not a zero,
+                     until a run that pinned it reached an approved report. #}
+                  <p class="mt-2 type-body-sm text-ink-muted" data-record="{{ skill.key }}">{{ skill.record }}</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endcall %}
+      {% endif %}
     </div>
-  {% else %}
-    {% call ui.sheet() %}
-      <ul class="flex flex-col divide-y divide-line" id="skills">
-        {% for skill in skills %}
-          <li class="py-4 first:pt-0 last:pb-0" id="skill-{{ skill.key }}">
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <a
-                  href="/skills/{{ skill.key }}"
-                  class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong"
-                >
-                  {{ skill.key }}
-                </a>
-                <span class="ml-2 type-body text-ink">{{ skill.title }}</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="type-data-sm text-ink-muted">{{ skill.kind | in_words }}</span>
-                {% if skill.kind == "custom_section" %}
-                  <a href="/skills/{{ skill.key }}#dry-run" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" data-try="{{ skill.key }}">Try it</a>
-                {% endif %}
-                {% if skill.version %}
-                  <span class="type-data-sm text-ink-muted">v{{ skill.version }}</span>
-                {% endif %}
-                {% if skill.enabled %}
-                  {{ ui.status("success", "enabled") }}
-                {% else %}
-                  {{ ui.status("muted", "disabled") }}
-                {% endif %}
-                <form method="post" action="/skills/{{ skill.key }}/enable">
-                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                  <input type="hidden" name="enabled" value="{{ 'false' if skill.enabled else 'true' }}" />
-                  <button
-                    type="submit"
-                    id="toggle-{{ skill.key }}"
-                    class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
-                  >
-                    {{ "Disable" if skill.enabled else "Enable" }} {{ skill.key }}
-                  </button>
-                </form>
-              </div>
-            </div>
-            {% if skill.record %}
-              {# Its record over the approved reports your runs pinned it in (ADR 0122 §2):
-                 read from your own runs, a reading and never a source. Absent, not a zero,
-                 until a run that pinned it reached an approved report. #}
-              <p class="mt-2 type-body-sm text-ink-muted" data-record="{{ skill.key }}">
-                {{ skill.record }}
-              </p>
-            {% endif %}
-            {% if skill.content_hash %}
-              <p class="mt-2 truncate type-data-sm text-ink-subtle" title="{{ skill.content_hash }}">
-                {{ skill.content_hash[:16] }}…
-              </p>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endcall %}
-  {% endif %}
+
+    {#
+      The boundary leads the side of the page and stays open at every width: the one rule that
+      makes an operator-authored instruction safe to run is the one thing this page must say
+      before it offers to run one (invariant 7).
+    #}
+    <aside class="flex flex-col gap-4" aria-label="What a method may do">
+      <section class="rounded-md border border-line bg-surface p-5" id="the-boundary">
+        <p class="type-eyebrow text-ink-muted">The boundary</p>
+        <p class="mt-2 type-body text-ink">A method may add requirements. It cannot remove citations, set a rating, or relax the platform's source rules.</p>
+        <p class="mt-3 type-body-sm text-ink-muted">
+          A method adds a section to the report, or adds methodology to an existing one. What a
+          file asks for is composed against the platform's floor, and the editor shows exactly
+          what that composition did &mdash; including any line it refused, in the file's own words.
+        </p>
+      </section>
+    </aside>
+  </div>
 {% endblock %}

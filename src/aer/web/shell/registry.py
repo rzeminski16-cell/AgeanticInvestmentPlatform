@@ -210,6 +210,9 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/knowledge/graph",
         "/reports/{report_id}",
         "/reports/{report_id}/preview",
+        # The reader's drawer contents, fetched from a marker. The marker keeps an `href` to
+        # the note's own page, and asked for as a page this hands over to it.
+        "/reports/{report_id}/notes/{number}",
         # One thesis, reached from the list above it.
         "/theses/{thesis_id}",
         # One finding, reached from the monitor's list and from the work list.
@@ -224,6 +227,8 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/ask/{question_id}/notes/{number}",
         # A request and everything done to one.
         "/requests/new",
+        # The name a ticker resolves to, fetched by the new form as it is filled in.
+        "/requests/resolve",
         "/requests/{request_id}",
         "/requests/{request_id}/assumptions",
         "/requests/{request_id}/assumptions/{assumption_id}",

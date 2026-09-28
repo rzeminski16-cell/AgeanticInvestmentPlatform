@@ -15,11 +15,13 @@ it is the best two statements on the page.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Final
 
 from aer.core.enums import GateKind
 from aer.services import overview as overview_service
 from aer.services.approvals import pending_gate
+from aer.services.spend import spend_by_job
 from aer.web import figures
 from aer.web.overview.attention import Attention, Severity
 from aer.web.vocabulary import GATES
@@ -72,47 +74,51 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
                 action="Open the run",
                 preview_href=f"/research/runs/{job.id}/preview",
                 waited=_waited(job, now),
-                cost=_cost(job, request),
+                cost=await _cost(session, job, request),
             )
         )
     collected.extend(_and_more(stopped, "runs are waiting at a gate", Severity.BLOCKED, "gate"))
 
     capped = await overview_service.capped_runs(session, user_id=user_id)
     collected.extend(
-        Attention(
-            key=f"research.budget.{job.id}",
-            tool=TOOL,
-            severity=Severity.BLOCKED,
-            title=f"{_named(request)} reached its cost ceiling",
-            detail=(
-                "Not a failure: the run stopped rather than spend past what you allowed, "
-                "and it continues from where it stopped once you raise the ceiling."
-            ),
-            href=f"/runs/{job.id}",
-            action="Open the run",
-            preview_href=f"/research/runs/{job.id}/preview",
-            waited=_waited(job, now),
-            cost=_cost(job, request),
-        )
-        for job, request in capped.rows
+        [
+            Attention(
+                key=f"research.budget.{job.id}",
+                tool=TOOL,
+                severity=Severity.BLOCKED,
+                title=f"{_named(request)} reached its cost ceiling",
+                detail=(
+                    "Not a failure: the run stopped rather than spend past what you allowed, "
+                    "and it continues from where it stopped once you raise the ceiling."
+                ),
+                href=f"/runs/{job.id}",
+                action="Open the run",
+                preview_href=f"/research/runs/{job.id}/preview",
+                waited=_waited(job, now),
+                cost=await _cost(session, job, request),
+            )
+            for job, request in capped.rows
+        ]
     )
     collected.extend(_and_more(capped, "runs stopped at their ceiling", Severity.BLOCKED, "budget"))
 
     failed = await overview_service.failed_runs(session, user_id=user_id)
     collected.extend(
-        Attention(
-            key=f"research.failed.{job.id}",
-            tool=TOOL,
-            severity=Severity.BROKEN,
-            title=f"{_named(request)} failed",
-            detail=_reason(job),
-            href=f"/runs/{job.id}",
-            action="Read the timeline",
-            preview_href=f"/research/runs/{job.id}/preview",
-            waited=_waited(job, now),
-            cost=_cost(job, request),
-        )
-        for job, request in failed.rows
+        [
+            Attention(
+                key=f"research.failed.{job.id}",
+                tool=TOOL,
+                severity=Severity.BROKEN,
+                title=f"{_named(request)} failed",
+                detail=_reason(job),
+                href=f"/runs/{job.id}",
+                action="Read the timeline",
+                preview_href=f"/research/runs/{job.id}/preview",
+                waited=_waited(job, now),
+                cost=await _cost(session, job, request),
+            )
+            for job, request in failed.rows
+        ]
     )
     collected.extend(_and_more(failed, "runs failed", Severity.BROKEN, "failed"))
 
@@ -149,7 +155,7 @@ def _waited(job: Job, now: datetime) -> str:
     return figures.waited_for(since, now=now) if since is not None else ""
 
 
-def _cost(job: Job, request: ResearchRequest) -> str:
+async def _cost(session: AsyncSession, job: Job, request: ResearchRequest) -> str:
     """What the run has spent against what the mandate allowed.
 
     Through `web/figures.py`, so this row, the console and all seven gates render the same
@@ -157,7 +163,8 @@ def _cost(job: Job, request: ResearchRequest) -> str:
     of nothing.
     """
     return figures.cost_context(
-        spent=job.total_cost_gbp, ceiling=request.work_order.max_cost_gbp
+        spent=(await spend_by_job(session, [job.id])).get(job.id, Decimal(0)),
+        ceiling=request.work_order.max_cost_gbp,
     ).summary
 
 

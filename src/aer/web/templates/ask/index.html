@@ -12,41 +12,68 @@
 {% block title %}Ask &middot; Ageantic{% endblock %}
 
 {% block content %}
-  {% call ui.page_header("Ask", eyebrow="A QUESTION OVER THE RECORD") %}
-    <p class="type-body text-ink-muted">
-      A question about a company, answered from its record where it can be and priced where
-      it cannot: recomputed for nothing, re-read for pennies, researched only after you say
-      go ahead. No answer comes from the model's own knowledge.
+  {% call ui.page_header("Ask anything. It says what it will cost first.", eyebrow="Companies · Ask") %}
+    <p class="max-w-prose type-body text-ink-muted">
+      Every question resolves into one of three tiers before it runs. The tier is shown, never
+      guessed at afterwards &mdash; and no answer comes from the model's own knowledge.
     </p>
   {% endcall %}
 
-  {% call ui.sheet("Ask a question", subtitle="The tier is decided from the question's words and what the record holds, and shown before anything runs.", id="ask") %}
-    {% if companies %}
-      <form method="post" action="/ask" class="grid max-w-3xl gap-6" id="ask-form">
-        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-        {{ ui.field("company_id", "Company", value=chosen, choices=companies, blank_label="Choose a company with a record", required=true, hint="Only a company this account holds a record for.") }}
-        {{ ui.field("question", "The question", type="textarea", rows=3, required=true, hint="\"What if the discount rate were half a point higher?\" recomputes for nothing. \"What does the 10-K say about leases?\" re-reads what is held. \"Has anything changed at their main competitor?\" needs new material, and is priced first.") }}
-        <div>
-          <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" id="ask-submit">Ask</button>
-        </div>
-      </form>
-    {% else %}
-      {{ ui.empty("No record to ask over", "A question is answered from a company's record, and this account holds none yet. Commission a research request first.", action_label="Start a research request", action_href="/requests/new") }}
-    {% endif %}
-  {% endcall %}
+  <div class="flex flex-col gap-6">
+    {#
+      The three tiers (page specification §13.1), each with what it does, what it costs and a
+      question that lands in it. The third is the one that spends and adds to the record, so it
+      is the one drawn in the decision colour.
+    #}
+    <ul class="grid gap-4 lg:grid-cols-3" id="ask-tiers" aria-label="The three tiers">
+      <li class="flex flex-col gap-3 rounded-md border border-line bg-surface p-5" data-tier-card="1">
+        <p class="flex items-baseline gap-2"><span class="rounded-xs bg-info-wash px-1.5 py-0.5 type-eyebrow text-info-ink">Tier 1</span> <span class="type-subheading text-ink">Recompute</span></p>
+        <p class="type-body-sm text-ink">Re-runs the stored model with a changed input. The valuation, the scenarios and the sensitivity grid are already computed and recorded.</p>
+        <p class="type-data-sm text-verification">Free &middot; instant</p>
+        <p class="mt-auto border-t border-line pt-3 type-body-sm text-ink-muted">&ldquo;What if the discount rate were half a point higher?&rdquo;</p>
+      </li>
+      <li class="flex flex-col gap-3 rounded-md border border-line bg-surface p-5" data-tier-card="2">
+        <p class="flex items-baseline gap-2"><span class="rounded-xs bg-info-wash px-1.5 py-0.5 type-eyebrow text-info-ink">Tier 2</span> <span class="type-subheading text-ink">Re-read</span></p>
+        <p class="type-body-sm text-ink">A pass over everything already fetched and hashed for this company &mdash; filings, exhibits, pages &mdash; without fetching anything new.</p>
+        <p class="type-data-sm text-verification">Pennies, shown with the answer</p>
+        <p class="mt-auto border-t border-line pt-3 type-body-sm text-ink-muted">&ldquo;What does the 10-K say about lease obligations?&rdquo;</p>
+      </li>
+      <li class="flex flex-col gap-3 rounded-md border-2 border-warning-ink bg-decision-wash p-5" data-tier-card="3">
+        <p class="flex items-baseline gap-2"><span class="rounded-xs bg-warning-wash px-1.5 py-0.5 type-eyebrow text-warning-ink">Tier 3</span> <span class="type-subheading text-ink">Research</span></p>
+        <p class="type-body-sm text-ink">Goes and gets new material. Everything fetched is hashed and joins this company's record, for this question and every later one.</p>
+        <p class="type-data-sm text-warning-ink">Priced, and approved by you first</p>
+        <p class="mt-auto border-t border-line pt-3 type-body-sm text-ink-muted">&ldquo;Has anything changed at their main competitor?&rdquo;</p>
+      </li>
+    </ul>
 
-  {% call ui.sheet("Asked", subtitle="Newest first, each with the tier it resolved to.", id="asked") %}
-    {% if rows %}
-      {% call ui.record_list("Questions asked") %}
-        {% for row in rows %}
-          <li class="border-t border-line py-4" data-question="{{ row.id }}" data-tier="{{ row.tier }}" data-state="{{ row.state }}">
-            <a href="/ask/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.question }}</a>
-            <p class="mt-1 type-data-sm text-ink-muted">{{ row.ticker }} · tier {{ row.tier }}, {{ row.tier_label | lower }} · {{ row.state }} · asked {{ row.asked_on }}</p>
-          </li>
-        {% endfor %}
-      {% endcall %}
-    {% else %}
-      {{ ui.empty("Nothing asked yet", "Questions appear here with the tier each resolved to and what became of it.") }}
-    {% endif %}
-  {% endcall %}
+    {% call ui.sheet("Ask a question", subtitle="The tier is decided from the question's words and what the record holds, and shown before anything runs.", id="ask") %}
+      {% if companies %}
+        <form method="post" action="/ask" class="grid max-w-3xl gap-6" id="ask-form">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          {{ ui.field("company_id", "Company", value=chosen, choices=companies, blank_label="Choose a company with a record", required=true, hint="Only a company this account holds a record for.") }}
+          {{ ui.field("question", "The question", type="textarea", rows=3, required=true, hint="Its tier is decided from its words and what the record holds, and shown before anything runs.") }}
+          <div>
+            <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" id="ask-submit">Ask</button>
+          </div>
+        </form>
+      {% else %}
+        {{ ui.empty("No record to ask over", "A question is answered from a company's record, and this account holds none yet. Commission a research request first.", action_label="Start a research request", action_href="/requests/new") }}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.sheet("Asked", subtitle="Newest first, each with the tier it resolved to.", id="asked") %}
+      {% if rows %}
+        {% call ui.record_list("Questions asked") %}
+          {% for row in rows %}
+            <li class="border-t border-line py-4" data-question="{{ row.id }}" data-tier="{{ row.tier }}" data-state="{{ row.state }}">
+              <a href="/ask/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.question }}</a>
+              <p class="mt-1 type-data-sm text-ink-muted">{{ row.ticker }} · tier {{ row.tier }}, {{ row.tier_label | lower }} · {{ row.state }} · asked {{ row.asked_on }}</p>
+            </li>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        {{ ui.empty("Nothing asked yet", "Questions appear here with the tier each resolved to and what became of it.") }}
+      {% endif %}
+    {% endcall %}
+  </div>
 {% endblock %}

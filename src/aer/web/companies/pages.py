@@ -58,6 +58,7 @@ from aer.services import thesis_monitor
 from aer.services import watchlist as watchlist_service
 from aer.services.ask import companies_with_a_record
 from aer.services.company_record import CompanyRecord
+from aer.services.spend import spend_by_job
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
@@ -659,6 +660,8 @@ async def _report_row(
     """The Report row's states (§5.6): never researched, running, refused, current, stale."""
     report = record.report
     run = record.run
+    # From the cost rows: a research run never writes `jobs.total_cost_gbp`.
+    spent = await spend_by_job(session, [run.id]) if run is not None else {}
     earlier = max(len(history["timeline"]) - (1 if report is not None else 0), 0)
     earlier_words = (
         f" {earlier} earlier report{'s' if earlier != 1 else ''} stay reachable below."
@@ -672,7 +675,7 @@ async def _report_row(
             "title": "Report",
             "summary": f"Running — {words.label.lower()}",
             "detail": words.detail or "The run stops at each gate for you.",
-            "figure": figures.pounds(run.total_cost_gbp),
+            "figure": figures.pounds(spent.get(run.id, Decimal(0))),
             "figure_label": "spent so far",
             "href": f"/runs/{run.id}",
             "tone": words.tone.value,
@@ -689,7 +692,7 @@ async def _report_row(
                 "Refused at a gate" if run.status is not JobStatus.BUDGET_EXCEEDED else words.label
             ),
             "detail": message or words.detail or "The run's console names what refused it.",
-            "figure": figures.pounds(run.total_cost_gbp),
+            "figure": figures.pounds(spent.get(run.id, Decimal(0))),
             "figure_label": "spent",
             "href": f"/runs/{run.id}",
             "tone": vocabulary.Tone.REFUSAL.value,
@@ -726,7 +729,11 @@ async def _report_row(
         "title": "Report",
         "summary": summary,
         "detail": f"{view}{earlier_words}",
-        "figure": figures.pounds(job.total_cost_gbp) if job is not None else NO_FIGURE,
+        "figure": (
+            figures.pounds((await spend_by_job(session, [job.id])).get(job.id, Decimal(0)))
+            if job is not None
+            else NO_FIGURE
+        ),
         "figure_label": "cost",
         "href": f"/reports/{report.id}",
         "tone": REPORT_TONES[record.report_state].value,

@@ -43,6 +43,8 @@ REQUIRED_IDS: Final[dict[str, tuple[str, ...]]] = {
     "console.js": ("run-console", "run-spend", "stream-note"),
     # The menu's disclosure, closed below the rail width, and the search bar `/` focuses.
     "nav.js": ("aer-menu", "aer-search"),
+    # The reader's spine and the line under it that repeats the section being read.
+    "reader.js": ("report-spine", "report-body", "spine-counts"),
 }
 
 # Attributes the scripts key on instead of ids, because the thing they address repeats.
@@ -70,6 +72,9 @@ REQUIRED_ATTRIBUTES: Final[dict[str, tuple[str, ...]]] = {
     # branch with the value that shows it. Without either the script does nothing and every
     # branch stays visible, which is the page with scripting off.
     "branches.js": ("data-branches", "data-branch"),
+    # `data-section` pairs a spine link with the section it names; `data-counts-for` is the
+    # section's own counts line, which the spine repeats rather than recomputes.
+    "reader.js": ("data-section", "data-counts-for"),
 }
 
 # Ids an htmx out-of-band swap targets. A response naming one of these lands nowhere if the

@@ -831,6 +831,171 @@ input[type="radio"] {
 }
 
 /* ---------------------------------------------------------------------------------------
+   The report reader's document (page specification §8.1).
+
+   The body is the renderer's own HTML — the same fragments the archived document is made of
+   — so it arrives as plain elements with no utility classes, and Preflight has taken every
+   default away from them. These rules give them back, in the design system's type roles and
+   at the report measure, scoped to the reader so nothing else on the site inherits them. */
+
+.aer-doc {
+  max-width: 84ch;
+  color: var(--aer-ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 28px;
+}
+
+.aer-doc h2 {
+  margin-top: 36px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.aer-doc section > h2:first-child {
+  margin-top: 0;
+}
+
+.aer-doc h3 {
+  margin-top: 28px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+.aer-doc h4,
+.aer-doc h5,
+.aer-doc h6 {
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.aer-doc p,
+.aer-doc ul,
+.aer-doc table,
+.aer-doc figure,
+.aer-doc blockquote {
+  margin-top: 14px;
+}
+
+.aer-doc ul {
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+
+.aer-doc li + li {
+  margin-top: 6px;
+}
+
+.aer-doc strong {
+  font-weight: 600;
+}
+
+/* A wide table scrolls inside itself; the page never does (design system §5.2). */
+.aer-doc table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.aer-doc th {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--aer-line-strong);
+  color: var(--aer-ink-muted);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Tabular figures in the text face rather than the data face: a document table mixes
+   figures with sentences, and a narrative column set in monospace is a column nobody reads. */
+.aer-doc td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--aer-line);
+  font-variant-numeric: tabular-nums lining-nums;
+  vertical-align: top;
+}
+
+.aer-doc code {
+  font-family: var(--font-data);
+  font-size: 0.875em;
+}
+
+/* The marker is the control that opens a note (page specification §8.1): teal because it can
+   be inspected, and underlined so it reads as a link in a table of figures as well as in
+   prose. */
+.aer-doc sup {
+  font-size: 0.7em;
+  line-height: 0;
+}
+
+.aer-doc sup.fn-ref a {
+  padding-inline: 1px;
+  color: var(--aer-verification);
+  font-family: var(--font-data);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.aer-doc sup.fn-ref a:hover {
+  color: var(--aer-verification-strong);
+}
+
+.aer-doc .banner {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-inline-start: 3px solid var(--aer-warning-ink);
+  background: var(--aer-warning-wash);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.aer-doc .status-note {
+  color: var(--aer-ink-muted);
+  font-style: italic;
+}
+
+.aer-doc figure img {
+  max-width: 100%;
+  height: auto;
+}
+
+.aer-doc figcaption {
+  margin-top: 6px;
+  color: var(--aer-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.aer-doc blockquote {
+  padding-inline-start: 12px;
+  border-inline-start: 3px solid var(--aer-line-strong);
+}
+
+/* The spine's current section (page specification §8.3), set by `reader.js` as the reader
+   scrolls. The rule is the non-colour half of "you are here", as on the menu. */
+.aer-spine-current {
+  position: relative;
+  background: var(--aer-verification-wash);
+  color: var(--aer-verification-strong);
+  font-weight: 600;
+}
+
+.aer-spine-read::after {
+  content: " \2713";
+  color: var(--aer-success-ink);
+}
+
+/* ---------------------------------------------------------------------------------------
    Guidance mode.
 
    Callouts are markup that is always present and shown by an attribute on <body>, so a page

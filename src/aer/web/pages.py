@@ -54,8 +54,9 @@ from aer.charts import (
 )
 from aer.config import HouseStyle, Settings
 from aer.core.assumption_scales import UNIT_CHOICES
+from aer.core.dates import format_date
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome
-from aer.core.enums import Decision, GateKind, JobStatus
+from aer.core.enums import AnalysisMode, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
@@ -81,7 +82,7 @@ from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, enqueue_run, worker_health
 from aer.render import display
 from aer.render.document import DerivedFootnote, UnresolvedFootnote, assemble_document
-from aer.render.html import render_html
+from aer.render.html import render_html, render_reader
 from aer.render.markdown import render_markdown
 from aer.render.summary import summary_document
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
@@ -125,16 +126,16 @@ from aer.services.sectors import (
     classification_payload,
     sector_gate_required,
 )
-from aer.services.spend import recent_runs, spend_by_role, spend_summary
+from aer.services.spend import recent_runs, spend_by_job, spend_by_role, spend_summary
 from aer.services.subject import subject_name
 from aer.services.themes import THEME_STEP, add_operator_theme, theme_set_required
 from aer.services.themes import payload_for_job as theme_payload_for_job
 from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
-from aer.web import figures, vocabulary
+from aer.web import figures, reader, stages, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
-from aer.web.gates import GATE_PAGES, frame_for, journey
+from aer.web.gates import CONSEQUENCES, GATE_PAGES, GATE_STEPS, frame_for, journey
 from aer.web.templating import render
 from aer.workflow.registry import (
     DEFAULT_WORKFLOW_VERSION,
@@ -324,6 +325,9 @@ async def run_console(
             "pending_gate": pending.value if pending else None,
             "pending_words": vocabulary.GATES[pending] if pending else None,
             "pending_page": f"/runs/{job_id}/{GATE_PAGES[pending]}" if pending else None,
+            # What deciding commits, said once for every gate (web/gates.py) — the
+            # decision panel's body before its control.
+            "pending_consequence": CONSEQUENCES[pending] if pending else None,
             "report_id": str(report.id) if report else None,
             "poll_seconds": POLL_SECONDS,
             "csrf_field": CSRF_FIELD_NAME,
@@ -480,11 +484,22 @@ async def _console_view(
     in the operator's language.
     """
     run_words = vocabulary.job_state(job.status)
+    decisions_by_gate = {row.gate: row.decision for row in approvals}
     steps = [
         {
             **entry,
             "label": vocabulary.step_label(str(entry.get("key", ""))),
             "status_words": vocabulary.job_state(JobStatus(str(entry.get("status")))),
+            # The ledger's columns (page specification §7): when, who, and what it cost,
+            # in pounds to the penny rather than the four places the cost rows keep. A gate
+            # the run passed through without stopping was nobody's decision.
+            "actor": stages.actor_of(
+                str(entry.get("key", "")),
+                decided=GATE_STEPS.get(str(entry.get("key", ""))) in decisions_by_gate
+                or entry.get("status") != JobStatus.SUCCEEDED.value,
+            ),
+            "started_display": _clock(entry.get("started_at")),
+            "cost_display": entry.get("cost_display") or "",
         }
         for entry in state_dict["steps"]
     ]
@@ -536,6 +551,13 @@ async def _console_view(
         row.get("key") == "value" and row.get("status") == JobStatus.SUCCEEDED.value
         for row in steps
     )
+    calculation_count = (
+        await session.scalar(
+            select(func.count()).select_from(Calculation).where(Calculation.job_id == job.id)
+        )
+        or 0
+    )
+    run_journey = journey(state_dict["steps"], decisions=decisions_by_gate, pending=pending)
 
     return {
         "run_words": run_words,
@@ -553,11 +575,25 @@ async def _console_view(
         )
         or (stranding is not None and stranding.stranded),
         "stranding": stranding,
-        "journey": journey(
+        "journey": run_journey,
+        # The rail (page specification §7.1): the only progress indicator on the page, each
+        # stage with a state and one line — what a finished stage produced, in its counts.
+        "stages": stages.stages_of(
             state_dict["steps"],
-            decisions={row.gate: row.decision for row in approvals},
-            pending=pending,
+            done={
+                "plan": "The plan approved",
+                "acquire": f"{source_count} {_plural(source_count, 'document')}, each hashed",
+                "compute": (
+                    f"{calculation_count} {_plural(calculation_count, 'calculation')}, "
+                    "each recorded"
+                ),
+                "write": f"{claim_count} {_plural(claim_count, 'claim')} checked",
+                "approve": "Approved and rendered",
+            },
         ),
+        "spend_breakdown": stages.spend_by_stage(state_dict["steps"]),
+        "run_time": _run_time(job),
+        "gate_position": run_journey.position_display,
         "cost": figures.cost_context(
             spent=spend_gbp,
             ceiling=(request_row.work_order.max_cost_gbp if request_row is not None else None),
@@ -574,6 +610,46 @@ async def _console_view(
             {status.value: words.label for status, words in vocabulary.JOB_STATES.items()}
         ),
     }
+
+
+def _plural(count: int, noun: str) -> str:
+    return noun if count == 1 else f"{noun}s"
+
+
+def _clock(started_at: object) -> str:
+    """A step's start as the ledger prints it — *09:16* — in UTC, as the record keeps it."""
+    if not isinstance(started_at, str) or not started_at:
+        return ""
+    try:
+        return datetime.fromisoformat(started_at).astimezone(UTC).strftime("%H:%M")
+    except ValueError:
+        return ""
+
+
+def _run_time(job: Job) -> str:
+    """When the run started and how long it has taken, in the header's words.
+
+    UTC and said so: the platform does not know the operator's time zone, and a time with
+    no zone attached is a time a reader will take to be their own.
+    """
+    if job.started_at is None:
+        return "Not started"
+    started = job.started_at.astimezone(UTC)
+    began = f"Started {format_date(started.date(), '%-d %B')} at {started:%H:%M} UTC"
+    end = job.finished_at.astimezone(UTC) if job.finished_at is not None else datetime.now(UTC)
+    spell = _spell(max(int((end - started).total_seconds() // 60), 0))
+    return f"{began} · took {spell}" if job.finished_at is not None else f"{began} · {spell} so far"
+
+
+def _spell(minutes: int) -> str:
+    """A duration in the largest unit that keeps it readable: minutes, hours, then days."""
+    if minutes < 90:  # noqa: PLR2004 -- an hour and a half still reads best in minutes
+        return f"{minutes} {_plural(minutes, 'minute')}"
+    hours = round(minutes / 60)
+    if hours < 48:  # noqa: PLR2004 -- two days still reads best in hours
+        return f"{hours} hours"
+    days = round(hours / 24)
+    return f"{days} days"
 
 
 @router.post("/runs/{job_id}/resume", summary="Continue a stopped run as itself")
@@ -3216,6 +3292,10 @@ async def costs_page(
     return page
 
 
+# The library's filters, in the order its chips read (page specification §9).
+_LIBRARY_STATES: Final[tuple[str, ...]] = ("current", "superseded", "withdrawn", "draft")
+
+
 @router.get("/reports", response_class=HTMLResponse, summary="Report history")
 async def reports_index(
     request: Request,
@@ -3229,6 +3309,9 @@ async def reports_index(
     reports only; the grouping here links through to those.
     """
     company_filter = str(request.query_params.get("company", "")).strip()
+    state_filter = str(request.query_params.get("state", "")).strip()
+    if state_filter not in _LIBRARY_STATES:
+        state_filter = ""
 
     fetched = await session.execute(
         select(Report, ResearchRequest)
@@ -3251,43 +3334,49 @@ async def reports_index(
         ]
 
     # What each report's run cost, in one grouped query — the history row answers "was
-    # this conclusion worth what it cost?" without a click per report.
+    # this conclusion worth what it cost?" without a click per report. The cost rows, which
+    # every other surface beside a run now reads, so no two pages price one run differently.
     job_ids = [report.job_id for report, _ in rows if report.job_id is not None]
-    spend_by_job: dict[uuid.UUID, Decimal] = {}
-    if job_ids:
-        totals = await session.execute(
-            select(JobStep.job_id, func.sum(JobStep.cost_gbp))
-            .where(JobStep.job_id.in_(job_ids))
-            .group_by(JobStep.job_id)
-        )
-        spend_by_job = {
-            job_id: Decimal(total) for job_id, total in totals.tuples() if total is not None
-        }
+    spent = await spend_by_job(session, job_ids)
     # And what each report's run gave, by method, read back from its own rows in one query
     # (§3.19 item 76): the column this reads used to be a pair of fields nothing wrote.
     valuations = await valuations_for(session, job_ids)
 
+    shown: list[dict[str, Any]] = [
+        {
+            "report": report,
+            "state": reports_service.report_state(report),
+            "request": req,
+            "sections": len((report.content or {}).get("sections", []) or []),
+            "produced": format_date(report.created_at.date(), "%-d %b %Y"),
+            "spend_display": (
+                figures.pounds(spent[report.job_id]) if report.job_id in spent else None
+            ),
+            "valuation_display": (
+                valuations[report.job_id].spoken() if report.job_id in valuations else None
+            ),
+        }
+        for report, req in rows
+    ]
+    counts = {state: sum(1 for row in shown if row["state"] == state) for state in _LIBRARY_STATES}
+    if state_filter:
+        shown = [row for row in shown if row["state"] == state_filter]
+
+    # One row per company, its newest report leading and every earlier version folded under
+    # it with a count (page specification §9) — or, filtered to one state, every report in
+    # that state on its own row, because a filter is a question about reports, not companies.
     groups: dict[str, dict[str, Any]] = {}
-    for report, req in rows:
+    for row in shown:
+        req = row["request"]
         label = f"{req.company_name} ({req.ticker})"
-        group = groups.setdefault(label, {"label": label, "company_id": None, "reports": []})
-        if report.company_id is not None:
-            group["company_id"] = report.company_id
-        group["reports"].append(
-            {
-                "report": report,
-                "state": reports_service.report_state(report),
-                "request": req,
-                "spend_display": (
-                    figures.pounds(spend_by_job[report.job_id])
-                    if report.job_id in spend_by_job
-                    else None
-                ),
-                "valuation_display": (
-                    valuations[report.job_id].spoken() if report.job_id in valuations else None
-                ),
-            }
+        key = label if not state_filter else str(row["report"].id)
+        group = groups.setdefault(
+            key, {"label": label, "company_id": None, "lead": row, "earlier": []}
         )
+        if row["report"].company_id is not None:
+            group["company_id"] = row["report"].company_id
+        if group["lead"] is not row:
+            group["earlier"].append(row)
 
     page: Response = render(
         request,
@@ -3295,6 +3384,8 @@ async def reports_index(
         {
             "groups": list(groups.values()),
             "company_filter": company_filter,
+            "state_filter": state_filter,
+            "state_counts": counts,
             "total": len(rows),
             "held": (
                 f"{len(held)} approved and held, {current} of them current."
@@ -3357,7 +3448,15 @@ async def knowledge_page(
             tone=vocabulary.Tone.SUCCESS,
         )
 
-    page: Response = render(request, "knowledge/index.html", {"stats": stats, "verdict": lead})
+    oldest, newest = stats.freshness.oldest, stats.freshness.newest
+    span = (
+        f"{format_date(oldest, '%-d %B %Y')} to {format_date(newest, '%-d %B %Y')}"
+        if oldest is not None and newest is not None
+        else ""
+    )
+    page: Response = render(
+        request, "knowledge/index.html", {"stats": stats, "verdict": lead, "span": span}
+    )
     return page
 
 
@@ -3387,7 +3486,14 @@ async def report_detail(
     settings: SettingsDep,
     user: CurrentUser,
 ) -> Response:
-    """The report as approved, with its hash and a link to the archived bytes."""
+    """The reader (page specification §8): the document, its section spine, and a note behind
+    every marker that opens beside the text.
+
+    The document is the operator's own copy, assembled from the run's stored rows — the
+    same assembly the print view renders, so a note's number is the same on both. The
+    archived Markdown stays the hashed record of what was approved, and it is on this page
+    behind the technical record, byte for byte, with every download beside it.
+    """
     report = await session.scalar(
         select(Report)
         .join(WorkOrder, WorkOrder.id == Report.request_id)
@@ -3398,6 +3504,25 @@ async def report_detail(
 
     content: dict[str, Any] = dict(report.content or {})
     research_request = await session.get(ResearchRequest, report.request_id)
+    job = await session.get(Job, report.job_id)
+    document = (
+        await _report_document(session, report=report, job=job, research_request=research_request)
+        if job is not None and research_request is not None
+        else None
+    )
+    if document is not None and report.immutable:
+        reader.remember(report.id, document)
+    shown = (
+        render_reader(
+            document,
+            link=lambda number: (
+                f"/runs/{report.job_id}/footnotes/{number}",
+                f"/reports/{report.id}/notes/{number}",
+            ),
+        )
+        if document is not None
+        else None
+    )
     exports = list(
         await session.scalars(
             select(ObsidianExport)
@@ -3436,6 +3561,11 @@ async def report_detail(
             "report_state": reports_service.report_state(report),
             "successor": successor,
             "research_request": research_request,
+            "reader": shown,
+            "document": document,
+            # The eyebrow's words: what kind of report, and when it was approved or refreshed.
+            "kind_words": _report_kind_words(report, research_request, own_run),
+            "workbook_withheld": await _workbook_withheld(session, report=report),
             "markdown": str(content.get("markdown", "")),
             "section_keys": list(content.get("sections", [])),
             "exports": exports,
@@ -3610,13 +3740,119 @@ async def report_preview(
     if job is None or research_request is None:  # pragma: no cover -- FK-guaranteed rows
         return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
 
+    document = await _report_document(
+        session, report=report, job=job, research_request=research_request
+    )
+    return HTMLResponse(render_html(document))
+
+
+@router.get(
+    "/reports/{report_id}/notes/{number}",
+    response_class=HTMLResponse,
+    summary="One note, beside the report",
+)
+async def report_note(
+    request: Request,
+    report_id: uuid.UUID,
+    number: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """What one marker rests on, for the reader's drawer (page specification §8.2).
+
+    A fragment for the drawer; asked for as a page — scripting off, or a link opened in a
+    new tab — it hands over to the note's own page, which renders the whole walk.
+    """
+    report = await session.scalar(
+        select(Report)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
+    )
+    if report is None:
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+    if request.headers.get("HX-Request") != "true":
+        return RedirectResponse(
+            f"/runs/{report.job_id}/footnotes/{number}", status_code=HTTP_303_SEE_OTHER
+        )
+
+    job = await session.get(Job, report.job_id)
+    research_request = await session.get(ResearchRequest, report.request_id)
+    if job is None or research_request is None:  # pragma: no cover -- FK-guaranteed rows
+        return problem_page(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    style = await configuration.effective_house_style(session)
+    remembered = reader.recall(report.id) if report.immutable else None
+    if remembered is None:
+        document = await _report_document(
+            session, report=report, job=job, research_request=research_request
+        )
+        remembered = (tuple(document.citations), tuple(document.footnotes))
+        if report.immutable:
+            reader.remember(report.id, document)
+    references, footnotes = remembered
+    if number < 1 or number > len(references):
+        return problem_page(
+            request,
+            f"This report has {len(references)} notes; there is no note {number}.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    note = await reader.note_for(
+        session,
+        job=job,
+        number=number,
+        reference=references[number - 1],
+        footnote=footnotes[number - 1],
+        style=style,
+    )
+    fragment: Response = render(request, "reports/_note.html", {"note": note})
+    return fragment
+
+
+async def _workbook_withheld(session: AsyncSession, *, report: Report) -> str:
+    """Why a report has no workbook, which the page must say rather than leave to guesswork.
+
+    The render step records the reason it wrote none (ADR 0134); a report rendered before
+    the workbook existed recorded nothing, and that is the other answer.
+    """
+    if report.workbook_artefact_id is not None:
+        return ""
+    if not report.immutable:
+        return "No workbook yet: one is archived when the report is approved."
+    rendered = await _step_output(session, job_id=report.job_id, step_key="render") or {}
+    note = rendered.get("workbook")
+    withheld = note.get("withheld") if isinstance(note, dict) else None
+    if withheld:
+        return f"No workbook was archived with this report. {withheld}"
+    return "No workbook was archived with this report: it was approved before the workbook existed."
+
+
+def _report_kind_words(
+    report: Report, research_request: ResearchRequest | None, run: Job | None
+) -> str:
+    """*Full report · refreshed 25 September 2026*: what the reader has open, in the eyebrow."""
+    quick = research_request is not None and research_request.analysis_mode is AnalysisMode.QUICK
+    kind = "Quick report" if quick else "Full report"
+    refreshed = run is not None and run.refresh_kind == refresh_service.REFRESH
+    verb = "refreshed" if refreshed else ("approved" if report.immutable else "drafted")
+    return f"{kind} · {verb} {format_date(report.created_at, '%-d %B %Y')}"
+
+
+async def _report_document(
+    session: AsyncSession, *, report: Report, job: Job, research_request: ResearchRequest
+) -> Any:
+    """A finished report as the operator's own copy reads it.
+
+    One assembly for the reader, its notes and the print view, so a note's number means the
+    same marker on all three. The operator's own copy (ADR 0129): the closing section's
+    figures in full, with the grade stated beside them. The stored HTML and the exports are
+    the shareable assembly.
+    """
     company = (
         await session.get(Company, report.company_id) if report.company_id is not None else None
     )
     comps = await comps_for(session, job=job, request=research_request)
-    # The operator's own copy (ADR 0129): the closing section's figures in full, with the
-    # grade stated beside them. The stored HTML and the exports are the shareable assembly.
-    document = await assemble_document(
+    return await assemble_document(
         session,
         job=job,
         request=research_request,
@@ -3635,7 +3871,6 @@ async def report_preview(
         generated_at=report.created_at,
         audience=Audience.INTERNAL,
     )
-    return HTMLResponse(render_html(document))
 
 
 # -- Internals ---------------------------------------------------------------------------

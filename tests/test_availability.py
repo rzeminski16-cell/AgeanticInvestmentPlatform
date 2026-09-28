@@ -27,7 +27,7 @@ from aer.db.models import Job, ResearchRequest, User, WorkOrder
 from aer.errors import ExternalServiceError, ValidationError
 from aer.fetch.client import FetchResult
 from aer.runtime import Registers
-from aer.services.availability import Availability, check_availability
+from aer.services.availability import Availability, check_availability, resolve_subject
 from aer.sources.base import DocumentRef, ResolvedEntity
 from aer.sources.uk.companies_house import NOT_TAGGED_STATUS, FilingHistory, FilingRecord
 from tests.api_fixtures import build_app, client_for
@@ -232,6 +232,48 @@ class TestALondonListing:
 
         assert uk.register is Provider.COMPANIES_HOUSE
         assert us.register is Provider.SEC_EDGAR
+
+
+class TestTheNameBeforeSubmit:
+    """`resolve_subject`: the request form's preview of who a ticker names (§6).
+
+    Only the register's first question, asked of the register the venue names — the same
+    split `check_availability` makes, so the preview and the check can never consult two
+    different registers about one subject.
+    """
+
+    async def test_a_london_listing_is_named_by_companies_house(self) -> None:
+        found = await resolve_subject(
+            ticker="TSCO",
+            exchange="LSE",
+            company_name="Tesco PLC",
+            sec_client=_Register(refusal=AssertionError("the SEC was asked")),
+            companies_house_client=_Register(),
+        )
+
+        assert found.register is Provider.COMPANIES_HOUSE
+        assert (found.name, found.identifier) == ("TESCO PLC", "00445790")
+        assert found.resolved
+
+    async def test_the_registers_refusal_is_its_own_sentence(self) -> None:
+        refused = ValidationError("TSCO is not on the register.")
+
+        found = await resolve_subject(
+            ticker="TSCO",
+            exchange="LSE",
+            companies_house_client=_Register(refusal=refused),
+        )
+
+        assert not found.resolved
+        assert found.reason == "TSCO is not on the register."
+
+    async def test_a_register_this_machine_cannot_ask_says_nothing(self) -> None:
+        """No credential is this machine's state, not a fact about the company: the preview
+        stays silent rather than refusing, and *Commission* says what is missing."""
+        found = await resolve_subject(ticker="TSCO", exchange="LSE")
+
+        assert not found.resolved
+        assert found.reason == ""
 
 
 class TestTheRunIsNeverCreated:

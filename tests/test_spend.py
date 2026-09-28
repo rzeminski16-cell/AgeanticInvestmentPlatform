@@ -26,7 +26,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus, RequestStatus, UserRole
 from aer.db.models import AgentRun, Cost, Job, JobStep, User
-from aer.services.spend import CacheUse, recent_runs, spend_by_role, spend_summary
+from aer.services.spend import (
+    CacheUse,
+    recent_runs,
+    spend_by_job,
+    spend_by_role,
+    spend_summary,
+)
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 
@@ -264,3 +270,53 @@ class TestThePage:
         response = await api.get("/costs")
 
         assert "No model calls recorded yet." in response.text
+
+
+@pytest.mark.integration
+class TestWhatEachRunSpent:
+    """`spend_by_job`: the figure every surface beside a run prints, from its cost rows.
+
+    A research run writes a cost row per call it pays for and never the job's running
+    total, so every surface that read the total printed £0.00 beside runs that had spent
+    pounds (ROADMAP §3.19 items 87 and 91).
+    """
+
+    async def test_it_sums_the_cost_rows_and_ignores_the_running_total(
+        self, db_session: AsyncSession
+    ) -> None:
+        job = await _job(db_session)
+        db_session.add_all(_spent(job, amount) for amount in ("1.20", "0.17"))
+        await db_session.flush()
+
+        assert job.total_cost_gbp == 0
+        assert await spend_by_job(db_session, [job.id]) == {job.id: Decimal("1.37")}
+
+    async def test_several_runs_in_one_query_each_their_own(self, db_session: AsyncSession) -> None:
+        first, second = await _job(db_session), await _job(db_session)
+        db_session.add_all([_spent(first, "2.00"), _spent(second, "0.50")])
+        await db_session.flush()
+
+        spent = await spend_by_job(db_session, [first.id, second.id])
+
+        assert spent == {first.id: Decimal("2.00"), second.id: Decimal("0.50")}
+
+    async def test_a_run_that_spent_nothing_is_absent_and_no_runs_is_no_query(
+        self, db_session: AsyncSession
+    ) -> None:
+        job = await _job(db_session)
+
+        assert await spend_by_job(db_session, [job.id]) == {}
+        assert await spend_by_job(db_session, []) == {}
+
+
+def _spent(job: Job, amount: str) -> Cost:
+    return Cost(
+        job_id=job.id,
+        category="llm_output",
+        provider="anthropic",
+        units=Decimal(1000),
+        unit_type="tokens",
+        amount_usd=Decimal(amount),
+        amount_gbp=Decimal(amount),
+        fx_rate=Decimal(1),
+    )

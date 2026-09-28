@@ -17,6 +17,7 @@ to the run console, so with scripting off the same click is a page.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Request
 from sqlalchemy import select
@@ -26,6 +27,8 @@ from starlette.status import HTTP_404_NOT_FOUND
 from aer.api.deps import CurrentUser, DbSession
 from aer.db.models import Job, ResearchRequest, WorkOrder
 from aer.services.approvals import pending_gate
+from aer.services.spend import spend_by_job
+from aer.web import figures
 from aer.web.overview.research import GATE_ASKS
 from aer.web.templating import render
 
@@ -75,9 +78,12 @@ async def run_preview(
             # The same phrase the feed used, from the same map, so the row and the panel
             # cannot describe the gate differently.
             "asked": GATE_ASKS.get(gate) if gate else "",
-            # `job.total_cost_gbp` is a column the engine maintains, so this costs no query
-            # and — more to the point — is the same number the budget guard compares against.
-            "spent": f"£{job.total_cost_gbp:,.2f}",
+            # Summed from the run's cost rows, which is what the budget guard compares
+            # against: a research run never writes `jobs.total_cost_gbp`, and a preview
+            # reading it said £0.00 beside a run that had spent pounds.
+            "spent": figures.pounds(
+                (await spend_by_job(session, [job.id])).get(job.id, Decimal(0))
+            ),
         },
     )
     return fragment

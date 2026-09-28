@@ -232,18 +232,24 @@ async def typical_cost(
     Extremes rather than a mean. An operator setting a ceiling wants to know what it might
     cost, and a mean hides the run that went to eight pounds behind four that went to two.
     """
+    # Summed from the cost rows: a research run never writes `jobs.total_cost_gbp`, so the
+    # column read zero for every finished run and this said there was no history at all.
+    spent = func.sum(Cost.amount_gbp)
     finished = (
-        select(Job.total_cost_gbp)
+        select(spent)
+        .select_from(Job)
+        .join(Cost, Cost.job_id == Job.id)
         .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .join(WorkOrder, WorkOrder.id == Job.work_order_id)
         .where(
             WorkOrder.user_id == user_id,
             ResearchRequest.analysis_mode == mode,
             Job.status == JobStatus.SUCCEEDED,
-            Job.total_cost_gbp > 0,
         )
+        .group_by(Job.id)
+        .having(spent > 0)
     )
-    costs = sorted((await session.scalars(finished)).all())
+    costs = sorted(Decimal(str(total)) for total in (await session.scalars(finished)).all())
     if len(costs) < MINIMUM_SAMPLE:
         return TypicalCost(low=None, high=None, sample=len(costs))
     return TypicalCost(low=costs[0], high=costs[-1], sample=len(costs))

@@ -88,6 +88,13 @@ _TABLES = (
 # loudly rather than being read as a legitimate refusal.
 FORBIDDEN_STATUSES = frozenset({500, 502, 503, 504})
 
+# The report itself, served as the standalone document it is archived as. Its title is the
+# document's — the company and "Research Note" — and the product's name on it would be a
+# watermark on the research rather than the name of a page.
+DOCUMENTS = frozenset(
+    {"/reports/{report_id}/preview", "/runs/{job_id}/preview", "/runs/{job_id}/summary"}
+)
+
 
 async def _truncate(engine: Any) -> None:
     async with engine.begin() as connection:
@@ -379,6 +386,7 @@ class TestEveryPageRenders:
 
     async def test_no_page_raises(self, api: Any, finished_run: dict[str, Any]) -> None:
         raised: dict[str, int] = {}
+        unnamed: dict[str, str] = {}
         opened = 0
         for route in sorted(page_routes_for()):
             url = _fill(route, finished_run)
@@ -388,6 +396,11 @@ class TestEveryPageRenders:
             response = await api.get(url, follow_redirects=True)
             if response.status_code in FORBIDDEN_STATUSES:
                 raised[route] = response.status_code
+            # Every page's title ends with the product's name (U1), so a tab and a bookmark
+            # say where they lead; a fragment has no title and is not a page.
+            titled = re.search(r"<title>\s*(.*?)\s*</title>", response.text, re.S)
+            if titled and route not in DOCUMENTS and not titled.group(1).endswith("Ageantic"):
+                unnamed[route] = titled.group(1)
 
         assert not raised, (
             f"These pages did not render: {raised}. Under `StrictUndefined` a 500 is most "
@@ -395,6 +408,7 @@ class TestEveryPageRenders:
             "failure the interface overhaul is most likely to introduce, and the one that "
             "surfaces on a single page in a single state that nothing else opens."
         )
+        assert not unnamed, f"These pages' titles do not name the product: {unnamed}"
         assert opened >= 25, (
             f"only {opened} pages were opened, which is fewer than the map holds. A route "
             "whose parameters `_fill` cannot supply is skipped silently; if the number has "

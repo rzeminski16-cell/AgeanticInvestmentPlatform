@@ -181,6 +181,33 @@ class TestRejection:
         expect(page.locator("#ticker")).to_be_visible()
 
 
+class TestWhatYouAreBuying:
+    """The two parts of the new form that only work if htmx and the branch script are wired
+    to them: the register's name for the ticker, and the button's price."""
+
+    def test_the_register_names_the_ticker_as_it_is_typed(self, page: Page, live_server: str):
+        page.goto(f"{live_server}/requests/new")
+        page.fill("#ticker", "msft")
+        page.select_option("#exchange", "NASDAQ")
+        page.locator("#isin").focus()
+
+        expect(page.locator("#resolved-subject")).to_contain_text(
+            "SEC EDGAR lists MSFT on NASDAQ as"
+        )
+
+    def test_the_button_says_the_price_of_the_depth_chosen(self, page: Page, live_server: str):
+        page.goto(f"{live_server}/requests/new")
+        standard = page.locator("#commission [data-branch='standard']")
+        quick = page.locator("#commission [data-branch='quick']")
+        expect(standard).to_be_visible()
+        expect(quick).to_be_hidden()
+
+        page.check("#analysis_mode-quick")
+
+        expect(quick).to_be_visible()
+        expect(standard).to_be_hidden()
+
+
 class TestWithoutJavaScript:
     """The form must work with scripting off.
 

@@ -135,9 +135,9 @@ class TestAuthoringASkillInABrowser:
 
         # Enabling is its own decision, made from the library.
         page.goto(f"{seeded_run}/skills")
-        expect(page.locator("#skill-moat_durability")).to_contain_text("disabled")
+        expect(page.locator("#skill-moat_durability")).to_contain_text("Disabled")
         page.click("#toggle-moat_durability")
-        expect(page.locator("#skill-moat_durability")).to_contain_text("enabled")
+        expect(page.locator("#skill-moat_durability")).to_contain_text("Enabled")
 
         # And the dry run renders the section against a finished run's evidence.
         page.goto(f"{seeded_run}/skills/moat_durability")

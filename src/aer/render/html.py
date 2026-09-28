@@ -18,6 +18,9 @@ where — a property the tests hold rather than assume.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup, escape
 
@@ -45,7 +48,10 @@ from aer.sections.render import (
     Table,
 )
 
-__all__ = ["render_html"]
+__all__ = ["NoteLink", "Reader", "ReaderSection", "render_html", "render_reader"]
+
+type NoteLink = Callable[[int], tuple[str, str]]
+"""A note number to the two places it opens: its own page, and the drawer's copy of it."""
 
 # `keep_trailing_newline` is on, and it is load-bearing rather than cosmetic. Jinja strips a
 # template's final newline by default, so this renderer used to emit a document ending
@@ -134,6 +140,111 @@ def render_html(document: ReportDocument, *, contents: bool = True) -> str:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class ReaderSection:
+    """One section as the reader page shows it (page specification §8.1 and §8.3).
+
+    The counts are what the spine says about a section: how many of its notes are figures
+    the platform computed, how many cite a document, and how many resolve to nothing. They
+    count notes rather than marks, so a figure cited twice in one section counts once.
+    """
+
+    key: str
+    title: str
+    generated: bool
+    body: Markup
+    charts: tuple[dict[str, object], ...]
+    figures: int
+    citations: int
+    unresolved: int
+
+
+@dataclass(frozen=True, slots=True)
+class Reader:
+    """The document as the reader page shows it: the walk :func:`render_html` makes, with
+    every marker a control that opens its note rather than a jump to the notes at the end."""
+
+    view: Markup | None
+    glance: Markup | None
+    sections: tuple[ReaderSection, ...]
+    comps: Markup | None
+    charts: tuple[dict[str, object], ...]
+
+
+def render_reader(document: ReportDocument, *, link: NoteLink) -> Reader:
+    """One :class:`ReportDocument` for the reader page, its notes behind ``link``.
+
+    The same fragments in the same order as :func:`render_html`, so a marker here carries
+    the number the archived document gives it — the notes are the drawer's, not a list at
+    the end, and a note's number is the one thing both readers must agree on. Each section's
+    leading heading is left for the page to set, with its counts beneath it.
+    """
+    seen: set[int] = set()
+    titles = {
+        footnote.number: _hover(footnote, style=document.style) for footnote in document.footnotes
+    }
+    kinds = {footnote.number: footnote for footnote in document.footnotes}
+    view = _blocks(document.view, seen=seen, titles=titles, link=link) if document.view else None
+    glance = (
+        _blocks(document.glance, seen=seen, titles=titles, link=link) if document.glance else None
+    )
+    sections: list[ReaderSection] = []
+    for section in document.sections:
+        fragments = section.fragments
+        title = section.title
+        if fragments and isinstance(fragments[0], Heading):
+            title, fragments = fragments[0].text, fragments[1:]
+        body = _blocks(fragments, seen=seen, titles=titles, link=link)
+        charts = tuple(
+            _chart(chart, seen=seen, titles=titles, link=link) for chart in section.charts
+        )
+        notes = {
+            number: kinds[number]
+            for number in (*_numbers(fragments), *(n for c in section.charts for n in c.markers))
+            if number in kinds
+        }.values()
+        sections.append(
+            ReaderSection(
+                key=section.key,
+                title=title,
+                generated=section.generated,
+                body=body,
+                charts=charts,
+                figures=sum(isinstance(n, CalculationFootnote | DerivedFootnote) for n in notes),
+                citations=sum(isinstance(n, SourceFootnote) for n in notes),
+                unresolved=sum(isinstance(n, UnresolvedFootnote) for n in notes),
+            )
+        )
+    comps = _blocks(document.comps, seen=seen, titles=titles, link=link) if document.comps else None
+    return Reader(
+        view=view,
+        glance=glance,
+        sections=tuple(sections),
+        comps=comps,
+        charts=tuple(
+            _chart(chart, seen=seen, titles=titles, link=link) for chart in document.charts
+        ),
+    )
+
+
+def _numbers(fragments: tuple[Fragment, ...]) -> list[int]:
+    """Every note number the fragments mark, in reading order."""
+    found: list[int] = []
+    for fragment in fragments:
+        match fragment:
+            case Paragraph(markers=markers):
+                found.extend(markers)
+            case Bullets(items=items):
+                for item in items:
+                    found.extend(item.markers)
+            case Table(rows=rows):
+                for row in rows:
+                    for marks in row.cell_markers:
+                        found.extend(marks)
+                    found.extend(row.markers)
+    return found
+
+
 def _emphasise(text: str) -> Markup:
     """Paired ``**`` emphasis as ``<strong>``, everything else escaped.
 
@@ -163,7 +274,13 @@ def _emphasise(text: str) -> Markup:
 # -- Fragments as HTML -----------------------------------------------------------------------
 
 
-def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int, str]) -> Markup:
+def _blocks(
+    fragments: tuple[Fragment, ...],
+    *,
+    seen: set[int],
+    titles: dict[int, str],
+    link: NoteLink | None = None,
+) -> Markup:
     """Fragments as HTML blocks — the same walk the Markdown notation transcribes.
 
     ``seen`` tracks which footnote numbers have already had a marker: the first marker
@@ -184,14 +301,14 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                 parts.append(
                     Markup(
                         f"<p>{_prose(paragraph)}{_joint(_tail(paragraph), markers)}"
-                        f"{_marks(markers, seen=seen, titles=titles)}</p>"
+                        f"{_marks(markers, seen=seen, titles=titles, link=link)}</p>"
                     )
                 )
             case Bullets(items=items):
                 bullets = Markup("").join(
                     Markup(
                         f"<li>{_prose(item)}{_joint(_tail(item), item.markers)}"
-                        f"{_marks(item.markers, seen=seen, titles=titles)}</li>"
+                        f"{_marks(item.markers, seen=seen, titles=titles, link=link)}</li>"
                     )
                     for item in items
                 )
@@ -207,7 +324,7 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                         cells = [
                             Markup(
                                 f"<td>{_coded(cell)}{_joint(cell, marks)}"
-                                f"{_marks(marks, seen=seen, titles=titles)}</td>"
+                                f"{_marks(marks, seen=seen, titles=titles, link=link)}</td>"
                             )
                             for cell, marks in zip(row.cells, row.cell_markers, strict=True)
                         ]
@@ -218,7 +335,7 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                         # for the provenance of a row.
                         cells[-1] = Markup(
                             f"<td>{_coded(row.cells[-1])}{_joint(row.cells[-1], row.markers)}"
-                            f"{_marks(row.markers, seen=seen, titles=titles)}</td>"
+                            f"{_marks(row.markers, seen=seen, titles=titles, link=link)}</td>"
                         )
                     body_rows.append(Markup(f"<tr>{Markup('').join(cells)}</tr>"))
                 parts.append(
@@ -261,7 +378,13 @@ def _prose(fragment: Paragraph | Bullet) -> Markup:
     )
 
 
-def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) -> Markup:
+def _marks(
+    markers: tuple[int, ...],
+    *,
+    seen: set[int],
+    titles: dict[int, str],
+    link: NoteLink | None = None,
+) -> Markup:
     """The superscript markers, each carrying a CSS-only hover preview of its note.
 
     The ``title`` attribute is written *before* ``href`` deliberately: the marker's link
@@ -271,6 +394,10 @@ def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) 
 
     Adjacent markers are joined with a superscript comma (gap R7): markers 2 and 3 set
     flush against each other read as twenty-three, in the PDF's text layer above all.
+
+    With a ``link`` the marker is the reader page's control instead (page specification
+    §8.1): its ``href`` is the note's own page, so it still goes somewhere with scripting off,
+    and the drawer's four attributes open the same note beside the text.
     """
     parts: list[Markup] = []
     for number in markers:
@@ -278,9 +405,15 @@ def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) 
         seen.add(number)
         hover = titles.get(number, "")
         title = f' title="{escape(hover)}"' if hover else ""
-        parts.append(
-            Markup(f'<sup class="fn-ref"{anchor}><a{title} href="#fn-{number}">{number}</a></sup>')
-        )
+        if link is None:
+            target = Markup(f' href="#fn-{number}"')
+        else:
+            page, panel = link(number)
+            target = Markup(
+                f' href="{escape(page)}" hx-get="{escape(panel)}" hx-target="#aer-drawer-body"'
+                f' data-drawer-title="Note {number}" aria-label="Note {number}"'
+            )
+        parts.append(Markup(f'<sup class="fn-ref"{anchor}><a{title}{target}>{number}</a></sup>'))
     return Markup('<sup class="fn-sep">,</sup>').join(parts)
 
 
@@ -334,7 +467,9 @@ def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
 # -- Exhibits --------------------------------------------------------------------------------
 
 
-def _chart(chart: ChartView, *, seen: set[int], titles: dict[int, str]) -> dict[str, object]:
+def _chart(
+    chart: ChartView, *, seen: set[int], titles: dict[int, str], link: NoteLink | None = None
+) -> dict[str, object]:
     """One exhibit as template data: the SVG as a data URI, the caption with its markers.
 
     A data URI rather than inline SVG — see :func:`aer.charts.svg_data_uri`. The caption's
@@ -347,7 +482,7 @@ def _chart(chart: ChartView, *, seen: set[int], titles: dict[int, str]) -> dict[
         "uri": svg_data_uri(chart.svg),
         "caption": Markup(
             f"{escape(chart.caption)}{_joint(chart.caption, chart.markers)}"
-            f"{_marks(chart.markers, seen=seen, titles=titles)}"
+            f"{_marks(chart.markers, seen=seen, titles=titles, link=link)}"
         ),
         "placeholder": chart.placeholder,
     }

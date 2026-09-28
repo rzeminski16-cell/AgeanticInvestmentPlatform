@@ -15,6 +15,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import AnalysisMode, JobStatus, RequestStatus
+from aer.db.models.cost import Cost
 from aer.db.models.job import Job
 from aer.db.models.user import User
 from aer.services.overview import MINIMUM_SAMPLE, typical_cost
@@ -51,19 +52,35 @@ async def _finished(
     request.work_order.max_cost_gbp = Decimal("8.00")
     session.add(request)
     await session.flush()
-    session.add(
-        Job(
-            id=uuid.uuid4(),
-            # The run root the mandate is a detail of, not a second one beside it.
-            work_order_id=request.id,
-            workflow_version="v1",
-            code_version="test",
-            status=status,
-            started_at=dt.datetime(2026, 8, 24, 9, 0, tzinfo=dt.UTC),
-            total_cost_gbp=Decimal(cost),
-        )
+    job = Job(
+        id=uuid.uuid4(),
+        # The run root the mandate is a detail of, not a second one beside it.
+        work_order_id=request.id,
+        workflow_version="v1",
+        code_version="test",
+        status=status,
+        started_at=dt.datetime(2026, 8, 24, 9, 0, tzinfo=dt.UTC),
     )
+    session.add(job)
     await session.flush()
+    # Spent the way a research run spends: a cost row per call, split here in two so the
+    # sum is what is read. The job's running total stays at zero, as a research run's does.
+    half = (Decimal(cost) / 2).quantize(Decimal("0.0001"))
+    session.add_all(_cost(job, amount) for amount in (half, Decimal(cost) - half))
+    await session.flush()
+
+
+def _cost(job: Job, amount: Decimal) -> Cost:
+    return Cost(
+        job_id=job.id,
+        category="llm_output",
+        provider="anthropic",
+        units=Decimal(1000),
+        unit_type="tokens",
+        amount_usd=amount,
+        amount_gbp=amount,
+        fx_rate=Decimal(1),
+    )
 
 
 class TestItRefusesToGuess:
@@ -113,6 +130,20 @@ class TestWhatItReportsWhenItCan:
         assert found.low == Decimal("2.10")
         assert found.high == Decimal("8.40")
         assert found.sample == 3
+
+    async def test_it_reads_the_cost_rows_not_the_running_total(
+        self, db_session: AsyncSession
+    ) -> None:
+        """A research run writes a cost row per call and never the job's running total, so a
+        range read from the total said every finished run had cost nothing — and with no
+        run above zero, that there was no history at all (ROADMAP §3.19 item 91)."""
+        user = await _user(db_session)
+        for cost in ("2.10", "8.40", "3.00"):
+            await _finished(db_session, user, cost)
+
+        found = await typical_cost(db_session, user_id=user.id, mode=AnalysisMode.STANDARD)
+
+        assert (found.low, found.high) == (Decimal("2.10"), Decimal("8.40"))
 
     async def test_another_depth_is_another_question(self, db_session: AsyncSession) -> None:
         """Depth is most of what a run costs, so a deep run's price is no guidance at all

@@ -2,121 +2,140 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  The report history: every report this account produced, grouped by company, findable by
-  what it concluded. Drafts are badged rather than hidden — this is the work list; the
-  *history* surfaces show only approved reports, and the two must not read as one record.
+  The report library (page specification §9): every report, current and superseded, one row
+  per company with its newest report leading and every earlier version folded under it with a
+  count. Nothing is deleted — a superseded report stays readable for ever — and drafts are
+  badged rather than hidden, because this is the work list; the *history* surfaces show only
+  approved reports, and the two must not read as one record.
 #}
 
 {% block title %}Reports &middot; Ageantic{% endblock %}
 
+{% set _STATE_WORDS = {"current": "Current", "superseded": "Superseded", "withdrawn": "Withdrawn", "draft": "Draft"} %}
+{% set _STATE_TONE = {"current": "success", "superseded": "muted", "withdrawn": "warning", "draft": "muted"} %}
+
+{% macro state_badge(state) %}
+  {#
+    Three readings of two columns (ADR 0116): current, superseded, withdrawn — and a draft,
+    which was never approved and is not part of the record.
+  #}
+  <span data-report-state="{{ state }}">{{ ui.status(_STATE_TONE[state], _STATE_WORDS[state]) }}</span>
+{% endmacro %}
+
+{% macro report_cells(row) %}
+  <td class="whitespace-nowrap px-4 py-3 type-data-sm text-ink">{{ row.produced }}</td>
+  <td class="px-4 py-3">{{ state_badge(row.state) }}</td>
+  <td class="px-4 py-3 text-right type-data-sm text-ink">{{ row.sections or "—" }}</td>
+  <td class="px-4 py-3 text-right type-data-sm text-ink">{{ row.spend_display or "—" }}</td>
+  <td class="px-4 py-3 text-right">
+    <a href="/reports/{{ row.report.id }}"
+       class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-sunken">Read<span class="sr-only"> the report of {{ row.produced }}</span></a>
+  </td>
+{% endmacro %}
+
 {% block content %}
   {% call ui.page_header(
     "Reports",
-    eyebrow="THE RECORD",
-    identity=total ~ (" report" if total == 1 else " reports") ~ ", grouped by company, newest first. " ~ held,
+    eyebrow="Research",
+    identity="Grouped by company, newest first. Nothing is ever deleted — a superseded report stays readable for good. " ~ held,
   ) %}
-    <form method="get" action="/reports" class="flex flex-wrap items-center gap-2" id="company-filter">
-      <label for="company" class="type-label text-ink-muted">Filter</label>
-      <input
-        type="text"
-        id="company"
-        name="company"
-        value="{{ company_filter }}"
-        placeholder="Ticker or name"
-        class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
-      />
-      <button
-        type="submit"
-        class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
-      >
-        Apply
-      </button>
-    </form>
+    <a href="/requests/new" id="commission-report"
+       class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Commission a report</a>
   {% endcall %}
 
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    {#
+      One chip per state, each a link, so the filter works with scripting off and a filtered
+      view has an address. A filtered view lists reports rather than companies: a filter is a
+      question about reports.
+    #}
+    <nav aria-label="Filter by state" id="state-filter" class="flex flex-wrap gap-2">
+      <a href="/reports{% if company_filter %}?company={{ company_filter | urlencode }}{% endif %}"
+         {% if not state_filter %}aria-current="page"{% endif %}
+         class="inline-flex min-h-9 items-center rounded-sm border px-3 type-label {{ 'border-verification bg-verification-wash text-verification-strong' if not state_filter else 'border-control-boundary bg-surface text-ink hover:bg-surface-sunken' }}">All {{ total }}</a>
+      {% for state in ("current", "superseded", "withdrawn", "draft") %}
+        {% if state_counts[state] %}
+          <a href="/reports?state={{ state }}{% if company_filter %}&amp;company={{ company_filter | urlencode }}{% endif %}"
+             {% if state_filter == state %}aria-current="page"{% endif %}
+             class="inline-flex min-h-9 items-center rounded-sm border px-3 type-label {{ 'border-verification bg-verification-wash text-verification-strong' if state_filter == state else 'border-control-boundary bg-surface text-ink hover:bg-surface-sunken' }}">{{ _STATE_WORDS[state] }} {{ state_counts[state] }}</a>
+        {% endif %}
+      {% endfor %}
+    </nav>
+    <form method="get" action="/reports" class="flex flex-wrap items-center gap-2" id="company-filter">
+      {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}" />{% endif %}
+      <label for="company" class="type-label text-ink-muted">Company</label>
+      <input type="text" id="company" name="company" value="{{ company_filter }}" placeholder="Ticker or name"
+             class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+      <button type="submit"
+              class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-sunken">Find</button>
+    </form>
+  </div>
+
   {% if not groups %}
-    <div id="no-reports">
+    <div id="no-reports" class="mt-6">
       {{ ui.empty(
-        "No reports" ~ (" match that filter" if company_filter else " yet"),
-        ("Loosen the filter to see the whole record." if company_filter else "Commission research, run it, and approve the draft to create the first report."),
+        "No reports" ~ (" match that filter" if company_filter or state_filter else " yet"),
+        ("Loosen the filter to see the whole record." if company_filter or state_filter else "Commission research, run it, and approve the draft to create the first report."),
       ) }}
     </div>
-  {% endif %}
-
-  {% for group in groups %}
-    <section id="company-group-{{ loop.index }}">
-      <div class="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 class="type-title-2 text-ink">{{ group.label }}</h2>
-        {% if group.company_id %}
-          <a
-            href="/companies/{{ group.company_id }}"
-            class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
-          >
-            Company history
-          </a>
-        {% endif %}
-      </div>
-      <div class="mt-3 overflow-x-auto rounded-md border border-line bg-surface">
-        <table class="w-full min-w-[46rem]">
-          <caption class="sr-only">
-            Every report for {{ group.label }}: what it concluded, its dates, its status and
-            what the run cost.
-          </caption>
-          <thead class="border-b border-line-strong text-left">
+  {% else %}
+    <div class="mt-4 overflow-x-auto rounded-md border border-line bg-surface">
+      <table class="w-full min-w-[46rem]" id="report-library">
+        <caption class="sr-only">Every report: the company, when it was produced, its state, its sections and what its run cost.</caption>
+        <thead class="border-b border-line-strong text-left">
+          <tr>
+            <th scope="col" class="px-4 py-3 type-eyebrow text-ink-muted">Company</th>
+            <th scope="col" class="px-4 py-3 type-eyebrow text-ink-muted">Produced</th>
+            <th scope="col" class="px-4 py-3 type-eyebrow text-ink-muted">State</th>
+            <th scope="col" class="px-4 py-3 text-right type-eyebrow text-ink-muted">Sections</th>
+            <th scope="col" class="px-4 py-3 text-right type-eyebrow text-ink-muted">Cost</th>
+            <th scope="col" class="px-4 py-3"><span class="sr-only">Read</span></th>
+          </tr>
+        </thead>
+        {% for group in groups %}
+          <tbody class="border-b border-line last:border-b-0" id="company-group-{{ loop.index }}">
             <tr>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Conclusion</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">What each method gives</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">As of</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Produced</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">State</th>
-              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Spend</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-line">
-            {% for row in group.reports %}
-              <tr>
+              <th scope="row" class="px-4 py-3 text-left align-top">
+                {% if group.company_id %}
+                  <a href="/companies/{{ group.company_id }}" class="type-body-strong text-ink underline-offset-[3px] hover:underline">{{ group.label }}</a>
+                {% else %}
+                  <span class="type-body-strong text-ink">{{ group.label }}</span>
+                {% endif %}
                 {#
-                  The conclusion is the link: a reader finds a report by what it said, and
-                  a row that led with a date would make them open three to find one.
+                  Two answers named by method, never a range between them (ADR 0132), and read
+                  back from the run's own rows (§3.19 item 76).
                 #}
-                <th scope="row" class="px-4 py-3 text-left">
-                  <a
-                    href="/reports/{{ row.report.id }}"
-                    class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong"
-                  >{{ row.report.rating or "Takes no side" }}</a>
-                </th>
-                <td class="px-4 py-3 type-data-sm text-ink">
-                  {#
-                    Two answers named by method, never a range between them (ADR 0132), and
-                    read back from the run's own rows (§3.19 item 76).
-                  #}
-                  {% if row.valuation_display %}{{ row.valuation_display }}{% else %}&mdash;{% endif %}
-                </td>
-                <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.as_of_date.isoformat() }}</td>
-                <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.created_at.date().isoformat() }}</td>
-                <td class="px-4 py-3" data-report-state="{{ row.state }}">
-                  {#
-                    Three readings of two columns (ADR 0116): current, superseded, withdrawn
-                    — and a draft, which was never approved and is not part of the record.
-                  #}
-                  {% if row.state == "current" %}
-                    {{ ui.status("success", "Current") }}
-                  {% elif row.state == "superseded" %}
-                    {{ ui.status("muted", "Superseded") }}
-                  {% elif row.state == "withdrawn" %}
-                    {{ ui.status("warning", "Withdrawn") }}
-                  {% else %}
-                    {{ ui.status("muted", "Draft") }}
-                  {% endif %}
-                </td>
-                <td class="px-4 py-3 type-data-sm text-ink">
-                  {{ row.spend_display or "—" }}
+                {% if group.lead.valuation_display %}
+                  <span class="mt-1 block type-body-sm font-normal text-ink-muted">What each method gives: {{ group.lead.valuation_display }}</span>
+                {% endif %}
+              </th>
+              {{ report_cells(group.lead) }}
+            </tr>
+            {% if group.earlier %}
+              <tr>
+                <td colspan="6" class="px-4 pb-3">
+                  <details class="rounded-sm border border-line">
+                    <summary class="cursor-pointer px-3 py-2 type-label text-ink">{{ group.earlier | length }} earlier {{ "version" if group.earlier | length == 1 else "versions" }}, kept and readable</summary>
+                    <table class="w-full">
+                      <caption class="sr-only">Earlier versions of {{ group.label }}.</caption>
+                      <tbody class="divide-y divide-line">
+                        {% for row in group.earlier %}
+                          <tr>
+                            <th scope="row" class="px-4 py-3 text-left align-top type-body-sm font-normal text-ink-muted">
+                              {% if row.valuation_display %}What each method gives: {{ row.valuation_display }}{% else %}As at {{ row.report.as_of_date.isoformat() }}{% endif %}
+                            </th>
+                            {{ report_cells(row) }}
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
                 </td>
               </tr>
-            {% endfor %}
+            {% endif %}
           </tbody>
-        </table>
-      </div>
-    </section>
-  {% endfor %}
+        {% endfor %}
+      </table>
+    </div>
+  {% endif %}
 {% endblock %}

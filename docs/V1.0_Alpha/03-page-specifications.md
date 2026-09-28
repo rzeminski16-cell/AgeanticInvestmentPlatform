@@ -460,6 +460,24 @@ at its lower price.
 **Must not.** Submit without showing a cost. Offer a setting whose effect on the estimate is not
 shown.
 
+*Built 28 September 2026* (`requests/new.html`, `requests/_form.html`, `_form_errors.html`,
+`web/routes.py::_commission_panel`). The form sits beside *What you are buying*: each depth with
+its sections — counted from the section rows, 9, 18 and 18 — and its price, the machine time,
+and the decisions a run asks for, counted from the gates' own vocabulary (two on every run, up
+to five more). A depth's price is the midpoint of the operator's own finished runs at it; a
+depth with none is scaled from the standard runs, or from the workflow's declared estimate, by
+the factor the drafting budgets scale by (60 per cent for quick, 140 for full), and says so.
+The form opens at Standard, and the button says the chosen depth's price. *Commission* saves
+and starts the run in one press, asking the register first (ADR 0128); *Save as a draft*
+stays beside it and spends nothing. A company with a current report is met with the refresh
+at its price and *Commission a new report anyway*; nothing is saved until one is pressed. The
+resolved name appears beneath the subject's fields as the ticker or the exchange changes —
+*SEC EDGAR lists TSCO on NASDAQ as TRACTOR SUPPLY CO /DE/* — asked of the register the venue
+names (`services.availability.resolve_subject`); whether the company has filed, and in a form
+the platform reads, is asked on *Commission*. An unresolvable ticker gets the register's own
+sentence in both places; offering the alternatives found waits on a register that returns
+them. Full is listed beside the two the table names, because the product has three depths.
+
 ---
 
 ## 7. Active run
@@ -509,6 +527,17 @@ the check, with a **re-measure** action.
 
 **Must not.** Show a percentage. Use a spinner as the only indication of progress. Name a step
 by its code identifier.
+
+*Built 28 September 2026* (`runs/console.html`, `web/stages.py`, `web/pages.py::_console_view`).
+The rail is read from the step rows the ledger shows, so the two cannot disagree; a stage is a
+contiguous stretch of the workflow, and a stage a run has no steps for is left out rather than
+drawn as done or waiting. A stage stopped at a gate, a pause or a ceiling reads *Waiting for
+you* in `warning` — the state the table above did not name. The ledger names three actors, not
+two: *you*, *code*, and *a model*, because a draft a model wrote is not the code's, and a gate
+the run passed without stopping is the code's. *What it has spent* is the bar against the
+ceiling with the spend by stage beneath it. The panel reads *Gate {n} of up to {m}* while a
+conditional gate may still fire, because a count that promised a stop the run never makes is
+the overstatement §7.2 exists to refuse.
 
 ---
 
@@ -569,6 +598,17 @@ rule and what is missing — never a blank or a zero.
 **Must not.** Let a footnote resolve to an identifier a reader cannot use. Show a figure with no
 marker.
 
+*Built 28 September 2026* (`reports/detail.html`, `reports/_note.html`, `render/html.py::
+render_reader`, `web/reader.py`, `static/js/reader.js`). The reader renders the document in
+the order the stored report does, and every marker opens the drawer through the page's one
+drawer; without scripting, the marker is a link to the footnote's own page. The drawer names
+the figure's kind and the verifier's verdict — a recorded calculation with its formula, each
+input's own origin and the code version; a stored fact with the filing it came from; a
+citation with its excerpt, digest and dates; a derived figure; and an unresolved note as the
+refusal it is. The spine counts each section's figures and citations and marks the one being
+read. *Open the workbook*, refresh and print lead the actions; the archived files and the
+technical record sit behind disclosures at the foot.
+
 **Corrected 24 September 2026, on building ADR 0122 §2 and §3.** Two sections read the
 operator's own judgements back, and both take §8.4's shape: shown in full on this page, which
 is the operator's copy, and withheld with a sentence that says so from every copy that leaves
@@ -592,6 +632,14 @@ Sections · Cost · Actions.
 and a count.
 
 **Must not.** Delete anything. A superseded report remains readable for ever.
+
+*Built 28 September 2026* (`reports/index.html`, `web/pages.py::reports_index`). One row per
+company, the newest report leading and every earlier version folded under it with a count; a
+filter chip per state, each a link, and a filtered view lists reports rather than companies.
+**Corrected on building:** the states are the report's own — current, superseded, withdrawn
+(ADR 0116) and draft — not *refused*: a run a gate refused leaves a draft, not a report of its
+own kind. The cost column reads the run's cost rows, the figure every other page beside a run
+prints (§3.19 item 91).
 
 ---
 
@@ -795,6 +843,11 @@ added to {company}'s record. Go ahead?"*
 
 **Must not.** Answer from the model's own knowledge. Guess at a tier. Hide the cost until after.
 
+*Built 28 September 2026* (`ask/index.html`). The three tiers stand above the question as
+cards — what each does, what it costs, and a question that lands in it — with the tier that
+spends and adds to the record drawn in the decision colour. The single input, the resolved
+tier shown before anything runs, and tier 3's priced confirmation were built in Phase 6a.
+
 **Corrected 24 September 2026, on building ADR 0122 §2.** Tier 1 has a second shape beside the
 recompute: a question about what else rests on a belief — *which of my positions rest on the
 same premise?* — is answered from the theses and the book, for nothing, and the answer is the
@@ -897,6 +950,15 @@ words.
 **Must not.** Run a method that has not passed the corpus. Show the corpus as a pass/fail count
 without naming what was attempted.
 
+*Restyled 28 September 2026, and not yet what this section describes* (`skills/list.html`).
+My methods list each method with its state in words and its record. **The attack report is not
+built.** The corpus exists — twenty-six escalations a method file can attempt, each named with
+the layer that must stop it (`tests/skill_corpus.py`) — but it runs in the test suite, against
+the platform's defences, not against each method as it is added; a method is contained by
+those layers structurally (invariant 7) rather than admitted by a per-method pass. Showing a
+method's own attack report needs the corpus run per method, and its outcome stored, before
+this page can draw it.
+
 **Corrected 24 September 2026, on building ADR 0122 §2.** Each method's row carries its record
 where it has one, in a sentence: the approved reports your runs pinned it in, how far their
 confirmed drivers landed from what was later filed, and what became of the theses written
@@ -920,6 +982,14 @@ would affect, with the mapping control beside it.
 with a control to review or skip them as a group.
 
 **Must not.** Present an unranked wall of tags. Ask the same question on a later run.
+
+*Restyled 28 September 2026, and not yet what this section describes* (`knowledge/index.html`).
+The page is the knowledge map's measurements — size, shape, coverage, freshness and the vault's
+health — in words. **The vocabulary queue is not built.** The unmapped gate ranks and caps a
+run's concepts (Phase 1.5), and `services/curation.py` ranks them across every run into a
+worksheet; but a mapping the operator makes is not stored for later runs, so the next run asks
+again. The queue, and the store that stops the question being asked twice, are a feature of
+their own.
 
 ---
 

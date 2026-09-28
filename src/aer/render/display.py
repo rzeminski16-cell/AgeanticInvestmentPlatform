@@ -39,6 +39,7 @@ __all__ = [
     "points",
     "prose",
     "scalar",
+    "spend",
     "stored",
 ]
 
@@ -82,6 +83,22 @@ _TIMES_WORDS: Final[tuple[str, ...]] = (
     "ev/",
     "p/e",
 )
+
+
+def spend(amount: Decimal) -> str:
+    """What the operator has spent, in pounds to the penny — one formatter for every surface.
+
+    The run page renders it and the event stream that keeps the page current sends it, so
+    the figure a step shows on load and the one it shows four minutes later are the same
+    words, not the same number at two precisions.
+
+    **A total that rounds to nothing says so.** "We have spent nothing this month" and "we
+    have spent a third of a penny" are different answers, and ``£0.00`` is only one of them —
+    the wrong one, on a screen whose whole subject is what a run has cost.
+    """
+    if amount and abs(amount) < Decimal("0.01"):
+        return "under £0.01"
+    return f"£{amount:,.2f}"
 
 
 def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = False) -> str:

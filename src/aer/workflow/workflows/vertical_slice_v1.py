@@ -352,7 +352,7 @@ COMPS_STEP: Final = "comps"
 # fetch and one calculation; Phase 3 derives it from the plan.
 # What a run is projected to take when this platform has never finished one, in seconds.
 # A stated default rather than a measurement, and it is only ever the fallback: once a run
-# of this workflow version has completed, `_projected_runtime_seconds` reads the median of
+# of this workflow version has completed, `projected_runtime_seconds` reads the median of
 # what they actually took. The old value here was 120 — two minutes for a run whose draft
 # step alone spends ten, which told the operator nothing they could plan around.
 _RUNTIME_ESTIMATE_SECONDS: Final = 2_400
@@ -397,7 +397,7 @@ def _projected_cost(spine_total: Decimal) -> Decimal:
     return sum(declared.values(), Decimal(0)) + max(draft, spine_total)
 
 
-async def _projected_runtime_seconds(session: AsyncSession) -> int:
+async def projected_runtime_seconds(session: AsyncSession) -> int:
     """How long a run of this workflow has actually taken, or the stated default.
 
     The median of what previous completed runs spent **working** — the sum of their steps'
@@ -788,7 +788,7 @@ async def _plan(context: StepContext) -> StepResult:
         estimated_cost_gbp=(
             agent_context.spend_gbp + _projected_cost(sum(spine_estimates.values(), Decimal(0)))
         ),
-        estimated_runtime_seconds=await _projected_runtime_seconds(context.session),
+        estimated_runtime_seconds=await projected_runtime_seconds(context.session),
     )
     context.session.add(plan)
     await context.session.flush()

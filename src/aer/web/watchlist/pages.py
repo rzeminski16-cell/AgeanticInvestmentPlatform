@@ -34,6 +34,7 @@ from aer.queue import enqueue_run
 from aer.services import configuration
 from aer.services import overview as overview_service
 from aer.services import watchlist as watchlist_service
+from aer.services.spend import spend_by_job
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
@@ -88,6 +89,16 @@ async def watchlist_page(
     default_threshold = (
         await configuration.effective_settings(session, settings)
     ).price_move_threshold_pct
+    # What each row's run has spent, from the cost rows, in one query for the page.
+    spent = await spend_by_job(
+        session,
+        [
+            job.id
+            for state in (*states, *withdrawn)
+            for job in (state.job, *(record.job for record in state.history))
+            if job is not None
+        ],
+    )
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -96,11 +107,11 @@ async def watchlist_page(
             "verdict": _watchlist_verdict(states, budget),
             "budget": _budget_context(budget),
             "cost_guidance": figures.cost_guidance(typical),
-            "rows": [_row(state, default_threshold) for state in states],
-            "withdrawn": [_row(state, default_threshold) for state in withdrawn],
+            "rows": [_row(state, default_threshold, spent) for state in states],
+            "withdrawn": [_row(state, default_threshold, spent) for state in withdrawn],
             "showing_withdrawn": showing_withdrawn,
             "queued": len(queued),
-            "next": _row(queued[0], default_threshold) if queued else None,
+            "next": _row(queued[0], default_threshold, spent) if queued else None,
             "today": datetime.now(UTC).date().isoformat(),
             "queued_notice": request.query_params.get("queued", ""),
             "csrf_field": CSRF_FIELD_NAME,
@@ -155,7 +166,11 @@ def _budget_context(budget: watchlist_service.StandingBudget) -> dict[str, Any]:
     }
 
 
-def _row(state: watchlist_service.EntryState, default_threshold: Decimal) -> dict[str, Any]:
+def _row(
+    state: watchlist_service.EntryState,
+    default_threshold: Decimal,
+    spent: dict[uuid.UUID, Decimal],
+) -> dict[str, Any]:
     words = STATE_WORDS[state.state]
     entry = state.entry
     job = state.job
@@ -183,10 +198,10 @@ def _row(state: watchlist_service.EntryState, default_threshold: Decimal) -> dic
         "run_href": f"/runs/{job.id}" if job else "",
         "run_state": vocabulary.JOB_STATES[job.status].label if job else "",
         "report_href": f"/reports/{state.report.id}" if state.report else "",
-        "cost": figures.pounds(job.total_cost_gbp) if job else "",
+        "cost": figures.pounds(spent.get(job.id, Decimal(0))) if job else "",
         # The "researched as at" history: every commission, newest first, once there is
         # more than the one the row already shows.
-        "history": [_commission_row(record) for record in state.history]
+        "history": [_commission_row(record, spent) for record in state.history]
         if len(state.history) > 1
         else [],
     }
@@ -233,7 +248,9 @@ def _window_of(text: str) -> int:
         raise ValidationError(message, context={"field": "price_move_window_days"}) from exc
 
 
-def _commission_row(record: watchlist_service.CommissionRecord) -> dict[str, Any]:
+def _commission_row(
+    record: watchlist_service.CommissionRecord, spent: dict[uuid.UUID, Decimal]
+) -> dict[str, Any]:
     job = record.job
     return {
         "as_of": f"{record.commission.as_of_date:%d %B %Y}",
@@ -242,7 +259,7 @@ def _commission_row(record: watchlist_service.CommissionRecord) -> dict[str, Any
         "run_href": f"/runs/{job.id}" if job else "",
         "run_state": vocabulary.JOB_STATES[job.status].label if job else "",
         "report_href": f"/reports/{record.report.id}" if record.report else "",
-        "cost": figures.pounds(job.total_cost_gbp) if job else "",
+        "cost": figures.pounds(spent.get(job.id, Decimal(0))) if job else "",
         "is_purged": record.request is None,
     }
 
