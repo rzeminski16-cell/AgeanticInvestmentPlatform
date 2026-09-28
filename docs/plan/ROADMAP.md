@@ -43,6 +43,35 @@ for personal use when four things are true:
    first report without documentation, a figure walked to its source in under 30 seconds, and
    under fifteen minutes of attention per run.
 
+**The operator's decisions of 28 September 2026: the interface is built to the approved page
+specification before the timed run.** Condition 4's first round on Windows stopped at stage 6:
+the pages did not look or work like the designs. The operator approved the page specification
+and its nineteen drawings ([`03-page-specifications.md`](../V1.0_Alpha/03-page-specifications.md),
+corrections dated 28 September) and settled the four places they disagreed — Today is the drawn
+hub, a concentration limit is the operator's own (ADR 0136), the decision page's check shows a
+what-if and records nothing (ADR 0137), and the menu is the drawn six destinations named
+*Ageantic* (ADR 0112, amended). The timed run is taken on the rebuilt interface, because its
+three bars measure it. The build, in order, each step pushed when both suites pass:
+
+- **U1 — the frame on every page.** The light menu with six destinations, the search bar that
+  jumps to a company or starts a request, and the name. Pages leaving the menu stay reachable
+  from the page that owns them.
+- **U2 — Today**, the drawn hub, with the last visit recorded so the briefing knows where to
+  start.
+- **U3 — Research.** The report reader with its section spine and evidence drawer; the request
+  form with its price on the button; the run page's five stages and decision panel; the
+  library's collapsed versions; Ask's tiers; Methods; Knowledge.
+- **U4 — Decide.** The company page, the thesis editor, and the decision page's what-if.
+- **U5 — Hold.** The operator's limits and everything that draws them; portfolio, position,
+  risk, companies and the monitor alert to their drawings.
+- **U6 — Review and platform.** The review, the analytics page's honest empty state, and one
+  Platform page for costs, monitoring, the book, data, backups and health.
+- **U7 — What every page owes.** No identifier, module path, environment variable or shell
+  command on any page, asserted over every page the application serves.
+
+§3.19 items 86–90 are what the first audit of the build against the specification found and
+fixed on the way in.
+
 The operator also brought three features back into V1.0 that the pre-registered consequence
 left out:
 - **F2**, the adversary argues the other side. It needs **F13's authored half** first, because

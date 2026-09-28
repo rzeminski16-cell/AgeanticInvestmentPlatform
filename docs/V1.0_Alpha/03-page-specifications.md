@@ -27,6 +27,14 @@ that value in §5.1 of the design system.
 9. Every destructive or spending action states its consequence in the control's own label —
    *"Refresh — about £1.40"*, not *"Confirm"*.
 
+**Approved 28 September 2026.** The operator approved every page of this specification and its
+nineteen drawings, and settled the four places where the two disagreed. Today is the drawn hub
+(§1, corrected below). A concentration limit is the operator's own statement (ADR 0136). The
+decision page's check shows what a typed size would do and records nothing (ADR 0137). The menu
+is the drawn six destinations under the name *Ageantic* (02 §3; ADR 0112, amended). Where a
+drawing breaks a rule above, the rule wins: a code name is written in words, and no figure
+appears on a sample too small to support it (§16).
+
 ---
 
 ## 1. Today
@@ -123,6 +131,33 @@ waiting* the shell's tests read by role, with *Nothing needs you today.* as the 
 *Start with two things*, which the same tests read. The tools launcher stays below the three
 bands: the menu is ADR 0112's and the bands are this section's, and neither replaces the other.
 
+**Corrected 28 September 2026, on the operator's approval: the page is the drawn hub.** The
+page guide records why the drawing replaced a page that led with its queue — *a hub leads with
+state; an inbox leads with events* — and the text had not followed it. Everything this section
+requires stays; it is arranged as drawn:
+
+- **The verdict**, first and full width: one sentence on the book (*"Your book needs attention.
+  Nine of eleven positions still hold their reasoning"*, or that every position does), the
+  figures — the book and its day's move, how many positions' reasoning is current, the next
+  check, the month's spend against the cap — and **the conviction strip**: every position by
+  weight, coloured by whether its reasoning holds, each colour named in a legend beside it and
+  each segment named for a screen reader. The strip is a bar of weights, not a chart; §1's *show
+  a chart* means a chart of prices or performance.
+- **Since {day}**: what happened while the operator was away — findings, refreshes finished,
+  moves past a threshold, the daily pass — one line each, dated, with no controls. A line's
+  title may link to the record it describes. *{day}* is when the operator last opened Today,
+  which the page records; a first visit shows the last seven days.
+- **Needs you**: the six kinds of row in §1.1's fixed rank, numbered, each with its one action
+  as a word at the right. Small, beside the briefing, because on most days it is short.
+- **Start something**: research a company, or ask about one already held.
+- **Worth doing**, at the foot: §1.2's suggestions, earned as before. The fifth is earned
+  against the limit the operator states (ADR 0136), and never against a default.
+
+Reports held and how many are current move to Research. The tools launcher leaves the page: the
+drawn menu is the launcher. States: with no book, the verdict speaks of the research the
+operator holds and draws no strip; with nothing at all, it says so and *Start something* offers
+the first request; on a quiet day *Needs you* reads *Nothing needs you today.*
+
 ---
 
 ## 2. Portfolio
@@ -211,6 +246,12 @@ return and exposure sheets stay beneath the table; the empty-book card is the on
 already here. *Prices stale* is shown when the page defaulted to a last close that is not
 today's, and not when the operator asked for a date.
 
+**Corrected 28 September 2026, against ADR 0136.** The ceilings are the operator's own limits,
+stated on Platform. Where one is stated, the weight bar carries its line, *Risk* reads *over
+ceiling* in `warning` for a holding past it, the *over ceiling* filter and the *positions over
+their ceiling* row count against it, and the top-five row states its limit beside its figure.
+Where none is stated, each says that none is set, and no default is ever drawn.
+
 ---
 
 ## 3. Position detail
@@ -246,6 +287,11 @@ stored anywhere (§11's correction, ADR 0104). *A position built across more tha
 lists every thesis on the company with its dates, and the decisions on them that moved the
 book. *Revise the thesis* opens the first thesis, or the form with the company chosen where
 none exists.
+
+**Corrected 28 September 2026, against ADR 0136.** *What it does to the book* draws the weight
+against the operator's single-position limit where one is stated, and says *over the {n}%
+ceiling you set* in `warning` when the holding is past it, linking to the decision that took it
+there where one is recorded.
 
 ---
 
@@ -373,6 +419,10 @@ holding, a thesis, a watch or a report — where before it answered for the rese
 alone, and it keeps the approved-report timeline, the valuation history and the catalyst
 outcomes it carried before this section existed.
 
+**Corrected 28 September 2026, on the operator's approval.** §5.3's weight bar is drawn
+against the operator's single-position limit where one is stated (ADR 0136), and §5.6's *Open
+the workbook* is a control where a workbook was archived (§8's correction of the same date).
+
 ---
 
 ## 6. New request
@@ -428,12 +478,18 @@ spent while this waits."**
 | Plan | Sections, sources, estimate, risks | Approve the plan |
 | Peer set | Up to eight peers with their rationale, each removable; an input to add | Confirm the peers |
 | Themes | Proposed themes as labels, removable | Confirm the themes |
+| Sector | The proposed classification, the valuation models it refuses, and why it was proposed | Confirm the classification |
 | Unmapped concepts | **At most 20 rows at a time**, ranked by materiality, each showing the filer's own words and the reference line it would affect; a *"{n} below materiality — skip them"* control | Map these, or skip |
 | Assumptions | Each outstanding value with its proposed figure, its source and a justification field | Accept and continue |
 | Final | Checks with their results; unverified citations listed individually | Approve the report |
 
 **The unmapped gate's 20-row cap is a hard requirement**, not a preference. Today it can present
 several hundred rows, which is the single worst moment in the product.
+
+**Corrected 28 September 2026, on the operator's approval.** A run stops at seven gates, not
+six: the table lacked the sector specialist's, which asks the operator to confirm the
+classification that decides which valuation models the run may use, and leads with the
+models confirming it refuses. Its row is above; *Gate {n} of {m}* counts seven.
 
 **States.** Failed step: `failure`, what failed, and a labelled retry. Stranded run (worker
 died): `warning`, *"This run stopped without finishing"*, with **Continue** as a labelled
@@ -483,7 +539,17 @@ The adversary's surviving case, presented as a **bear or bull case** with a numb
 never a list of unresolved accusations. Each carries its resolution: accepted, rejected with a
 reason, or carried as an open question the operator acknowledged.
 
+**Corrected 28 September 2026, against ADR 0135, which outranks this document.** The report
+argues both sides and takes neither: the adversary writes the case for and the case against,
+each point with the lever code struck for it, and the document carries no view of its own.
+The section is *The case for and the case against*; a single bear or bull case is not built.
+
 **Actions.** Open the workbook · refresh · print · export.
+
+**Corrected 28 September 2026, on the operator's approval.** The workbook exists (F5, ADR 0134):
+*Open the workbook* downloads the valuation as live formulas, archived when the report was
+approved. Where none was archived — no discounted cash flow, or a report approved before the
+workbook existed — the control is absent and a sentence says which. The same holds for §5.6.
 
 **States.** Superseded report: a band reading *"This report was superseded on {date}"* with a
 link to the current one and to the change summary. Withheld figure: `refusal` inline, naming the
@@ -608,6 +674,14 @@ implementation, surfaced twice*, made structural rather than tested for.
 **It never blocks**, and now there is nothing it could block with. The operator's book is
 their own. The stated horizon against the model's payback is not built and needs F13's
 composed view on the same page; it is listed here as the check's open half.
+
+**Corrected 28 September 2026, against ADR 0137 and ADR 0136.** The check takes a what-if: the
+position after the trade as a share of the book, typed into the check itself. With one, the
+check shows before and after for the holding's weight, the five largest, the sector's share and
+cash, by the risk page's own arithmetic, for this page only — nothing is recorded, and the
+decision's size stays the sentence the operator writes. Where an after-figure crosses a limit
+the operator stated, a `warning` band says so and the submit control reads *Record it anyway*;
+it is never disabled. With the field empty, the check is as the correction above describes.
 
 **States.** No thesis: the form cannot be submitted, and offers the thesis editor inline. No
 report: allowed, with a `warning` noting the decision rests on nothing recorded.
@@ -735,6 +809,10 @@ in §11.1 and this page use one implementation and can never disagree.
 **Must not.** Compute a value-at-risk or any figure whose method is not on the page. Draw a
 correlation matrix.
 
+**Corrected 28 September 2026, against ADR 0136.** Each concentration and sector row states
+the operator's limit beside its figure where one is set, and *no limit set* where none is;
+a row past its limit says so in `warning`, with the word.
+
 ---
 
 ## 15. Post-trade review
@@ -784,6 +862,11 @@ a link to the review queue.
 **Findings, when earned.** Calibration (stated confidence against realised outcome); which
 premise kinds break most often; whether process quality is improving. Every finding links to the
 decisions behind it.
+
+**Corrected 28 September 2026, on the operator's approval.** The drawing greys out previews of
+the findings below the threshold, with counts in them. This section wins: below about twenty
+reviewed decisions the page shows the sample and the link to the review queue, and names what
+will appear at twenty in words, with no figure.
 
 **Must not.** Show a statistic on a small sample. Rank decisions by return.
 
@@ -846,3 +929,7 @@ with a control to review or skip them as a group.
 
 **Must not.** Be the only route to anything an operator needs. Show a credential, even masked,
 anywhere it could be copied.
+
+**Corrected 28 September 2026, against ADR 0136.** *Book* holds the operator's limits — a single
+position, the five largest, and any sector — each blank until stated, each superseded rather
+than edited, with no default and no suggestion; and the stated shock, as the risk page keeps it.

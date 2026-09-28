@@ -56,6 +56,10 @@ money committed for reasons nobody wrote down, which is the worst state in the s
 Plus a **command bar**, always present, that jumps to any company by name or ticker and starts
 a request from anywhere.
 
+**Approved 28 September 2026.** The operator chose these six destinations as drawn, the command
+bar as the search bar across the top of every page, and the name *Ageantic* at the top of the
+menu (ADR 0112, amended). Tracework stays the design system's name.
+
 ## 4. Today is a landing page, not a notification list
 
 The first draft made Today a queue of four alerts, which is half a page. A queue answers *what
@@ -91,6 +95,13 @@ the operator to ignore the page.
 Three or four quiet figures with no call to action: book value and the day's move, how many
 companies are watched and when the next check runs, what has been spent this month against the
 ceiling. This is the band that makes the page feel like a home rather than an inbox.
+
+**Corrected 28 September 2026, on the operator's approval.** Today is laid out as the drawn hub,
+which the page guide explains: a verdict with the book's figures and the conviction strip first,
+a briefing of what happened since the operator last looked, the small numbered queue beside it,
+and the suggestions at the foot. The bands' contents are unchanged; their order and weight are
+the drawing's. Page specification §1 has the detail. The fifth suggestion is earned against the
+operator's own limit (ADR 0136).
 
 ## 5. Ask has three tiers, and the third one improves the record
 

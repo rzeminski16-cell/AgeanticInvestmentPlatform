@@ -2,6 +2,12 @@
 
 *Nineteen screens covering every surface in V1.0. Drawn 14 September 2026.*
 
+**Approved by the operator on 28 September 2026.** Every screen was approved, with the four
+places where a screen and the text disagreed settled in the screen's favour: Today's hub,
+limits the operator sets (ADR 0136), the decision page's what-if (ADR 0137) and the six-item
+menu named *Ageantic*. The page specification was brought to the screens in corrections dated
+that day, so the rule below still holds: the specification is what you build from.
+
 **The canvas:** https://claude.ai/code/artifact/4af01758-27d6-4c34-9f5c-d9283d6f44c7
 
 ---

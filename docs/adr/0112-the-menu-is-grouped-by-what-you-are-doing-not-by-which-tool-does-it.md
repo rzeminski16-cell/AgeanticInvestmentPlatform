@@ -118,3 +118,20 @@ was the problem, and folding them would have preserved all ten.
 the unit of *contribution* and it is what `tool` hangs off, which is what the badge and
 attention registries reconcile against and what ADR 0071's one-import-per-tool contract
 means. Presentation stopped using it; ownership never did.
+
+## Amended 28 September 2026: the six destinations of the approved architecture
+
+The operator approved the V1.0 page specification and its drawings, and chose the drawn menu:
+six destinations — Today, Portfolio, Companies, Research, Review, with Platform set apart at
+the foot — a search bar on every page that jumps to a company or starts a request, and the name
+*Ageantic* at the top. The information architecture's three deliberate absences hold: the
+watchlist is Companies, deciding happens on a company or from an alert, and the monitor is a
+service whose findings land on Today, the portfolio and the company page.
+
+Nothing above changes. `GROUPS` stays the one place the menu is decided, and the change is made
+there. The pages that leave the menu — requests, the active run, reports, methods, knowledge,
+Ask, the watchlist, risk, decisions, theses, the monitor, analytics, costs, health and the API —
+move to `UNLISTED`, each with the page that now links to it, so the drift test still holds every
+page to *in the menu or reached from a named page*. Each page lights the destination that owns
+it, from one mapping of path prefixes kept beside `GROUPS`: a run, a request or a report lights
+*Research*, and the risk page lights *Portfolio*.
