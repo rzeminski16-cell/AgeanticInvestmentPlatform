@@ -33,7 +33,6 @@ from aer.db.models import (
     Report,
     ReportSection,
     ResearchPlan,
-    SectionDefinition,
     SectionStatus,
     User,
 )
@@ -43,6 +42,7 @@ from aer.services.history import PriorDigest, prior_digest_for
 from aer.services.requests import mandate_read
 from aer.workflow.workflows.vertical_slice_v1 import _prior_research_note, plan_gate_payload
 from tests.report_fixtures import make_current, record_valuation
+from tests.scene_fixtures import lenient_section_definition
 from tests.workflow_fixtures import AS_OF_DATE, seed_job, seed_request, seed_user
 
 # -- Building a prior approved report --------------------------------------------------------
@@ -84,7 +84,7 @@ async def _approved_report(
     if catalysts:
         items["catalyst_items"] = catalysts
     if items:
-        definition = await session.scalar(select(SectionDefinition).limit(1))
+        definition = await lenient_section_definition(session)
         assert definition is not None, "the migration seeds section definitions"
         session.add(
             ReportSection(

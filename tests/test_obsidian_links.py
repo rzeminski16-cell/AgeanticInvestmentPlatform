@@ -15,7 +15,6 @@ from typing import Any
 
 import frontmatter
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -29,7 +28,6 @@ from aer.db.models import (
     Report,
     ReportSection,
     ResearchRequest,
-    SectionDefinition,
     SectionStatus,
     SourceDocument,
     User,
@@ -48,6 +46,7 @@ from aer.services.comps import PEER_SET_STEP, peer_set_payload
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
 from tests.report_fixtures import make_current, record_valuation
 from tests.request_fixtures import research_request
+from tests.scene_fixtures import lenient_section_definition
 from tests.workflow_fixtures import seed_job
 
 pytestmark = pytest.mark.integration
@@ -260,7 +259,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add_all([alpha, beta, gamma, delta])
     await db_session.flush()
 
-    definition = await db_session.scalar(select(SectionDefinition).limit(1))
+    definition = await lenient_section_definition(db_session)
     assert definition is not None, "the migration seeds section definitions"
 
     # Alpha, first run: a confirmed utilities classification and three catalysts.

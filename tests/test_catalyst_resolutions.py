@@ -24,7 +24,6 @@ from aer.db.models import (
     Job,
     Report,
     ReportSection,
-    SectionDefinition,
     SectionStatus,
     User,
 )
@@ -37,6 +36,7 @@ from aer.services.catalyst_resolutions import (
 )
 from aer.services.knowledge import knowledge_stats
 from tests.report_fixtures import make_current
+from tests.scene_fixtures import lenient_section_definition
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
 AS_OF = date(2026, 6, 30)
@@ -63,7 +63,7 @@ async def _approved_report_with_catalyst(
     job.status = JobStatus.SUCCEEDED
     await session.flush()
 
-    definition = await session.scalar(select(SectionDefinition).limit(1))
+    definition = await lenient_section_definition(session)
     assert definition is not None, "the migration seeds section definitions"
     session.add(
         ReportSection(

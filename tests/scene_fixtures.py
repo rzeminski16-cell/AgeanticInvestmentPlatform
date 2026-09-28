@@ -29,7 +29,7 @@ from aer.storage.local import LocalArtefactStore
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
-__all__ = ["ANOTHER_YEAR", "CITED", "FILING", "build_scene"]
+__all__ = ["ANOTHER_YEAR", "CITED", "FILING", "build_scene", "lenient_section_definition"]
 
 FILING = b"""<!DOCTYPE html><html><head><title>10-K</title></head><body>
 <p>Total revenue was $198,270 million for fiscal year 2022.</p>
@@ -71,8 +71,7 @@ async def build_scene(db_session: AsyncSession, store: LocalArtefactStore) -> di
     db_session.add(job)
     await db_session.flush()
 
-    definition = await db_session.scalar(select(SectionDefinition).limit(1))
-    assert definition is not None, "the migration seeds section definitions"
+    definition = await lenient_section_definition(db_session)
 
     section = ReportSection(
         job_id=job.id,
@@ -130,3 +129,25 @@ async def build_scene(db_session: AsyncSession, store: LocalArtefactStore) -> di
         "extracted": extracted,
         "store": store,
     }
+
+
+LENIENT_SECTION = "validation_disagreements"
+
+
+async def lenient_section_definition(session: AsyncSession) -> SectionDefinition:
+    """A section definition that owes no primary source and no minimum, chosen by name.
+
+    Scenes that needed *a* section took ``select(SectionDefinition).limit(1)``, which returns
+    whichever row is first on disk. That moves as a suite updates and vacuums the table: a
+    fresh database puts this one first, and a busy one put the executive summary there,
+    whose floor a scene's uncited section misses — so coverage triggers fired that the scene
+    never meant to raise (ROADMAP §3.19 item 89). Named, it is the same section every time.
+    """
+    definition = await session.scalar(
+        select(SectionDefinition)
+        .where(SectionDefinition.key == LENIENT_SECTION)
+        .order_by(SectionDefinition.version.desc())
+        .limit(1)
+    )
+    assert definition is not None, "the migrations seed the validation section"
+    return definition

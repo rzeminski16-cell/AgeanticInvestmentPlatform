@@ -49,7 +49,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
-    SectionDefinition,
     SectionStatus,
     SourceDocument,
     User,
@@ -74,6 +73,7 @@ from aer.services.red_team import (
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
+from tests.scene_fixtures import lenient_section_definition
 from tests.workflow_fixtures import AS_OF_DATE
 
 # The drafting context this fixture plants, which must never reach the adversary.
@@ -381,7 +381,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     ledger = await record_valuation_ledger(db_session, request=request, job=job, actor=user)
 
-    definition = await db_session.scalar(select(SectionDefinition).limit(1))
+    definition = await lenient_section_definition(db_session)
     assert definition is not None
     section = ReportSection(
         job_id=job.id,

@@ -3306,6 +3306,20 @@ found rather than as scope that was always there.
     portfolio or the watchlist, and the valuation for a research run as before.
     `tests/test_calculation_page.py` strikes a figure under a risk run and under a question and
     reads each page's way back; both failed before the fix.
+89. **A red-team test failed once in a full local run, and the cause was the test, 28 September
+    2026.** `test_a_planted_contradiction_is_recorded_without_raising_a_fault` saw the coverage
+    and missing-section triggers fire in one full default run and passed alone, in its module,
+    and after its twelve predecessors. Its scene took `select(SectionDefinition).limit(1)`, and
+    an unordered `LIMIT 1` returns whichever row is first on disk. A fresh database puts
+    `validation_disagreements` there, which owes no primary source and no minimum; a busy one,
+    after the suite has updated and vacuumed the table, can put the executive summary there,
+    whose floor the scene's uncited section misses. Pinned to the executive summary, the
+    failure reproduced every time. Six more scenes read the same way, one of them the shared
+    `build_scene`.
+
+    **Fixed 28 September 2026.** `tests.scene_fixtures.lenient_section_definition` names the
+    section — the newest `validation_disagreements` — and all seven scenes use it. The fourteen
+    modules those scenes serve pass, 458 tests.
 
 ### Before this leaves one machine
 

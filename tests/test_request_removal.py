@@ -38,7 +38,6 @@ from aer.db.models import (
     Job,
     ReportSection,
     ResearchRequest,
-    SectionDefinition,
     SectionStatus,
     SourceDocument,
     User,
@@ -47,7 +46,7 @@ from aer.errors import ConflictError
 from aer.services import requests as request_service
 from aer.storage.local import LocalArtefactStore
 from tests.request_fixtures import research_request
-from tests.scene_fixtures import build_scene
+from tests.scene_fixtures import build_scene, lenient_section_definition
 
 pytestmark = pytest.mark.integration
 
@@ -167,7 +166,7 @@ async def a_later_run_citing(session: AsyncSession, scene: dict[str, Any]) -> Re
     session.add(job)
     await session.flush()
 
-    definition = await session.scalar(select(SectionDefinition).limit(1))
+    definition = await lenient_section_definition(session)
     assert definition is not None
     section = ReportSection(
         job_id=job.id,

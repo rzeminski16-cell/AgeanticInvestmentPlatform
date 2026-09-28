@@ -67,6 +67,7 @@ from aer.services.run_export import EXPORT_SCHEMA, export_run
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
+from tests.scene_fixtures import lenient_section_definition
 from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
@@ -501,7 +502,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     # completeness rows measure something the services actually stored.
     await record_valuation_ledger(db_session, request=request, job=job, actor=user)
 
-    definition = await db_session.scalar(select(SectionDefinition).limit(1))
+    definition = await lenient_section_definition(db_session)
     assert definition is not None, "the migration seeds section definitions"
     section = ReportSection(
         job_id=job.id,
