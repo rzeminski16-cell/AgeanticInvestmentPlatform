@@ -37,8 +37,11 @@ day, in order. [Getting started](getting-started.md) has the detail behind each 
 - [ ] **Git**.
 - [ ] **uv**:
       `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`.
-- [ ] **The GTK runtime**, for the PDF renderer. It is the one dependency that surprises people
-      late, so prove it now, in step 3.
+- [ ] **GTK**, for the PDF renderer. It is the one dependency that surprises people late, so
+      prove it now, in step 3. *(28 September 2026.)* WeasyPrint loads it from
+      `C:\msys64\mingw64\bin` (MSYS2, then `pacman -S mingw-w64-x86_64-pango`) or
+      `C:\Program Files\GTK3-Runtime Win64\bin`, or the folders named in
+      `WEASYPRINT_DLL_DIRECTORIES`. It does not search `PATH`.
 - [ ] **The PostgreSQL 16 command-line tools.** The database runs inside Docker, but backup and
       restore call `pg_dump` and `pg_restore` on your machine. From the PostgreSQL 16 installer,
       tick only *Command Line Tools*, then add `C:\Program Files\PostgreSQL\16\bin` to `PATH`.
@@ -53,10 +56,25 @@ git clone --branch claude/v1-0-dev-plan-h1ege7 https://github.com/rzeminski16-ce
 cd AgeanticInvestmentPlatform
 uv python install 3.12
 uv sync --all-groups
-copy .env.example .env      # then fill in the five variables above
+copy .env.example .env      # then fill in the five variables above, on their own lines
 docker compose up -d
 docker compose ps           # both healthy
 ```
+
+- [ ] **Fill in the lines `.env` already has; add none.** *(28 September 2026.)* The copy has
+      an empty line for each of the five, and where a name appears twice the later line wins,
+      so a filled line added above the template's empty one reads as blank. The first command
+      below names any variable set twice and should print nothing. The second should print
+      `settings ok:` with your user agent and the month's budget:
+
+      ```powershell
+      Select-String -Path .env -Pattern '^(AER_\w+)\s*=' | Group-Object { $_.Matches[0].Groups[1].Value } | Where-Object Count -gt 1 | Select-Object Name, Count
+      uv run python -c "from aer.config import load_settings; s = load_settings(); print('settings ok:', s.http_user_agent, '| month', s.monthly_budget_gbp)"
+      ```
+
+      If the second still calls `AER_HTTP_USER_AGENT` blank, an empty Windows environment
+      variable of that name is overriding the file:
+      `Get-ChildItem Env: | Where-Object Name -like 'AER_*'` names any.
 
 - [ ] **Clone the branch, not `main`.** *(27 September 2026.)* V1.0 is on
       `claude/v1-0-dev-plan-h1ege7` until it is merged. `main` is 138 commits behind: it stops
@@ -72,18 +90,32 @@ docker compose ps           # both healthy
 
 ```powershell
 mkdir var -ErrorAction SilentlyContinue
-uv run python -c "from weasyprint import HTML; HTML(string='<p>ok</p>').write_pdf('var/check.pdf')"
+uv run python -c "from pathlib import Path; from weasyprint import HTML; p = Path('var/check.pdf').resolve(); HTML(string='<p>ok</p>').write_pdf(p); print('wrote', p, p.stat().st_size, 'bytes')"
+$LASTEXITCODE
 ```
 
-- [ ] `var\check.pdf` exists and opens. A few `GLib-GIO-WARNING` lines on the way are the GTK
-      stack talking and are harmless. An error naming a missing library means the GTK runtime
-      is not on `PATH`.
+- [ ] It prints `wrote …\var\check.pdf` with a size, then `0`, and the file opens. The first
+      run can take a minute or two while the font cache builds. `GLib-GIO-WARNING` lines on
+      the way, including ones naming Windows apps such as Outlook, are the GTK stack talking
+      and are harmless. *(28 September 2026.)* No `wrote` line and an exit code other than 0
+      mean GTK did not load or crashed: see step 1 for where WeasyPrint looks for it.
 
 ## 4. Restore the corpus
 
+*(28 September 2026.)* Each zip holds its own `backup-2026-09-25-v1` folder, and only part 1's
+has `manifest.json` in it. Extract all three into the same new, empty folder so they merge into
+one, and name that merged folder below. Extracting into a folder that already carries the
+backup's name nests it one level down, and `verify-backup` then finds no manifest.
+
 ```powershell
-uv run aer verify-backup --from <the backup directory>
-uv run aer restore --from <the backup directory>
+New-Item -ItemType Directory -Force C:\aer-backup | Out-Null
+Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part1.zip" -DestinationPath C:\aer-backup -Force
+Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part2.zip" -DestinationPath C:\aer-backup -Force
+Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part3.zip" -DestinationPath C:\aer-backup -Force
+Test-Path C:\aer-backup\backup-2026-09-25-v1\manifest.json     # True
+
+uv run aer verify-backup --from C:\aer-backup\backup-2026-09-25-v1
+uv run aer restore --from C:\aer-backup\backup-2026-09-25-v1
 uv run alembic upgrade head
 uv run aer verify-artefacts
 uv run aer verify-audit
