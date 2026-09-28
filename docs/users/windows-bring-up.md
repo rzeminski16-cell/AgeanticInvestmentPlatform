@@ -101,9 +101,11 @@ docker compose ps           # both healthy
 mkdir var -ErrorAction SilentlyContinue
 uv run python -c "from pathlib import Path; from weasyprint import HTML; p = Path('var/check.pdf').resolve(); HTML(string='<p>ok</p>').write_pdf(p); print('wrote', p, p.stat().st_size, 'bytes')"
 $LASTEXITCODE
+Invoke-Item var\check.pdf
 ```
 
-- [ ] It prints `wrote …\var\check.pdf` with a size, then `0`, and the file opens. The first
+- [ ] It prints `wrote …\var\check.pdf` with a size, then `0`, and `Invoke-Item` opens the PDF
+      in your PDF viewer. An editor such as VS Code may hide `var`, because git ignores it. The first
       run can take a minute or two while the font cache builds. `GLib-GIO-WARNING` lines on
       the way, including ones naming Windows apps such as Outlook, are the GTK stack talking
       and are harmless. *(28 September 2026.)* No `wrote` line and an exit code other than 0
@@ -114,13 +116,15 @@ $LASTEXITCODE
 *(28 September 2026.)* Each zip holds its own `backup-2026-09-25-v1` folder, and only part 1's
 has `manifest.json` in it. Extract all three into the same new, empty folder so they merge into
 one, and name that merged folder below. Extracting into a folder that already carries the
-backup's name nests it one level down, and `verify-backup` then finds no manifest.
+backup's name nests it one level down, and `verify-backup` then finds no manifest. The first
+line finds the zips wherever they were saved under your user folder or `C:\aer`; complete
+downloads are 31,121,133, 30,208,779 and 14,943,454 bytes.
 
 ```powershell
+$zips = Get-ChildItem $HOME, C:\aer -Recurse -Filter 'aer-backup-2026-09-25-v1-part*.zip' -ErrorAction SilentlyContinue
+$zips | Select-Object FullName, Length                        # the three parts
 New-Item -ItemType Directory -Force C:\aer-backup | Out-Null
-Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part1.zip" -DestinationPath C:\aer-backup -Force
-Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part2.zip" -DestinationPath C:\aer-backup -Force
-Expand-Archive "$HOME\Downloads\aer-backup-2026-09-25-v1-part3.zip" -DestinationPath C:\aer-backup -Force
+$zips | ForEach-Object { Expand-Archive $_.FullName -DestinationPath C:\aer-backup -Force }
 Test-Path C:\aer-backup\backup-2026-09-25-v1\manifest.json     # True
 
 uv run aer verify-backup --from C:\aer-backup\backup-2026-09-25-v1
