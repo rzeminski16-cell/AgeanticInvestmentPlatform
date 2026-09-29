@@ -109,12 +109,21 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   *Change it* for the threshold that raised it, on the watchlist rows too. The refusal page's
   way back says where it goes; it said "Back to the run" from every page.*
 - **U6 — Review and platform.** The review, the analytics page's honest empty state, and one
-  Platform page for costs, monitoring, the book, data, backups and health.
+  Platform page for costs, monitoring, the book, data, backups and health. *Built 29 September:
+  the review is the drawn form — two questions, the premises and the reasoning as a whole
+  (*sound*, *sound, with a gap*, *not sound*) beside code's outcome — with the four
+  combinations placed, never chosen: the outcome dims the pair it rules out and the answer
+  picks between the others, by CSS alone. The analytics page shows the sample and nothing
+  else until twenty reviews (ADR 0105 §4 amended), naming in words what will appear and that
+  calibration cannot, since a decision states no confidence. Platform opens on one page of
+  six sheets, each linking to its editor; its costs sheet sums, for the first time, the spend
+  on replies the schema refused; and its backups sheet says plainly that nothing records a
+  backup — recording one, and proving a restore, is found work (§3.19 item 92).*
 - **U7 — What every page owes.** No identifier, module path, environment variable or shell
   command on any page, asserted over every page the application serves.
 
 §3.19 items 86–90 are what the first audit of the build against the specification found and
-fixed on the way in, and item 91 what U3 found.
+fixed on the way in, item 91 what U3 found, and items 92 and 93 what U6 found and left open.
 
 The operator also brought three features back into V1.0 that the pre-registered consequence
 left out:
@@ -3425,6 +3434,24 @@ found rather than as scope that was always there.
     `tests/test_request_form.py` record spend as cost rows with the run total left at zero,
     as a research run leaves it; the typical cost's and the company page's tests failed on
     that before the fix.
+92. **Nothing records a backup where the platform can read it, 29 September 2026.** Found
+    building U6's Platform page, whose drawing reads *Last backup: Today, 04:00* and, in amber,
+    *Last proved restorable: Never*, with a *Prove it restores* control. `aer backup`,
+    `aer verify-backup` and `aer restore` work on a folder the operator chooses and write
+    nothing to the database, so the page can say neither line truthfully; it says *Not
+    recorded* and *Never recorded* instead, and has no control. **Open, for the operator's
+    decision.** The proposed shape: the backup records itself as an audit event in the
+    database it copied (when, the schema revision, the manifest's hash), and a new command
+    proves a backup by restoring it into a scratch database and a scratch artefact folder,
+    re-verifying every hash there and recording the proof in the live database — which needs
+    the database role to be allowed to create a database, true here and not yet checked on
+    the operator's Windows machine.
+93. **Calibration has nothing to calibrate, 29 September 2026.** The analytics page's first
+    drawn finding (§16) is stated confidence against the realised outcome, and a decision
+    records no confidence: F10's form asks for an action, a statement, a basis, a size in
+    words, a horizon and an exit plan. U6's page names the gap rather than drawing a greyed
+    chart of it. **Open**: a confidence on the decision form, stated in words the operator
+    chooses from and stored with the decision, is the prerequisite, and a change to F10.
 
 ### Before this leaves one machine
 

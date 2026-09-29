@@ -14,19 +14,28 @@
 
 {% block content %}
   {% call ui.page_header(
-    "Review of " ~ item.ticker,
-    eyebrow="A REVIEW",
+    item.ticker ~ (" — " ~ item.combination.name if item.combination else ""),
+    eyebrow="Review · closed " ~ item.closed_on,
     identity=item.book ~ " · held " ~ item.opened_on ~ " to " ~ item.closed_on,
     breadcrumbs=[{"href": "/review", "label": "Post-trade review"}],
   ) %}
     <span id="subject" class="sr-only">{{ item.ticker }}</span>
   {% endcall %}
 
-  {{ ui.verdict("PROCESS QUALITY", item.quality ~ ". " ~ item.quality_detail, detail=item.agreement, tone=item.quality_tone) }}
+  {#
+    Where the review landed among the four (§15.1): the operator's answer about the process,
+    against the sign of the return code computed. Named, with what it means, because the
+    middle two are the ones worth learning from and the page should say which this is.
+  #}
+  {% if item.combination %}
+    <p class="type-body text-ink" data-field="combination" data-cell="{{ item.combination.key }}"><span class="type-body-strong">{{ item.combination.name }}.</span> {{ item.combination.meaning }}</p>
+  {% endif %}
+
+  {{ ui.verdict("THE REASONING", item.quality ~ ". " ~ item.quality_detail, detail=item.agreement, tone=item.quality_tone) }}
 
   {% call ui.sheet("What you concluded", id="judgement") %}
     <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
-      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Process quality</dt>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">The reasoning</dt>
       <dd class="border-line py-3 sm:border-t" data-field="quality">
         {% if quality_amended %}
           {#
@@ -115,7 +124,7 @@
   {% call ui.sheet("What the reviewer proposed", subtitle="As it arrived, kept beside what you confirmed. A proposal is not a judgement; this is the record of whether you agreed with it.", id="proposal") %}
     {% if proposal %}
       <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
-        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed quality</dt>
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed answer</dt>
         <dd class="border-line py-3 sm:border-t" data-field="proposed-quality">{% if proposed_quality %}{{ ui.status(proposed_quality.tone.value, proposed_quality.label) }}{% endif %}</dd>
         <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed basis</dt>
         <dd class="border-line py-3 type-body text-ink sm:border-t">{{ proposal.basis }}</dd>

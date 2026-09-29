@@ -375,6 +375,8 @@ PREMISE_VERDICTS: Final[dict[PremiseVerdict, HumanState]] = {
 # The operator's own verdict on their own process (ADR 0081), and it is scored against the
 # process rather than the outcome: a sound decision that lost money is still `Sound`. None of
 # these is a failure tone, because a flawed process is a judgement held, not a fault found.
+# The drawn review's three answers (page specification §15): *sound*, *sound, with a gap*, and
+# *not sound*. Only the first counts as sound in the four combinations (`combination_of`).
 PROCESS_QUALITIES: Final[dict[ProcessQuality, HumanState]] = {
     ProcessQuality.SOUND: HumanState(
         "Sound",
@@ -382,12 +384,12 @@ PROCESS_QUALITIES: Final[dict[ProcessQuality, HumanState]] = {
         "The decision was written down with a basis, sized, and carried out as it said.",
     ),
     ProcessQuality.QUESTIONABLE: HumanState(
-        "Questionable",
+        "Sound, with a gap",
         Tone.INFO,
         "Part of the process was followed and part was not, or the record is thin.",
     ),
     ProcessQuality.FLAWED: HumanState(
-        "Flawed",
+        "Not sound",
         Tone.WARNING,
         "The decision was not written before the trade, or the exit ignored its own plan.",
     ),

@@ -56,6 +56,7 @@ from aer.errors import AerError, BudgetExceededError, ValidationError
 from aer.errors import IntegrityError as BrokenRecordError
 from aer.providers.costs import context_window_for, estimate_gbp, price_usage
 from aer.providers.protocol import (
+    SCHEMA_REJECTED,
     BatchRequest,
     LLMProvider,
     Message,
@@ -746,7 +747,7 @@ class Agent[InputT, OutputT: BaseModel]:
                 choice_model=choice_model,
                 effort=context.router.resolve(self.route_role).effort,
                 elapsed_ms=unusable.latency_ms,
-                stop_reason="schema_rejected",
+                stop_reason=SCHEMA_REJECTED,
             )
             await self._meter(
                 context,

@@ -52,6 +52,7 @@ from aer.version import git_sha
 
 __all__ = [
     "CADENCE",
+    "DAILY_PASS_HOUR_UTC",
     "GRACE",
     "NEVER_RUN",
     "SUBJECT_BOOK",
@@ -78,6 +79,12 @@ WORKFLOW_VERSION: Final = "daily_pass_v1"
 # health indicator teaches its reader to ignore it.
 CADENCE: Final = timedelta(days=1)
 GRACE: Final = timedelta(hours=6)
+
+# When the pass fires, in UTC: after the New York close (21:00 UTC in summer, 22:00 in winter)
+# and well before the London open, so a pass reads a day both markets have finished. Here
+# rather than beside the worker's schedule, so the page that says when checks run reads the
+# number the schedule does without importing the worker, which resolves Redis on import.
+DAILY_PASS_HOUR_UTC: Final = 22
 
 NEVER_RUN: Final = (
     "No daily pass has run yet. The schedule starts with the worker; until one has run "

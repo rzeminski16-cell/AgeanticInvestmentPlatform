@@ -68,6 +68,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.web.overview import review as review_feed
 from aer.web.overview import suggestions as suggestion_band
 from aer.web.overview.attention import Severity
+from aer.web.review.pages import combination_of
 from tests.api_fixtures import build_app, client_for
 from tests.portfolio_fixtures import trade
 from tests.schema_guard import refuse_unanswerable_schema
@@ -1092,6 +1093,32 @@ class TestAStatistic:
         assert post_trade.MINIMUM_SAMPLE == 3
 
 
+class TestTheFour:
+    """Where a review lands (§15.1): the operator's answer against code's outcome, never chosen."""
+
+    @pytest.mark.parametrize(
+        ("quality", "gained", "name"),
+        [
+            (ProcessQuality.SOUND, True, "Right for the right reasons"),
+            (ProcessQuality.QUESTIONABLE, True, "Right anyway"),
+            (ProcessQuality.FLAWED, True, "Right anyway"),
+            (ProcessQuality.SOUND, False, "Wrong for good reasons"),
+            (ProcessQuality.QUESTIONABLE, False, "Wrong for bad reasons"),
+            (ProcessQuality.FLAWED, False, "Wrong for bad reasons"),
+        ],
+    )
+    def test_the_answer_picks_the_row_and_the_outcome_the_column(
+        self, quality: ProcessQuality, gained: bool, name: str
+    ) -> None:
+        found = combination_of(quality, gained)
+
+        assert found is not None
+        assert found.name == name
+
+    def test_an_outcome_code_could_not_compute_places_it_nowhere(self) -> None:
+        assert combination_of(ProcessQuality.SOUND, None) is None
+
+
 class TestAnalytics:
     async def test_nothing_reviewed_counts_nothing(self, db_session: AsyncSession) -> None:
         scene = await _scene(db_session)
@@ -1454,6 +1481,27 @@ async def _run_from_the_page(api: Any, committed: dict[str, Any]) -> str:
     return location
 
 
+async def _confirm_from_the_page(
+    api: Any, committed: dict[str, Any], *, quality: str, verdict: str
+) -> None:
+    """Run the reviewer from the list and confirm its proposal with these answers."""
+    location = await _run_from_the_page(api, committed)
+    proposal = await api.get(location)
+    premise_id = str(committed["premise"].judgement_id)
+    confirmed = await api.post(
+        f"{location}/confirm",
+        data={
+            "csrf_token": _csrf(proposal.text),
+            "process_quality": quality,
+            "basis": "Written first, sized, and followed.",
+            "lessons": "",
+            f"verdict-{premise_id}": verdict,
+            f"note-{premise_id}": "",
+        },
+    )
+    assert confirmed.status_code == 303, confirmed.text
+
+
 class TestThePages:
     async def test_the_list_offers_to_run_the_reviewer(self, api: Any, committed: Any) -> None:
         body = (await api.get("/review")).text
@@ -1473,7 +1521,12 @@ class TestThePages:
         assert "+20.0%" in proposal.text
         assert "/calculations/" in proposal.text
         assert 'id="confirm-review"' in proposal.text
-        assert '<option value="sound" selected>' in proposal.text
+        # The reviewer's answer arrives chosen among the drawing's three, and the four are
+        # placed by the outcome: a gain rules out the two losing cells.
+        assert re.search(r'id="quality-sound" value="sound"[^>]*checked', proposal.text)
+        assert 'data-outcome="gain"' in proposal.text
+        assert re.search(r'data-cell="sound-loss" data-reachable="no"', proposal.text)
+        assert re.search(r'data-cell="unsound-gain" data-reachable="yes"', proposal.text)
         premise_id = str(committed["premise"].judgement_id)
         assert f'name="verdict-{premise_id}"' in proposal.text
 
@@ -1494,7 +1547,10 @@ class TestThePages:
 
         review = await api.get(review_url)
         assert review.status_code == 200
-        assert "Questionable" in review.text
+        assert "Sound, with a gap" in review.text
+        # A gap in the reasoning that made money is the dangerous cell, and the review says so.
+        assert re.search(r'data-field="combination" data-cell="unsound-gain"', review.text)
+        assert "Right anyway" in review.text
         assert "Amended" in review.text
         # Amended: the reviewer's verdict beside the confirmed one, each labelled, rather
         # than a line under it.
@@ -1515,42 +1571,50 @@ class TestThePages:
         assert 'data-state="reviewed"' in listed
         assert 'data-state="unreviewed"' not in listed
 
-    async def test_the_analytics_are_a_tally_until_the_sample_can_bear_a_proportion(
+    async def test_below_about_twenty_the_analytics_show_the_sample_and_nothing_else(
         self, api: Any, committed: Any
     ) -> None:
         empty = (await api.get("/analytics")).text
-        assert "Nothing reviewed yet" in empty
+        assert "0 / 20" in empty
+        assert "Nothing has been reviewed yet." in empty
+        assert "Review the one waiting" in empty
 
-        location = await _run_from_the_page(api, committed)
-        proposal = await api.get(location)
-        premise_id = str(committed["premise"].judgement_id)
-        await api.post(
-            f"{location}/confirm",
-            data={
-                "csrf_token": _csrf(proposal.text),
-                "process_quality": "sound",
-                "basis": "Written first, sized, and followed.",
-                "lessons": "",
-                f"verdict-{premise_id}": "held",
-                f"note-{premise_id}": "",
-            },
+        await _confirm_from_the_page(api, committed, quality="sound", verdict="held")
+
+        body = (await api.get("/analytics")).text
+
+        assert "1 / 20" in body
+        assert "Not enough yet" in body
+        assert "is noise wearing a percentage sign" in body
+        # What will be here is named in words, and no finding or count is drawn.
+        assert 'id="coming"' in body
+        assert "data-statistic" not in body
+        assert 'data-part="sound-process-gain"' not in body
+        assert "Open the review queue" in body
+
+    async def test_from_twenty_the_four_are_named_and_every_statistic_carries_its_n(
+        self, api: Any, committed: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # One review stands in for twenty: the threshold is what is under test, not the seed.
+        monkeypatch.setattr(post_trade, "ANALYTICS_SAMPLE", 1)
+        await _confirm_from_the_page(
+            api, committed, quality="questionable", verdict="partially_held"
         )
 
         body = (await api.get("/analytics")).text
 
-        assert "n = 1" in body
+        assert 'id="sample"' not in body
         assert 'data-statistic="process-against-outcome" data-count="1" data-finding="no"' in body
-        assert "a tally, not a proportion" in body
-        assert "Share" not in body
-        # The four cells two by two: quality down, the sign of the return across, each cell
-        # addressable, the remainder row absent when every outcome was computed.
         assert ">Gain</th>" in body
         assert ">Loss</th>" in body
-        assert ">Sound process</th>" in body
-        assert 'data-part="sound-process-gain"' in body
-        assert 'data-part="flawed-or-questionable-process-loss"' in body
-        assert 'data-part="outcome-not-computed"' not in body
-        assert "Counts only, until 3 positions have been reviewed." in body
+        assert ">Sound</th>" in body
+        assert re.search(r'data-part="flawed-or-questionable-process-gain">1<', body)
+        assert "Right anyway" in body
+        assert "Wrong for good reasons" in body
+        # The parts are said in words, never as the stored value.
+        assert "Sound, with a gap" in body
+        assert "partially_held" not in body
+        assert "a tally, not a proportion" in body
 
     async def test_a_form_without_a_token_is_refused(self, api: Any, committed: Any) -> None:
         response = await api.post(

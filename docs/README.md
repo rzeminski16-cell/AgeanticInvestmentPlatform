@@ -81,6 +81,8 @@ For the operator: the person who installs it, commissions research and approves 
   what to research next, and the standing budget it spends.
 - [`skills.md`](users/skills.md) — the methodology library: your method, house view and
   preferences, versioned, pinned at gate 1, and composed into the roles that plan and write.
+- [`platform.md`](users/platform.md) — settings and state on one page: this month's spend and
+  what bought nothing, your limits, the monitoring, the sources, the backups and the health.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

@@ -22,14 +22,25 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.db.models import AgentRun, Cost, Job, JobStep
+from aer.db.models import AgentRun, Cost, Job, JobStep, WorkOrder
+from aer.providers.protocol import SCHEMA_REJECTED
 
-__all__ = ["RoleSpend", "SpendSummary", "spend_by_job", "spend_by_role", "spend_summary"]
+__all__ = [
+    "ActivitySpend",
+    "RoleSpend",
+    "SpendSummary",
+    "discarded_since",
+    "spend_by_activity_since",
+    "spend_by_job",
+    "spend_by_role",
+    "spend_summary",
+]
 
 
 async def spend_by_job(
@@ -200,3 +211,59 @@ async def recent_runs(session: AsyncSession, *, limit: int = 20) -> list[tuple[J
         job_id: Decimal(str(amount)) for job_id, amount in rows if job_id is not None
     }
     return [(job, totals.get(job.id, Decimal(0))) for job in jobs]
+
+
+async def discarded_since(session: AsyncSession, *, since: datetime) -> Decimal:
+    """What replies paid for and not usable have cost since ``since``.
+
+    A reply the schema refused is metered like any other, and its run carries the schema's
+    verdict as its stop reason (`agents.base`), which is what finds it here. Nothing else in the
+    platform sums it, and it is the one line of spend that bought nothing at all. Platform-wide,
+    for the reason :func:`aer.services.overview.spend_since` gives.
+    """
+    total = await session.scalar(
+        select(func.coalesce(func.sum(Cost.amount_gbp), 0))
+        .join(AgentRun, AgentRun.id == Cost.agent_run_id)
+        .where(AgentRun.stop_reason == SCHEMA_REJECTED, Cost.occurred_at >= since)
+    )
+    return Decimal(str(total or 0))
+
+
+@dataclass(frozen=True, slots=True)
+class ActivitySpend:
+    """What one kind of work has cost since a moment, and how many runs of it there were.
+
+    ``tool`` and ``refresh_kind`` are ``None`` for spend whose run has since been removed: a
+    cost row outlives its run (the reference is set null), and the money was still spent.
+    """
+
+    tool: str | None
+    refresh_kind: str | None
+    runs: int
+    amount_gbp: Decimal
+
+
+async def spend_by_activity_since(session: AsyncSession, *, since: datetime) -> list[ActivitySpend]:
+    """Spend since ``since`` by the tool that incurred it, a refresh apart from a full report.
+
+    Every cost row lands in exactly one group, so the groups sum to what
+    :func:`aer.services.overview.spend_since` reports for the same moment. Heaviest first.
+    """
+    rows = await session.execute(
+        select(
+            WorkOrder.tool,
+            Job.refresh_kind,
+            func.count(func.distinct(Job.id)),
+            func.coalesce(func.sum(Cost.amount_gbp), 0),
+        )
+        .select_from(Cost)
+        .outerjoin(Job, Job.id == Cost.job_id)
+        .outerjoin(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Cost.occurred_at >= since)
+        .group_by(WorkOrder.tool, Job.refresh_kind)
+    )
+    found = [
+        ActivitySpend(tool=tool, refresh_kind=kind, runs=int(runs), amount_gbp=Decimal(str(amount)))
+        for tool, kind, runs, amount in rows.tuples()
+    ]
+    return sorted(found, key=lambda row: (-row.amount_gbp, row.tool or "", row.refresh_kind or ""))

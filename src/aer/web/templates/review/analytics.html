@@ -2,53 +2,84 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  What the reviewed positions have in common. Every statistic carries its n, in the type
-  that built it (ADR 0105 §4): below the minimum sample a breakdown is a tally rather than
-  a percentage, because three of four is an anecdote wearing a plural.
+  What many decisions say that one cannot (page specification §16). The sample is the page's
+  first element, and below about twenty reviews it is nearly the only one: the band, the way
+  to the review queue, and — in words, with no figure — what will be here at twenty (ADR 0105
+  §4 as amended on 29 September 2026). The drawing greyed out previews of the findings with
+  counts in them; the specification's correction wins, because a greyed count is still a count
+  on a sample that cannot bear one.
 
-  The four cells — process quality against the sign of the realised return — come first,
-  and the two off-diagonal ones are what the page exists to make reachable.
+  Above the threshold every statistic carries its n, in the type that built it, and the four
+  cells — the operator's process against the sign of the return — come first, named as the
+  review form names them.
 #}
 
 {% block title %}Decision analytics &middot; Ageantic{% endblock %}
 
 {% block content %}
-  {% call ui.page_header("Decision analytics", eyebrow="WHAT THE REVIEWS HAVE IN COMMON") %}
-    <p class="type-body text-ink-muted">
-      Counted from your confirmed reviews and nothing else. Where the process holds and
-      where it does not, across enough closed positions to say anything at all — and where
-      there are not enough, a tally that says so.
-    </p>
-  {% endcall %}
+  {{ ui.page_header("What many decisions say about you", eyebrow="Review") }}
 
-  {% if reviewed == 0 %}
-    {{ ui.verdict("THE SAMPLE", "No position has been reviewed, so there is nothing to count.", tone="muted") }}
-  {% elif reviewed < minimum %}
-    {{ ui.verdict("THE SAMPLE", reviewed ~ " position" ~ ("" if reviewed == 1 else "s") ~ " reviewed. Below " ~ minimum ~ " every breakdown is a tally rather than a proportion.", tone="info") }}
-  {% else %}
-    {{ ui.verdict("THE SAMPLE", reviewed ~ " positions reviewed. Each breakdown below carries the number it is a proportion of.", tone="info") }}
-  {% endif %}
+  {% if not is_earned %}
+  <div class="flex flex-col gap-4">
+    <section id="sample" class="rounded-md border border-warning-ink bg-warning-wash p-5 sm:p-6" aria-labelledby="sample-heading">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <div class="shrink-0">
+          <p class="type-data-xl text-warning-ink" data-field="reviewed">{{ reviewed }} / {{ needed }}</p>
+          <p class="type-caption text-ink-subtle">reviewed decisions</p>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h2 id="sample-heading" class="type-body-lg text-ink">Not enough yet — and this page will not pretend otherwise.</h2>
+          <p class="mt-1 type-body-sm text-ink-muted" data-field="sample">{{ sample.detail }}</p>
+        </div>
+        {% if waiting %}
+          <a href="/review" id="review-now" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">{{ sample.action }}</a>
+        {% else %}
+          <a href="/review" id="review-now" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Open the review queue</a>
+        {% endif %}
+      </div>
+      <div class="mt-4 h-2 overflow-hidden rounded-xs bg-surface" aria-hidden="true">
+        <div class="h-2 bg-warning-ink" style="width: {{ progress }}%"></div>
+      </div>
+    </section>
 
-  {% if reviewed == 0 %}
-    {% call ui.sheet(id="empty") %}
-      {{ ui.empty("Nothing reviewed yet", "Analytics are counted from confirmed reviews. Review a closed position first; the first breakdown is the four cells — sound process with a loss, flawed process with a gain — that a P&L alone cannot show.", action_label="Review a closed position", action_href="/review") }}
+    {% call ui.sheet("What will be here at twenty", subtitle="Named, not shown: nothing below is computed until the sample can bear it.", id="coming") %}
+      <ul class="flex flex-col" aria-label="What will be here at twenty">
+        <li class="border-b border-line py-3">
+          <p class="type-body-strong text-ink">The four</p>
+          <p class="mt-0.5 type-body-sm text-ink-muted">How many reviews landed in each: right for the right reasons, right anyway, wrong for good reasons and wrong for bad reasons. The middle two are the ones worth learning from.</p>
+        </li>
+        <li class="border-b border-line py-3">
+          <p class="type-body-strong text-ink">Which premises break</p>
+          <p class="mt-0.5 type-body-sm text-ink-muted">Each premise as the record found it — held, broke, or left unanswered because the year it was about had not been filed.</p>
+        </li>
+        <li class="border-b border-line py-3">
+          <p class="type-body-strong text-ink">How the reasoning was held</p>
+          <p class="mt-0.5 type-body-sm text-ink-muted">Sound, sound with a gap, or not sound; how long positions were held against the horizon you intended; and how often you confirmed the reviewer's reading or amended it.</p>
+        </li>
+        <li class="py-3">
+          <p class="type-body-strong text-ink">Not calibration, yet</p>
+          <p class="mt-0.5 type-body-sm text-ink-muted">Stated confidence against the realised outcome needs a confidence stated with each decision, and the decision form does not ask for one.</p>
+        </li>
+      </ul>
     {% endcall %}
+  </div>
   {% else %}
+    {{ ui.verdict("THE SAMPLE", reviewed ~ " reviewed decisions. Each finding below carries the number it is a proportion of.", tone="info") }}
+
     {#
-      The four cells as a two-by-two: quality down, the sign of the return across, so the
-      off-diagonal cells — sound with a loss, flawed with a gain — are where the eye lands.
-      A real table with both axes as headers, because a screen reader needs the row and the
-      column to say which cell a count belongs to. The share appears in the cell only once
-      the sample can bear one; below that the cell is a count and the caption says so.
+      The four cells as a two-by-two: the process down, the sign of the return across, so the
+      off-diagonal cells — right anyway, wrong for good reasons — are where the eye lands. A
+      real table with both axes as headers, because a screen reader needs the row and the
+      column to say which cell a count belongs to.
     #}
-    {% call ui.sheet(grid.label, subtitle="n = " ~ grid.count ~ ("" if grid.is_a_finding else " · a tally, not a proportion: fewer than " ~ minimum ~ " reviewed"), id="statistic-cells") %}
+    {% call ui.sheet("The four", subtitle="n = " ~ grid.count ~ ". Your answer about the reasoning down the side; whether it made money across the top.", id="statistic-cells") %}
       <div data-statistic="process-against-outcome" data-count="{{ grid.count }}" data-finding="{{ 'yes' if grid.is_a_finding else 'no' }}">
-        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="{{ grid.label }}">
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="The four">
           <table class="w-full border-collapse">
-            <caption class="sr-only">{{ grid.label }}: process quality against the sign of the realised return</caption>
+            <caption class="sr-only">The reasoning against the sign of the realised return</caption>
             <thead>
               <tr>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Process</th>
+                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">The reasoning</th>
                 {% for column in grid.columns %}
                   <th scope="col" class="border-b border-line-strong py-2 pr-4 text-right type-label text-ink-muted">{{ column }}</th>
                 {% endfor %}
@@ -59,9 +90,10 @@
                 <tr>
                   {{ ui.cell(row.label, header=true) }}
                   {% for cell in row.cells %}
-                    <td class="border-b border-line py-3 pr-4 text-right" data-part="{{ cell.key }}">
-                      <span class="type-data-xl text-ink">{{ cell.count }}</span>
+                    <td class="border-b border-line py-3 pr-4 text-right align-top">
+                      <span class="type-data-xl text-ink" data-part="{{ cell.key }}">{{ cell.count }}</span>
                       {% if cell.share %}<span class="ml-1 type-data-sm text-ink-muted">{{ cell.share }}</span>{% endif %}
+                      <span class="block type-caption text-ink-subtle">{{ cell.name }}</span>
                     </td>
                   {% endfor %}
                 </tr>
@@ -69,8 +101,8 @@
               {% if grid.remainder %}
                 <tr>
                   {{ ui.cell("Outcome not computed", header=true) }}
-                  <td class="border-b border-line py-3 pr-4 text-right" colspan="{{ grid.columns | length }}" data-part="{{ grid.remainder.key }}">
-                    <span class="type-data-xl text-ink">{{ grid.remainder.count }}</span>
+                  <td class="border-b border-line py-3 pr-4 text-right" colspan="{{ grid.columns | length }}">
+                    <span class="type-data-xl text-ink" data-part="{{ grid.remainder.key }}">{{ grid.remainder.count }}</span>
                     {% if grid.remainder.share %}<span class="ml-1 type-data-sm text-ink-muted">{{ grid.remainder.share }}</span>{% endif %}
                   </td>
                 </tr>
@@ -78,16 +110,16 @@
             </tbody>
           </table>
         </div>
-        <p class="mt-3 type-body-sm text-ink-muted">A gain is a realised return of nil or above; a loss is below nil. {% if grid.is_a_finding %}Each cell carries its share of the {{ grid.count }} reviewed.{% else %}Counts only, until {{ minimum }} positions have been reviewed.{% endif %}</p>
+        <p class="mt-3 type-body-sm text-ink-muted">A gain is a realised return of nil or above; a loss is below nil. Only a sound answer counts as sound: sound with a gap that made money is right anyway.</p>
       </div>
     {% endcall %}
 
     {% for statistic in statistics %}
-      {% call ui.sheet(statistic.label, subtitle="n = " ~ statistic.count ~ ("" if statistic.is_a_finding else " · a tally, not a proportion: fewer than " ~ minimum ~ " reviewed"), id="statistic-" ~ loop.index) %}
+      {% call ui.sheet(statistic.label, subtitle="n = " ~ statistic.count ~ ("" if statistic.is_a_finding else " · a tally, not a proportion: fewer than " ~ minimum ~ " behind it"), id="statistic-" ~ loop.index) %}
         <div data-statistic="{{ statistic.label | lower | replace(' ', '-') }}" data-count="{{ statistic.count }}" data-finding="{{ 'yes' if statistic.is_a_finding else 'no' }}">
-          {% call ui.table(statistic.label, [{"label": "Cell"}, {"label": "Count", "numeric": true}] + ([{"label": "Share", "numeric": true}] if statistic.is_a_finding else [])) %}
+          {% call ui.table(statistic.label, [{"label": "Answer"}, {"label": "Count", "numeric": true}] + ([{"label": "Share", "numeric": true}] if statistic.is_a_finding else [])) %}
             {% for part in statistic.parts %}
-              <tr data-part="{{ part.label | lower | replace(' ', '-') | replace(',', '') }}">
+              <tr data-part="{{ part.key | lower | replace(' ', '-') | replace(',', '') | replace('_', '-') }}">
                 {{ ui.cell(part.label, header=true) }}
                 {{ ui.cell(part.count, numeric=true) }}
                 {% if statistic.is_a_finding %}{{ ui.cell(part.share, numeric=true) }}{% endif %}

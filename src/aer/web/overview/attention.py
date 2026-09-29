@@ -389,7 +389,7 @@ def _could_not_ask(provider: AttentionProvider, failure: Exception) -> Attention
             f"{type(failure).__name__}: {failure}. Anything waiting in this tool is not "
             "listed below — treat the rest of this feed as incomplete."
         ),
-        href="/healthz",
+        href="/platform#health",
         action="Check the platform",
         feed_is_incomplete=True,
     )

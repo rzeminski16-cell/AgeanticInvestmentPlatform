@@ -91,7 +91,7 @@ from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import citations as citation_service
-from aer.services import configuration, daily_pass, provenance
+from aer.services import configuration, provenance
 from aer.services import gates as gates_service
 from aer.services import refresh as refresh_service
 from aer.services import reports as reports_service
@@ -136,6 +136,7 @@ from aer.web import figures, reader, stages, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.gates import CONSEQUENCES, GATE_PAGES, GATE_STEPS, frame_for, journey
+from aer.web.platform.health import daily_pass_words, worker_words
 from aer.web.templating import render
 from aer.workflow.registry import (
     DEFAULT_WORKFLOW_VERSION,
@@ -3045,7 +3046,7 @@ async def settings_page(
     token = new_csrf_token(settings)
     context = await _settings_context(session, settings, token=token, user_id=user.id)
     context["saved"] = request.query_params.get("saved") == "1"
-    context["worker"] = await _worker_words(redis)
+    context["worker"] = await worker_words(redis)
     page: Response = render(request, "settings/index.html", context)
     set_csrf_cookie(page, token)
     return page
@@ -3084,7 +3085,7 @@ async def save_settings(
         token = new_csrf_token(settings)
         context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
-        context["worker"] = await _worker_words(redis)
+        context["worker"] = await worker_words(redis)
         rejected: Response = render(request, "settings/index.html", context)
         rejected.status_code = HTTP_400_BAD_REQUEST
         set_csrf_cookie(rejected, token)
@@ -3129,7 +3130,7 @@ async def save_standing_settings(
         token = new_csrf_token(settings)
         context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
-        context["worker"] = await _worker_words(redis)
+        context["worker"] = await worker_words(redis)
         rejected: Response = render(request, "settings/index.html", context)
         rejected.status_code = HTTP_400_BAD_REQUEST
         set_csrf_cookie(rejected, token)
@@ -3137,59 +3138,6 @@ async def save_standing_settings(
 
     await session.commit()
     return RedirectResponse("/settings?saved=1#standing", status_code=HTTP_303_SEE_OTHER)
-
-
-async def _worker_words(redis: Redis) -> dict[str, Any]:
-    """The worker's status in words, from the record it keeps in Redis (`aer.queue`)."""
-    try:
-        health = await worker_health(redis)
-    except (RedisError, OSError):
-        return {
-            "running": None,
-            "label": "Unknown",
-            "detail": "The worker's health record could not be read, so nothing can be said.",
-        }
-    window = HEALTH_CHECK_INTERVAL_SECONDS + 1
-    if health is None:
-        return {
-            "running": False,
-            "label": "Not running",
-            "detail": (
-                f"No worker has reported in the last {window} seconds. Nothing runs until one "
-                "is started from the terminal where the platform runs; a queued run begins "
-                "within a few seconds once it reports."
-            ),
-        }
-    return {
-        "running": True,
-        "label": "Running",
-        "detail": (
-            f"Reported {health.reported_seconds_ago} seconds ago with {health.ongoing} run(s) "
-            "in flight. It takes one at a time."
-        ),
-    }
-
-
-async def _daily_pass_words(session: DbSession, *, user_id: uuid.UUID) -> dict[str, Any]:
-    """When the daily pass last ran, and whether it is late (F15).
-
-    Beside the worker's own status rather than on a page of its own, because they answer
-    one question between them — *is the machinery working?* — and an operator who has to
-    know which of two pages to look at has been given a puzzle instead of an answer.
-
-    **A missed pass reads as a failure, not as a note.** F15's done-when is that a missed
-    run is *visible rather than silent*, and a grey line saying "last ran on the 14th" is
-    silent in every way that matters: it puts the arithmetic on the reader.
-    """
-    last = await daily_pass.last_pass(session, user_id=user_id)
-    state = daily_pass.pass_state(
-        last.finished_at if last is not None else None, now=datetime.now(UTC)
-    )
-    if state.last_finished is None:
-        return {"running": None, "label": "Not yet", "detail": state.sentence}
-    if state.is_missed:
-        return {"running": False, "label": "Overdue", "detail": state.sentence}
-    return {"running": True, "label": "Up to date", "detail": state.sentence}
 
 
 async def _settings_context(
@@ -3206,7 +3154,7 @@ async def _settings_context(
     effective = await configuration.effective_settings(session, settings)
     overrides = await configuration.current_overrides(session)
     return {
-        "daily": await _daily_pass_words(session, user_id=user_id),
+        "daily": await daily_pass_words(session, user_id=user_id),
         "overridable": configuration.OVERRIDABLE,
         "overrides": overrides,
         "values": {

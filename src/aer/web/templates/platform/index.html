@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Platform (page specification §19, drawn as *Settings and state*): six sheets about the tool
+  rather than the money, every line read from the record or the settings in force. Nothing
+  here is a form; each sheet links to the page where its lines are changed, so this page is
+  never the only route to anything. A line in amber is one the drawing puts in amber: spend
+  that bought nothing, a limit crossed, a check overdue, a key missing, a backup unproved.
+#}
+
+{% block title %}Settings and state &middot; Ageantic{% endblock %}
+
+{% macro line(row) %}
+<li class="flex flex-col gap-1 border-b border-line py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4" data-line="{{ row.key }}">
+  <div class="min-w-0 flex-1">
+    <p class="type-body-sm text-ink">{% if row.href %}<a href="{{ row.href }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</p>
+    {%- if row.detail %}<p class="mt-0.5 type-caption text-ink-subtle">{{ row.detail }}</p>{% endif -%}
+  </div>
+  <span class="min-w-0 type-data [overflow-wrap:anywhere] sm:max-w-[55%] sm:shrink-0 sm:text-right {% if row.tone == 'warning' %}text-warning-ink{% else %}text-ink{% endif %}" data-field="value">{{ row.value }}</span>
+</li>
+{% endmacro %}
+
+{% macro footer_link(href, label) %}
+<p class="mt-3"><a href="{{ href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ label }}</a></p>
+{% endmacro %}
+
+{% block content %}
+  {{ ui.page_header("Settings and state", eyebrow="Platform") }}
+
+  <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+    <div class="flex min-w-0 flex-col gap-4">
+      {% call ui.sheet("Costs", subtitle=month ~ ", every model call metered as it was made.", id="costs") %}
+        <ul class="flex flex-col" aria-label="Costs">
+          {{ line(costs.spent) }}
+          {% for row in costs.lines %}{{ line(row) }}{% endfor %}
+          {{ line(costs.discarded) }}
+        </ul>
+        {{ footer_link("/costs", "Every call, and what the cache saved") }}
+      {% endcall %}
+
+      {% call ui.sheet("Your book's limits", subtitle="These drive the pre-trade check and the risk page. They are yours; nothing is proposed.", id="limits") %}
+        {% if limits %}
+          <ul class="flex flex-col" aria-label="Your book's limits">
+            {% for row in limits %}{{ line(row) }}{% endfor %}
+          </ul>
+          {{ footer_link("/platform/book", "Set or change a limit") }}
+        {% else %}
+          {{ ui.empty("No book yet", "A limit is a share of a book, and none is open. Record what you hold first.", action_label="Open the portfolio", action_href="/portfolio") }}
+        {% endif %}
+      {% endcall %}
+
+      {% call ui.sheet("Health", subtitle="Whether anything is running, and whether it is what should be.", id="health") %}
+        <ul class="flex flex-col" aria-label="Health">
+          {% for key, name, reading in health %}
+            <li class="flex flex-col gap-1.5 border-b border-line py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4" data-line="{{ key }}">
+              <div class="min-w-0 flex-1">
+                <p class="type-body-sm text-ink">{{ name }}</p>
+                <p class="mt-0.5 type-caption text-ink-subtle" data-field="detail">{{ reading.detail }}{% if reading.href %} <a href="{{ reading.href }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">Open it</a>{% endif %}</p>
+              </div>
+              <span class="shrink-0">{{ ui.status(reading.tone, reading.label) }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        {{ footer_link("/settings", "Models, budgets and standing assumptions") }}
+      {% endcall %}
+    </div>
+
+    <div class="flex min-w-0 flex-col gap-4">
+      {% call ui.sheet("Monitoring", id="monitoring") %}
+        <ul class="flex flex-col" aria-label="Monitoring">
+          {% for row in monitoring %}{{ line(row) }}{% endfor %}
+        </ul>
+      {% endcall %}
+
+      {% call ui.sheet("Data and evidence", subtitle="Where the facts come from. A key is shown as there or not there, never as itself.", id="data") %}
+        <ul class="flex flex-col" aria-label="Data and evidence">
+          {% for row in data %}{{ line(row) }}{% endfor %}
+        </ul>
+      {% endcall %}
+
+      {% call ui.sheet("Backups", subtitle="The database and every document, copied together, or neither is worth much.", id="backups") %}
+        <ul class="flex flex-col" aria-label="Backups">
+          {% for row in backups %}{{ line(row) }}{% endfor %}
+        </ul>
+      {% endcall %}
+    </div>
+  </div>
+{% endblock %}

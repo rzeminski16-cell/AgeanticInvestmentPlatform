@@ -104,6 +104,7 @@ from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 
 __all__ = [
+    "ANALYTICS_SAMPLE",
     "MINIMUM_SAMPLE",
     "STEP_KEY",
     "SUBJECT_POSITION",
@@ -146,6 +147,14 @@ STEP_KEY: Final = "review"
 # comps table's own floor, for the same reason: three is where quoting a ratio stops being
 # one anecdote wearing a plural.
 MINIMUM_SAMPLE: Final = OVERVIEW_MINIMUM_SAMPLE
+
+# How many reviews the analytics page waits for before it shows any finding at all (page
+# specification §16; ADR 0105 §4 as amended on 29 September 2026). About twenty, because
+# calibration on eleven decisions is noise wearing a percentage sign. Below it the page shows
+# the sample and the way to the review queue, and says in words what will appear — never a
+# count in a cell. `MINIMUM_SAMPLE` still decides, above it, whether a finer breakdown is a
+# proportion or a tally.
+ANALYTICS_SAMPLE: Final = 20
 
 
 # -- Episodes ----------------------------------------------------------------------------------

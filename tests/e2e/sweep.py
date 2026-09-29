@@ -65,6 +65,9 @@ STATIC_SURFACES: Final = (
     "/watchlist",
     "/settings",
     "/costs",
+    # U6's two: one Platform page of sheets side by side, and the analytics' sample band.
+    "/platform",
+    "/analytics",
 )
 
 REQUEST_URL: Final = re.compile(r"/requests/[0-9a-f-]{36}$")

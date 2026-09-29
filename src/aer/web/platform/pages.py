@@ -39,7 +39,7 @@ from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csr
 from aer.web.pages import problem_page
 from aer.web.templating import render
 
-__all__ = ["router"]
+__all__ = ["LimitRow", "limit_rows", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -162,23 +162,48 @@ def _history_row(row: BookLimit, *, successor: BookLimit | None) -> dict[str, st
     }
 
 
-async def _context(
-    session: Any, *, book: Portfolio, problem: str = "", typed: dict[str, str]
-) -> dict[str, Any]:
+@dataclass(frozen=True, slots=True)
+class _Standing:
+    in_force: limit_service.Limits
+    as_of: Any
+    exposure: Any
+    standings: tuple[limit_service.Standing, ...]
+
+
+async def _standing(session: Any, *, book: Portfolio) -> _Standing:
+    """The limits in force and what each caps as the book stood at its latest close — the
+    figures the risk page strikes, compared in code, in a ledger nothing saves."""
     in_force = await limit_service.limits_of(session, portfolio=book)
     as_of = await portfolio_service.latest_close(session, portfolio=book)
     ledger = new_context()
     view = await portfolio_service.book_as_at(session, ledger, portfolio=book, as_of=as_of)
     exposure = await exposure_as_at(session, ledger, portfolio=book, as_of=as_of, view=view)
-    standings = limit_service.standings(in_force, book=view, exposure=exposure)
-    sector_band = next((band for band in exposure.bands if band.kind == "sector"), None)
+    return _Standing(
+        in_force=in_force,
+        as_of=as_of,
+        exposure=exposure,
+        standings=limit_service.standings(in_force, book=view, exposure=exposure),
+    )
+
+
+async def limit_rows(session: Any, *, book: Portfolio) -> list[LimitRow]:
+    """The limits as this page lists them, for a page that shows them without the forms."""
+    read = await _standing(session, book=book)
+    return _rows(read.in_force, read.standings)
+
+
+async def _context(
+    session: Any, *, book: Portfolio, problem: str = "", typed: dict[str, str]
+) -> dict[str, Any]:
+    read = await _standing(session, book=book)
+    sector_band = next((band for band in read.exposure.bands if band.kind == "sector"), None)
     history = await limit_service.history_of(session, portfolio=book)
     successors = {row.supersedes_id: row for row in history if row.supersedes_id is not None}
-    in_force_ids = {row.id for row in in_force.all()}
+    in_force_ids = {row.id for row in read.in_force.all()}
     return {
         "book": book,
-        "as_of": format_date(as_of, _DAY),
-        "rows": _rows(in_force, standings),
+        "as_of": format_date(read.as_of, _DAY),
+        "rows": _rows(read.in_force, read.standings),
         "sectors": [
             {"value": row.label, "label": f"{row.label} ({_share(row.share.value)} today)"}
             for row in (sector_band.slices if sector_band is not None else ())

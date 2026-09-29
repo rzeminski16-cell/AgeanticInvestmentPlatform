@@ -45,7 +45,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             # `as_message` names the objects rather than the count, which is what tells an
             # operator which migration they skipped.
             detail=drift.as_message(),
-            href="/healthz",
+            href="/platform#health",
             action="Check the platform",
         ),
     )

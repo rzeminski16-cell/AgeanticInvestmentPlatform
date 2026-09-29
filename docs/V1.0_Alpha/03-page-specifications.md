@@ -1026,6 +1026,18 @@ position; a proposal waiting to be confirmed cannot be deferred, because it is w
 person rather than for a date. Nothing is deleted: deferring again appends, and the earlier
 dates stay as the record of how long it was put off.
 
+*Built 29 September 2026* (`review/proposal.html`, U6). The form is the drawing: *{ticker} — was
+the reasoning sound?*, question one (each premise with its verdict and a line why, then the
+reasoning as a whole — *sound*, *sound, with a gap*, *not sound* — and its basis and lessons)
+beside question two (the realised return, cost, proceeds and holding period, each a recorded
+calculation), and on the right **which of the four was it?** The four are never chosen: code's
+outcome dims the pair it rules out, and the operator's answer picks between the other two,
+followed by CSS alone as the answer changes. Only *sound* counts as sound, so *sound, with a
+gap* that made money is *right anyway*, in amber. The confirmed review names the combination it
+landed in. Not drawn, because not recorded: the realised gain in money (the review records the
+return, cost and proceeds, not their difference as a calculation) and the return against an
+index (no benchmark is read).
+
 ---
 
 ## 16. Decision analytics
@@ -1048,6 +1060,16 @@ reviewed decisions the page shows the sample and the link to the review queue, a
 will appear at twenty in words, with no figure.
 
 **Must not.** Show a statistic on a small sample. Rank decisions by return.
+
+*Built 29 September 2026* (`review/analytics.html`, U6; ADR 0105 §4 amended). Below twenty
+reviews the page is the band — *{n} / 20 reviewed decisions*, *not enough yet, and this page
+will not pretend otherwise*, how many more it needs, and the way to the queue, labelled with
+how many closed positions wait — and beneath it what will be here at twenty, in words and with
+no figure. From twenty: the four as a two-by-two with their names, then the answers, the
+premise verdicts, the holding against the horizon, whether a decision is on record, and whether
+the reviewer's answer was confirmed — every table with its `n`, the parts in words. **Calibration
+is not built**, and the page says so: a decision records no stated confidence, so there is
+nothing to calibrate against the outcome until the decision form asks for one.
 
 ---
 
@@ -1134,5 +1156,18 @@ than edited, with no default and no suggestion; and the stated shock, as the ris
 limits always, blank until stated, and each sector limit in force, with what each means as the
 book stands beside it; a sector limit is added from the sectors the book holds; the stated
 shocks are listed and stated on the risk page; the limits replaced or withdrawn are kept at the
-foot with when and why. The page is its own entry under Platform until U6 folds the Platform
-sections into one page.
+foot with when and why.
+
+*Built 29 September 2026* (`platform/index.html`, `/platform`, U6). One page, *Settings and
+state*, where the Platform destination opens: Costs (this month against the ceiling, by the
+work that spent it, and **Discarded** — the spend on replies the schema refused, summed from
+the runs recorded with that stop reason), Your book's limits (each as Book states it, and the
+latest stated shock), Monitoring (the default threshold and cadence, when the checks run and
+last ran, the dismissals in six months), Data and evidence (each source *Ready* or *No key*,
+and the documents held), Backups and Health (the worker, the daily pass, the queue, the last
+run, the database). Each sheet links to its editor — Settings, Book, Costs — which stay tabs,
+so nothing is reachable only here; the JSON probe left the tabs. **Backups are not recorded**:
+a backup is taken and restored from the terminal into a folder the operator chooses, and
+neither act writes anything the page can read, so the sheet says *Not recorded* and *Never
+recorded* in amber rather than the drawing's *Today, 04:00*, and has no *Prove it restores*
+control. Recording both, and a restore proved into a scratch database, is a feature of its own.

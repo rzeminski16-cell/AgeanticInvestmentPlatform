@@ -72,11 +72,13 @@ PLATFORM: Final = NavSection(
     key="platform",
     tool="platform",
     items=(
+        # Settings and state on one page (§19): costs, the book's limits, monitoring, the
+        # data, backups and health, each linking to the page below where it is changed.
+        NavItem(key="platform", label="Overview", href="/platform"),
         NavItem(key="settings", label="Settings", href="/settings"),
-        NavItem(key="costs", label="Costs", href="/costs"),
         # The operator's limits (ADR 0136): stated here, drawn on every page about the book.
         NavItem(key="book", label="Book", href="/platform/book"),
-        NavItem(key="health", label="Health", href="/healthz"),
+        NavItem(key="costs", label="Costs", href="/costs"),
         NavItem(key="api", label="API", href="/docs"),
     ),
 )
@@ -118,7 +120,7 @@ GROUPS: Final[tuple[NavGroup, ...]] = (
     NavGroup(
         key="platform",
         label="Platform",
-        href="/settings",
+        href="/platform",
         icon="platform",
         foot=True,
         sections=(PLATFORM,),
@@ -190,8 +192,11 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # is named here with a `PLANNED` row in `web/tools/registry.py`: a navigation
         # listing things nobody can use is worse than a launcher that shows the shape once.
         # Every row is `WORKING` today, so nothing is listed; the next tool starts here.
-        # Liveness and readiness, reached by an operator or a probe, not by a person
-        # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
+        # Liveness and readiness, reached by a probe, not by a person browsing: the
+        # Platform page's health sheet is where a person reads the same state in words.
+        # `/healthz` stays linked from Today's one failure the Platform page cannot survive
+        # — a database that does not answer.
+        "/healthz",
         "/readyz",
         # The shell's own fragment, fetched by the nav after the page renders. Not a
         # destination: opening it in a browser yields a handful of spans.

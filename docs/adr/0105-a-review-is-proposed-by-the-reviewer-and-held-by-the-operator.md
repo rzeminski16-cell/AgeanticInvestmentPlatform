@@ -99,6 +99,20 @@ The four cells — process quality against the sign of the realised return — a
 table on the page, and the two off-diagonal cells are the ones the page exists to make
 reachable.
 
+**Amended 29 September 2026 (U6 of the interface build).** The analytics page shows no
+statistic at all until about twenty reviews stand — `ANALYTICS_SAMPLE`, twenty — as the
+approved page specification requires (§16, corrected 28 September on the operator's
+approval). Below it the page shows the sample, the way to the review queue, and names in
+words what will appear, with no figure; a tally of one in a greyed cell is still a count on
+a sample that cannot bear one, and ADR 0081's own argument — twelve closed trades support no
+conclusion — is stricter than three. `MINIMUM_SAMPLE` keeps its part above the threshold:
+a breakdown finer than positions, such as premise verdicts, is still a tally until its
+positions reach three. The four cells are named as the review form names them — *right for
+the right reasons*, *right anyway*, *wrong for good reasons*, *wrong for bad reasons* — and
+only a *sound* answer counts as sound, so *sound, with a gap* that made money is *right
+anyway*. The form never offers the four as a choice: it shows where the operator's answer
+and code's outcome place the review.
+
 ## What was rejected
 
 **The reviewer writing the review row directly, with itself as the holder.** A judgement's

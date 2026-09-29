@@ -176,28 +176,33 @@ class TestAReviewFromTheWorkList:
         # The outcome is code's, and it links to its formula.
         expect(page.locator('[data-figure="realised-return"]')).to_contain_text("+20.0%")
         expect(page.locator('[data-figure="realised-return"] a')).to_have_count(1)
-        expect(page.locator("#process_quality")).to_have_value("sound")
+        expect(page.locator("#quality-sound")).to_be_checked()
 
-        # The operator disagrees about the quality, keeps the verdict, and confirms.
-        page.select_option("#process_quality", "questionable")
+        # The four follow the answer, in the browser, with no script: a gain rules out the
+        # losing pair, and changing the answer moves the highlight to *right anyway*.
+        anyway = page.locator('[data-cell="unsound-gain"]')
+        before = anyway.evaluate("cell => getComputedStyle(cell).backgroundColor")
+        page.locator('label[for="quality-questionable"]').click()
+        expect(page.locator("#quality-questionable")).to_be_checked()
+        after = anyway.evaluate("cell => getComputedStyle(cell).backgroundColor")
+        assert after != before, "the four did not follow the answer"
+
+        # The operator disagrees about the reasoning, keeps the verdict, and records it.
         page.fill("#basis", "The sale followed no part of the exit plan.")
         page.click("#confirm")
         page.wait_for_url("**/review/*")
         assert "/review/passes/" not in page.url
-        expect(page.locator('[data-field="quality"]')).to_contain_text("Questionable")
+        expect(page.locator('[data-field="quality"]')).to_contain_text("Sound, with a gap")
+        expect(page.locator('[data-field="combination"]')).to_contain_text("Right anyway")
         expect(page.get_by_text("Amended", exact=False).first).to_be_visible()
         expect(page.locator('[data-field="proposed-quality"]')).to_contain_text("Sound")
 
-        # One review is a tally, not a proportion.
+        # One review is a sample, not a finding: the page says how far it has come and draws
+        # nothing it cannot support.
         page.goto(f"{live_server}/analytics")
-        cells = page.locator('[data-statistic="process-against-outcome"]')
-        expect(cells).to_have_attribute("data-count", "1")
-        expect(cells).to_have_attribute("data-finding", "no")
-        # The four cells two by two: the amended quality with a gain is the off-diagonal
-        # cell the page exists to make reachable, and it is the cell that reads 1.
-        expect(cells.locator('[data-part="flawed-or-questionable-process-gain"]')).to_have_text("1")
-        expect(cells.locator('[data-part="sound-process-gain"]')).to_have_text("0")
-        expect(cells.get_by_role("columnheader", name="Loss")).to_be_visible()
+        expect(page.locator('[data-field="reviewed"]')).to_have_text("1 / 20")
+        expect(page.locator("[data-statistic]")).to_have_count(0)
+        expect(page.locator("#coming")).to_contain_text("right anyway")
 
         # The list shows it reviewed, and the work list asks nothing more.
         page.goto(f"{live_server}/review")

@@ -16,7 +16,7 @@ second is a defect, so it has to be visible.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -26,9 +26,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus, RequestStatus, UserRole
 from aer.db.models import AgentRun, Cost, Job, JobStep, User
+from aer.providers.protocol import SCHEMA_REJECTED
+from aer.services.overview import spend_since
 from aer.services.spend import (
     CacheUse,
+    discarded_since,
     recent_runs,
+    spend_by_activity_since,
     spend_by_job,
     spend_by_role,
     spend_summary,
@@ -320,3 +324,73 @@ def _spent(job: Job, amount: str) -> Cost:
         amount_gbp=Decimal(amount),
         fx_rate=Decimal(1),
     )
+
+
+def _removed(amount: str) -> Cost:
+    """Spend whose run has since been deleted: the reference is set null, the money stays."""
+    return Cost(
+        job_id=None,
+        category="llm_output",
+        provider="anthropic",
+        units=Decimal(1000),
+        unit_type="tokens",
+        amount_usd=Decimal(amount),
+        amount_gbp=Decimal(amount),
+        fx_rate=Decimal(1),
+    )
+
+
+class TestThisMonthOnThePlatformPage:
+    """The two lines the Platform page adds (page specification §19): spend by the work that
+    incurred it, and spend on replies nobody could use."""
+
+    async def test_spend_is_grouped_by_the_work_that_incurred_it(
+        self, db_session: AsyncSession
+    ) -> None:
+        full = await _job(db_session)
+        refresh = await _job(db_session)
+        refresh.refresh_kind = "refresh"
+        db_session.add_all(
+            [_spent(full, "3.00"), _spent(full, "1.00"), _spent(refresh, "0.50"), _removed("0.25")]
+        )
+        await db_session.flush()
+        since = datetime.now(UTC) - timedelta(days=1)
+
+        rows = await spend_by_activity_since(db_session, since=since)
+
+        assert {(row.tool, row.refresh_kind): (row.runs, row.amount_gbp) for row in rows} == {
+            ("research", "full"): (1, Decimal("4.00")),
+            ("research", "refresh"): (1, Decimal("0.50")),
+            (None, None): (0, Decimal("0.25")),
+        }
+        # Every cost row lands in exactly one group, so the lines add up to the month.
+        assert sum(row.amount_gbp for row in rows) == await spend_since(db_session, since=since)
+        assert [row.amount_gbp for row in rows] == sorted(
+            (row.amount_gbp for row in rows), reverse=True
+        )
+
+    async def test_spend_before_the_moment_is_not_counted(self, db_session: AsyncSession) -> None:
+        job = await _job(db_session)
+        db_session.add(_spent(job, "2.00"))
+        await db_session.flush()
+
+        later = datetime.now(UTC) + timedelta(minutes=1)
+
+        assert await spend_by_activity_since(db_session, since=later) == []
+        assert await discarded_since(db_session, since=later) == Decimal(0)
+
+    async def test_a_reply_the_schema_refused_is_discarded_spend(
+        self, db_session: AsyncSession
+    ) -> None:
+        job = await _job(db_session)
+        kept = await _call(db_session, job, sequence=1)
+        refused = await _call(db_session, job, sequence=2)
+        refused.stop_reason = SCHEMA_REJECTED
+        used, wasted = _spent(job, "2.00"), _spent(job, "0.30")
+        used.agent_run_id, wasted.agent_run_id = kept.id, refused.id
+        db_session.add_all([used, wasted, _spent(job, "1.00")])
+        await db_session.flush()
+
+        since = datetime.now(UTC) - timedelta(days=1)
+
+        assert await discarded_since(db_session, since=since) == Decimal("0.30")

@@ -34,13 +34,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from aer.errors import ValidationError
 
 __all__ = [
+    "SCHEMA_REJECTED",
     "BatchRequest",
     "LLMProvider",
     "Message",
@@ -210,6 +211,12 @@ class SpentButUnusableError(ValidationError):
         self.request_payload = request_payload
         self.response_payload = response_payload
         self.latency_ms = latency_ms
+
+
+# The stop reason an unusable reply's run is recorded with, in place of the API's: the schema's
+# verdict, which is what lets its spend be found and summed afterwards as spend that bought
+# nothing (page specification §19's discarded line).
+SCHEMA_REJECTED: Final = "schema_rejected"
 
 
 @runtime_checkable

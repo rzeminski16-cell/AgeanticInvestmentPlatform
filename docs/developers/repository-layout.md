@@ -163,6 +163,10 @@ src/aer/            application package
     watchlist/pages.py  the companies followed with why, the standing budget, and the queue
                         commissioned from the row or drained in follow order; *Change it* for a
                         listing's price alert, shared with the alert page
+    platform/overview.py  Platform as one page: six sheets read from the record, each linking to
+                        its editor, and the discarded spend nothing else sums
+    platform/health.py  the worker, the daily pass, the queue, the last run and the schema, in
+                        words, for the Platform page and the settings page
     platform/pages.py   Platform → Book: the limits stated, what each means today, and the ones
                         replaced or withdrawn (ADR 0136)
     tools/registry.py   INSTALLED_TOOLS: nine rows, nine working; a planned tool would be a page

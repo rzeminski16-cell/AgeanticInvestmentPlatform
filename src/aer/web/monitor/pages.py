@@ -690,10 +690,6 @@ async def _premises_now(
     return groups
 
 
-def _window_words(days: int) -> str:
-    return "in a week" if days == DEFAULT_PRICE_WINDOW_DAYS else f"over {days} days"
-
-
 async def _threshold_band(
     session: Any, settings: Any, *, finding: Finding, move: dict[str, Any], user_id: uuid.UUID
 ) -> dict[str, Any]:
@@ -708,7 +704,9 @@ async def _threshold_band(
         else None
     )
     default = (await configuration.effective_settings(session, settings)).price_move_threshold_pct
-    window = _window_words(int(move.get("window_days") or DEFAULT_PRICE_WINDOW_DAYS))
+    window = watchlist_service.window_words(
+        int(move.get("window_days") or DEFAULT_PRICE_WINDOW_DAYS)
+    )
     if entry is None:
         before = "This alert was raised past a move of"
         after = f" {window}. You no longer follow this company, so it raises no more."

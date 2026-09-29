@@ -71,6 +71,7 @@ __all__ = [
     "state_of",
     "states_for",
     "stop_following",
+    "window_words",
 ]
 
 _log = structlog.get_logger("aer.services.watchlist")
@@ -87,6 +88,14 @@ DEFAULT_MODE: Final = AnalysisMode.STANDARD
 # seven the schema defaults to (migration 0083), named once for the form, the service and
 # the page.
 DEFAULT_PRICE_WINDOW_DAYS: Final = 7
+
+_A_WEEK: Final = 7
+
+
+def window_words(days: int) -> str:
+    """A price rule's window as the pages say it: seven days is *a week*."""
+    return "in a week" if days == _A_WEEK else f"over {days} days"
+
 
 # A threshold is a percentage of the price, and a move past the whole of it is a delisting.
 _WHOLE_PRICE: Final = Decimal(100)

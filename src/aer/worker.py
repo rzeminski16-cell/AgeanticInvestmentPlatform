@@ -52,6 +52,7 @@ from aer.services import daily_pass, thesis_monitor
 from aer.services import runs as run_service
 from aer.services import theses as thesis_service
 from aer.services.configuration import effective_settings
+from aer.services.daily_pass import DAILY_PASS_HOUR_UTC
 from aer.tracing import configure_tracing
 from aer.version import version
 
@@ -68,10 +69,6 @@ _JOB_TIMEOUT_SECONDS = 7200
 # repeating it would spend the same again on the same failure. Resuming is a deliberate
 # act, and the engine makes it cheap by skipping the steps that succeeded.
 _MAX_TRIES = 1
-
-# When the daily pass fires, in UTC. After the New York close (21:00 UTC in summer, 22:00 in
-# winter) and well before the London open, so a pass reads a day both markets have finished.
-DAILY_PASS_HOUR_UTC = 22
 
 
 async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:

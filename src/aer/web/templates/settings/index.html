@@ -33,13 +33,7 @@
   #}
   {% call ui.sheet("The worker", id="worker") %}
     <p class="type-body text-ink">
-      {% if worker.running %}
-        {{ ui.status("success", worker.label) }}
-      {% elif worker.running is false %}
-        {{ ui.status("failure", worker.label) }}
-      {% else %}
-        {{ ui.status("muted", worker.label) }}
-      {% endif %}
+      {{ ui.status(worker.tone, worker.label) }}
       <span class="ml-2 type-body-sm text-ink-muted" id="worker-detail">{{ worker.detail }}</span>
     </p>
   {% endcall %}
@@ -55,13 +49,7 @@
   #}
   {% call ui.sheet("The daily pass", id="daily-pass") %}
     <p class="type-body text-ink">
-      {% if daily.running %}
-        {{ ui.status("success", daily.label) }}
-      {% elif daily.running is false %}
-        {{ ui.status("failure", daily.label) }}
-      {% else %}
-        {{ ui.status("muted", daily.label) }}
-      {% endif %}
+      {{ ui.status(daily.tone, daily.label) }}
       <span class="ml-2 type-body-sm text-ink-muted" id="daily-pass-detail">{{ daily.detail }}</span>
     </p>
   {% endcall %}

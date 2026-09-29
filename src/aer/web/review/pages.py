@@ -39,6 +39,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, SettingsDep, StoreDep
+from aer.core.dates import format_date
 from aer.core.enums import PremiseVerdict, ProcessQuality
 from aer.db.models import Portfolio, Review, Security
 from aer.errors import AerError
@@ -46,9 +47,10 @@ from aer.services import post_trade
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.portfolio.pages import pounds
 from aer.web.templating import render
 
-__all__ = ["Grid", "GridCell", "GridRow", "VerdictRow", "router"]
+__all__ = ["Combination", "Grid", "GridCell", "GridRow", "VerdictRow", "combination_of", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -61,6 +63,79 @@ _QUALITY_CHOICES: Final = [
     {"value": member.value, "label": vocabulary.PROCESS_QUALITIES[member].label}
     for member in ProcessQuality
 ]
+
+_DAY: Final = "%-d %B %Y"
+
+# The review that is about to be recorded, counted in words while the count is small enough
+# for words to be how a person says it (§15's drawing: "this is the eleventh review").
+_ORDINALS: Final = (
+    "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+    "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth",
+    "seventeenth", "eighteenth", "nineteenth", "twentieth",
+)  # fmt: skip
+_TEENS: Final = range(11, 14)
+_SUFFIXES: Final = {1: "st", 2: "nd", 3: "rd"}
+
+
+def _ordinal(count: int) -> str:
+    if 1 <= count <= len(_ORDINALS):
+        return _ORDINALS[count - 1]
+    suffix = "th" if count % 100 in _TEENS else _SUFFIXES.get(count % 10, "th")
+    return f"{count}{suffix}"
+
+
+@dataclass(frozen=True, slots=True)
+class Combination:
+    """One of the four a review lands in (§15.1): the operator's answer about the process,
+    against the sign of the return code computed. Never chosen directly — a form that let the
+    operator pick *right for the right reasons* beside a process they called unsound would be
+    the conflation the page exists to prevent."""
+
+    key: str
+    name: str
+    meaning: str
+
+
+_COMBINATIONS: Final[dict[tuple[bool, bool], Combination]] = {
+    (True, True): Combination(
+        "sound-gain", "Right for the right reasons", "Sound reasoning, and it worked."
+    ),
+    (False, True): Combination(
+        "unsound-gain",
+        "Right anyway",
+        "Weak reasoning that paid. The dangerous one — it teaches the wrong lesson.",
+    ),
+    (True, False): Combination(
+        "sound-loss", "Wrong for good reasons", "Sound reasoning, poor outcome. Not a mistake."
+    ),
+    (False, False): Combination(
+        "unsound-loss", "Wrong for bad reasons", "The only one that is simply an error."
+    ),
+}
+
+
+def combination_of(quality: ProcessQuality, gained: bool | None) -> Combination | None:
+    """Where a review lands, or ``None`` when code could not compute the outcome.
+
+    Only a sound process counts as sound: *sound, with a gap* that made money is *right
+    anyway*, the same line the analytics' four cells draw (`post_trade._cells`).
+    """
+    if gained is None:
+        return None
+    return _COMBINATIONS[(quality is ProcessQuality.SOUND, gained)]
+
+
+def _gained(outcome: dict[str, Any]) -> bool | None:
+    """Whether the recorded return is a gain — a comparison with nil, not a new figure."""
+    raw = outcome.get("realised_return")
+    return Decimal(str(raw)) >= 0 if raw else None
+
+
+def _on(raw: Any) -> str:
+    """A stored ISO date as the page says it: "12 January 2026"."""
+    return format_date(date.fromisoformat(str(raw)), _DAY) if raw else ""
+
+
 _VERDICT_CHOICES: Final = [
     {"value": member.value, "label": vocabulary.PREMISE_VERDICTS[member].label}
     for member in PremiseVerdict
@@ -138,6 +213,8 @@ class GridCell:
     key: str
     count: int
     share: str
+    name: str = ""
+    """The combination the cell is (§15.1), such as *right anyway*; empty for the remainder."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,8 +243,8 @@ class Grid:
 
 
 _GRID_ROWS: Final[tuple[tuple[str, str], ...]] = (
-    ("Sound process", "sound process"),
-    ("Flawed or questionable process", "flawed or questionable process"),
+    ("Sound", "sound process"),
+    ("Not sound, or sound with a gap", "flawed or questionable process"),
 )
 _GRID_COLUMNS: Final[tuple[tuple[str, str], ...]] = (("Gain", "gain"), ("Loss", "loss"))
 _REMAINDER: Final = "outcome not computed"
@@ -187,6 +264,7 @@ def _grid(row: post_trade.Statistic) -> Grid:
                     share=_share(counts.get(f"{quality}, {sign}", 0), row.count)
                     if row.is_a_finding
                     else "",
+                    name=_COMBINATIONS[(quality == "sound process", sign == "gain")].name,
                 )
                 for _, sign in _GRID_COLUMNS
             ),
@@ -226,18 +304,22 @@ def _episode_row(state: post_trade.EpisodeState) -> EpisodeRow:
         ticker=episode.security.ticker,
         exchange=episode.security.exchange,
         book=episode.portfolio.name,
-        opened_on=f"{episode.opened_on:%d %B %Y}",
-        closed_on=f"{episode.closed_on:%d %B %Y}",
+        opened_on=format_date(episode.opened_on, _DAY),
+        closed_on=format_date(episode.closed_on, _DAY),
         closed_on_iso=episode.closed_on.isoformat(),
         trades=len(episode.trades),
         state=state.state,
         pass_id=state.proposal.id if state.proposal is not None else None,
         review_id=state.review.judgement_id if state.review is not None else None,
         reason=reason,
-        review_by=f"{deferral.review_by:%d %B %Y}" if deferral is not None and in_force else "",
+        review_by=format_date(deferral.review_by, _DAY)
+        if deferral is not None and in_force
+        else "",
         deferral_reason=deferral.reason if deferral is not None and in_force else "",
         lapsed_by=(
-            f"{deferral.review_by:%d %B %Y}" if deferral is not None and state.has_lapsed else ""
+            format_date(deferral.review_by, _DAY)
+            if deferral is not None and state.has_lapsed
+            else ""
         ),
     )
 
@@ -301,7 +383,8 @@ def _percent(raw: str) -> str:
 
 
 def _money(raw: str, currency: str) -> str:
-    return f"{Decimal(raw).quantize(Decimal('0.01')):,.2f} {currency}".strip()
+    """Exact to the penny, as the book is kept, with the currency's symbol where it has one."""
+    return pounds(Decimal(raw), currency)
 
 
 def _review_verdict(states: list[EpisodeRow]) -> verdicts.Verdict:
@@ -530,6 +613,7 @@ async def proposal_page(
     review = await session.scalar(select(Review).where(Review.job_id == proposal.job.id))
     if review is None and episode:
         review = await _review_of_episode(session, episode)
+    recorded = len(await post_trade.reviews_for(session, user_id=user.id))
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -539,16 +623,32 @@ async def proposal_page(
             "pass_id": proposal.job.id,
             "episode": episode,
             "subject": _subject(episode, output),
+            "ticker": str(episode.get("ticker") or "This position"),
+            "opened_on": _on(episode.get("opened_on")),
+            "closed_on": _on(episode.get("closed_on")),
             "figures": _figure_rows(outcome) if outcome else [],
             "problem": str(outcome.get("problem") or ""),
-            "decisions": output.get("decisions") or [],
-            "findings": output.get("findings") or [],
+            # The half of the four code answers: which pair of cells the outcome allows.
+            "gained": {True: "gain", False: "loss", None: ""}[_gained(outcome)],
+            # The pass stores its dates as ISO strings; the page says them in words.
+            "decisions": [
+                {**row, "decided_on": _on(row.get("decided_on"))}
+                for row in output.get("decisions") or []
+            ],
+            "findings": [
+                {**row, "raised_on": _on(row.get("raised_on"))}
+                for row in output.get("findings") or []
+            ],
             "premises": premises,
             "draft": draft,
             "is_failed": proposal.failed,
             "reason": proposal.reason,
             "review_id": review.judgement_id if review is not None else None,
-            "started": f"{proposal.job.started_at:%d %B %Y}" if proposal.job.started_at else "",
+            "started": format_date(proposal.job.started_at, _DAY)
+            if proposal.job.started_at
+            else "",
+            "ordinal": _ordinal(recorded + 1),
+            "is_below_sample": recorded + 1 < post_trade.ANALYTICS_SAMPLE,
             "qualities": _QUALITY_CHOICES,
             "verdict_choices": _VERDICT_CHOICES,
             "verdict_field": VERDICT_FIELD,
@@ -668,10 +768,10 @@ async def review_detail(
                 "ticker": security.ticker if security is not None else "a delisted security",
                 "exchange": security.exchange if security is not None else "",
                 "book": book.name if book is not None else "",
-                "opened_on": f"{review.opened_on:%d %B %Y}",
-                "closed_on": f"{review.closed_on:%d %B %Y}",
+                "opened_on": format_date(review.opened_on, _DAY),
+                "closed_on": format_date(review.closed_on, _DAY),
                 "held_by": review.judgement.held_by,
-                "held_on": f"{review.judgement.held_at:%d %B %Y}",
+                "held_on": format_date(review.judgement.held_at, _DAY),
                 "quality": words.label,
                 "quality_tone": words.tone.value,
                 "quality_detail": words.detail,
@@ -680,6 +780,7 @@ async def review_detail(
                 "thesis_id": review.thesis_id,
                 "pass_id": review.job_id,
                 "agreement": _agreement(review),
+                "combination": combination_of(review.process_quality, _gained(review.outcome)),
             },
             "figures": _figure_rows(review.outcome),
             "problem": str(review.outcome.get("problem") or ""),
@@ -722,11 +823,24 @@ async def analytics_page(request: Request, session: DbSession, user: CurrentUser
             analytics.agreement,
         )
     ]
+    needed = post_trade.ANALYTICS_SAMPLE
+    waiting = [
+        state
+        for book in await _books(session, user.id)
+        for state in await post_trade.states_for(session, portfolio=book)
+        if state.state in {"proposed", "unreviewed"}
+    ]
     response: Response = render(
         request,
         "review/analytics.html",
         {
             "reviewed": analytics.reviewed,
+            "needed": needed,
+            "is_earned": analytics.reviewed >= needed,
+            # The band's fill, as a width: how far the sample has come, never a finding.
+            "progress": min(100, analytics.reviewed * 100 // needed),
+            "sample": _sample_words(analytics.reviewed, needed, len(waiting)),
+            "waiting": len(waiting),
             "grid": _grid(analytics.cells),
             "statistics": statistics,
             "minimum": post_trade.MINIMUM_SAMPLE,
@@ -743,13 +857,59 @@ def _statistic(row: post_trade.Statistic) -> dict[str, Any]:
         "is_a_finding": row.is_a_finding,
         "parts": [
             {
-                "label": part.label,
+                "key": part.label,
+                "label": _part_words(part.label),
                 "count": part.count,
                 "share": _share(part.count, row.count) if row.is_a_finding else "",
             }
             for part in row.parts
         ],
     }
+
+
+def _sample_words(reviewed: int, needed: int, waiting: int) -> dict[str, str]:
+    """The band's words below the threshold: how far the sample has come, and the way on.
+
+    No finding and no figure but the sample itself — the one number the page may show at any
+    size, because it is the number every other would be a proportion of.
+    """
+    so_far = (
+        "Nothing has been reviewed yet."
+        if not reviewed
+        else "A proportion over "
+        + verdicts.Count(reviewed, "review", "reviews").worded()
+        + " is noise wearing a percentage sign."
+    )
+    more = verdicts.Count(needed - reviewed, "more review", "more reviews").worded()
+    queue = (
+        verdicts.Count(
+            waiting, "closed position is waiting", "closed positions are waiting"
+        ).worded()
+        + " to be reviewed now."
+        if waiting
+        else ""
+    )
+    return {
+        "detail": " ".join(
+            sentence[:1].upper() + sentence[1:]
+            for sentence in (so_far, f"{more} and the findings appear.", queue)
+            if sentence
+        ),
+        "action": "Review the " + verdicts.Count(waiting, "waiting", "waiting").worded(),
+    }
+
+
+# The service counts by the stored value; the page says what the value means.
+_PART_WORDS: Final[dict[str, str]] = {
+    **{member.value: words.label for member, words in vocabulary.PROCESS_QUALITIES.items()},
+    **{member.value: words.label for member, words in vocabulary.PREMISE_VERDICTS.items()},
+    "yes": "Yes",
+    "no": "No",
+}
+
+
+def _part_words(label: str) -> str:
+    return _PART_WORDS.get(label, label[:1].upper() + label[1:])
 
 
 def _share(count: int, total: int) -> str:

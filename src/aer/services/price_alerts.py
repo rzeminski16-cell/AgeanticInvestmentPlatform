@@ -612,23 +612,31 @@ def figures_of(finding: Finding) -> dict[str, Any] | None:
 
 
 async def moves_in_last_six_months(
-    session: AsyncSession, *, user_id: uuid.UUID, security_id: uuid.UUID, now: datetime
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime,
+    security_id: uuid.UUID | None = None,
 ) -> tuple[int, int]:
     """How many alerts this listing's threshold has produced in six months, and how many
     were dismissed — the two numbers the threshold band puts beside the control to change
-    it, because too many dismissals mean the threshold is wrong, not the market."""
-    rows = list(
-        await session.scalars(
-            select(Finding)
-            .options(selectinload(Finding.resolutions))
-            .where(
-                Finding.user_id == user_id,
-                Finding.security_id == security_id,
-                Finding.kind == FindingKind.PRICE_MOVE,
-                Finding.created_at >= now - _SIX_MONTHS,
-            )
+    it, because too many dismissals mean the threshold is wrong, not the market.
+
+    Without a listing, the same two numbers across every listing the operator follows: the
+    Platform page's line beside the default threshold, which is the one they all start from.
+    """
+    statement = (
+        select(Finding)
+        .options(selectinload(Finding.resolutions))
+        .where(
+            Finding.user_id == user_id,
+            Finding.kind == FindingKind.PRICE_MOVE,
+            Finding.created_at >= now - _SIX_MONTHS,
         )
     )
+    if security_id is not None:
+        statement = statement.where(Finding.security_id == security_id)
+    rows = list(await session.scalars(statement))
     dismissed = sum(
         1
         for row in rows
