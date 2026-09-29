@@ -34,7 +34,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
-from aer.core.dates import format_date
+from aer.core.dates import format_date, spoken_date
 from aer.core.enums import Decision, FindingAction, FindingKind, PremiseComparator, PremiseStatus
 from aer.core.figures import plain_decimal
 from aer.db.models import Company, Finding, Portfolio, Premise, Report, Thesis, User
@@ -284,11 +284,11 @@ def _row(premise: Premise) -> PremiseRow:
         statement=premise.statement,
         basis=judgement.basis,
         held_by=judgement.held_by,
-        held_on=f"{judgement.held_at:%d %B %Y}",
+        held_on=f"{spoken_date(judgement.held_at)}",
         defeated_by=defeat_words(premise),
         is_tested=premise.has_predicate,
         is_withdrawn=judgement.is_withdrawn,
-        withdrawn_on=f"{judgement.withdrawn_at:%d %B %Y}" if judgement.withdrawn_at else "",
+        withdrawn_on=f"{spoken_date(judgement.withdrawn_at)}" if judgement.withdrawn_at else "",
         withdrawn_reason=judgement.withdrawn_reason or "",
     )
 
@@ -564,8 +564,8 @@ async def _reports_on(session: Any, thesis: Thesis) -> list[ReportRow]:
     return [
         ReportRow(
             report_id=report.id,
-            as_of=f"{report.as_of_date:%d %B %Y}",
-            approved_on=f"{report.approved_at:%d %B %Y}" if report.approved_at else "",
+            as_of=f"{spoken_date(report.as_of_date)}",
+            approved_on=f"{spoken_date(report.approved_at)}" if report.approved_at else "",
             is_written_against=report.id == thesis.report_id,
         )
         for report in rows
@@ -586,7 +586,7 @@ async def _positions_in(
             listing=f"{held.security.ticker} on {held.security.exchange}",
             book=book.name,
             is_open=True,
-            opened_on=f"{held.opened_on:%d %B %Y}",
+            opened_on=f"{spoken_date(held.opened_on)}",
             closed_on="",
             trades=len(held.trades),
             href="/portfolio",
@@ -604,8 +604,8 @@ async def _positions_in(
                 listing=f"{episode.security.ticker} on {episode.security.exchange}",
                 book=book.name,
                 is_open=False,
-                opened_on=f"{episode.opened_on:%d %B %Y}",
-                closed_on=f"{episode.closed_on:%d %B %Y}",
+                opened_on=f"{spoken_date(episode.opened_on)}",
+                closed_on=f"{spoken_date(episode.closed_on)}",
                 trades=len(episode.trades),
                 href=f"/review/{review.judgement_id}" if review is not None else "/review",
                 is_reviewed=review is not None,
@@ -759,7 +759,7 @@ async def _editor_page(
             "id": row.judgement_id,
             "action": decision_service.ACTION_WORDS[row.action],
             "statement": row.statement,
-            "decided_on": f"{row.judgement.held_at:%d %B %Y}",
+            "decided_on": f"{spoken_date(row.judgement.held_at)}",
             "is_withdrawn": row.judgement.is_withdrawn,
             "carried_out": len(row.transactions),
         }
@@ -1193,7 +1193,7 @@ async def _company(session: Any, raw: str) -> Company | None:
 
 
 def _report_label(report: Report, company: Company) -> str:
-    return f"{company.name} ({company.ticker}) as of {report.as_of_date:%d %B %Y}"
+    return f"{company.name} ({company.ticker}) as of {spoken_date(report.as_of_date)}"
 
 
 async def _report(session: Any, raw: str) -> Report | None:

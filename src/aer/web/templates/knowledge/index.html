@@ -208,7 +208,7 @@
     {% endcall %}
 
     <p class="type-body-sm text-ink-subtle">
-      Measured {{ stats.measured_at.strftime("%d %B %Y at %H:%M UTC") }}. The same figures are
+      Measured {{ stats.measured_at | dated("%-d %B %Y at %H:%M UTC") }}. The same figures are
       available as data from the
       <a href="/api/knowledge" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">knowledge interface</a>.
     </p>

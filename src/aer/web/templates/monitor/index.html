@@ -46,7 +46,7 @@
     {% call ui.record_list(label) %}
       {% for group in groups %}
         {# A price move's group is a listing, not a thesis (F11): no thesis to link to. #}
-        <li class="border-t border-line py-4" {% if group.thesis_id %}data-thesis="{{ group.thesis_id }}"{% else %}data-listing="{{ group.subject }}"{% endif %}>
+        <li class="border-t border-line py-4" {% if group.thesis_id %}data-thesis="{{ group.thesis_id }}"{% else %}data-listing="{{ group.listing }}"{% endif %}>
           <p class="type-eyebrow text-ink-muted">{{ group.subject }}</p>
           {% if group.thesis_id %}
             <a href="/theses/{{ group.thesis_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ group.thesis_title }}</a>

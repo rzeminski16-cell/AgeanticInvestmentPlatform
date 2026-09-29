@@ -842,7 +842,7 @@ class TestWhatSurroundsAThesis:
         opened = await api.get(await _written(api, scene))
 
         assert "CTSO on LSE, open in ISA" in opened.text
-        assert "Opened 05 January 2026." in opened.text
+        assert "Opened 5 January 2026." in opened.text
         assert "1 trade on record" in opened.text
         assert 'href="/portfolio"' in opened.text
 
@@ -856,7 +856,7 @@ class TestWhatSurroundsAThesis:
         opened = await api.get(await _written(api, scene))
 
         assert "CTSO on LSE, closed 16 March 2026" in opened.text
-        assert "Held from 05 January 2026 to 16 March 2026 in ISA. Not yet reviewed." in opened.text
+        assert "Held from 5 January 2026 to 16 March 2026 in ISA. Not yet reviewed." in opened.text
         assert "2 trades on record" in opened.text
         assert 'href="/review"' in opened.text
         assert "open in ISA" not in opened.text

@@ -11,9 +11,10 @@ Bounded, like every other tool's feed, and for the same reason.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Final
 
+from aer.core.dates import spoken_date
 from aer.services import decisions as decision_service
 from aer.services.decisions import ACTION_WORDS
 from aer.web import figures
@@ -65,7 +66,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             title=f"A decision on {row.thesis.title} is due for your review",
             detail=(
                 f"{ACTION_WORDS[row.action].capitalize()}: {row.statement} You said you would "
-                f"look at it again by {row.review_by:%d %B %Y}."
+                f"look at it again by {_by(row.review_by)}."
             ),
             href=f"/decisions/{row.judgement_id}",
             action="Open the decision",
@@ -96,3 +97,8 @@ def _and_more(total: int, noun: str, slug: str) -> list[Attention]:
             action="Open the journal",
         )
     ]
+
+
+def _by(review_by: date | None) -> str:
+    """The date the operator set; a decision due for review always has one."""
+    return spoken_date(review_by) if review_by is not None else "the date you set"

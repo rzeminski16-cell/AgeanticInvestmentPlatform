@@ -836,7 +836,7 @@ class TestThePages:
         assert "On the basis that" in opened.text
         assert 'aria-label="Commitments"' in opened.text
         assert 'data-field="exit-plan">Sell below a 20% margin.' in opened.text
-        assert "Decided by owner@example.invalid on 01 August 2026" in opened.text
+        assert "Decided by owner@example.invalid on 1 August 2026" in opened.text
 
 
 class TestTheCheckBesideTheForm:

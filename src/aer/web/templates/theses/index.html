@@ -27,7 +27,7 @@
             row.thesis.title,
             "/theses/" ~ row.thesis.id,
             sentence=row.subject,
-            meta=(row.held ~ " premise" ~ ("s" if row.held != 1 else "") ~ " held · written " ~ row.thesis.created_at.strftime("%d %B %Y"))
+            meta=(row.held ~ " premise" ~ ("s" if row.held != 1 else "") ~ " held · written " ~ (row.thesis.created_at | dated("%-d %B %Y")))
           ) }}
         {% endfor %}
       {% endcall %}

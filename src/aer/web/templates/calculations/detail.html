@@ -15,11 +15,11 @@
   viewer that quietly dropped a dangling reference would be claiming a chain it cannot show.
 #}
 
-{% block title %}{{ calculation.name }} &middot; Ageantic{% endblock %}
+{% block title %}{{ calculation.name | concept_name }} &middot; Ageantic{% endblock %}
 
 {% block content %}
   {{ ui.page_header(
-    calculation.name,
+    calculation.name | concept_name,
     eyebrow="CALCULATION",
     breadcrumbs=[back],
   ) }}
@@ -30,10 +30,10 @@
     <p class="type-data-xl text-ink" id="output-value">
       {{ shown_output }}
     </p>
-    <p class="mt-4 overflow-x-auto type-data-sm text-ink" id="formula">{{ calculation.formula }}</p>
+    <p class="mt-4 overflow-x-auto type-data-sm text-ink" id="formula"><code>{{ calculation.formula }}</code></p>
     <p class="mt-3 type-body-sm text-ink-muted">
-      Computed by <span class="type-data-sm">{{ calculation.function_ref }}</span> at code version
-      <span class="type-data-sm">{{ calculation.code_version }}</span>.
+      Computed by <code class="type-data-sm">{{ calculation.function_ref }}</code> at code version
+      <code class="type-data-sm">{{ calculation.code_version }}</code>.
     </p>
   {% endcall %}
 
@@ -42,8 +42,8 @@
       <dl class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2" id="parameters">
         {% for key, value in calculation.parameters.items() %}
           <div class="border-b border-line pb-2">
-            <dt class="type-data-sm text-ink-muted">{{ key }}</dt>
-            <dd class="mt-1 type-data text-ink">{{ value }}</dd>
+            <dt class="type-body-sm text-ink-muted">{{ key | concept_name }}</dt>
+            <dd class="mt-1 type-data text-ink">{% if value is string %}{{ value | concept_name }}{% else %}{{ value }}{% endif %}</dd>
           </div>
         {% endfor %}
       </dl>
@@ -68,7 +68,7 @@
             {% for node in lineage %}
               <tr>
                 <th scope="row" class="py-3 pr-4 text-left">
-                  <span class="type-body text-ink" style="padding-left: {{ node.depth }}rem">{{ node.label or node.kind }}</span>
+                  <span class="type-body text-ink" style="padding-left: {{ node.depth }}rem">{{ (node.label or node.kind) | concept_name }}</span>
                   {#
                     A leaf's detail is read with `.get`, never by attribute: the keys differ
                     by relation, and under strict undefined a key one relation never writes

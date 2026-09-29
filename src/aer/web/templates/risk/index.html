@@ -20,7 +20,7 @@
     eyebrow="Portfolio · Risk",
     identity="Every figure here is computed from the positions you hold, and every one of them links to the holdings underneath it. The pre-trade check uses this same arithmetic, so the two can never disagree.",
   ) %}
-    {% if not no_book %}<p class="type-body-sm text-ink-muted">{{ book.name }} &middot; as at {{ as_of.strftime("%d %B %Y") }}</p>{% endif %}
+    {% if not no_book %}<p class="type-body-sm text-ink-muted">{{ book.name }} &middot; as at {{ as_of | dated("%-d %B %Y") }}</p>{% endif %}
   {% endcall %}
 
   {#
@@ -148,7 +148,7 @@
     <h2 class="mt-10 type-title-2 text-ink" id="the-working">The working</h2>
     <p class="mt-1 mb-4 max-w-prose type-body-sm text-ink-muted">{{ verdict.composed }} {{ reading_state }}</p>
 
-    {% call ui.sheet("What the book would have done", subtitle="With today's weights held fixed, over the year to " ~ as_of.strftime("%d %B %Y") ~ " from " ~ window_from ~ ", in each listing's own currency. How the book as it stands would have moved — not how it did; that is the portfolio page's return.", id="movement") %}
+    {% call ui.sheet("What the book would have done", subtitle="With today's weights held fixed, over the year to " ~ (as_of | dated("%-d %B %Y")) ~ " from " ~ window_from ~ ", in each listing's own currency. How the book as it stands would have moved — not how it did; that is the portfolio page's return.", id="movement") %}
       {% if problem %}
         {{ ui.callout("info", "Not everything could be measured", problem) }}
       {% endif %}
@@ -312,7 +312,7 @@
       <form method="post" action="/risk/read" class="mt-4" id="read-book">
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
         <input type="hidden" name="as_of" value="{{ as_of_iso }}" />
-        <button id="read" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Read the book as at {{ as_of.strftime("%d %B %Y") }}</button>
+        <button id="read" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Read the book as at {{ as_of | dated("%-d %B %Y") }}</button>
       </form>
     {% endcall %}
   {% endif %}

@@ -830,6 +830,19 @@ input[type="radio"] {
   }
 }
 
+/* The rhythm between sheets (U7). The shell's <main> has no spacing of its own, and a page that
+   stacked two sheets without a gap drew them edge to edge — twenty-odd pages did. Two bordered
+   blocks stacked in normal flow get the section rhythm. A flex or grid parent spaces its own
+   children with gap and is left alone, and a page's own margin utility still wins: this is a
+   component rule, and utilities come in a later layer. */
+@layer components {
+  :where(#aer-main, #aer-main :not(.flex, .grid, .inline-flex, .inline-grid))
+    > :where(section, [class~="rounded-md"][class~="border"])
+    + :where(section, [class~="rounded-md"][class~="border"]) {
+    margin-top: var(--space-6);
+  }
+}
+
 /* ---------------------------------------------------------------------------------------
    The report reader's document (page specification §8.1).
 

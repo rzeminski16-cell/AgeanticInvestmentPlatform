@@ -120,7 +120,22 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   on replies the schema refused; and its backups sheet says plainly that nothing records a
   backup — recording one, and proving a restore, is found work (§3.19 item 92).*
 - **U7 — What every page owes.** No identifier, module path, environment variable or shell
-  command on any page, asserted over every page the application serves.
+  command on any page, asserted over every page the application serves. *Built 29 September:
+  `tests/test_every_page_renders.py` reads what every page it opens says — the prose inside
+  `<main>`, with code the page marks as code (`pre`, `code`, `samp`, `kbd`, a textarea's
+  contents) held apart — and fails on a UUID, a shell command, the settings file, a snake_case
+  or shouted identifier, a module path or a taxonomy tag, with the journey harness's own
+  patterns. It found fourteen pages, and all of them speak words now: the costs page names
+  each piece of work, cost category and run, and formats its figures in Python; settings
+  names each key by what it opens; the claim and footnote pages say how a citation was
+  confirmed; the calculation and assumption pages name their inputs in words and keep the
+  formula as code; a run's claims name their sections; the run's and the request's technical
+  records mark their ids as code. Every page's dates read "5 October" rather than "05
+  October", through a `dated` template filter and `spoken_date`; and two sheets stacked
+  without a gap get the section rhythm from one stylesheet rule, after a crawl of 87 pages
+  found twenty-odd where they touched. The filer's own upper-case names (the SEC registry's
+  "ASTRAZENECA PLC") are left as registered: title-casing them would guess wrong about the
+  capitals a name really has.*
 
 §3.19 items 86–90 are what the first audit of the build against the specification found and
 fixed on the way in, item 91 what U3 found, and items 92 and 93 what U6 found and left open.

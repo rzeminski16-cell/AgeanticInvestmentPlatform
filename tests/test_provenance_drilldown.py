@@ -33,6 +33,7 @@ from aer.services.calculations import lineage
 from aer.services.citations import record_citation
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
+from aer.web.figures import concept_name
 from tests.api_fixtures import build_app, client_for
 from tests.provenance_fixtures import (
     FABRICATED,
@@ -199,7 +200,7 @@ class TestTheSourceDrilldown:
         # The excerpt, verbatim, with the verifier's verdict and ratio beside it.
         assert SUPPORTED_SENTENCE in page.text
         assert 'data-state="verified"' in page.text
-        assert "match ratio" in page.text
+        assert "a match of" in page.text
         # The tier and the licence note.
         # In words since 19 September 2026: the drilldown names the kind of source a
         # reader met, not the tier table's name for it.
@@ -364,8 +365,11 @@ class TestTheCalculationMarker:
         assert any(node.kind == "calculation" for node in tree.inputs)
 
         walk = await client.get(f"/calculations/{calculation_id}")
+        # Each leaf by its name in words; the formula above keeps the record's own spelling,
+        # as code, so the two still correspond (U7).
         for leaf in tree.leaves:
-            assert leaf.label in walk.text, f"the page omits the {leaf.kind} leaf {leaf.label!r}"
+            named = concept_name(leaf.label)
+            assert named in walk.text, f"the page omits the {leaf.kind} leaf {named!r}"
         # The assumption states its justification in place, and the fact leaf carries on
         # to the document it was reported in — the walk ends at bytes, not at a label.
         assert "nominal GDP" in walk.text

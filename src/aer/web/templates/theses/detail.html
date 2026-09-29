@@ -47,7 +47,7 @@
   <div class="flex flex-col gap-6">
     {% if item.is_retired %}
       <div id="retired-notice">
-        {{ ui.callout("info", "This thesis is retired", "Retired on " ~ item.retired_at.strftime("%d %B %Y") ~ ". " ~ item.retirement_reason ~ " It is kept as a record of what was believed; nothing can be added to it.") }}
+        {{ ui.callout("info", "This thesis is retired", "Retired on " ~ (item.retired_at | dated("%-d %B %Y")) ~ ". " ~ item.retirement_reason ~ " It is kept as a record of what was believed; nothing can be added to it.") }}
       </div>
     {% endif %}
 

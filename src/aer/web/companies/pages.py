@@ -46,7 +46,7 @@ from aer.charts import (
     svg_data_uri,
     valuation_history,
 )
-from aer.core.dates import format_date
+from aer.core.dates import format_date, spoken_date
 from aer.core.enums import (
     CatalystOutcomeKind,
     FindingKind,
@@ -194,7 +194,7 @@ def _why_detail(record: CompanyRecord) -> str:
             return "held, and not priced at the last close"
         return f"{display.percentage(weight.value, in_table=True)} of the book"
     if record.population == record_service.CLOSED_WATCHING:
-        closed = f" {format_date(record.closed_on, '%-d %B %Y')}" if record.closed_on else ""
+        closed = f" {spoken_date(record.closed_on)}" if record.closed_on else ""
         return f"closed{closed}, still watching"
     return _why_not_owned(record)
 
@@ -207,7 +207,7 @@ def _why_not_owned(record: CompanyRecord) -> str:
         reason = (passed.judgement.basis or passed.statement).rstrip(".")
         return f"you passed on {format_date(passed.judgement.held_at, '%-d %B')}: “{reason}”"
     if record.report is not None and record.report.approved_at is not None:
-        return f"researched {format_date(record.report.approved_at, '%-d %B %Y')}"
+        return f"researched {spoken_date(record.report.approved_at)}"
     if record.watch is not None:
         return f"added {format_date(record.watch.followed_at, '%-d %B')}, never researched"
     return ""
@@ -510,7 +510,7 @@ def _header(record: CompanyRecord) -> dict[str, Any]:
                 "close": pounds(price.close, price.currency),
                 "move": _move_words(price.move_pct),
                 "is_down": price.move_pct is not None and price.move_pct < 0,
-                "dated": f"{price.bar_date:%d %B %Y}",
+                "dated": f"{spoken_date(price.bar_date)}",
             }
             if price is not None
             else None
@@ -630,9 +630,9 @@ def _hold(record: CompanyRecord, *, ceiling: BookLimit | None = None) -> dict[st
     researched = ""
     if record.report is not None:
         dated = record.report.approved_at or record.report.as_of_date
-        researched = f"Researched {dated:%d %B %Y}"
+        researched = f"Researched {spoken_date(dated)}"
     if record.closed_on is not None:
-        opening = f"Closed on {record.closed_on:%d %B %Y}."
+        opening = f"Closed on {spoken_date(record.closed_on)}."
     elif researched:
         opening = f"Not held. {researched}"
     else:
@@ -641,7 +641,7 @@ def _hold(record: CompanyRecord, *, ceiling: BookLimit | None = None) -> dict[st
     if passed is not None:
         reason = passed.judgement.basis or passed.statement
         opening = (
-            f"{opening}; you declined on {passed.judgement.held_at:%d %B %Y} because: {reason}"
+            f"{opening}; you declined on {spoken_date(passed.judgement.held_at)} because: {reason}"
         )
     elif researched and record.closed_on is None:
         opening = (
@@ -676,7 +676,7 @@ async def _record_rows(
                 f"{decisions} recorded" if decisions else "Nothing decided about this company"
             ),
             "detail": (
-                f"The latest was a pass on {record.passed.judgement.held_at:%d %B %Y}."
+                f"The latest was a pass on {spoken_date(record.passed.judgement.held_at)}."
                 if record.passed is not None
                 else "A decision is written before its outcome is known, and a pass is one."
             ),
@@ -688,11 +688,15 @@ async def _record_rows(
     )
     watch = record.watch
     checked = (
-        f"Last read {watch.last_checked_at:%d %B %Y}"
+        f"Last read {spoken_date(watch.last_checked_at)}"
         if watch is not None and watch.last_checked_at is not None
         else "Never read by the daily pass"
     )
-    due = f"; next due {record.next_check_at:%d %B %Y}" if record.next_check_at is not None else ""
+    due = (
+        f"; next due {spoken_date(record.next_check_at)}"
+        if record.next_check_at is not None
+        else ""
+    )
     rows.append(
         {
             "key": "monitor",
@@ -782,7 +786,7 @@ async def _report_row(
         if newest is not None
         else "The report's view is on its own page."
     )
-    approved = f"approved {report.approved_at:%d %B %Y}" if report.approved_at else "approved"
+    approved = f"approved {spoken_date(report.approved_at)}" if report.approved_at else "approved"
     if record.report_state == "stale":
         window = CADENCE_WORDS.get(record.cadence, "quarterly")
         summary = f"Stale — {approved}, older than the {window} window"

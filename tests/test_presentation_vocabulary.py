@@ -510,3 +510,13 @@ class TestTheRatchetsVocabulary:
         )
         assert spoken_assumptions(["beta"]) == "the beta"
         assert spoken_assumptions([]) == ""
+
+
+class TestCredentials:
+    def test_every_credential_the_settings_hold_is_named_by_what_it_opens(self) -> None:
+        from aer.config import Settings  # noqa: PLC0415 -- the settings module reads the env
+        from aer.services.configuration import secret_presence  # noqa: PLC0415
+
+        held = set(secret_presence(Settings.model_construct()))
+
+        assert held <= set(vocabulary.CREDENTIALS), held - set(vocabulary.CREDENTIALS)

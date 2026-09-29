@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import select
 
+from aer.core.dates import spoken_date
 from aer.core.enums import JobStatus
 from aer.db.models import Portfolio
 from aer.services import post_trade
@@ -117,10 +118,10 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
 
 
 def _unreviewed_detail(state: post_trade.EpisodeState) -> str:
-    closed = f"Closed on {state.episode.closed_on:%d %B %Y}."
+    closed = f"Closed on {spoken_date(state.episode.closed_on)}."
     if state.has_lapsed and state.deferral is not None:
         closed += (
-            f" You deferred its review to {state.deferral.review_by:%d %B %Y}, and that date "
+            f" You deferred its review to {spoken_date(state.deferral.review_by)}, and that date "
             "has passed."
         )
     return (

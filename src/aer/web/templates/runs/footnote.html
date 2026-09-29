@@ -84,7 +84,7 @@
         </div>
         <div>
           <dt class="type-eyebrow text-ink-muted">Retrieved</dt>
-          <dd class="mt-1 type-body-sm text-ink">{{ source.retrieved_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+          <dd class="mt-1 type-body-sm text-ink">{{ source.retrieved_at | dated("%-d %B %Y at %H:%M UTC") }}</dd>
         </div>
         <div class="sm:col-span-2">
           <dt class="type-eyebrow text-ink-muted">Licence</dt>
@@ -134,11 +134,11 @@
                   {% endif %}
                   {% if citation.match_ratio is not none %}
                     <span class="type-data-sm" data-field="ratio">
-                      match ratio {{ citation.match_ratio }}
+                      a match of {{ citation.match_ratio | percent }}
                     </span>
                   {% endif %}
                   {% if citation.verification_method %}
-                    <span class="type-data-sm">{{ citation.verification_method }}</span>
+                    <span class="type-body-sm">by {{ citation.verification_method | verification_words }}</span>
                   {% endif %}
                 </p>
                 {# Text, never markup: the excerpt came out of a document nobody vetted. #}

@@ -14,7 +14,7 @@
 
   <div>
     <dt class="font-medium text-ink-muted">Status</dt>
-    <dd class="mt-0.5 text-ink" data-field="status">{{ job.status.value }}</dd>
+    <dd class="mt-0.5 text-ink" data-field="status">{{ job.status.value | in_words }}</dd>
   </div>
 
   {% if asked %}

@@ -70,7 +70,7 @@
           <li class="py-4" id="assumption-{{ assumption.id }}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               <p class="type-body text-ink">
-                <span class="type-data text-ink">{{ assumption.name }}</span>
+                <span class="type-body-strong text-ink">{{ assumption.name | concept_name }}</span>
                 &mdash;
                 <span class="type-data text-ink">{{ assumption.value }}</span>
                 {% if assumption.unit %}<span class="type-body-sm text-ink-muted">{{ assumption.unit }}</span>{% endif %}
@@ -82,7 +82,7 @@
               {% endif %}
             </div>
             <p class="mt-1 type-body-sm text-ink-muted">
-              Proposed by <span class="type-data-sm">{{ assumption.proposed_by }}</span>{% if assumption.confidence is not none %},
+              Proposed by {{ assumption.proposed_by | proposer_words }}{% if assumption.confidence is not none %},
               confidence {{ assumption.confidence }}{% endif %}.
             </p>
             {% if assumption.justification %}
@@ -192,7 +192,7 @@
     {% if outstanding %}
       <p class="mt-3 max-w-prose type-body-sm text-warning-ink" id="outstanding-names">
         The forecast still has no value at all for:
-        {% for name in outstanding %}<span class="type-data-sm">{{ name }}</span>{{ '' if loop.last else ', ' }}{% endfor %}.
+        {% for name in outstanding %}<span>{{ name | concept_name }}</span>{{ '' if loop.last else ', ' }}{% endfor %}.
       </p>
     {% endif %}
     <form

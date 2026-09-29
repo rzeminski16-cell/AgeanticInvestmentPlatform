@@ -75,6 +75,23 @@ class QuestionRow:
     state: str
     asked_on: str
 
+    @property
+    def state_words(self) -> str:
+        """Where the question stands, in words; ``state`` stays the hook the page styles by."""
+        return _STATE_WORDS.get(self.state, self.state)
+
+
+# A question's state as the list says it. "Priced" is the third tier waiting for the
+# operator's approval of what it would cost; "refused" is a question the record could not
+# answer and nothing was spent on.
+_STATE_WORDS: Final[dict[str, str]] = {
+    "answered": "answered",
+    "priced": "priced, waiting for your approval",
+    "researching": "being researched",
+    "stopped": "stopped",
+    "refused": "not answerable from the record",
+}
+
 
 def _state_of(question: Question) -> str:
     content = question.content if isinstance(question.content, dict) else {}

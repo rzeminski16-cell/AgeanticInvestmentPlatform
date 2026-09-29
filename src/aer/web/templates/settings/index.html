@@ -87,10 +87,10 @@
             </button>
             {% if item.key in overrides %}
               <span class="type-body-sm text-warning-ink">
-                Overridden here; the value in .env is not being used.
+                Overridden here; the value in the configuration file is not being used.
               </span>
             {% else %}
-              <span class="type-body-sm text-ink-subtle">Currently from .env or the default.</span>
+              <span class="type-body-sm text-ink-subtle">Currently from the configuration file, or the default.</span>
             {% endif %}
           </div>
         </form>
@@ -147,11 +147,11 @@
     </div>
   {% endcall %}
 
-  {% call ui.sheet("Credentials", subtitle="Kept in .env and not editable here. This table stores what it holds in the database, and the database goes into every backup aer backup writes — a key put here would be copied to wherever those go. Shown as present or absent only. See ADR 0050.") %}
+  {% call ui.sheet("Credentials", subtitle="Kept in the configuration file and not editable here. This page stores what it holds in the database, and the database goes into every backup — a key put here would be copied to wherever those go. Shown as present or absent only.") %}
     <ul class="flex flex-col divide-y divide-line" id="secrets">
-      {% for name, present in secrets.items() %}
+      {% for label, present in secrets %}
         <li class="flex justify-between py-2">
-          <span class="type-data-sm text-ink">{{ name }}</span>
+          <span class="type-body-sm text-ink">{{ label }}</span>
           {% if present %}
             {{ ui.status("success", "set") }}
           {% else %}

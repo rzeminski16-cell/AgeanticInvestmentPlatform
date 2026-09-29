@@ -52,7 +52,7 @@
        "value": ("£%.4f has been spent on this request and stays counted against the monthly budget. A cap you can get under by deleting what you spent it on is not a cap." % spend)
                 if spend else "Nothing has been spent on this request."},
       {"label": "The archived documents",
-       "value": "Stored by content hash and shared between runs, so they are never one request's to destroy. `aer gc-artefacts` collects the ones nothing points at."},
+       "value": "Stored by content hash and shared between runs, so they are never one request's to destroy. The platform's clean-up collects the ones nothing points at."},
     ]) }}
   {% endcall %}
 

@@ -34,7 +34,7 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
-from aer.core.dates import format_date
+from aer.core.dates import format_date, spoken_date
 from aer.core.enums import AttestationKind, DecisionAction, Grade, TransactionKind
 from aer.db.models import (
     Attestation,
@@ -263,7 +263,7 @@ async def portfolio_page(
                     "value": str(row.judgement_id),
                     "label": (
                         f"{decision_service.ACTION_WORDS[row.action].capitalize()} — "
-                        f"{row.thesis.title} ({row.judgement.held_at:%d %b %Y})"
+                        f"{row.thesis.title} ({format_date(row.judgement.held_at, '%-d %b %Y')})"
                     ),
                 }
                 for row in await decision_service.open_for_the_book(session, user_id=user.id)
@@ -1039,8 +1039,8 @@ async def position_page(
                 {
                     "id": thesis.id,
                     "title": thesis.title,
-                    "since": f"{(thesis.written_at or thesis.created_at):%d %B %Y}",
-                    "until": f"{thesis.retired_at:%d %B %Y}" if thesis.retired_at else "",
+                    "since": f"{spoken_date(thesis.written_at or thesis.created_at)}",
+                    "until": f"{spoken_date(thesis.retired_at)}" if thesis.retired_at else "",
                 }
                 for thesis in detail.theses
             ],
@@ -1049,7 +1049,7 @@ async def position_page(
                     "id": row.judgement_id,
                     "action": decision_service.ACTION_WORDS[row.action],
                     "statement": row.statement,
-                    "decided_on": f"{row.judgement.held_at:%d %B %Y}",
+                    "decided_on": f"{spoken_date(row.judgement.held_at)}",
                 }
                 for row in detail.decisions
             ],

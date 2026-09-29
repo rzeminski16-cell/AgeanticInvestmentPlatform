@@ -1392,7 +1392,7 @@ class TestADeferral:
         [item] = await review_feed.items(db_session, user_id=scene["user"].id)
         assert item.severity is Severity.IDLE
         assert "has not been reviewed" in item.title
-        assert "01 July 2026, and that date has passed" in item.detail
+        assert "1 July 2026, and that date has passed" in item.detail
         cards = await suggestion_band.suggestions_for(db_session, user=scene["user"])
         [card] = [card for card in cards if card.kind == "review"]
         assert "which has passed" in card.justification

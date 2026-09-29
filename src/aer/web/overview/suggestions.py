@@ -28,6 +28,7 @@ from typing import Final
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.core.dates import spoken_date
 from aer.core.enums import JobStatus
 from aer.db.models import Company, Job, Portfolio, Report, User, WorkOrder
 from aer.render import display
@@ -148,7 +149,7 @@ async def _refreshes_unread(session: AsyncSession, *, user: User) -> list[Sugges
                 kind="refresh",
                 title=f"Review the {named} refresh",
                 justification=(
-                    f"A refresh completed on {finished:%d %B %Y} and its summary of what "
+                    f"A refresh completed on {spoken_date(finished)} and its summary of what "
                     "changed has not been read."
                 ),
                 condition_met_at=finished,
@@ -189,7 +190,7 @@ async def _watched_and_unresearched(
                 kind="research",
                 title=f"Research {entry.company_name}",
                 justification=(
-                    f"Followed on {entry.followed_at:%d %B %Y} with no report, and nothing "
+                    f"Followed on {spoken_date(entry.followed_at)} with no report, and nothing "
                     "commissioned in the last thirty days."
                 ),
                 condition_met_at=quiet_since,
@@ -258,9 +259,8 @@ async def _closed_and_unreviewed(
                     state.deferral.review_by, datetime.min.time(), tzinfo=UTC
                 )
                 due = max(due, review_by)
-                lapsed = (
-                    f" You deferred it to {state.deferral.review_by:%d %B %Y}, which has passed."
-                )
+                deferred_to = spoken_date(state.deferral.review_by)
+                lapsed = f" You deferred it to {deferred_to}, which has passed."
             if now < due:
                 continue
             found.append(
@@ -268,7 +268,7 @@ async def _closed_and_unreviewed(
                     kind="review",
                     title=f"Review the {state.episode.security.ticker} position",
                     justification=(
-                        f"Closed on {state.episode.closed_on:%d %B %Y}, more than thirty days "
+                        f"Closed on {spoken_date(state.episode.closed_on)}, more than thirty days "
                         f"ago, and not yet scored against the process it was meant to follow."
                         f"{lapsed}"
                     ),

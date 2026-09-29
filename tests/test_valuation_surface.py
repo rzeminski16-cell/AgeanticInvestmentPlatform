@@ -50,6 +50,7 @@ from aer.services.comps import PEER_SET_STEP
 from aer.services.comps_run import CompsOutcome, comps_table_from_record
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
 from aer.services.valuation_view import valuation_view
+from aer.web.figures import concept_name
 from aer.web.templating import DISCLAIMER
 from aer.workflow.workflows.vertical_slice_v1 import (
     COMPS_STEP,
@@ -782,7 +783,8 @@ class TestTwoClicksToAnOrigin:
         html = (await client.get(_href(page, "figure-gordon_growth-value_per_share"))).text
 
         assert 'id="parameters"' in html
-        assert "gordon_growth" in html
+        # Named in words (U7): the method the operator reads, not the key it is recorded under.
+        assert concept_name("gordon_growth") in html
 
     async def test_the_calculation_page_works_without_javascript(self, served):
         client, built = served

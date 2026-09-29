@@ -38,7 +38,7 @@
 
   {% call ui.sheet("The standing budget", subtitle="What the queue may start in " ~ budget.month ~ ": the budget, less what this month's commissioned runs have spent, less what the ones still alive may yet spend up to their caps. A run the queue starts keeps its own cap, and the month's cap applies on top.", id="budget") %}
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4" id="budget-figures">
-      <div data-figure="budget">{{ ui.figure("Standing budget", budget.budget, note="Per calendar month. AER_WATCHLIST_BUDGET_GBP sets it.") }}</div>
+      <div data-figure="budget">{{ ui.figure("Standing budget", budget.budget, note="Per calendar month, set in the platform's configuration rather than here.") }}</div>
       <div data-figure="spent">{{ ui.figure("Spent", budget.spent, note="By runs the queue commissioned this month.") }}</div>
       <div data-figure="reserved">{{ ui.figure("Reserved", budget.reserved, note="What the runs still alive may yet spend.") }}</div>
       <div data-figure="room">{{ ui.figure("Room", budget.room, note="Enough for " ~ budget.fits ~ " more run" ~ ("" if budget.fits == 1 else "s") ~ " at a cap of " ~ budget.cap ~ ".") }}</div>

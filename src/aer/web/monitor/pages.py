@@ -31,7 +31,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
-from aer.core.dates import format_date
+from aer.core.dates import format_date, spoken_date
 from aer.core.enums import Decision, FindingAction, FindingKind, GateKind, PremiseStatus
 from aer.db.models import Finding, SourceDocument
 from aer.errors import AerError
@@ -119,6 +119,8 @@ class ThesisGroup:
     thesis_title: str
     subject: str
     findings: tuple[FindingRow, ...]
+    listing: str = ""
+    """The listing's ``TICKER.EXCHANGE``, as a hook for a price-move group; never its words."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,8 +170,13 @@ async def _grouped(session: Any, findings: list[Finding]) -> list[ThesisGroup]:
                 ThesisGroup(
                     thesis_id=None,
                     thesis_title=_listing_title(leader),
-                    subject=leader.security.listing if leader.security is not None else "",
+                    subject=(
+                        f"{leader.security.ticker} · {leader.security.exchange}"
+                        if leader.security is not None
+                        else ""
+                    ),
                     findings=tuple(rows),
+                    listing=leader.security.listing if leader.security is not None else "",
                 )
             )
     return groups
@@ -226,10 +233,10 @@ def _row(finding: Finding) -> FindingRow:
         tone=words.tone.value,
         detail=words.detail,
         justification=finding.justification,
-        # A price move's sentence is its justification; the reading's is composed from the
-        # measurement, and a price move's measurement is a different shape (F11).
-        observed=finding.justification if is_price_move else _observed_sentence(finding.observed),
-        raised_on=f"{finding.created_at:%d %B %Y}",
+        # A price move's sentence is its justification, printed once beneath; the reading's
+        # is composed from the measurement, a different shape (F11).
+        observed="" if is_price_move else _observed_sentence(finding.observed),
+        raised_on=format_date(finding.created_at, "%-d %B %Y"),
         opens_gate=finding.opens_gate,
         gate_is_decidable=finding.gate_is_decidable,
         is_open=finding.is_open,
@@ -240,7 +247,7 @@ def _row(finding: Finding) -> FindingRow:
                 action=row.action.value,
                 reason=row.reason,
                 actor=row.actor,
-                at=f"{row.resolved_at:%d %B %Y}",
+                at=format_date(row.resolved_at, "%-d %B %Y"),
             )
             for row in finding.resolutions
         ),
@@ -334,7 +341,7 @@ async def monitor_page(
                     "thesis_title": thesis.title,
                     "judgement_id": premise.judgement_id,
                     "statement": premise.statement,
-                    "review_by": f"{premise.review_by:%d %B %Y}" if premise.review_by else "",
+                    "review_by": f"{spoken_date(premise.review_by)}" if premise.review_by else "",
                 }
                 for thesis, premise in due
             ],
@@ -345,7 +352,7 @@ async def monitor_page(
                     "status": vocabulary.JOB_STATES[row.job.status].label
                     if row.job.status in vocabulary.JOB_STATES
                     else row.job.status.value,
-                    "started": f"{row.job.started_at:%d %B %Y}" if row.job.started_at else "",
+                    "started": f"{spoken_date(row.job.started_at)}" if row.job.started_at else "",
                     "findings": row.findings,
                     "cost": figures.pounds(row.job.total_cost_gbp),
                 }

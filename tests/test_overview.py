@@ -557,7 +557,9 @@ class TestTheDrawerFragment:
         body = (await client.get(f"/research/runs/{job_id}/preview")).text
 
         assert "Contoso Corporation" in body
-        assert "AWAITING_APPROVAL" in body
+        # Where the run stands, in words: the status's value is the record's name for it.
+        assert "Waiting for you" in body
+        assert "AWAITING_APPROVAL" not in body
         assert "approve its research plan" in body
         assert "£0.00" in body
         # The way out. A preview with no next step is a click that costs an operator a

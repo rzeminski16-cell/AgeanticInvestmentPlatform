@@ -57,7 +57,10 @@ from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
 
 __all__ = [
+    "AGENT_ROLES",
     "ANALYSIS_MODES",
+    "COST_CATEGORIES",
+    "CREDENTIALS",
     "DECISIONS",
     "DISAGREEMENT_KINDS",
     "GATES",
@@ -79,10 +82,13 @@ __all__ = [
     "STOPPED_PASS",
     "TRANSACTION_KINDS",
     "TRIGGER_KINDS",
+    "VERIFICATION_METHODS",
     "GateCertainty",
     "GateWords",
     "HumanState",
     "Tone",
+    "agent_role_words",
+    "cost_category_words",
     "gate_words",
     "in_words",
     "job_state",
@@ -95,6 +101,7 @@ __all__ = [
     "sector_words",
     "step_label",
     "trigger_words",
+    "verification_words",
 ]
 
 
@@ -704,6 +711,78 @@ PROVIDERS: Final[dict[str, str]] = {
     "internal_prior_run": "an earlier run",
     "web": "the web",
 }
+
+
+# The credentials the platform can hold, named by what each opens. The settings' field names
+# (``eodhd_api_key``) are identifiers; the pages say what the key is for, and never its value.
+CREDENTIALS: Final[dict[str, str]] = {
+    "anthropic_api_key": "The model — Anthropic",  # pragma: allowlist secret
+    "eodhd_api_key": "Prices — EODHD",  # pragma: allowlist secret
+    "fred_api_key": "Rates and economic series — FRED",  # pragma: allowlist secret
+    "companies_house_api_key": "UK filings — Companies House",  # pragma: allowlist secret
+    "secret_key": "The key that signs this browser's forms",
+}
+
+
+# How a citation was confirmed, by the method code recorded against it (`aer.verify`). One
+# method today; a record from another names the check generically rather than printing it.
+VERIFICATION_METHODS: Final[dict[str, str]] = {
+    "excerpt_match_v1": "finding the excerpt, word for word, in the archived document",
+}
+
+
+def verification_words(value: object) -> str:
+    return VERIFICATION_METHODS.get(str(value or "").strip(), "the platform's own check")
+
+
+# What each model role does, as the costs page names the work a call was for. The role is
+# recorded on every call (`agent_runs.agent_role`) as the agent's key; a routing table's roles
+# are the same keys. A role this build does not name reads as itself with its underscores
+# gone, never as the key.
+AGENT_ROLES: Final[dict[str, str]] = {
+    "analysis": "Analysis",
+    "ask_reader": "Answering a question",
+    "assumption_proposal": "Proposing the assumptions",
+    "challenge_brief": "Briefing the challenge",
+    "custom_section": "Writing your own section",
+    "peer_proposal": "Proposing peers",
+    "plan_critic": "Critiquing the plan",
+    "planner": "Planning",
+    "post_trade_reviewer": "Reviewing a closed position",
+    "red_team": "Arguing both sides",
+    "report_writer": "Writing the report",
+    "risk_analyst": "Reading the book's risk",
+    "section_writer": "Writing a section",
+    "section_writer_workhorse": "Writing a section",
+    "source_triage": "Sorting the sources",
+    "theme_proposal": "Proposing themes",
+    "thesis_monitor": "Checking a thesis",
+    "validator": "Validating",
+    "valuation_interpretation": "Interpreting the valuation",
+    "verdict": "Reaching the verdict",
+    "web_search": "Searching the web",
+}
+
+
+def agent_role_words(value: object) -> str:
+    key = str(value or "").strip()
+    return AGENT_ROLES.get(key) or key.replace("_", " ").capitalize() or "—"
+
+
+# What a cost row paid for (`providers.costs.CostCategory`), as the costs page lists it.
+COST_CATEGORIES: Final[dict[str, str]] = {
+    "llm_input": "Model input",
+    "llm_output": "Model output",
+    "cache_read": "Cached input, read",
+    "cache_write": "Cached input, written",
+    "web_search": "Web searches",
+    "data_api": "Data services",
+}
+
+
+def cost_category_words(value: object) -> str:
+    key = str(value or "").strip()
+    return COST_CATEGORIES.get(key) or key.replace("_", " ").capitalize() or "—"
 
 
 def provider_words(value: object) -> str:

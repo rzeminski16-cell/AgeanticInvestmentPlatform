@@ -17,6 +17,7 @@ from jinja2 import StrictUndefined
 from starlette.requests import Request
 
 from aer.config import get_settings
+from aer.core.dates import format_date
 from aer.core.disagreement import (
     challenge_heading,
     position_figure,
@@ -40,6 +41,7 @@ from aer.web.vocabulary import (
     proposer_words,
     provider_words,
     sector_words,
+    verification_words,
 )
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
@@ -93,6 +95,7 @@ templates.env.filters["concept_name"] = concept_name
 # screen where a report is approved.
 templates.env.filters["metric_words"] = metric_words
 templates.env.filters["provider_words"] = provider_words
+templates.env.filters["verification_words"] = verification_words
 templates.env.filters["proposer_words"] = proposer_words
 templates.env.filters["model_words"] = model_words
 templates.env.filters["sector_words"] = sector_words
@@ -103,6 +106,9 @@ templates.env.filters["position_figure"] = position_figure
 templates.env.filters["rule_words"] = spoken_rule
 templates.env.filters["tier_words"] = spoken_tier
 templates.env.filters["challenge_heading"] = challenge_heading
+# A date or a moment in words, through the one formatter that writes "5 October" rather than
+# "05 October" on every platform (`aer.core.dates`); `strftime` in a template did not.
+templates.env.filters["dated"] = format_date
 # Undefined variables raise instead of rendering as empty. A silently blank figure in a
 # research report is the exact failure mode this whole project exists to prevent, and a
 # template is no place to start making an exception.

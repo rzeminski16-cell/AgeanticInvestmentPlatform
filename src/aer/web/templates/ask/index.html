@@ -67,7 +67,7 @@
           {% for row in rows %}
             <li class="border-t border-line py-4" data-question="{{ row.id }}" data-tier="{{ row.tier }}" data-state="{{ row.state }}">
               <a href="/ask/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.question }}</a>
-              <p class="mt-1 type-data-sm text-ink-muted">{{ row.ticker }} · tier {{ row.tier }}, {{ row.tier_label | lower }} · {{ row.state }} · asked {{ row.asked_on }}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">{{ row.ticker }} · tier {{ row.tier }}, {{ row.tier_label | lower }} · {{ row.state_words }} · asked {{ row.asked_on }}</p>
             </li>
           {% endfor %}
         {% endcall %}

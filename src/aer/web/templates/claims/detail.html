@@ -130,9 +130,8 @@
 
           {% if citation.verified %}
             <p class="mt-2 type-body-sm text-ink-muted" data-field="verdict">
-              Confirmed by {{ citation.verification_method }} on
-              {{ citation.verified_at.date().isoformat() if citation.verified_at else "—" }},
-              match {{ citation.match_ratio }}.
+              Confirmed by code{% if citation.verified_at %} on {{ citation.verified_at | dated("%-d %B %Y") }}{% endif %},
+              by {{ citation.verification_method | verification_words }}{% if citation.match_ratio is not none %}, a match of {{ citation.match_ratio | percent }}{% endif %}.
             </p>
           {% else %}
             <p class="mt-2 type-body-sm text-failure-ink" data-field="verdict">
@@ -154,8 +153,7 @@
               <div>
                 <dt class="type-eyebrow text-ink-muted">Located by</dt>
                 <dd class="mt-1 type-data-sm text-ink" data-field="locator">
-                  {{ citation.excerpt.extractor }}@{{ citation.excerpt.extractor_version }} &middot;
-                  {{ citation.excerpt.locator }}
+                  <code class="[overflow-wrap:anywhere]">{{ citation.excerpt.extractor }}@{{ citation.excerpt.extractor_version }} &middot; {{ citation.excerpt.locator }}</code>
                 </dd>
               </div>
               <div>

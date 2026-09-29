@@ -35,6 +35,7 @@ from aer.api.deps import (
     SettingsDep,
     StoreDep,
 )
+from aer.core.dates import spoken_date
 from aer.core.enums import JobStatus
 from aer.db.models import Job, PlanSkillPin, ResearchRequest, Skill, SkillVersion, WorkOrder
 from aer.errors import AerError
@@ -516,7 +517,7 @@ async def _runs_that_used(
                 "planned": pin.status == "planned",
                 "reason": pin.reason,
                 "estimated_cost_gbp": f"{pin.estimated_cost_gbp:.2f}",
-                "pinned_on": f"{pin.created_at:%d %B %Y}",
+                "pinned_on": f"{spoken_date(pin.created_at)}",
                 "run_state": job.status.value,
             }
         )

@@ -64,12 +64,6 @@ LEDGER: dict[str, tuple[int, str]] = {
     # vocabulary assertion, which reads the rendered page rather than the template, holds
     # every one of those pages at zero. A key an operator needs for `aer diagnose` rides
     # in a `title` attribute, which is not the words a person reads.
-    "calculations/detail.html": (
-        1,
-        "The name of one input to a calculation, from the stored ledger row. Provenance: "
-        "the reader is being shown what the formula called it, and renaming that would "
-        "break the correspondence with the record.",
-    ),
     "_ui/signatures.html": (
         1,
         "A lineage node's kind — calculation, fact, assumption. Already ordinary words, and "

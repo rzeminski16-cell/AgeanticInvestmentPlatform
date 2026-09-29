@@ -275,7 +275,7 @@ class TestTheDrawer:
         trigger.click()
 
         expect(page.locator("#aer-drawer-title")).to_have_text(title)
-        expect(page.locator('#aer-drawer [data-field="status"]')).to_have_text("AWAITING_APPROVAL")
+        expect(page.locator('#aer-drawer [data-field="status"]')).to_have_text("Waiting for you")
 
     def test_focus_moves_into_the_panel_and_stays_there(
         self, page: Page, live_server: str, stopped_runs: StoppedRuns

@@ -6,11 +6,11 @@
   who can see only the current value cannot tell a well-argued number from an arbitrary one.
 #}
 
-{% block title %}{{ assumption.name }} &middot; Ageantic{% endblock %}
+{% block title %}{{ assumption.name | concept_name }} &middot; Ageantic{% endblock %}
 
 {% block content %}
   {{ ui.page_header(
-    assumption.name,
+    assumption.name | concept_name,
     eyebrow="ASSUMPTION",
     breadcrumbs=[
       {"href": "/requests", "label": "Requests"},
@@ -42,7 +42,7 @@
             <p class="type-body-sm text-ink-muted">
               #{{ proposal.sequence }} &middot;
               {% if proposal.by_human %}a person{% else %}a model{% endif %} &middot;
-              <span class="type-data-sm">{{ proposal.proposed_by }}</span>
+              <span>{{ proposal.proposed_by | proposer_words }}</span>
             </p>
           </div>
           <p class="mt-2 max-w-prose type-body text-ink">{{ proposal.justification }}</p>

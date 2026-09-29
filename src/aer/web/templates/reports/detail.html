@@ -43,7 +43,7 @@
     #}
     <section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5" role="status" id="superseded-band">
       <p class="type-body text-ink">
-        This report was superseded on {{ report.superseded_at.strftime("%d %B %Y") }} by
+        This report was superseded on {{ report.superseded_at | dated("%-d %B %Y") }} by
         <a href="/reports/{{ successor.id }}" class="underline underline-offset-[3px]" id="successor-link">the report as at {{ successor.as_of_date.isoformat() }}</a>.
         {{ report.supersession_reason }}
       </p>
@@ -51,7 +51,7 @@
   {% elif report_state == "withdrawn" %}
     <section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5" role="status" id="withdrawn-band">
       <p class="type-body text-ink">
-        This report was withdrawn on {{ report.superseded_at.strftime("%d %B %Y") }} and is no
+        This report was withdrawn on {{ report.superseded_at | dated("%-d %B %Y") }} and is no
         longer what the platform asserts about this company. It stays readable, unchanged.
         Reason: {{ report.supersession_reason }}
       </p>
@@ -124,7 +124,7 @@
         {% for run in refreshes %}
           <li class="type-body-sm text-ink-muted">
             <a href="/runs/{{ run.id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">
-              {% if run.started_at %}Refresh started {{ run.started_at.strftime("%d %B %Y") }}{% else %}A queued refresh{% endif %}
+              {% if run.started_at %}Refresh started {{ run.started_at | dated("%-d %B %Y") }}{% else %}A queued refresh{% endif %}
             </a>
             &mdash; {{ run.status.value | in_words }}
           </li>
@@ -292,7 +292,7 @@
           <ul class="mt-3 flex flex-col gap-1" id="export-history">
             {% for export in exports %}
               <li class="type-body-sm text-ink-muted">
-                Exported {{ export.exported_at.strftime("%d %B %Y at %H:%M UTC") }} &mdash;
+                Exported {{ export.exported_at | dated("%-d %B %Y at %H:%M UTC") }} &mdash;
                 {{ export.files | length }} {{ "file" if export.files | length == 1 else "files" }}
               </li>
             {% endfor %}

@@ -2469,6 +2469,17 @@ async def run_claims(
 
     claims = await provenance.claims_for_run(session, job_id)
     research_request = await mandate_of(session, job)
+    # Each claim's section by its title, as the report reads; a key is the record's name for it.
+    titles: dict[str, str] = {
+        row.key: row.title
+        for row in await session.execute(select(SectionDefinition.key, SectionDefinition.title))
+    }
+    section_names = {
+        claim.section_key: titles.get(claim.section_key)
+        or claim.section_key.replace("_", " ").capitalize()
+        for claim in claims
+        if claim.section_key
+    }
 
     unsupported = sum(1 for claim in claims if not claim.is_supported)
     page: Response = render(
@@ -2478,6 +2489,7 @@ async def run_claims(
             "job": job,
             "research_request": research_request,
             "claims": claims,
+            "section_names": section_names,
             "unsupported": unsupported,
             "verdict": verdicts.tally(
                 verdicts.Count(len(claims), "claim recorded", "claims recorded"),
@@ -3179,7 +3191,10 @@ async def _settings_context(
                 for item in await configuration.standing_assumptions(session, settings)
             }
         ),
-        "secrets": configuration.secret_presence(effective),
+        "secrets": [
+            (vocabulary.CREDENTIALS.get(name, name), present)
+            for name, present in configuration.secret_presence(effective).items()
+        ],
         "saved": False,
         "error": None,
         "csrf_field": CSRF_FIELD_NAME,
@@ -3224,20 +3239,97 @@ async def costs_page(
     the model's minimum, a dictionary serialised in a different order, a per-call string in
     front of the shared block. The hit rate is the only evidence, so it is on the page
     rather than in a log line somebody would have to know to look for.
+
+    Every figure is formatted here and every role, category and run is named here: the
+    template prints what it is given (U7).
     """
     del user  # scoped by the single-user deployment; see A5
 
     summary = await spend_summary(session)
+    runs = await recent_runs(session)
+    names = await _run_names(session, [job.id for job, _ in runs])
     page: Response = render(
         request,
         "spend/index.html",
         {
-            "summary": summary,
-            "roles": await spend_by_role(session),
-            "runs": await recent_runs(session),
+            "total": _exact(summary.total_gbp),
+            "calls": f"{summary.calls:,}",
+            "prompt_tokens": f"{summary.cache.prompt_tokens:,}",
+            "hit_rate": _rate(summary.hit_rate),
+            "no_hits": summary.hit_rate == 0 and summary.calls > 1,
+            "call_count": summary.calls,
+            "roles": [
+                {
+                    "role": vocabulary.agent_role_words(row.role),
+                    "model": row.model,
+                    "calls": f"{row.calls:,}",
+                    "fresh": f"{row.cache.fresh_tokens:,}",
+                    "read": f"{row.cache.read_tokens:,}",
+                    "written": f"{row.cache.written_tokens:,}",
+                    "output": f"{row.output_tokens:,}",
+                    "hit_rate": _rate(row.cache.hit_rate),
+                }
+                for row in await spend_by_role(session)
+            ],
+            "by_kind": [
+                (vocabulary.cost_category_words(kind), _exact(amount))
+                for kind, amount in summary.by_kind
+            ],
+            "runs": [
+                {
+                    "href": f"/runs/{job.id}",
+                    "label": names.get(job.id, "A run"),
+                    "amount": _exact(amount),
+                }
+                for job, amount in runs
+            ],
         },
     )
     return page
+
+
+# What a run that was not a report is called on the costs page, by the tool that started it.
+_RUN_WORDS: Final[dict[str, str]] = {
+    "ask": "A question",
+    "daily": "The daily pass",
+    "monitor": "A thesis check",
+    "review": "A post-trade review",
+    "risk": "A reading of the book",
+    "watchlist": "A watchlist commission",
+}
+
+
+async def _run_names(session: DbSession, job_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """Each run by what it was about and when: a report by its company, anything else by the
+    tool that started it. A run's id is the record's name for it, not a person's."""
+    if not job_ids:
+        return {}
+    rows = await session.execute(
+        select(
+            Job.id,
+            Job.started_at,
+            WorkOrder.tool,
+            ResearchRequest.company_name,
+            ResearchRequest.ticker,
+        )
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .outerjoin(ResearchRequest, ResearchRequest.id == Job.work_order_id)
+        .where(Job.id.in_(job_ids))
+    )
+    names: dict[uuid.UUID, str] = {}
+    for job_id, started, tool, company, ticker in rows.tuples():
+        what = f"{company} ({ticker})" if company else _RUN_WORDS.get(tool, "A run")
+        names[job_id] = f"{what}, {format_date(started, '%-d %B %Y')}" if started else what
+    return names
+
+
+def _exact(amount: Decimal) -> str:
+    """Pounds to four places: the costs page is where a fraction of a penny is the point."""
+    return f"£{amount:,.4f}"
+
+
+def _rate(rate: Decimal | None) -> str:
+    return "—" if rate is None else f"{rate * 100:.1f}%"
 
 
 # The library's filters, in the order its chips read (page specification §9).

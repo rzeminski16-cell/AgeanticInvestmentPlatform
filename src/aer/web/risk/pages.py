@@ -30,6 +30,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, SettingsDep, StoreDep
+from aer.core.dates import spoken_date
 from aer.core.enums import ShockKind
 from aer.db.models import Portfolio, RiskScenario
 from aer.errors import AerError
@@ -121,7 +122,7 @@ async def risk_page(
             "book": book,
             "as_of": as_of,
             "as_of_iso": as_of.isoformat(),
-            "window_from": f"{view.window_from:%d %B %Y}",
+            "window_from": f"{spoken_date(view.window_from)}",
             "verdict": _risk_verdict(view),
             "reading_state": _reading_state(reading, stale=stale),
             "figures": _book_figures(view),
@@ -179,7 +180,7 @@ def _reading_state(reading: risk_service.Reading | None, *, stale: bool) -> str:
         )
     if reading.failed:
         return "The last reading stopped at its cost ceiling. Run it again."
-    when = f"{reading.job.started_at:%d %B %Y}" if reading.job.started_at else "an unknown date"
+    when = f"{spoken_date(reading.job.started_at)}" if reading.job.started_at else "an unknown date"
     if stale:
         return f"The book has traded since the analyst last read it on {when}."
     return f"Read by the analyst on {when}."
@@ -396,7 +397,7 @@ def _reading_context(reading: risk_service.Reading | None) -> dict[str, Any] | N
     return {
         "id": reading.job.id,
         "as_of": reading.as_of.isoformat() if reading.as_of else "",
-        "started": f"{reading.job.started_at:%d %B %Y}" if reading.job.started_at else "",
+        "started": f"{spoken_date(reading.job.started_at)}" if reading.job.started_at else "",
         "cost": figures.pounds(reading.job.total_cost_gbp),
         "failed": reading.failed,
         "reason": reading.reason,

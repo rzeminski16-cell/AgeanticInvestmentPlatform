@@ -15,9 +15,10 @@ the smaller problem.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Final
 
+from aer.core.dates import spoken_date
 from aer.core.enums import FindingKind
 from aer.services import price_alerts, thesis_monitor
 from aer.web import figures
@@ -133,7 +134,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             title=f"A premise of {thesis.title} is due for your review",
             detail=(
                 f"{premise.statement} You said you would look at it again by "
-                f"{premise.review_by:%d %B %Y}; no filing tests it, so nothing else will."
+                f"{_by(premise.review_by)}; no filing tests it, so nothing else will."
             ),
             href=f"/theses/{thesis.id}#premise-{premise.judgement_id}",
             action="Open the thesis",
@@ -184,3 +185,8 @@ def _and_more(total: int, noun: str, severity: Severity, slug: str) -> list[Atte
             action="Open the monitor",
         )
     ]
+
+
+def _by(review_by: date | None) -> str:
+    """The date the operator set; a premise due for review always has one."""
+    return spoken_date(review_by) if review_by is not None else "the date you set"

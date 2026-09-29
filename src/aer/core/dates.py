@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from datetime import date
 
-__all__ = ["fiscal_year_of", "format_date"]
+__all__ = ["fiscal_year_of", "format_date", "spoken_date"]
 
 # How far into January a period can end and still belong to the prior fiscal year. Seven
 # days covers every Saturday-nearest-to-31-December convention a 52/53-week calendar can
@@ -78,6 +78,11 @@ def format_date(value: date, pattern: str) -> str:
             that a *portable* one no longer does.
     """
     return value.strftime(_expanded(pattern, value))
+
+
+def spoken_date(value: date) -> str:
+    """A date as the pages say it — "5 October 2026" — the one form most of them use."""
+    return format_date(value, "%-d %B %Y")
 
 
 def _expanded(pattern: str, value: date) -> str:

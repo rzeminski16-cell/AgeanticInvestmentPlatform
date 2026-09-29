@@ -28,6 +28,8 @@ import re
 import uuid
 from datetime import date
 from decimal import Decimal
+from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +68,15 @@ from aer.services import theses as thesis_service
 from aer.services.theses import Predicate
 from aer.storage.local import LocalArtefactStore
 from tests.api_fixtures import build_app, client_for
+from tests.journey_harness import (
+    CODE_IDENTIFIERS,
+    MODULE_PATH,
+    SHELL,
+    SHOUTED_ENUM,
+    SNAKE_CASE,
+    UUID,
+    XBRL_TAG,
+)
 from tests.portfolio_fixtures import trade
 from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
@@ -414,6 +425,99 @@ class TestEveryPageRenders:
             "whose parameters `_fill` cannot supply is skipped silently; if the number has "
             "dropped, teach `_fill` about the new parameter rather than letting the "
             "coverage quietly shrink."
+        )
+
+
+# A settings file named to the operator: where a value lives is the platform's business, and
+# a page that says ".env" has told a person to go and edit a file.
+_ENV_FILE = re.compile(r"(?<![\w/])\.env\b")
+
+
+class _MainText(HTMLParser):
+    """The words a person reads inside ``<main>``: text, never attributes, never scripts.
+
+    Text a screen reader announces counts — an ``sr-only`` label is read aloud — and so does
+    the content of ``<noscript>``, which is what the page says with scripting off.
+
+    **Code the page marks as code is not held to words.** A skill file's example, the routing
+    table the operator edits as a document, a keyboard key: `<pre>`, `<code>`, `<samp>`,
+    `<kbd>` and a `<textarea>`'s content are the operator's own material or its format, shown
+    as such on purpose. Everything else is prose, and prose is words.
+    """
+
+    _SILENT = frozenset({"script", "style", "template", "pre", "code", "samp", "kbd", "textarea"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._depth = 0
+        self._silent = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "main":
+            self._depth += 1
+        elif tag in self._SILENT:
+            self._silent += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "main":
+            self._depth = max(0, self._depth - 1)
+        elif tag in self._SILENT:
+            self._silent = max(0, self._silent - 1)
+
+    def handle_data(self, data: str) -> None:
+        if self._depth and not self._silent:
+            self.parts.append(data)
+
+
+def _main_text(page: str) -> str:
+    reader = _MainText()
+    reader.feed(page)
+    return unescape(" ".join(" ".join(reader.parts).split()))
+
+
+def _spoken_code(text: str) -> list[str]:
+    """What on a page is code rather than words: the journey harness's own patterns."""
+    found: list[str] = []
+    uuid_at = UUID.search(text)
+    if uuid_at:
+        # Where it sits, so the failure names the sentence rather than sending somebody hunting.
+        found.append(f"a UUID in {text[max(0, uuid_at.start() - 40) : uuid_at.end() + 10]!r}")
+    shell = SHELL.search(text)
+    if shell:
+        found.append(f"a shell command {shell.group(0).strip()!r}")
+    if _ENV_FILE.search(text):
+        found.append("the settings file")
+    leaked = set(SNAKE_CASE.findall(text)) | set(SHOUTED_ENUM.findall(text))
+    leaked |= set(MODULE_PATH.findall(text)) | set(XBRL_TAG.findall(text))
+    leaked |= {name for name in CODE_IDENTIFIERS if re.search(rf"\b{re.escape(name)}\b", text)}
+    found.extend(sorted(leaked))
+    return found
+
+
+class TestEveryPageSpeaksWords:
+    """U7: no identifier, module path, settings file or shell command on any page served.
+
+    The template ratchet (`test_no_raw_identifiers_on_screen.py`) reads the templates; this
+    reads what they render, against the same run the render test drives, so a word that
+    reaches a page from a handler, a service or the record is caught where it lands.
+    """
+
+    async def test_no_page_speaks_code(self, api: Any, finished_run: dict[str, Any]) -> None:
+        spoken: dict[str, list[str]] = {}
+        for route in sorted(page_routes_for()):
+            url = _fill(route, finished_run)
+            if url is None or route in DOCUMENTS:  # pragma: no cover -- all fillable today
+                continue
+            response = await api.get(url, follow_redirects=True)
+            if "text/html" not in response.headers.get("content-type", ""):
+                continue
+            found = _spoken_code(_main_text(response.text))
+            if found:
+                spoken[route] = found
+
+        assert not spoken, "These pages show code where a person reads words:\n" + "\n".join(
+            f"  {route}: {found}" for route, found in sorted(spoken.items())
         )
 
 

@@ -231,7 +231,7 @@
         <h2 class="type-title-2 text-ink">{% if is_terminal %}Cancelled{% else %}Stopping{% endif %}</h2>
         <p class="mt-2 type-body text-ink">
           Cancellation requested at
-          {{ cancellation.requested_at.strftime("%H:%M:%S on %d %B %Y") }}.
+          {{ cancellation.requested_at | dated("%H:%M:%S on %-d %B %Y") }}.
           {% if not is_terminal %}
             The run stops at the end of the step it is in &mdash; a filing already being
             fetched, or a model call already made, is not abandoned halfway.
@@ -614,10 +614,16 @@
 
     {% call ui.sheet() %}
       {% call ui.disclosure("Technical record") %}
-        {{ ui.definition_list([
-          {"label": "Run", "value": job.id, "is_data": true},
-          {"label": "Workflow", "value": job.workflow_version, "is_data": true},
-        ]) }}
+        {#
+          Identifiers, shown as what they are: the references a support conversation or an
+          auditor asks for, marked as code so they are never read as the page's words.
+        #}
+        <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]" id="technical-record">
+          <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Run</dt>
+          <dd class="border-line py-3 sm:border-t"><code class="type-data text-ink [overflow-wrap:anywhere]">{{ job.id }}</code></dd>
+          <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Workflow</dt>
+          <dd class="border-line py-3 sm:border-t"><code class="type-data text-ink">{{ job.workflow_version }}</code></dd>
+        </dl>
         {#
           Reproduce this run. Offered whatever the run's state, because a failed or
           cancelled run is often the one worth interrogating. Costs nothing: no fetch,

@@ -13,7 +13,9 @@
 
   `is_data` switches the value to the data face for a figure, a date or an identifier. It is
   the caller's answer rather than a guess here: "2026" is a year in one row and a quantity in
-  the next, and a template cannot tell which.
+  the next, and a template cannot tell which. `is_code` marks the value as an identifier shown
+  as one — a run's or a request's id in a technical record — so it is never read as the page's
+  words.
 
   The `summary` variant is for three to six short peer-level values at the top of a sheet.
   **It is a metadata summary and not a row of KPI cards** — no shadows, no accent colours, no
@@ -33,7 +35,7 @@
   {% for item in items %}
   <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">{{ item.label }}</dt>
   <dd class="border-line py-3 type-body text-ink sm:border-t
-             {% if item.is_data | default(false) %}type-data [overflow-wrap:anywhere]{% endif %}">{{ item.value }}</dd>
+             {% if item.is_data | default(false) %}type-data [overflow-wrap:anywhere]{% endif %}">{% if item.is_code | default(false) %}<code>{{ item.value }}</code>{% else %}{{ item.value }}{% endif %}</dd>
   {% endfor %}
 </dl>
 {% endif %}

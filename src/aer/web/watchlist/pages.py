@@ -29,6 +29,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
+from aer.core.dates import spoken_date
 from aer.db.models import WatchlistEntry
 from aer.errors import AerError, ValidationError
 from aer.queue import enqueue_run
@@ -186,7 +187,7 @@ def _row(
         "why": entry.why,
         "alert": _alert_words(entry, default_threshold),
         "rule": None if entry.is_withdrawn else price_rule_form(entry, default_threshold),
-        "followed_on": f"{entry.followed_at:%d %B %Y}",
+        "followed_on": f"{spoken_date(entry.followed_at)}",
         "state": state.state,
         "label": words.label,
         "tone": words.tone.value,
@@ -194,10 +195,10 @@ def _row(
         "is_queued": state.is_queued,
         "is_withdrawn": entry.is_withdrawn,
         "withdrawn_reason": entry.withdrawn_reason,
-        "withdrawn_on": f"{entry.withdrawn_at:%d %B %Y}" if entry.withdrawn_at else "",
-        "as_of": f"{state.commission.as_of_date:%d %B %Y}" if state.commission else "",
+        "withdrawn_on": f"{spoken_date(entry.withdrawn_at)}" if entry.withdrawn_at else "",
+        "as_of": f"{spoken_date(state.commission.as_of_date)}" if state.commission else "",
         "commissioned_on": (
-            f"{state.commission.commissioned_at:%d %B %Y}" if state.commission else ""
+            f"{spoken_date(state.commission.commissioned_at)}" if state.commission else ""
         ),
         "commissions": len(entry.commissions),
         "request_href": f"/requests/{state.request.id}" if state.request else "",
@@ -284,8 +285,8 @@ def _commission_row(
 ) -> dict[str, Any]:
     job = record.job
     return {
-        "as_of": f"{record.commission.as_of_date:%d %B %Y}",
-        "commissioned_on": f"{record.commission.commissioned_at:%d %B %Y}",
+        "as_of": f"{spoken_date(record.commission.as_of_date)}",
+        "commissioned_on": f"{spoken_date(record.commission.commissioned_at)}",
         "request_href": f"/requests/{record.request.id}" if record.request else "",
         "run_href": f"/runs/{job.id}" if job else "",
         "run_state": vocabulary.JOB_STATES[job.status].label if job else "",

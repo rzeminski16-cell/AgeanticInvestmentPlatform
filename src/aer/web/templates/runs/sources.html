@@ -92,7 +92,7 @@
                 {{ source.title or source.url }}
               </a>
               <p class="mt-1 type-data-sm text-ink-muted">
-                {{ source.provider.value }}{% if source.publisher %} &middot; {{ source.publisher }}{% endif %}
+                {{ source.provider.value | provider_words }}{% if source.publisher %} &middot; {{ source.publisher }}{% endif %}
               </p>
               {% if source.licence_note %}
                 <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">

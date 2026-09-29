@@ -1036,11 +1036,11 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
             },
         ],
         "technical_rows": [
-            {"label": "Request id", "value": str(item.id), "is_data": True},
+            {"label": "Request id", "value": str(item.id), "is_data": True, "is_code": True},
             {"label": "ISIN", "value": item.isin or "Not given", "is_data": True},
             {
                 "label": "Created",
-                "value": item.created_at.strftime("%d %B %Y at %H:%M %Z"),
+                "value": format_date(item.created_at, "%-d %B %Y at %H:%M %Z"),
                 "is_data": True,
             },
             {"label": "Resolved", "value": "Yes" if item.resolved else "No"},

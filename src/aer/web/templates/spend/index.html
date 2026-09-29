@@ -5,6 +5,9 @@
   The costs page. Two questions it exists to answer: what has this platform spent, and is
   the prompt cache actually working. The second is not rhetorical — asking for a cache and
   getting one are different things, and every way of failing is silent.
+
+  Every figure arrives formatted and every role, category and run arrives named (U7): the
+  template prints what the handler gives it and formats nothing.
 #}
 
 {% block title %}Costs &middot; Ageantic{% endblock %}
@@ -12,43 +15,38 @@
 {% block content %}
   {{ ui.page_header(
     "Costs",
-    eyebrow="THE PLATFORM",
+    eyebrow="Platform",
     identity="Metered at the time of each call, in the currency it was billed and converted once. Nothing here is re-priced, so a change to the price table does not rewrite history.",
   ) }}
 
   <dl class="grid grid-cols-2 gap-x-10 gap-y-4 sm:grid-cols-4">
     <div>
       <dt class="type-eyebrow text-ink-muted">Total</dt>
-      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="total-gbp">
-        &pound;{{ "%.4f"|format(summary.total_gbp) }}
-      </dd>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="total-gbp">{{ total }}</dd>
     </div>
     <div>
       <dt class="type-eyebrow text-ink-muted">Model calls</dt>
-      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="calls">{{ summary.calls }}</dd>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="calls">{{ calls }}</dd>
     </div>
     <div>
       <dt class="type-eyebrow text-ink-muted">Prompt tokens</dt>
-      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="prompt-tokens">
-        {{ "{:,}".format(summary.cache.prompt_tokens) }}
-      </dd>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="prompt-tokens">{{ prompt_tokens }}</dd>
     </div>
     <div>
       <dt class="type-eyebrow text-ink-muted">Served from cache</dt>
-      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="hit-rate">
-        {% if summary.hit_rate is none %}&mdash;{% else %}{{ "%.1f"|format(summary.hit_rate * 100) }}%{% endif %}
-      </dd>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="hit-rate">{{ hit_rate }}</dd>
     </div>
   </dl>
 
-  {% if summary.hit_rate is not none and summary.hit_rate == 0 and summary.calls > 1 %}
+  <div class="mt-6 flex flex-col gap-6">
+  {% if no_hits %}
     {# Worth saying out loud. A zero rate across several calls is not "caching is off", it is
        "caching was asked for and refused", and the causes are all invisible from here. #}
     <div id="no-hits">
       {{ ui.callout(
         "warning",
-        "Nothing has been served from cache across " ~ summary.calls ~ " calls",
-        "Either every prompt is shorter than the model's minimum cacheable prefix, or something varies inside a block that is supposed to repeat. See ADR 0048.",
+        "Nothing has been served from cache across " ~ call_count ~ " calls",
+        "Either every prompt is shorter than the model's minimum cacheable prefix, or something varies inside a block that is supposed to repeat.",
       ) }}
     </div>
   {% endif %}
@@ -62,11 +60,11 @@
       <div class="overflow-x-auto">
         <table class="w-full min-w-[52rem]" id="by-role">
           <caption class="sr-only">
-            Token spend per agent role: fresh, cache read, cache write, output and hit rate.
+            Token spend per piece of work: fresh, cache read, cache write, output and hit rate.
           </caption>
           <thead class="border-b border-line-strong text-left">
             <tr>
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Role</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Work</th>
               <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Model</th>
               <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Calls</th>
               <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Fresh</th>
@@ -82,13 +80,11 @@
                 <th scope="row" class="py-2 pr-4 text-left type-body text-ink">{{ row.role }}</th>
                 <td class="py-2 pr-4 type-data-sm text-ink-muted">{{ row.model }}</td>
                 <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.calls }}</td>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.fresh_tokens) }}</td>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.read_tokens) }}</td>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.written_tokens) }}</td>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.output_tokens) }}</td>
-                <td class="py-2 text-right type-data-sm text-ink">
-                  {% if row.cache.hit_rate is none %}&mdash;{% else %}{{ "%.1f"|format(row.cache.hit_rate * 100) }}%{% endif %}
-                </td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.fresh }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.read }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.written }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.output }}</td>
+                <td class="py-2 text-right type-data-sm text-ink">{{ row.hit_rate }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -96,13 +92,13 @@
       </div>
     {% endif %}
 
-    {% if summary.by_kind %}
+    {% if by_kind %}
       <h3 class="mt-6 type-subheading text-ink">By category</h3>
       <ul class="mt-2 flex flex-col divide-y divide-line" id="by-kind">
-        {% for kind, amount in summary.by_kind %}
+        {% for kind, amount in by_kind %}
           <li class="flex justify-between py-1.5">
-            <span class="type-data-sm text-ink">{{ kind }}</span>
-            <span class="type-data-sm text-ink tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
+            <span class="type-body-sm text-ink">{{ kind }}</span>
+            <span class="type-data-sm text-ink tabular-nums">{{ amount }}</span>
           </li>
         {% endfor %}
       </ul>
@@ -114,15 +110,14 @@
       <p class="type-body text-ink-muted" id="no-runs">No runs yet.</p>
     {% else %}
       <ul class="flex flex-col divide-y divide-line" id="recent-runs">
-        {% for job, amount in runs %}
-          <li class="flex justify-between py-1.5">
-            <a href="/runs/{{ job.id }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">
-              {{ job.id }}
-            </a>
-            <span class="type-data-sm text-ink tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
+        {% for run in runs %}
+          <li class="flex justify-between gap-4 py-1.5">
+            <a href="{{ run.href }}" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ run.label }}</a>
+            <span class="shrink-0 type-data-sm text-ink tabular-nums">{{ run.amount }}</span>
           </li>
         {% endfor %}
       </ul>
     {% endif %}
   {% endcall %}
+  </div>
 {% endblock %}

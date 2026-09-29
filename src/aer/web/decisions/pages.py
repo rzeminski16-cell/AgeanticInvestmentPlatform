@@ -39,7 +39,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
-from aer.core.dates import format_date
+from aer.core.dates import format_date, spoken_date
 from aer.core.enums import DecisionAction
 from aer.db.models import BookLimit, Decision, Portfolio, Report, Security, Thesis, Transaction
 from aer.errors import AerError
@@ -126,7 +126,7 @@ def _row(decision: Decision) -> DecisionRow:
         action_value=decision.action.value,
         statement=decision.statement,
         basis=judgement.basis,
-        decided_on=f"{judgement.held_at:%d %B %Y}",
+        decided_on=f"{spoken_date(judgement.held_at)}",
         held_by=judgement.held_by,
         security=f"{security.ticker}.{security.exchange}" if security is not None else "",
         size_statement=decision.size_statement or "",
@@ -137,11 +137,11 @@ def _row(decision: Decision) -> DecisionRow:
         ),
         horizon_months=decision.horizon_months,
         exit_plan=decision.exit_plan or "",
-        review_by=f"{decision.review_by:%d %B %Y}" if decision.review_by else "",
+        review_by=f"{spoken_date(decision.review_by)}" if decision.review_by else "",
         review_by_iso=decision.review_by.isoformat() if decision.review_by else "",
         moves_the_book=decision.action.moves_the_book,
         is_withdrawn=judgement.is_withdrawn,
-        withdrawn_on=f"{judgement.withdrawn_at:%d %B %Y}" if judgement.withdrawn_at else "",
+        withdrawn_on=f"{spoken_date(judgement.withdrawn_at)}" if judgement.withdrawn_at else "",
         withdrawn_reason=judgement.withdrawn_reason or "",
         trades=tuple(_trade(row) for row in decision.transactions),
     )
@@ -232,7 +232,7 @@ def _candidate(row: Transaction) -> dict[str, str]:
 def _trade(row: Transaction) -> TradeRow:
     return TradeRow(
         kind=row.kind.value,
-        trade_date=f"{row.trade_date:%d %B %Y}",
+        trade_date=f"{spoken_date(row.trade_date)}",
         quantity=f"{abs(row.quantity).normalize():f}",
         price=f"{row.price.normalize():f}" if row.price is not None else "",
         currency=row.currency,
@@ -703,7 +703,7 @@ async def _pre_trade(
         _log.warning("decisions.check_failed", portfolio=str(book.id), error=str(problem))
         return {
             "problem": str(problem),
-            "as_of": f"{as_of:%d %B %Y}",
+            "as_of": f"{spoken_date(as_of)}",
             "figures": [],
             "scenarios": [],
             "after_rows": [],
@@ -720,7 +720,7 @@ async def _pre_trade(
             {
                 "label": "The book",
                 "value": risk_service.money(check.net_assets.value, currency),
-                "note": f"Net assets as at {as_of:%d %B %Y}.",
+                "note": f"Net assets as at {spoken_date(as_of)}.",
             }
         )
     if check.held is not None and check.held.weight is not None:
@@ -757,7 +757,7 @@ async def _pre_trade(
         )
     return {
         "problem": check.problem,
-        "as_of": f"{as_of:%d %B %Y}",
+        "as_of": f"{spoken_date(as_of)}",
         "ticker": security.ticker if security is not None else "",
         "figures": figures,
         "scenarios": [scenario_row(row, currency) for row in check.scenarios],

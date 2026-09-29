@@ -34,6 +34,7 @@ from aer.services.assumption_gate import (
     RESIDUAL_INCOME_NAMES,
 )
 from aer.web.csrf import CSRF_FIELD_NAME
+from aer.web.figures import concept_name
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
@@ -266,7 +267,9 @@ class TestThePage:
         page = await api.get(f"/requests/{committed['request'].id}/assumptions")
 
         assert page.status_code == 200
-        assert DISCOUNT_RATE in page.text
+        # Named in words (U7): the page says what the operator reads, not the key it is filed
+        # under.
+        assert concept_name(DISCOUNT_RATE) in page.text
         assert PROPOSED_JUSTIFICATION in page.text
 
     async def test_it_carries_the_hash_of_what_it_displayed(self, api, committed):
