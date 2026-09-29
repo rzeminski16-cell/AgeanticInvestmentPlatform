@@ -830,7 +830,7 @@ class TestTheWriterRoute:
     ) -> None:
         router = Router(scene["settings"])
         assert router.resolve("section_writer_workhorse").model == "claude-sonnet-5"
-        assert router.resolve("report_writer").model == "claude-opus-5"
+        assert router.resolve("report_writer").model == "claude-opus-5-5"
 
     def test_a_row_names_its_route_and_a_blank_names_none(self) -> None:
         def probe(policy: dict[str, Any]) -> SectionDefinition:

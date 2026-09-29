@@ -93,8 +93,8 @@ DEFAULT_PRICES: Final[dict[str, ModelPrices]] = {
     "claude-opus-5": ModelPrices.from_input_rate("5.00", "25.00"),
     "claude-sonnet-5": ModelPrices.from_input_rate("2.00", "10.00"),
     "claude-haiku-4-5": ModelPrices.from_input_rate("1.00", "5.00"),
-    # The next Opus, which no route names yet: priced so a baseline or a route that does
-    # is metered at its own rate rather than at the dearest model's.
+    # The judgement routes' model since 29 September 2026; Opus 5 stays priced for the runs
+    # it made and any route still naming it.
     "claude-opus-5-5": ModelPrices.from_input_rate("4.00", "20.00", cache_read_ratio="0.05"),
     # The tier above Opus, which the provider already accepts as a route. Listed so the
     # unknown-model fallback below overstates rather than halves a Fable bill (readiness
@@ -285,6 +285,7 @@ def estimate_gbp(
 # token-shaped bound left anywhere in the platform — every other ceiling is priced in
 # pounds.
 CONTEXT_WINDOW_TOKENS: Final[dict[str, int]] = {
+    "claude-opus-5-5": 1_000_000,
     "claude-opus-5": 1_000_000,
     "claude-sonnet-5": 1_000_000,
     "claude-haiku-4-5": 200_000,

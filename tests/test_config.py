@@ -32,7 +32,7 @@ from aer.config import (
 from aer.core.dates import format_date
 from aer.errors import ConfigError
 
-CURRENT_MODEL_IDS = {"claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"}
+CURRENT_MODEL_IDS = {"claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5"}
 
 # Whether pathlib itself treats two paths differing only in case as equal — true on
 # Windows, false on Linux and on a case-sensitive macOS volume. Detected rather than

@@ -153,23 +153,26 @@ class HouseStyle(BaseModel):
         raise ValueError(message)
 
 
-# Opus 5 for judgement, Sonnet 5 as the workhorse, Haiku 4.5 for triage.
+# Opus 5.5 for judgement, Sonnet 5 as the workhorse, Haiku 4.5 for triage. Opus 5.5 replaced
+# Opus 5 on 29 September 2026 at the operator's request: the same context window and tokenizer
+# at a fifth off the price; every judgement route states its effort, so its lower default
+# changes nothing here.
 # Rationale and the cost model behind it: docs/archive/PLAN.md section 1.8.
 DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
-    "planner": ModelRoute(model="claude-opus-5", effort="high"),
+    "planner": ModelRoute(model="claude-opus-5-5", effort="high"),
     # The plan's adversary (ADR 0091). The judgement class of call, like the red team:
     # once per run, small input, and what it catches is a whole run aimed wrong.
-    "plan_critic": ModelRoute(model="claude-opus-5", effort="high"),
+    "plan_critic": ModelRoute(model="claude-opus-5-5", effort="high"),
     "source_triage": ModelRoute(model="claude-haiku-4-5", effort="low"),
     "extraction": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "analysis": ModelRoute(model="claude-sonnet-5", effort="medium"),
     # Two numbers the whole valuation rests on, twice per report at most (ADR 0046).
-    "assumption_proposal": ModelRoute(model="claude-opus-5", effort="high"),
-    "valuation_interpretation": ModelRoute(model="claude-opus-5", effort="high"),
-    "red_team": ModelRoute(model="claude-opus-5", effort="high"),
+    "assumption_proposal": ModelRoute(model="claude-opus-5-5", effort="high"),
+    "valuation_interpretation": ModelRoute(model="claude-opus-5-5", effort="high"),
+    "red_team": ModelRoute(model="claude-opus-5-5", effort="high"),
     "validator": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "custom_section": ModelRoute(model="claude-sonnet-5", effort="medium"),
-    "report_writer": ModelRoute(model="claude-opus-5", effort="high"),
+    "report_writer": ModelRoute(model="claude-opus-5-5", effort="high"),
     # The carrier of a web search (ADR 0092): one server-side search, no judgement, the
     # listing read by code. The cheapest model there is, at the lowest effort.
     "web_search": ModelRoute(model="claude-haiku-4-5", effort="low"),
@@ -200,7 +203,7 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # Once per closed position, over the whole record, proposing a judgement the operator
     # confirms (ADRs 0081, 0105). The judgement model at high effort, like the red team: it
     # runs seldom, and what it gets wrong is the operator's reading of their own method.
-    "post_trade_reviewer": ModelRoute(model="claude-opus-5", effort="high"),
+    "post_trade_reviewer": ModelRoute(model="claude-opus-5-5", effort="high"),
     # Naming the pattern in figures somebody else computed is downstream of everything and
     # runs per book rather than once per report, so the mid-tier route at medium effort —
     # the one the validator and the proposal roles take (ADR 0080).
