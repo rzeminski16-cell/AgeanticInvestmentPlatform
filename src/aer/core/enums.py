@@ -31,6 +31,7 @@ __all__ = [
     "Grade",
     "JobStatus",
     "JudgementKind",
+    "LimitKind",
     "PremiseComparator",
     "PremiseStatus",
     "PremiseVerdict",
@@ -680,6 +681,9 @@ class ShockKind(StrEnum):
     The targets are the exposure bands' own cuts, so a shock about "United Kingdom" reaches
     exactly what the country band calls United Kingdom, and ``BOOK`` is every holding at
     once. A currency shock reaches cash in that currency too, because cash is a position.
+    ``LARGEST`` is the given number of largest holdings as the book stands on the date read
+    — the drawn shock panel's *the largest three* (ADR 0106, amended 29 September 2026) — so
+    one statement reaches whichever holdings are largest then.
     """
 
     BOOK = "book"
@@ -687,6 +691,20 @@ class ShockKind(StrEnum):
     CURRENCY = "currency"
     COUNTRY = "country"
     HOLDING = "holding"
+    LARGEST = "largest"
+
+
+class LimitKind(StrEnum):
+    """What a limit the operator stated on their book caps (ADR 0136 §1).
+
+    Three, each a fraction of the book, and each cut the way the exposure bands already cut
+    it, so a limit is compared with the very figure the risk page prints. A sector limit
+    names its sector; the other two need nothing more.
+    """
+
+    SINGLE_POSITION = "single_position"
+    FIVE_LARGEST = "five_largest"
+    SECTOR = "sector"
 
 
 class ProcessQuality(StrEnum):

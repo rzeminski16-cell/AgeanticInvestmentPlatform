@@ -236,11 +236,13 @@ class TestTheReadings:
         ]
         by_key = {row.key: row for row in rows}
         assert by_key["concentration"].value.endswith("%")
-        assert by_key["over_ceiling"].value == "none"
-        assert "No ceiling is stored" in by_key["over_ceiling"].note
+        # No ceiling is stated on this book, so the row says so and leads to where one is.
+        assert by_key["over_ceiling"].value == "none set"
+        assert "set no position or sector ceiling" in by_key["over_ceiling"].note
+        assert by_key["over_ceiling"].href == "/platform/book"
         assert by_key["shock"].value == "none stated"
         assert by_key["cash"].value.startswith("GBP ")
-        assert all(row.href.startswith("/risk") for row in rows)
+        assert all(row.href.startswith("/risk") for row in rows if row.key != "over_ceiling")
 
 
 # -- The page ----------------------------------------------------------------------------------

@@ -7,18 +7,20 @@
 
   Every figure is a recorded calculation and links to its formula (ADRs 0080, 0106). Every
   figure is ex-ante — today's weights over a year of daily returns, in each listing's own
-  currency — and the page says so beside the numbers. Nothing here sizes, limits, ranks or
-  scores, and there is no control for any of it.
+  currency — and the page says so beside the numbers. Nothing here sizes, ranks or scores,
+  and there is no control for any of it. A limit appears only where the operator stated one
+  (ADR 0136), beside the figure it caps, and it blocks nothing.
 #}
 
 {% block title %}Risk &middot; Ageantic{% endblock %}
 
 {% block content %}
-  {% call ui.page_header("Risk", eyebrow="WHAT COULD GO WRONG", identity=(book.name ~ " · as at " ~ as_of.strftime("%d %B %Y")) if not no_book else "") %}
-    <p class="type-body text-ink-muted">
-      What the book is exposed to and what a stated scenario would do to it, commented on
-      rather than scored. The figures are code's; the analyst reads them and writes none.
-    </p>
+  {% call ui.page_header(
+    "What the book is exposed to",
+    eyebrow="Portfolio · Risk",
+    identity="Every figure here is computed from the positions you hold, and every one of them links to the holdings underneath it. The pre-trade check uses this same arithmetic, so the two can never disagree.",
+  ) %}
+    {% if not no_book %}<p class="type-body-sm text-ink-muted">{{ book.name }} &middot; as at {{ as_of.strftime("%d %B %Y") }}</p>{% endif %}
   {% endcall %}
 
   {#
@@ -38,7 +40,113 @@
   {% if no_book %}
     {{ ui.empty("No book to read", "Risk is measured over a book. Record what you hold first.", action_label="Open the portfolio", action_href="/portfolio") }}
   {% else %}
-    {{ ui.verdict("AS IT STANDS", verdict.composed, detail=reading_state, tone=verdict.tone.value) }}
+    {#
+      As drawn (Risk): concentration and the sectors on the left, each figure beside the
+      ceiling the operator set or the lack of one (ADR 0136); the stated shock on the right,
+      with what the latest one does to the book. The working — the movement, every band, each
+      holding, every scenario, the analyst's reading — follows beneath.
+    #}
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start" id="at-a-glance">
+      <div class="flex min-w-0 flex-col gap-5">
+        <section class="rounded-lg border border-line bg-surface px-5 py-4" id="concentration-card" aria-labelledby="concentration-heading">
+          <h2 id="concentration-heading" class="type-heading text-ink">Concentration</h2>
+          {% if concentration_rows %}
+            {#
+              Each figure a whole-book limit caps, beside the operator's own limit or the lack
+              of one (ADR 0136). The comparison is code's and prints no new number: the word
+              *over*, in the warning ink, beside the figure the page already strikes.
+            #}
+            <dl class="mt-2 flex flex-col divide-y divide-line" id="concentration-limits">
+              {% for row in concentration_rows %}
+                <div class="py-3" data-concentration="{{ row.key }}" data-over="{{ 'yes' if row.over else 'no' }}">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <dt class="min-w-0 type-body-sm text-ink">{{ row.label }}</dt>
+                    <dd class="flex shrink-0 items-baseline gap-2"><span class="type-data text-ink">{{ row.value }}</span><span class="type-caption {% if row.over or row.near %}text-warning-ink{% else %}text-ink-muted{% endif %}" data-field="ceiling">{{ row.ceiling }}{% if row.over %} &mdash; over the ceiling you set{% endif %}</span></dd>
+                  </div>
+                  <div class="mt-1.5 h-1 bg-surface-sunken" aria-hidden="true"><div class="h-1 {% if row.over or row.near %}bg-warning-ink{% else %}bg-verification{% endif %}" style="width: {{ row.width }}%"></div></div>
+                </div>
+              {% endfor %}
+            </dl>
+            {% if not limits_stated %}
+              <p class="mt-2 type-caption text-ink-muted" id="no-limits">You have stated no limit on this book. <a href="/platform/book" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">State one on Platform</a>; nothing is proposed.</p>
+            {% endif %}
+          {% elif concentration %}
+            <p id="concentration" class="mt-2 type-body text-ink">The largest five holdings are <span class="type-data-sm">{{ concentration.value }}</span> of the book.</p>
+          {% else %}
+            <p class="mt-2 type-body-sm text-ink-muted">Nothing priced to weigh.</p>
+          {% endif %}
+        </section>
+
+        {% for band in exposure if band.kind == "sector" %}
+          <section class="rounded-lg border border-line bg-surface px-5 py-4" id="by-sector" aria-labelledby="by-sector-heading">
+            <h2 id="by-sector-heading" class="type-heading text-ink">By sector</h2>
+            <dl class="mt-2 flex flex-col divide-y divide-line">
+              {% for row in band.slices %}
+                <div class="py-3" data-sector="{{ row.label }}" data-over="{{ 'yes' if row.over else 'no' }}">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <dt class="min-w-0 type-body-sm text-ink">{{ row.label }}</dt>
+                    <dd class="flex shrink-0 items-baseline gap-2"><span class="type-data text-ink">{{ row.share }}</span><span class="type-caption {% if row.over or row.near %}text-warning-ink{% else %}text-ink-muted{% endif %}">{{ row.ceiling }}{% if row.over %} &mdash; over it{% endif %}</span></dd>
+                  </div>
+                  <div class="mt-1.5 h-1 bg-surface-sunken" aria-hidden="true"><div class="h-1 {% if row.over or row.near %}bg-warning-ink{% else %}bg-verification{% endif %}" style="width: {{ row.width }}%"></div></div>
+                </div>
+              {% endfor %}
+            </dl>
+            {% if band.unknown %}<p class="mt-1 type-caption text-ink-muted">{{ band.unknown.label }}: {{ band.unknown.members }} · {{ band.unknown.share }}</p>{% endif %}
+            <p class="mt-2 type-caption text-ink-muted">Sectors come from each filer&rsquo;s own classification code, not from a vendor&rsquo;s taxonomy.</p>
+          </section>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <section class="rounded-lg border border-decision bg-surface p-5" id="shock" aria-labelledby="shock-heading">
+          <p class="type-eyebrow text-decision">Your stated shock</p>
+          <h2 id="shock-heading" class="mt-1 type-heading text-ink">What would it do?</h2>
+          <form method="post" action="/risk/shock" class="mt-3 flex flex-col gap-2" id="state-shock">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <div class="flex items-center gap-2">
+              <label for="shock-percent" class="sr-only">The fall, in per cent</label>
+              <input id="shock-percent" name="percent" inputmode="decimal" required size="4"
+                     class="min-h-11 w-20 shrink-0 rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink" />
+              <span class="shrink-0 type-body-sm text-ink">% fall in</span>
+              <label for="shock-set" class="sr-only">What it falls in</label>
+              <select id="shock-set" name="set" class="min-h-11 min-w-0 flex-1 rounded-sm border border-control-boundary bg-surface px-2 type-body-sm text-ink">
+                {% for group in shock_sets %}
+                  <optgroup label="{{ group.label }}">
+                    {% for choice in group.choices %}<option value="{{ choice.value }}">{{ choice.label }}</option>{% endfor %}
+                  </optgroup>
+                {% endfor %}
+              </select>
+            </div>
+            <button type="submit" class="flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">State it</button>
+          </form>
+          <p class="mt-2 type-caption text-ink-muted">The shock and the set are yours. The platform proposes neither.</p>
+          {% if latest_shock %}
+            <div class="mt-4 rounded-md {% if latest_shock.is_loss %}bg-failure-wash{% else %}bg-surface-sunken{% endif %} p-4" data-shock-result="{{ latest_shock.id }}">
+              <p class="type-eyebrow {% if latest_shock.is_loss %}text-failure-ink{% else %}text-ink-muted{% endif %}">Result</p>
+              <p class="mt-0.5 type-body-sm text-ink" data-field="shock-name">{{ latest_shock.name }}</p>
+              {% if latest_shock.problem %}
+                <p class="mt-1 type-body-sm text-ink-muted">{{ latest_shock.problem }}</p>
+              {% else %}
+                <p class="mt-1 type-data-xl {% if latest_shock.is_loss %}text-failure-ink{% else %}text-ink{% endif %}">{{ latest_shock.pnl }}</p>
+                <p class="type-data-sm text-ink-muted">{{ latest_shock.impact }} of the book</p>
+                {% if latest_shock.positions %}
+                  <p class="mt-2 type-body-sm text-ink">{% for position in latest_shock.positions %}{{ position.label }} {{ position.pnl }}{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
+                {% endif %}
+              {% endif %}
+            </div>
+            <a href="#scenarios" class="mt-3 flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-sunken">Show the working</a>
+          {% endif %}
+        </section>
+
+        <aside class="rounded-lg border border-line bg-surface p-5" id="will-not-do" aria-labelledby="will-not-do-heading">
+          <h2 id="will-not-do-heading" class="type-eyebrow text-ink-muted">What this page will not do</h2>
+          <p class="mt-2 type-body-sm text-ink">No value-at-risk and no correlation matrix. Every figure states its method beside it; if the method is not on the page, the number is not on the page either.</p>
+        </aside>
+      </div>
+    </div>
+
+    <h2 class="mt-10 type-title-2 text-ink" id="the-working">The working</h2>
+    <p class="mt-1 mb-4 max-w-prose type-body-sm text-ink-muted">{{ verdict.composed }} {{ reading_state }}</p>
 
     {% call ui.sheet("What the book would have done", subtitle="With today's weights held fixed, over the year to " ~ as_of.strftime("%d %B %Y") ~ " from " ~ window_from ~ ", in each listing's own currency. How the book as it stands would have moved — not how it did; that is the portfolio page's return.", id="movement") %}
       {% if problem %}
@@ -58,21 +166,21 @@
       {{ read_beside("movement") }}
     {% endcall %}
 
-    {% call ui.sheet("Exposure", subtitle="The largest slices of each cut. The whole of each band is on the portfolio page.", id="exposure") %}
+    {% call ui.sheet("Exposure", subtitle="The largest slices of each cut, the concentration and the sectors above among them. The whole of each band is on the portfolio page.", id="exposure") %}
       {% if exposure %}
-        {% if concentration %}
-          <p id="concentration" class="type-body text-ink">The largest five holdings are <span class="type-data-sm">{{ concentration.value }}</span> of the book.</p>
-        {% endif %}
         <div class="mt-4 grid gap-6 lg:grid-cols-2">
           {% for band in exposure %}
             <div data-band="{{ band.kind }}">
               <h3 class="type-body-strong text-ink">{{ band.title }}</h3>
               <dl class="mt-2 space-y-2">
                 {% for row in band.slices %}
-                  <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-3" data-slice="{{ row.label }}">
+                  <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-3" data-slice="{{ row.label }}" data-over="{{ 'yes' if row.over else 'no' }}">
                     <dt class="type-body-sm text-ink">{{ row.label }}</dt>
                     <dd class="type-data-sm tabular-nums text-ink">{{ row.share }}</dd>
-                    <div class="col-span-2 h-1 rounded-full bg-surface-sunken"><div class="h-1 rounded-full bg-verification" style="width: {{ row.width }}%"></div></div>
+                    <div class="col-span-2 h-1 rounded-full bg-surface-sunken"><div class="h-1 rounded-full {% if row.over %}bg-warning-ink{% else %}bg-verification{% endif %}" style="width: {{ row.width }}%"></div></div>
+                    {% if row.ceiling %}
+                      <dd class="col-span-2 type-body-sm {% if row.over %}text-warning-ink{% else %}text-ink-muted{% endif %}" data-field="ceiling">{{ row.ceiling }}{% if row.over %} &mdash; over it{% endif %}</dd>
+                    {% endif %}
                   </div>
                 {% endfor %}
               </dl>
@@ -171,7 +279,7 @@
         {% for index in shock_rows %}
           <div class="grid gap-4 sm:grid-cols-3" data-shock-row="{{ index }}">
             {{ ui.field("kind_" ~ index, "Reaches", choices=kinds) }}
-            {{ ui.field("target_" ~ index, "Named", hint="A sector, a currency code, a listing country or a ticker, as the exposure bands name it. Empty for every holding.") }}
+            {{ ui.field("target_" ~ index, "Named", hint="A sector, a currency code, a listing country or a ticker, as the exposure bands name it; for the largest holdings, how many. Empty for every holding.") }}
             {{ ui.field("shock_" ~ index, "Moves by, %", type="number", step="0.1", hint="-20 is a fall of a fifth.") }}
           </div>
         {% endfor %}

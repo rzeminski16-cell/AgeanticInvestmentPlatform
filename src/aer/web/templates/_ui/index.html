@@ -18,7 +18,7 @@
   than a page that fails when somebody first reaches for it.
 #}
 {% from "_ui/provenance.html" import provenance as _provenance, confirmation as _confirmation %}
-{% from "_ui/semantics.html" import status as _status, grade as _grade, callout as _callout %}
+{% from "_ui/semantics.html" import status as _status, said as _said, grade as _grade, callout as _callout %}
 {% from "_ui/controls.html" import button as _button, field as _field, choice_group as _choice_group, disclosure as _disclosure %}
 {% from "_ui/page.html" import page_header as _page_header, verdict as _verdict, sheet as _sheet, figure as _figure %}
 {% from "_ui/records.html" import definition_list as _definition_list, record_list as _record_list, record as _record, table as _table, cell as _cell %}
@@ -28,6 +28,7 @@
 {% set provenance = _provenance %}
 {% set confirmation = _confirmation %}
 {% set status = _status %}
+{% set said = _said %}
 {% set grade = _grade %}
 {% set callout = _callout %}
 {% set button = _button %}

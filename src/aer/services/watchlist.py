@@ -59,11 +59,13 @@ __all__ = [
     "Drain",
     "EntryState",
     "StandingBudget",
+    "change_price_rule",
     "commission",
     "commission_next",
     "entries_for",
     "entry_of",
     "follow",
+    "followed_entry",
     "queue_for",
     "standing_budget",
     "state_of",
@@ -210,15 +212,7 @@ async def follow(
     if not name or not symbol or not venue:
         message = "Following a company needs its name, its ticker and its exchange."
         raise ValidationError(message, context={"field": "company_name"})
-    if price_move_threshold_pct is not None and not 0 < price_move_threshold_pct <= _WHOLE_PRICE:
-        message = (
-            "The price move worth telling you about is a percentage above 0 and at most "
-            f"100; got {price_move_threshold_pct}."
-        )
-        raise ValidationError(message, context={"field": "price_move_threshold_pct"})
-    if price_move_window_days < 1:
-        message = f"A price move is measured over at least a day; got {price_move_window_days}."
-        raise ValidationError(message, context={"field": "price_move_window_days"})
+    _check_price_rule(price_move_threshold_pct, price_move_window_days)
     if not TICKER_PATTERN.match(symbol):
         # The request the commission creates would refuse it, and an entry the queue
         # cannot commission at its head would stop everything behind it.
@@ -279,6 +273,79 @@ async def follow(
     return entry
 
 
+def _check_price_rule(threshold_pct: Decimal | None, window_days: int) -> None:
+    """The price-move rule a listing carries: a share of the price, over at least a day."""
+    if threshold_pct is not None and not 0 < threshold_pct <= _WHOLE_PRICE:
+        message = (
+            "The price move worth telling you about is a percentage above 0 and at most "
+            f"100; got {threshold_pct}."
+        )
+        raise ValidationError(message, context={"field": "price_move_threshold_pct"})
+    if window_days < 1:
+        message = f"A price move is measured over at least a day; got {window_days}."
+        raise ValidationError(message, context={"field": "price_move_window_days"})
+
+
+async def change_price_rule(
+    session: AsyncSession,
+    *,
+    user: User,
+    entry: WatchlistEntry,
+    threshold_pct: Decimal | None,
+    window_days: int,
+) -> bool:
+    """Change the move a followed listing alerts past, and the days it is measured over.
+
+    The alert page's *Change it* (page specification §12.5): too many dismissals mean the
+    threshold is wrong, not the market, so the page that shows the count is where it is
+    changed. ``None`` hands the listing back to the account's default. The row is changed in
+    place and the audit event keeps what it was, because what raised an alert is in the
+    alert's own record and nothing reads a past threshold from here.
+
+    Returns:
+        Whether anything changed. The same rule stated again records nothing.
+
+    Raises:
+        ValidationError: If the threshold or the window is not one.
+        ConflictError: If the entry is not this person's, or is no longer followed.
+    """
+    if entry.user_id != user.id:
+        message = "A listing's alert is changed by the person following it."
+        raise ConflictError(message, context={"entry_id": str(entry.id)})
+    if entry.is_withdrawn:
+        message = f"{entry.listing} is no longer followed, so it raises no alert to change."
+        raise ConflictError(message, context={"entry_id": str(entry.id)})
+    _check_price_rule(threshold_pct, window_days)
+    before = (entry.price_move_threshold_pct, entry.price_move_window_days)
+    if before == (threshold_pct, window_days):
+        return False
+    entry.price_move_threshold_pct = threshold_pct
+    entry.price_move_window_days = window_days
+    await session.flush()
+    await _record(
+        session,
+        actor=user.email,
+        event_type="watchlist.price_rule_changed",
+        entry_id=entry.id,
+        payload={
+            "entry_id": str(entry.id),
+            "listing": entry.listing,
+            "was": {
+                "price_move_threshold_pct": str(before[0]) if before[0] is not None else None,
+                "price_move_window_days": before[1],
+            },
+            "now": {
+                "price_move_threshold_pct": (
+                    str(threshold_pct) if threshold_pct is not None else None
+                ),
+                "price_move_window_days": window_days,
+            },
+        },
+    )
+    _log.info("watchlist.price_rule_changed", entry_id=str(entry.id), listing=entry.listing)
+    return True
+
+
 async def stop_following(
     session: AsyncSession, *, user: User, entry: WatchlistEntry, reason: str
 ) -> WatchlistEntry:
@@ -326,6 +393,21 @@ async def entries_for(
     if not include_withdrawn:
         statement = statement.where(WatchlistEntry.withdrawn_at.is_(None))
     return list(await session.scalars(statement))
+
+
+async def followed_entry(
+    session: AsyncSession, *, user_id: uuid.UUID, ticker: str, exchange: str
+) -> WatchlistEntry | None:
+    """The entry this person follows a listing through, or none once they stopped."""
+    found: WatchlistEntry | None = await session.scalar(
+        select(WatchlistEntry).where(
+            WatchlistEntry.user_id == user_id,
+            WatchlistEntry.ticker == ticker,
+            WatchlistEntry.exchange == exchange,
+            WatchlistEntry.withdrawn_at.is_(None),
+        )
+    )
+    return found
 
 
 async def entry_of(

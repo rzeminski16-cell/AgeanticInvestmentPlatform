@@ -33,6 +33,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from itertools import pairwise
 from typing import Any, Final
 
 import structlog
@@ -456,14 +457,15 @@ async def _last_reading(
 async def _chart_series(
     session: AsyncSession, *, security: Security, as_of: date
 ) -> tuple[tuple[date, Decimal], ...]:
-    """The last fourteen closes, for the one chart the specification sanctions here."""
+    """The last fifteen closes: the fourteen sessions the specification's chart draws, each
+    against the close before it."""
     try:
         series = await adjusted_series_for(
             session, security, as_of=as_of, since=as_of - timedelta(days=CHART_SESSIONS * 2)
         )
     except (AerError, CalculationError):
         return ()
-    return tuple((bar.on, bar.close) for bar in series.bars[-CHART_SESSIONS:])
+    return tuple((bar.on, bar.close) for bar in series.bars[-(CHART_SESSIONS + 1) :])
 
 
 # -- What the record says, in words ------------------------------------------------------------
@@ -554,8 +556,10 @@ def observed_of(move: PriceMove) -> dict[str, Any]:
 def figures_of(finding: Finding) -> dict[str, Any] | None:
     """The finding page's price-move block, rendered from `observed`; ``None`` for a reading.
 
-    Nothing here is computed: the page shows what the pass recorded, and the chart's bar
-    heights are the one exception — a proportion of the tallest close, which is layout.
+    Nothing here is computed but the chart's geometry: each session's close against the one
+    before, drawn up or down from a baseline as a share of the largest such step. That is
+    layout — no figure on the page is read from it, and each column's own close is the
+    stored bar it was drawn from.
     """
     if finding.kind is not FindingKind.PRICE_MOVE or not finding.observed:
         return None
@@ -568,14 +572,18 @@ def figures_of(finding: Finding) -> dict[str, Any] | None:
         headline = "The price moved, and so did a premise."
     else:
         headline = "The price moved. Your thesis did not."
-    series = [(on, Decimal(close)) for on, close in observed.get("series") or []]
-    tallest = max((close for _, close in series), default=Decimal(0))
+    closes = [(on, Decimal(close)) for on, close in observed.get("series") or []]
+    steps = [(on, close, close - before) for (_, before), (on, close) in pairwise(closes)]
+    largest = max((abs(step) for _, _, step in steps), default=Decimal(0))
     return {
         "headline": headline,
         "company": observed.get("company", ""),
         "listing": observed.get("listing", ""),
         "direction": observed.get("direction", ""),
         "move_pct": observed.get("move_pct", ""),
+        # The size without its sign, for the page that says the direction in a word and a
+        # mark beside it rather than leaving a minus sign to carry it alone.
+        "move_size": str(observed.get("move_pct", "")).lstrip("+-"),
         "start_close": money(Decimal(observed["start_close"]), observed.get("currency", "")),
         "end_close": money(Decimal(observed["end_close"]), observed.get("currency", "")),
         "window_days": observed.get("window_days", 7),
@@ -594,9 +602,11 @@ def figures_of(finding: Finding) -> dict[str, Any] | None:
             {
                 "on": on,
                 "close": str(close),
-                "height": int((close / tallest) * 100) if tallest > 0 else 0,
+                "rose": step >= 0,
+                # Half the chart each way from the baseline, so the largest step fills it.
+                "height": max(1, int(abs(step) / largest * 50)) if largest > 0 else 0,
             }
-            for on, close in series
+            for on, close, step in steps
         ],
     }
 

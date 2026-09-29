@@ -36,7 +36,6 @@ from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.web.portfolio import pages as pages_module
 from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security, _Unheld
-from aer.web.vocabulary import Tone
 from tests import portfolio_fixtures
 
 pytestmark = pytest.mark.integration
@@ -479,11 +478,13 @@ class TestNamingTheSecurityYouMean:
         assert "verified" in NO_LISTINGS
 
 
-class TestTheBookLeadsWithAVerdict:
-    """Tranche 8: the page opens with a sentence composed from what the walk resolved,
-    and an incomplete valuation structurally cannot wear the success tone."""
+class TestTheBookLeadsWithItsTheses:
+    """The page opens with how many theses still hold and what the rest have instead (the
+    drawing's sentence), and the valuation beside it withholds every total while a position
+    cannot be valued — a partial book shown as a total is the failure the header exists to
+    stop."""
 
-    async def test_a_fully_valued_book_says_so_and_carries_the_grade_once(
+    async def test_a_fully_valued_book_states_its_total_and_its_grade(
         self, db_session, book, context
     ) -> None:
         await funded(db_session, book)
@@ -491,17 +492,17 @@ class TestTheBookLeadsWithAVerdict:
         view = await view_of(db_session, context, book)
 
         totals = pages_module._totals(view, book["portfolio"])
-        lead = pages_module._book_verdict(view, totals=totals)
 
-        assert lead.tone is Tone.SUCCESS
-        assert "Fully valued" in lead.composed
-        assert "typed" in lead.composed
+        assert totals["is_complete"] is True
+        assert totals["net_assets"] != pages_module.NO_FIGURE
+        # Typed entries: the page states the grade once, in its notice.
+        assert view.rests_on_anything_typed
 
-    async def test_an_incomplete_book_refuses_the_all_clear(
+    async def test_an_incomplete_book_withholds_every_total(
         self, db_session, book, context
     ) -> None:
-        """A GBP deposit and a franc one with no rate to join them: the four figures are
-        withheld, and the verdict says so in the warning family, never the success one."""
+        """A GBP deposit and a franc one with no rate to join them: every figure that is a
+        sum over the rows is withheld together, never a subtotal shown as the total."""
         await funded(db_session, book)
         await trade(
             db_session,
@@ -515,21 +516,22 @@ class TestTheBookLeadsWithAVerdict:
         view = await view_of(db_session, context, book)
 
         totals = pages_module._totals(view, book["portfolio"])
-        lead = pages_module._book_verdict(view, totals=totals)
 
-        assert lead.tone is not Tone.SUCCESS
-        assert "withheld" in lead.composed
+        assert totals["is_complete"] is False
+        withheld = {totals[key] for key in ("net_assets", "securities", "cash", "unrealised")}
+        assert withheld == {pages_module.NO_FIGURE}
 
-    async def test_an_empty_book_is_muted_rather_than_reassuring(
-        self, db_session, book, context
-    ) -> None:
-        view = await view_of(db_session, context, book)
+    def test_the_sentence_says_what_the_others_have_instead(self) -> None:
+        detail = pages_module._thesis_detail({"broke": 2, "under_review": 1, "none": 1})
+        card = pages_module._needs_a_decision({"broke": 0, "under_review": 2, "none": 1})
 
-        totals = pages_module._totals(view, book["portfolio"])
-        lead = pages_module._book_verdict(view, totals=totals)
-
-        assert lead.tone is Tone.MUTED
-        assert "Nothing is recorded yet" in lead.composed
+        assert detail == "Two broke, one is under review, and one has nothing written down at all."
+        assert pages_module._thesis_detail({"broke": 0, "under_review": 0, "none": 0}) == ""
+        # Under review asks nothing of the book yet; a holding with no thesis does.
+        assert card is not None
+        assert card["sentence"].startswith("One position has no thesis at all.")
+        assert card["href"] == "/theses"
+        assert pages_module._needs_a_decision({"broke": 0, "under_review": 2, "none": 0}) is None
 
 
 class TestTheListingArrivesWithItsIssuer:

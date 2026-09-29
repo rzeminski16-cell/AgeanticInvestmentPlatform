@@ -52,55 +52,82 @@
 
 {% block content %}
   {#
-    The as-at lens is part of the heading, not a minor filter: which instant the book is
-    read at changes every figure below, and the GET form makes a view a link somebody can
-    keep — "as it stood on the thirtieth" is a thing an operator sends themselves.
+    The header (page specification §2.1, drawn as Portfolio): the page's name and the one
+    sentence it exists to deliver on the left — how many theses still hold, and what the
+    rest have instead — and the book's value with the day's move on the right. Cash and the
+    count of positions sit under the value, and the four go blank together, for the reason
+    the tiles they replaced did: each is a sum over the rows that resolved, and a partial
+    sum shown as a total overstates every weight. The move is a traced change between two
+    valuations of the book, never a subtraction here.
   #}
-  {% call ui.page_header(book.name, eyebrow="THE BOOK") %}
-    <p class="type-body text-ink-muted">
-      As at <span id="as-of-date" class="type-data-sm text-ink">{{ as_of.isoformat() }}</span>
-      &middot; last market close held &middot; reported in {{ book.base_currency }}.
+  <header class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <h1 class="type-title-1 text-ink">The book</h1>
+      <p class="mt-2 max-w-3xl type-body-lg text-ink" id="thesis-sentence">
+        <span class="font-semibold">{{ thesis_sentence }}</span>
+        {% if thesis_detail %}<span class="text-ink-muted">{{ thesis_detail }}</span>{% endif %}
+      </p>
+    </div>
+    <dl class="flex flex-col items-start gap-0.5 sm:items-end sm:text-right" id="book-header">
+      <dt class="sr-only">Total value</dt>
+      <dd class="type-data-xl text-ink" data-field="total-value">{{ header.value }}</dd>
+      <dt class="sr-only">Day&rsquo;s move</dt>
+      <dd class="type-data-sm {% if header.is_down %}text-failure-ink{% else %}text-ink-muted{% endif %}" data-field="days-move">
+        {%- if header.move -%}
+          <span aria-hidden="true">{% if header.is_down %}&#9662;{% else %}&#9652;{% endif %}</span> {{ header.move.lstrip("+-") }} today<span class="sr-only">, {% if header.is_down %}down{% else %}up{% endif %}</span>
+        {%- else -%}—{%- endif -%}
+      </dd>
+      <div class="mt-1 flex gap-3 type-caption text-ink-muted">
+        <span><dt class="inline">Cash</dt> <dd class="inline type-data-sm text-ink" data-field="cash">{{ header.cash }}</dd></span>
+        <span><dt class="inline">Positions</dt> <dd class="inline type-data-sm text-ink" data-field="positions">{{ header.positions }}</dd></span>
+      </div>
+    </dl>
+  </header>
+
+  {#
+    The as-at lens, under the header rather than in it: which instant the book is read at
+    changes every figure, and the GET form makes a view a link somebody can keep — "as it
+    stood on the thirtieth" is a thing an operator sends themselves.
+  #}
+  <div class="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
+    <p class="type-body-sm text-ink-muted">
+      {{ book.name }} &middot; valued at the close of <span id="as-of-date" class="type-data-sm text-ink">{{ as_of.isoformat() }}</span>
+      &middot; reported in {{ book.base_currency }}
+      {%- if not totals.is_complete %} &middot; <span class="text-warning-ink">Unavailable while a position cannot be valued.</span>{% endif %}
     </p>
     <form method="get" action="/portfolio" class="flex items-end gap-2">
       <div>
-        <label for="as_of" class="block type-label text-ink-muted">Show as at</label>
+        <label for="as_of" class="block type-caption text-ink-muted">Show as at</label>
         <input
           id="as_of"
           name="as_of"
           type="date"
           value="{{ as_of.isoformat() }}"
           max="{{ today }}"
-          class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          class="mt-1 min-h-9 rounded-sm border border-control-boundary bg-surface px-2 type-body-sm text-ink"
         />
       </div>
       <button
         id="reprice"
         type="submit"
-        class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
-      >
-        Show
-      </button>
+        class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+      >Show</button>
     </form>
-  {% endcall %}
-
-  {{ ui.verdict("THE BOOK, VALUED", verdict.composed, tone=verdict.tone.value) }}
+  </div>
 
   {% if view.rests_on_anything_typed %}
     {#
-      The book-level grade, stated once and beside the verdict (§10.1). The per-row chips
-      stay for the rows; this is the sentence about the whole.
+      The book-level grade, stated once (§10.1). The per-row chips stay for the rows; this is
+      the sentence about the whole.
     #}
-    <p
-      id="attested-notice"
-      class="max-w-prose rounded-md border border-line bg-surface-sunken p-3 type-body-sm text-ink-muted"
-    >
+    <p id="attested-notice" class="mb-4 max-w-prose type-body-sm text-ink-muted">
       Some figures here rest on transactions you typed rather than documented. They are
       shown in full on your own copy and withheld from anything shared, by construction.
     </p>
   {% endif %}
 
   {% if view.problem %}
-    <div id="portfolio-problem">
+    <div id="portfolio-problem" class="mb-4">
       {{ ui.callout(
         "warning",
         "The book cannot be fully valued as at this date",
@@ -109,38 +136,9 @@
     </div>
   {% endif %}
 
-  {#
-    The header band (page specification §2.1): total value, the day's move, cash and the
-    count of positions — and beneath them the one sentence the page exists to deliver. All
-    four go blank together, for the reason the four tiles they replaced did: each is a sum
-    over the rows that resolved, and a partial sum shown as a total overstates every weight.
-    The move is a traced change between two valuations of the book, never a subtraction here.
-  #}
-  {% set unavailable = "Unavailable while a position cannot be valued." %}
-  <dl class="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4" id="book-header">
-    <div>
-      <dt class="type-label text-ink-muted">Total value</dt>
-      <dd class="type-data-xl text-ink" data-field="total-value">{{ header.value }}</dd>
-    </div>
-    <div>
-      <dt class="type-label text-ink-muted">Day&rsquo;s move</dt>
-      <dd class="type-data {% if header.is_down %}text-failure-ink{% else %}text-ink{% endif %}" data-field="days-move">{{ header.move or "—" }}</dd>
-    </div>
-    <div>
-      <dt class="type-label text-ink-muted">Cash</dt>
-      <dd class="type-data text-ink" data-field="cash">{{ header.cash }}</dd>
-    </div>
-    <div>
-      <dt class="type-label text-ink-muted">Positions</dt>
-      <dd class="type-data text-ink" data-field="positions">{{ header.positions }}</dd>
-    </div>
-  </dl>
-  <p class="mt-3 max-w-prose type-body text-ink" id="thesis-sentence">{{ thesis_sentence }}</p>
-  {% if not totals.is_complete %}<p class="mt-1 type-body-sm text-ink-muted">{{ unavailable }}</p>{% endif %}
-
   {% if prices_stale %}
     {# Prices stale (§2's states): the last close held is not today's. The table renders in full. #}
-    <div class="mt-4" id="prices-stale">
+    <div class="mb-4" id="prices-stale">
       {{ ui.callout("warning", "Valued at the close of " ~ as_of.isoformat() ~ ".", "Today's prices have not arrived. Every figure on this page is at that close.") }}
     </div>
   {% endif %}
@@ -153,38 +151,35 @@
     quantity and the pooled cost stay under the company as a line, because this is the one
     screen an operator reconciles against a statement and a row without them cannot be.
   #}
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]" id="dashboard">
-  {% call ui.sheet("Positions", id="positions") %}
+  <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start" id="dashboard">
+  <section class="min-w-0 rounded-lg border border-line bg-surface px-5 py-4" id="positions" aria-label="Positions">
     {% if all_rows or cash %}
-      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <form method="get" action="/portfolio" class="flex items-end gap-2" id="sort-form">
-          {% if show != "all" %}<input type="hidden" name="show" value="{{ show }}" />{% endif %}
-          <div>
-            <label for="sort" class="block type-label text-ink-muted">Sort by</label>
-            <select id="sort" name="sort" class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink">
-              {% for option in sorts %}
-                <option value="{{ option.value }}" {% if option.value == sort %}selected{% endif %}>{{ option.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <button id="apply-sort" type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Sort</button>
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <p class="type-caption text-ink-muted">
+          <span class="type-eyebrow text-ink-muted">Sorted by {{ sort_words }}</span>
+          {% if sort == "conviction" %}&mdash; not by profit. A position with nothing written down sorts to the top.{% endif %}
+        </p>
+        <form method="get" action="/portfolio" class="flex items-center gap-2" id="sort-form">
+          <label for="show" class="sr-only">Show</label>
+          <select id="show" name="show" class="min-h-9 rounded-sm border border-control-boundary bg-surface px-2 type-label text-ink">
+            {% for filter in filters %}
+              <option value="{{ filter.value }}" {% if filter.is_current %}selected{% endif %}>{{ filter.label }}</option>
+            {% endfor %}
+          </select>
+          <label for="sort" class="sr-only">Sort by</label>
+          <select id="sort" name="sort" class="min-h-9 rounded-sm border border-control-boundary bg-surface px-2 type-label text-ink">
+            {% for option in sorts %}
+              <option value="{{ option.value }}" {% if option.value == sort %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+          <button id="apply-sort" type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Show</button>
         </form>
-        <nav aria-label="Filter" class="flex flex-wrap gap-2" id="position-filters">
-          {% for filter in filters %}
-            <a
-              href="/portfolio?show={{ filter.value }}{% if sort != 'conviction' %}&amp;sort={{ sort }}{% endif %}"
-              class="inline-flex min-h-9 items-center rounded-sm border px-3 type-label {% if filter.is_current %}border-verification bg-verification-wash text-verification-strong{% else %}border-control-boundary text-ink hover:bg-surface-selected{% endif %}"
-              data-filter="{{ filter.value }}"
-              {% if filter.is_current %}aria-current="page"{% endif %}
-            >{{ filter.label }}</a>
-          {% endfor %}
-        </nav>
       </div>
-      {% if show == "over_ceiling" %}
+      {% if show == "over_ceiling" and not limits_stated %}
         <p class="mb-3 max-w-prose type-body-sm text-ink-muted" id="no-ceiling">
-          No ceiling is stored anywhere in the platform, so no position can be over one. The
-          filter is offered because the specification names it, and it says so rather than
-          pretending to have looked.
+          You have set no ceiling, so no position can be over one.
+          <a href="/platform/book" class="text-verification underline underline-offset-[3px]">State one on Platform</a>;
+          nothing is proposed.
         </p>
       {% elif show != "all" and not rows %}
         <p class="mb-3 max-w-prose type-body-sm text-ink-muted" id="nothing-matches">
@@ -192,46 +187,50 @@
         </p>
       {% endif %}
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[64rem]" id="holdings" data-sort="{{ sort }}">
+        <table class="w-full min-w-[46rem]" id="holdings" data-sort="{{ sort }}">
           <caption class="sr-only">
             Every position with what the record says about it, then cash, with the grade of
             evidence under each.
           </caption>
           <thead class="text-left">
-            <tr class="border-b border-line-strong">
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Company</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Weight</th>
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Thesis</th>
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Checked</th>
-              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Risk</th>
-              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Value</th>
-              <th scope="col" class="py-2 text-right type-label text-ink-muted">Unrealised</th>
+            <tr class="border-b border-line">
+              <th scope="col" class="py-2 pr-3 type-eyebrow text-ink-muted">Company</th>
+              <th scope="col" class="py-2 pr-3 text-right type-eyebrow text-ink-muted">Weight</th>
+              <th scope="col" class="py-2 pr-3 type-eyebrow text-ink-muted">Thesis</th>
+              <th scope="col" class="py-2 pr-3 type-eyebrow text-ink-muted">Checked</th>
+              <th scope="col" class="py-2 pr-3 type-eyebrow text-ink-muted">Risk</th>
+              <th scope="col" class="py-2 pr-3 text-right type-eyebrow text-ink-muted">Value</th>
+              <th scope="col" class="py-2 text-right type-eyebrow text-ink-muted">Unrealised</th>
             </tr>
           </thead>
           <tbody class="tabular-nums">
             {% for row in rows %}
-              <tr class="border-b border-line align-top" data-holding="{{ row.key }}" data-thesis-state="{{ row.thesis_state }}">
-                <th scope="row" class="py-2 pr-4 text-left font-normal">
-                  <a href="{{ row.company_href }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="company">{{ row.name }}</a>
-                  <span class="ml-1 type-data-sm text-ink-subtle" data-field="ticker">{{ row.ticker }} &middot; {{ row.exchange }}</span>
-                  {{ grade_chip(row.grade, row.grade_label) }}
+              <tr class="border-b border-line align-middle" data-holding="{{ row.key }}" data-thesis-state="{{ row.thesis_state }}">
+                <th scope="row" class="py-3 pr-3 text-left font-normal">
+                  <a href="{{ row.company_href }}" class="type-body-strong text-ink hover:text-verification hover:underline" data-field="company">{{ row.name }}</a>
+                  <span class="block type-data-sm text-ink-muted" data-field="ticker">{{ row.ticker }} &middot; {{ row.exchange }}{{ grade_chip(row.grade, row.grade_label) }}</span>
                   {% if row.quantity %}
-                    <span class="block type-data-sm text-ink-muted"><span data-field="quantity">{{ row.quantity }}</span> shares{% if row.cost %}, <span data-field="cost">{{ row.cost }}</span> pooled cost{% endif %}</span>
+                    <span class="block type-caption text-ink-muted"><span data-field="quantity">{{ row.quantity }}</span> shares{% if row.cost %}, <span data-field="cost">{{ row.cost }}</span> pooled cost{% endif %}</span>
                   {% endif %}
                   {% if not row.has_company %}
-                    <span class="block type-body-sm text-ink-muted">No company record &mdash; research it to start one.</span>
+                    <span class="block type-caption text-ink-muted">No company record &mdash; research it to start one.</span>
                   {% endif %}
                 </th>
-                <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="weight">
+                <td class="py-3 pr-3 text-right type-data {% if row.over_ceiling %}text-warning-ink{% else %}text-ink{% endif %}" data-field="weight" {% if row.ceiling_words %}title="Against {{ row.ceiling_words }}"{% endif %}>
                   {{ row.weight }}
-                  {% if row.weight %}<span class="mt-1 block h-1 w-full min-w-[3rem] bg-line" aria-hidden="true"><span class="block h-1 bg-verification" style="width: {{ row.weight_width }}%"></span></span>{% endif %}
+                  {#
+                    The bar in the warning ink past the operator's own ceiling, with the
+                    ceiling's line drawn where it falls (§2.2, corrected 28 September). The
+                    line is the limit's value, drawn; nothing new is computed.
+                  #}
+                  {% if row.weight %}<span class="relative mt-1 ml-auto block h-1 w-20 bg-line" aria-hidden="true"><span class="block h-1 {% if row.over_ceiling %}bg-warning-ink{% else %}bg-verification{% endif %}" style="width: {{ row.weight_width }}%"></span>{% if row.ceiling_left is not none %}<span class="absolute -top-0.5 h-2 w-px bg-ink" style="left: {{ row.ceiling_left }}%" data-ceiling-line></span>{% endif %}</span>{% endif %}
                 </td>
                 {% if row.problem %}
                   {#
                     A holding nobody could price, or one that closed. The reason goes where
                     the figures would be: a blank cell reads as nil, which is a claim.
                   #}
-                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="5">
+                  <td class="py-3 pr-3 text-right type-body-sm text-ink-subtle" colspan="5">
                     <span data-field="problem">
                       {% if row.is_closed %}
                         <a href="/portfolio/positions/{{ row.security_id }}" class="underline underline-offset-[3px] hover:text-ink">Closed</a>
@@ -239,23 +238,29 @@
                     </span>
                   </td>
                 {% else %}
-                  <td class="py-2 pr-4" data-field="thesis">
-                    {{ ui.status(row.thesis_tone, row.thesis_words) }}
-                    {% if row.broken_premises > 1 %}<span class="block type-data-sm text-ink-muted">{{ row.broken_premises }} broke</span>{% endif %}
+                  <td class="py-3 pr-3" data-field="thesis">
+                    <span class="inline-flex max-w-[9rem] rounded-xs px-1.5 py-0.5 type-data-sm {% if row.thesis_tone == 'success' %}bg-success-wash text-success-ink{% elif row.thesis_tone == 'failure' %}bg-failure-wash text-failure-ink{% elif row.thesis_tone == 'warning' %}bg-warning-wash text-warning-ink{% else %}bg-muted-wash text-muted-ink{% endif %}">{{ row.thesis_words }}</span>
+                    {% if row.broken_premises > 1 %}<span class="block type-caption text-ink-muted">{{ row.broken_premises }} broke</span>{% endif %}
                   </td>
-                  <td class="py-2 pr-4 type-data-sm {% if row.checked_overdue %}text-warning-ink{% else %}text-ink{% endif %}" data-field="checked">{{ row.checked }}</td>
-                  <td class="py-2 pr-4" data-field="risk">
-                    {% for flag in row.risk_flags %}{{ ui.status("info", flag) }}{% endfor %}
+                  <td class="whitespace-nowrap py-3 pr-3 type-data-sm {% if row.checked_overdue %}text-warning-ink{% else %}text-ink{% endif %}" data-field="checked">{{ row.checked }}{% if row.next_check %}<span class="block type-caption {% if row.checked_overdue %}text-warning-ink{% else %}text-ink-muted{% endif %}">{{ row.next_check }}</span>{% endif %}</td>
+                  <td class="py-3 pr-3" data-field="risk">
+                    {% if row.risk_flags %}
+                      <span class="flex flex-col items-start gap-1">
+                        {% for flag in row.risk_flags %}
+                          <span class="inline-flex max-w-[9rem] truncate rounded-xs px-1.5 py-0.5 type-data-sm {% if flag == 'over ceiling' %}bg-warning-wash text-warning-ink{% else %}bg-info-wash text-info-ink{% endif %}" title="{{ flag }}">{{ flag }}</span>
+                        {% endfor %}
+                      </span>
+                    {% else %}<span class="type-data-sm text-ink-subtle">&mdash;</span>{% endif %}
                   </td>
                   {#
                     The value cell opens the position (page specification §3): how it was
                     built, what it is worth and what it does to the book, from the same walk.
                   #}
-                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="value">
-                    <a href="/portfolio/positions/{{ row.security_id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.value }}</a>
+                  <td class="py-3 pr-3 text-right type-data text-ink" data-field="value">
+                    <a href="/portfolio/positions/{{ row.security_id }}" class="hover:text-verification hover:underline">{{ row.value }}</a>
                   </td>
                   <td
-                    class="py-2 text-right type-data-sm {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"
+                    class="py-3 text-right type-data {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"
                     data-field="unrealised"
                   >
                     {{ row.unrealised }}
@@ -270,24 +275,24 @@
               direction that overstates every holding.
             #}
             {% for row in cash %}
-              <tr class="border-b border-line bg-surface-sunken align-top" data-cash="{{ row.currency }}">
-                <th scope="row" class="py-2 pr-4 text-left font-normal">
+              <tr class="border-b border-line bg-surface-sunken align-middle" data-cash="{{ row.currency }}">
+                <th scope="row" class="py-2 pr-3 text-left font-normal">
                   <span class="type-body-strong text-ink">Cash</span>
                   <span class="ml-1 type-data-sm text-ink-subtle">{{ row.currency }}</span>
                   {{ grade_chip(row.grade, row.grade_label) }}
-                  <span class="block type-data-sm text-ink-muted" data-field="balance">{{ row.balance }}</span>
+                  <span class="block type-caption text-ink-muted" data-field="balance">{{ row.balance }}</span>
                 </th>
                 {% if row.problem %}
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="5">
+                  <td class="py-2 pr-3"></td>
+                  <td class="py-2 pr-3 text-right type-body-sm text-ink-subtle" colspan="5">
                     <span data-field="problem">{{ row.problem }}</span>
                   </td>
                 {% else %}
-                  <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="weight">{{ row.weight }}</td>
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 pr-4"></td>
-                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="in-base">{{ row.in_base }}</td>
+                  <td class="py-2 pr-3 text-right type-data text-ink-muted" data-field="weight">{{ row.weight }}</td>
+                  <td class="py-2 pr-3"></td>
+                  <td class="py-2 pr-3"></td>
+                  <td class="py-2 pr-3"></td>
+                  <td class="py-2 pr-3 text-right type-data text-ink" data-field="in-base">{{ row.in_base }}</td>
                   <td class="py-2"></td>
                 {% endif %}
               </tr>
@@ -303,23 +308,57 @@
         )
       }}
     {% endif %}
-  {% endcall %}
+  </section>
 
-  {#
-    The risk summary (§2.3): not a chart, five rows against labels, each linking to the
-    risk page for the working. Read from the same exposure the risk page computes.
-  #}
-  {% call ui.sheet("Risk summary", id="risk-summary") %}
-    <dl class="flex flex-col divide-y divide-line">
-      {% for row in risk_summary %}
-        <div class="py-3 first:pt-0" data-summary="{{ row.key }}">
-          <dt class="type-label text-ink-muted">{{ row.label }}</dt>
-          <dd class="type-data text-ink" data-field="value">{{ row.value }}</dd>
-          <dd class="type-body-sm text-ink-muted"><a href="{{ row.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ row.note }}</a></dd>
+  <div class="flex flex-col gap-4">
+    {#
+      The risk summary (§2.3): not a chart, rows of figures against labels, each linking to
+      the risk page for the working, and the stated shock beneath them. Read from the same
+      exposure the risk page computes; the figure turns to the warning ink past a ceiling
+      the operator set, and to the failure ink for the loss a stated shock would take.
+    #}
+    <section class="rounded-lg border border-line bg-surface p-5" id="risk-summary" aria-labelledby="risk-summary-heading">
+      <h2 id="risk-summary-heading" class="type-subheading text-ink">Risk</h2>
+      <dl class="mt-3 flex flex-col gap-2.5">
+        {% for row in risk_summary if row.key != "shock" %}
+          <div data-summary="{{ row.key }}">
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="type-caption text-ink-muted"><a href="{{ row.href }}" class="hover:text-verification hover:underline" title="{{ row.note }}">{{ row.label }}</a></dt>
+              <dd class="text-right type-data {% if row.tone == 'warning' %}text-warning-ink{% elif row.tone == 'failure' %}text-failure-ink{% else %}text-ink{% endif %}" data-field="value">{{ row.value }}</dd>
+            </div>
+            {% if row.key == "sector" or row.value in ("none set", "—") %}
+              <dd class="type-caption text-ink-muted" data-field="note">{% if row.value == "none set" %}<a href="{{ row.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ row.note }}</a>{% else %}{{ row.note }}{% endif %}</dd>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </dl>
+      {% for row in risk_summary if row.key == "shock" %}
+        <div class="mt-3 border-t border-line pt-3" data-summary="shock">
+          <p class="type-eyebrow text-ink-muted">Your stated shock</p>
+          {% if row.value == "none stated" %}
+            <p class="mt-1 type-body-sm text-ink-muted" data-field="value">None stated. <a href="{{ row.href }}" class="text-verification underline underline-offset-[3px]">State one on the risk page</a>; the platform proposes nothing.</p>
+          {% else %}
+            <p class="mt-1 type-body-sm text-ink" data-field="note">{{ row.note }}</p>
+            <p class="type-data {% if row.tone == 'failure' %}text-failure-ink{% else %}text-ink{% endif %}" data-field="value">{{ row.value }}</p>
+          {% endif %}
         </div>
       {% endfor %}
-    </dl>
-  {% endcall %}
+      <a href="/risk" class="mt-4 flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Open Risk</a>
+    </section>
+
+    {% if needs_a_decision %}
+      {#
+        The book's reasoning is not current while a premise stands broken or a holding has
+        nothing written down (the drawing's card). It says so and where it is settled; it
+        decides nothing.
+      #}
+      <section class="rounded-lg border border-warning-ink bg-decision-wash p-5" id="needs-a-decision" aria-labelledby="needs-a-decision-heading">
+        <h2 id="needs-a-decision-heading" class="type-eyebrow text-warning-ink">Needs a decision</h2>
+        <p class="mt-2 type-body-sm text-ink">{{ needs_a_decision.sentence }}</p>
+        <a href="{{ needs_a_decision.href }}" class="mt-3 flex min-h-11 items-center justify-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">{{ needs_a_decision.label }}</a>
+      </section>
+    {% endif %}
+  </div>
   </div>
 
   {#

@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
 import structlog
 from fastapi import APIRouter, Request
@@ -34,12 +34,22 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
-from aer.core.enums import AttestationKind, Grade, TransactionKind
-from aer.db.models import Attestation, Portfolio, Security, Transaction, User
+from aer.core.dates import format_date
+from aer.core.enums import AttestationKind, DecisionAction, Grade, TransactionKind
+from aer.db.models import (
+    Attestation,
+    BookLimit,
+    Decision,
+    Portfolio,
+    Security,
+    Transaction,
+    User,
+)
 from aer.errors import AerError
 from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
 from aer.services import decisions as decision_service
+from aer.services import limits as limit_service
 from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.services import positions as positions_service
@@ -170,13 +180,19 @@ async def portfolio_page(
     )
     # The validity dashboard (page specification §2): what the record says about each
     # holding, the order conviction puts them in, and the risk summary beside the table.
-    readings = await dashboard.validity_for(session, user=user, view=view, exposure=exposure)
+    limits = await limit_service.limits_of(session, portfolio=book)
+    readings = await dashboard.validity_for(
+        session, user=user, view=view, exposure=exposure, limits=limits
+    )
     sort = _chosen_sort(request)
     show = request.query_params.get("show", "all")
     if show not in dashboard.FILTERS:
         show = "all"
     rows = dashboard.sort_rows(
-        [_holding_row(row, book, readings.get(row.security.id)) for row in view.holdings],
+        [
+            _holding_row(row, book, readings.get(row.security.id), ceiling=limits.single_position)
+            for row in view.holdings
+        ],
         readings,
         sort,
     )
@@ -187,6 +203,7 @@ async def portfolio_page(
         if (reading := readings.get(row.security.id)) is not None
         and reading.thesis_state == "holds"
     )
+    doubts = _doubts(positions, readings)
     today = datetime.now(UTC).date()
     response = render(
         request,
@@ -205,7 +222,10 @@ async def portfolio_page(
                 f"position{'s have' if len(positions) != 1 else ' has'} a thesis that "
                 "currently holds."
             ),
+            "thesis_detail": _thesis_detail(doubts),
+            "needs_a_decision": _needs_a_decision(doubts),
             "sort": sort,
+            "sort_words": SORT_WORDS[sort].lower(),
             "sorts": [{"value": key, "label": label} for key, label in SORT_WORDS.items()],
             "show": show,
             "filters": [
@@ -220,7 +240,10 @@ async def portfolio_page(
                 as_of=as_of,
                 money=pounds,
                 share=lambda value: percent(value).lstrip("+"),
+                readings=readings,
+                limits=limits,
             ),
+            "limits_stated": limits.stated,
             # Prices stale (§2's states): the book defaulted to the last close held and it
             # is not today's. A date the operator asked for is their view, not stale.
             "prices_stale": _requested_date(request) is None and as_of < today,
@@ -231,7 +254,6 @@ async def portfolio_page(
             "exposure": _exposure_bands(exposure, book),
             "concentration": _concentration(exposure),
             "exposure_problem": exposure.problem,
-            "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
             # The decisions a trade could carry out (ADR 0104): held, and of a kind that
             # moves the book. Labelled by what was decided, so the operator picks the entry
@@ -262,6 +284,65 @@ async def portfolio_page(
     return response
 
 
+def _doubts(
+    positions: list[portfolio_service.HoldingRow], readings: dict[uuid.UUID, dashboard.Validity]
+) -> dict[str, int]:
+    """How many held positions have each thesis state other than *holds*."""
+    counted = {"broke": 0, "under_review": 0, "none": 0}
+    for row in positions:
+        reading = readings.get(row.security.id)
+        state = reading.thesis_state if reading is not None else "none"
+        if state in counted:
+            counted[state] += 1
+    return counted
+
+
+def _listed(clauses: list[str]) -> str:
+    """*a*, *a and b*, *a, b, and c* — as a sentence, capitalised and stopped."""
+    *leading, last = clauses or [""]
+    if len(leading) > 1:
+        joined = ", ".join(leading) + f", and {last}"
+    else:
+        joined = " and ".join([*leading, last])
+    return f"{joined[:1].upper()}{joined[1:]}." if joined else ""
+
+
+def _thesis_detail(doubts: dict[str, int]) -> str:
+    """The rest of the sentence the page leads with (the drawing's): what the positions
+    whose thesis does not hold have instead."""
+    counts = (
+        verdicts.Count(doubts["broke"], "broke", "broke"),
+        verdicts.Count(doubts["under_review"], "is under review", "are under review"),
+        verdicts.Count(
+            doubts["none"], "has nothing written down at all", "have nothing written down at all"
+        ),
+    )
+    return _listed([count.worded() for count in counts if count.n])
+
+
+def _needs_a_decision(doubts: dict[str, int]) -> dict[str, str] | None:
+    """The card under the risk summary (the drawing's): a broken premise or a holding with no
+    thesis is a decision the book is waiting on, and the card says where it is made."""
+    broke, unwritten = doubts["broke"], doubts["none"]
+    if not broke and not unwritten:
+        return None
+    counts = (
+        verdicts.Count(broke, "thesis has a broken premise", "theses have a broken premise"),
+        verdicts.Count(
+            unwritten, "position has no thesis at all", "positions have no thesis at all"
+        ),
+    )
+    many = broke + unwritten > 1
+    return {
+        "sentence": (
+            f"{_listed([count.worded() for count in counts if count.n])[:-1]}. Until "
+            f"{'those are' if many else 'that is'} settled, the book's reasoning is not current."
+        ),
+        "href": "/monitor" if broke else "/theses",
+        "label": ("Settle " if broke else "Write ") + ("them" if many else "it"),
+    }
+
+
 def _chosen_sort(request: Request) -> str:
     """The query string's sort, else the session's remembered one, else conviction."""
     asked = request.query_params.get("sort") or request.cookies.get(SORT_COOKIE, "")
@@ -290,45 +371,6 @@ async def _header(
         "cash": totals["cash"],
         "positions": positions,
     }
-
-
-def _book_verdict(
-    view: portfolio_service.PortfolioView, *, totals: dict[str, object]
-) -> verdicts.Verdict:
-    """The sentence the book leads with, composed from what the walk actually resolved.
-
-    The book-level grade is stated here, once (the redesign's §10.1): every row's chip
-    stays for the row, and the sentence carries the weakest grade the whole book rests on.
-    An incomplete valuation refuses the success tone by construction — a partial book
-    presented as the all-clear is the exact failure the four coupled totals exist to stop.
-    """
-    if not view.holdings and not view.cash:
-        return verdicts.sentence(
-            ["nothing is recorded yet, so there is nothing to value"],
-            when_none="Nothing is recorded yet",
-            tone=vocabulary.Tone.MUTED,
-        )
-    if not totals["is_complete"]:
-        return verdicts.sentence(
-            [
-                "the four figures are withheld while a position cannot be valued",
-                "a partial sum shown as a total would overstate every weight on the page",
-            ],
-            when_none="The four figures are withheld",
-            tone=vocabulary.Tone.WARNING,
-            is_complete=False,
-            gap="the rows below name what could not be priced",
-        )
-    grade_clause = (
-        "some figures rest on typed, self-certified entries and are withheld from anything shared"
-        if view.rests_on_anything_typed
-        else "every figure rests on documented entries"
-    )
-    return verdicts.sentence(
-        [f"fully valued, net assets {totals['net_assets']}", grade_clause],
-        when_none="Fully valued",
-        tone=vocabulary.Tone.SUCCESS,
-    )
 
 
 @router.post("/portfolio", summary="Create the book")
@@ -600,6 +642,8 @@ def _holding_row(
     row: portfolio_service.HoldingRow,
     book: Portfolio,
     reading: dashboard.Validity | None = None,
+    *,
+    ceiling: BookLimit | None = None,
 ) -> dict[str, object]:
     """One line of the table, already formatted.
 
@@ -640,8 +684,16 @@ def _holding_row(
         "thesis_tone": reading.thesis_tone if reading is not None else "",
         "broken_premises": reading.broken_premises if reading is not None else 0,
         "checked": reading.checked if reading is not None else "",
+        "next_check": reading.next_check if reading is not None else "",
         "checked_overdue": reading.checked_overdue if reading is not None else False,
         "risk_flags": list(reading.risk_flags) if reading is not None else [],
+        "over_ceiling": reading.over_ceiling if reading is not None else False,
+        # Where the operator's single-position ceiling falls on the weight bar (§2.2,
+        # corrected 28 September): the limit's own value, drawn, never a new figure.
+        "ceiling_left": (
+            int(min(ceiling.fraction, Decimal(1)) * 100) if ceiling is not None else None
+        ),
+        "ceiling_words": limit_service.ceiling_words(ceiling) if ceiling is not None else "",
     }
 
 
@@ -946,6 +998,7 @@ async def position_page(
     book = detail.portfolio
     base = book.base_currency
     holding = detail.holding
+    limits = await limit_service.limits_of(session, portfolio=book)
     response: Response = render(
         request,
         "portfolio/position.html",
@@ -977,7 +1030,11 @@ async def position_page(
                 if detail.sector is not None
                 else None
             ),
-            "ledger": [_ledger_row(trade) for trade in detail.ledger],
+            "ledger": [
+                _ledger_row(trade, {row.judgement_id: row for row in detail.decisions})
+                for trade in detail.ledger
+            ],
+            "built": _built_words(detail),
             "theses": [
                 {
                     "id": thesis.id,
@@ -996,12 +1053,68 @@ async def position_page(
                 }
                 for row in detail.decisions
             ],
+            **_against_limits(detail, limits),
             "company_href": f"/companies/{detail.company.id}" if detail.company else "",
             "thesis_href": f"/theses/{detail.theses[0].id}" if detail.theses else "",
             "write_href": (f"/theses?company={detail.company.id}" if detail.company else "/theses"),
         },
     )
     return response
+
+
+def _built_words(detail: positions_service.PositionDetail) -> str:
+    """The line under the name (the drawing's): what the position was built on, and since
+    when — the decisions that moved it and the theses behind them, naming only what exists."""
+    if not detail.ledger:
+        return ""
+    since = format_date(detail.ledger[0].trade_date, "%-d %B %Y")
+    counts = (
+        verdicts.Count(len(detail.decisions), "decision", "decisions"),
+        verdicts.Count(len(detail.theses), "thesis", "theses"),
+    )
+    parts = [count.worded() for count in counts if count.n]
+    if not parts:
+        return f"Built since {since}, with nothing written down about it"
+    return f"Built across {' and '.join(parts)}, since {since}"
+
+
+def _against_limits(
+    detail: positions_service.PositionDetail, limits: limit_service.Limits
+) -> dict[str, Any]:
+    """The position's weight, the five largest and its sector, each beside the operator's own
+    ceiling where one is stated (§3, corrected 28 September; ADR 0136).
+
+    Past the single-position ceiling, the page links the latest decision that bought or added
+    to it — the decisions are newest first — because a holding over a limit the operator set
+    is the one they will want the reason for.
+    """
+    weight = detail.holding.weight.value if detail.holding.weight else None
+    single = limits.single_position
+    over = limit_service.is_over(weight, single)
+    adding = next(
+        (row for row in detail.decisions if row.action in {DecisionAction.BUY, DecisionAction.ADD}),
+        None,
+    )
+    top = detail.top_holdings.value if detail.top_holdings else None
+    sector = detail.sector
+    sector_limit = limits.for_sector(sector.label) if sector is not None else None
+    return {
+        "weight_ceiling": limit_service.limit_percent(single) if single else "",
+        "weight_over": over,
+        "ceiling_words": limit_service.ceiling_words(single) if single else "",
+        "over_decision_href": (
+            f"/decisions/{adding.judgement_id}" if over and adding is not None else ""
+        ),
+        "top_ceiling": (
+            limit_service.limit_percent(limits.five_largest) if limits.five_largest else ""
+        ),
+        "top_over": limit_service.is_over(top, limits.five_largest),
+        "sector_ceiling": limit_service.limit_percent(sector_limit) if sector_limit else "",
+        "sector_over": limit_service.is_over(
+            sector.share.value if sector is not None else None, sector_limit
+        ),
+        "limits_stated": limits.stated,
+    }
 
 
 def _figure_words(figure: portfolio_service.Figure | None, base: str) -> dict[str, str]:
@@ -1017,14 +1130,25 @@ def _figure_words(figure: portfolio_service.Figure | None, base: str) -> dict[st
     }
 
 
-def _ledger_row(trade: Transaction) -> dict[str, object]:
+def _ledger_row(trade: Transaction, decided: dict[uuid.UUID, Decision]) -> dict[str, object]:
+    """One trade as the ledger shows it, with the decision it carried out where the operator
+    said which (ADR 0104) — the column the drawing calls *recorded against*."""
     kind = vocabulary.TRANSACTION_KINDS[trade.kind]
     attestation = trade.attestation
+    decision = decided.get(trade.decision_id) if trade.decision_id is not None else None
+    if decision is not None:
+        against = (
+            f"the {decision_service.ACTION_WORDS[decision.action]} decision of "
+            f"{format_date(decision.judgement.held_at, '%-d %b')}"
+        )
+    else:
+        against = "a recorded decision" if trade.decision_id is not None else ""
     return {
         "id": trade.attestation_id,
-        "on": f"{trade.trade_date:%d %B %Y}",
-        "kind": kind.label,
-        "tone": kind.tone.value,
+        "on": format_date(trade.trade_date, "%-d %b %Y"),
+        "against": against,
+        "against_href": f"/decisions/{trade.decision_id}" if trade.decision_id else "",
+        "what": kind.label,
         "quantity": shares(abs(trade.quantity))
         if trade.kind is not TransactionKind.SPLIT
         else f"{trade.quantity.normalize():f} for 1",

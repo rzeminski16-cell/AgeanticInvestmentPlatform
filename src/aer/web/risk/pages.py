@@ -33,6 +33,7 @@ from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, Setting
 from aer.core.enums import ShockKind
 from aer.db.models import Portfolio, RiskScenario
 from aer.errors import AerError
+from aer.services import limits as limit_service
 from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
 from aer.services.calculations import new_context
@@ -110,6 +111,7 @@ async def risk_page(
     )
     block = risk_service.block_of(view)
     currency = book.base_currency
+    limits = await limit_service.limits_of(session, portfolio=book)
 
     response: Response = render(
         request,
@@ -128,10 +130,16 @@ async def risk_page(
             "concentration": next(
                 (row for row in block.exposure if row.label == "Largest five holdings"), None
             ),
-            "exposure": _exposure_rows(view),
+            "exposure": _exposure_rows(view, limits),
+            "limits_stated": limits.stated,
+            "concentration_rows": _concentration_rows(view, limits),
             "exposure_problem": view.exposure.problem,
             "holdings": _holding_rows(view),
             "scenarios": _scenario_rows(view, currency),
+            # The drawn panel (§14): a fall in a named set, and what the latest shock stated
+            # does to the book, from the same computation the table below prints.
+            "shock_sets": _shock_sets(view),
+            "latest_shock": scenario_row(view.scenarios[-1], currency) if view.scenarios else None,
             "kinds": _KIND_CHOICES,
             "shock_rows": range(1, SHOCK_ROWS + 1),
             "reading": _reading_context(reading),
@@ -214,7 +222,55 @@ def _book_figures(view: risk_service.RiskView) -> list[FigureRow]:
     return rows
 
 
-def _exposure_rows(view: risk_service.RiskView) -> list[dict[str, Any]]:
+def _ceiling(share: Decimal | None, limit: Any) -> dict[str, Any]:
+    """A figure beside the operator's limit on it (ADR 0136): the limit's own value, and
+    whether the recorded figure is over it — a word and a tone, never a new number."""
+    if limit is None:
+        return {"ceiling": "no ceiling set", "over": False, "near": False}
+    over = limit_service.is_over(share, limit)
+    return {
+        "ceiling": f"ceiling {limit_service.limit_percent(limit)}",
+        "over": over,
+        "near": limit_service.is_near(share, limit),
+    }
+
+
+def _concentration_rows(
+    view: risk_service.RiskView, limits: limit_service.Limits
+) -> list[dict[str, Any]]:
+    """The two figures a whole-book limit caps, each beside its ceiling or the lack of one."""
+    rows: list[dict[str, Any]] = []
+    top = view.exposure.top_holdings
+    if top is not None:
+        rows.append(
+            {
+                "key": "five-largest",
+                "label": "The five largest positions",
+                "value": risk_service.percent(top.value).lstrip("+"),
+                "width": _width(top.value),
+                **_ceiling(top.value, limits.five_largest),
+            }
+        )
+    weighed = [row for row in view.holdings if row.weight is not None]
+    if weighed:
+        largest = max(weighed, key=lambda row: row.weight.value if row.weight else Decimal(0))
+        assert largest.weight is not None
+        name = largest.security.name or largest.security.ticker
+        rows.append(
+            {
+                "key": "largest-position",
+                "label": f"The largest single position — {name}",
+                "value": risk_service.percent(largest.weight.value).lstrip("+"),
+                "width": _width(largest.weight.value),
+                **_ceiling(largest.weight.value, limits.single_position),
+            }
+        )
+    return rows
+
+
+def _exposure_rows(
+    view: risk_service.RiskView, limits: limit_service.Limits
+) -> list[dict[str, Any]]:
     bands = []
     for band in view.exposure.bands:
         bands.append(
@@ -227,6 +283,13 @@ def _exposure_rows(view: risk_service.RiskView) -> list[dict[str, Any]]:
                         "share": risk_service.percent(row.share.value).lstrip("+"),
                         "width": int(max(Decimal(0), min(Decimal(1), row.share.value)) * 100),
                         "members": ", ".join(row.members),
+                        # A sector is the one band a limit is stated on; the others carry
+                        # no ceiling line at all rather than a "no ceiling" nobody could set.
+                        **(
+                            _ceiling(row.share.value, limits.for_sector(row.label))
+                            if band.kind == "sector"
+                            else {"ceiling": "", "over": False, "near": False}
+                        ),
                     }
                     for row in band.slices[:5]
                 ],
@@ -435,6 +498,112 @@ def _shocks_from(submitted: dict[str, str]) -> list[risk_service.Shock]:
             )
         )
     return shocks
+
+
+# How many of the largest holdings the panel offers as a set: the drawing's *the largest three*.
+_LARGEST_SETS: Final = (1, 3, 5)
+
+
+def set_words(kind: ShockKind, target: str) -> str:
+    """A set a shock reaches, as a sentence names it: *the largest three holdings*."""
+    if kind is ShockKind.BOOK:
+        return "everything held"
+    if kind is ShockKind.LARGEST:
+        count = int(target) if target.isdigit() else 0
+        if count == 1:
+            return "the largest holding"
+        return f"the largest {verdicts.Count(count, 'holding', 'holdings').worded()}"
+    if kind is ShockKind.COUNTRY:
+        return f"everything listed in {target}"
+    if kind is ShockKind.CURRENCY:
+        return f"everything in {target.upper()}"
+    return target
+
+
+def _shock_sets(view: risk_service.RiskView) -> list[dict[str, Any]]:
+    """What the panel's set can name, grouped: the book, its largest holdings, a sector the
+    book is in, one holding. The operator picks; nothing is suggested."""
+    held = [row for row in view.holdings if row.weight is not None]
+    groups: list[dict[str, Any]] = [
+        {"label": "The book", "choices": [{"value": "book:", "label": "everything held"}]}
+    ]
+    # A largest-N as large as the book is the book, and says less than *everything held*.
+    counts = [count for count in _LARGEST_SETS if count < len(held)]
+    if counts:
+        groups.append(
+            {
+                "label": "The largest",
+                "choices": [
+                    {"value": f"largest:{count}", "label": set_words(ShockKind.LARGEST, str(count))}
+                    for count in counts
+                ],
+            }
+        )
+    sectors = next((band for band in view.exposure.bands if band.kind == "sector"), None)
+    named = [row.label for row in (sectors.slices if sectors is not None else ()) if row.known]
+    if named:
+        groups.append(
+            {
+                "label": "A sector",
+                "choices": [{"value": f"sector:{label}", "label": label} for label in named],
+            }
+        )
+    if held:
+        groups.append(
+            {
+                "label": "One holding",
+                "choices": [
+                    {
+                        "value": f"holding:{row.security.ticker}",
+                        "label": row.security.name or row.security.ticker,
+                    }
+                    for row in held
+                ],
+            }
+        )
+    return groups
+
+
+@router.post("/risk/shock", summary="State a shock from the panel")
+async def state_shock(
+    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
+) -> Response:
+    """The drawn panel (§14): *a {n}% fall in {a set}*, stated as a one-shock scenario named
+    in those words. The fall and the set are the operator's; the panel proposes neither."""
+    submitted = await _submitted(request)
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _refused(request, "No shock was stated.")
+    book = await portfolio_service.default_book(session, user_id=user.id)
+    if book is None:
+        return _problem(request, "No book to state a shock about.")
+    kind_raw, _, target = submitted.get("set", "").partition(":")
+    try:
+        kind = ShockKind(kind_raw)
+        fall = percent_to_fraction(submitted.get("percent", ""))
+    except ValueError:
+        return _problem(
+            request, "A shock is a fall in per cent, in a set the panel names.", status=400
+        )
+    if fall is None or not 0 < fall < 1:
+        return _problem(
+            request,
+            "A fall is a percentage above 0 and below 100: 20 is a fall of a fifth.",
+            status=422,
+        )
+    typed = f"{(fall * 100).normalize():f}%"
+    try:
+        await risk_service.state_scenario(
+            session,
+            actor=user,
+            portfolio=book,
+            name=f"A {typed} fall in {set_words(kind, target)}",
+            shocks=[risk_service.Shock(kind=kind, target=target, shock=-fall)],
+        )
+        await session.commit()
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+    return RedirectResponse("/risk#shock", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/risk/scenarios/{scenario_id}/withdraw", summary="Withdraw a scenario")

@@ -59,6 +59,9 @@
                 {%- if row.commissions > 1 %} · {{ row.commissions }} commissions{% endif %}
               </p>
               <p class="mt-1 type-data-sm text-ink-muted" data-field="alert">{{ row.alert }}</p>
+              {% if row.rule %}
+                <div class="mt-2">{% with rule = row.rule %}{% include "watchlist/_price_rule.html" %}{% endwith %}</div>
+              {% endif %}
               {% if row.request_href %}
                 <p class="mt-1 type-body-sm text-ink-muted">
                   <a href="{{ row.request_href }}" class="text-verification underline underline-offset-[3px]">The request</a>

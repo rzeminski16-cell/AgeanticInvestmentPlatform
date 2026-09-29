@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Final
 from urllib.parse import urlencode
@@ -54,12 +54,15 @@ from aer.core.enums import (
     PremiseStatus,
     WatchCadence,
 )
-from aer.db.models import Company, Finding, Job, Report, Security
+from aer.db.models import BookLimit, Company, Finding, Job, Report, Security
 from aer.errors import ValidationError
+from aer.render import display
 from aer.render.document import NO_VIEW
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import company_record as record_service
 from aer.services import history as history_service
+from aer.services import limits as limit_service
+from aer.services import portfolio as portfolio_service
 from aer.services import refresh as refresh_service
 from aer.services import thesis_monitor
 from aer.services import watchlist as watchlist_service
@@ -90,7 +93,7 @@ FILTER_WORDS: Final[dict[str, str]] = {
     "all": "All",
     "held": "Held",
     "researched": "Researched, not owned",
-    "closed": "Closed",
+    "closed": "Closed, watching",
     "no_report": "No report",
     "overdue": "Overdue",
 }
@@ -110,8 +113,8 @@ REPORT_TONES: Final[dict[str, vocabulary.Tone]] = {
     "none": vocabulary.Tone.MUTED,
 }
 CADENCE_WORDS: Final[dict[str, str]] = {
-    WatchCadence.MONTHLY.value: "monthly",
-    WatchCadence.QUARTERLY.value: "quarterly",
+    WatchCadence.MONTHLY.value: "Monthly",
+    WatchCadence.QUARTERLY.value: "Quarterly",
 }
 
 # What the page says where a figure would be and there is none. The same dash the book uses.
@@ -138,7 +141,7 @@ async def companies_page(
         request,
         "companies/index.html",
         {
-            "verdict": _list_verdict(records, now=now),
+            "heading": _list_heading(records),
             "rows": [_row(record, now=now, refresh_label=estimate.label) for record in shown],
             "total": len(records),
             "show": show,
@@ -163,40 +166,83 @@ async def companies_page(
     return response
 
 
-def _list_verdict(records: list[CompanyRecord], *, now: datetime) -> verdicts.Verdict:
-    counted = {
-        key: sum(1 for record in records if record.population == key)
-        for key in record_service.POPULATIONS
-    }
-    overdue = sum(1 for record in records if record.is_overdue(now))
-    never = sum(1 for record in records if record.last_looked_at is None)
-    clauses: list[verdicts.Count | str] = [
-        verdicts.Count(counted[record_service.HELD], "company is held", "companies are held"),
-        verdicts.Count(
-            counted[record_service.RESEARCHED],
-            "researched and not owned",
-            "researched and not owned",
-        ),
-        verdicts.Count(
-            counted[record_service.CLOSED_WATCHING], "closed and watched", "closed and watched"
-        ),
-        verdicts.Count(overdue, "is overdue a look", "are overdue a look"),
-        verdicts.Count(never, "has never been looked at", "have never been looked at"),
-    ]
-    tone = vocabulary.Tone.WARNING if overdue or never else vocabulary.Tone.INFO
-    return verdicts.sentence(
-        clauses,
-        when_none=(
-            "Nothing is being watched yet. A company enters the record when you research it, "
-            "hold it, write a thesis about it, or follow it."
-        ),
-        tone=tone if records else vocabulary.Tone.MUTED,
+def _list_heading(records: list[CompanyRecord]) -> str:
+    """The line under the title (the drawing's): how many, and why they are in this order.
+    The filter row carries each population's count, so the line does not repeat them; an
+    empty record has no line, because the empty card below says it."""
+    if not records:
+        return ""
+    counted = verdicts.sentence(
+        [verdicts.Count(len(records), "company is in the record", "companies are in the record")],
+        when_none="",
+        tone=vocabulary.Tone.INFO,
+    ).composed
+    return f"{counted} Sorted by what has been neglected longest, not by name."
+
+
+def _short_day(moment: datetime | date, *, now: datetime) -> str:
+    """*11 Aug* in a table that reads down a column of them; the year only when it is not
+    this one."""
+    return format_date(moment, "%-d %b" if moment.year == now.year else "%-d %b %Y")
+
+
+def _why_detail(record: CompanyRecord) -> str:
+    """The line under *why it is here* (the drawing's): what makes it that population."""
+    if record.population == record_service.HELD:
+        weight = record.holding.weight if record.holding is not None else None
+        if weight is None:
+            return "held, and not priced at the last close"
+        return f"{display.percentage(weight.value, in_table=True)} of the book"
+    if record.population == record_service.CLOSED_WATCHING:
+        closed = f" {format_date(record.closed_on, '%-d %B %Y')}" if record.closed_on else ""
+        return f"closed{closed}, still watching"
+    return _why_not_owned(record)
+
+
+def _why_not_owned(record: CompanyRecord) -> str:
+    """Researched and not owned: the pass and its reason where there was one, because that
+    is the record this population exists to keep."""
+    passed = record.passed
+    if passed is not None:
+        reason = (passed.judgement.basis or passed.statement).rstrip(".")
+        return f"you passed on {format_date(passed.judgement.held_at, '%-d %B')}: “{reason}”"
+    if record.report is not None and record.report.approved_at is not None:
+        return f"researched {format_date(record.report.approved_at, '%-d %B %Y')}"
+    if record.watch is not None:
+        return f"added {format_date(record.watch.followed_at, '%-d %B')}, never researched"
+    return ""
+
+
+def _thesis_chip(record: CompanyRecord) -> tuple[str, str]:
+    """The thesis column's word and tone. A broken premise is *broke*, as the company page
+    and the thesis editor say it; a holding with no thesis is the loudest word on the page,
+    because a position nobody wrote a reason for is the one the loop exists to catch."""
+    if record.broken_premises:
+        return "broke", vocabulary.Tone.FAILURE.value
+    if record.thesis_state == "none":
+        if record.population == record_service.HELD:
+            return "no thesis", vocabulary.Tone.WARNING.value
+        return "none", vocabulary.Tone.MUTED.value
+    return (
+        record_service.THESIS_STATES[record.thesis_state],
+        THESIS_TONES[record.thesis_state].value,
     )
+
+
+def _report_chip(record: CompanyRecord, *, now: datetime) -> tuple[str, str]:
+    """The report column's word and tone, with a stale report's age in days beside it."""
+    words = record_service.REPORT_STATES[record.report_state]
+    report = record.report
+    if record.report_state == "stale" and report is not None and report.approved_at is not None:
+        words = f"stale {(now - report.approved_at).days}d"
+    return words, REPORT_TONES[record.report_state].value
 
 
 def _row(record: CompanyRecord, *, now: datetime, refresh_label: str) -> dict[str, Any]:
     """One line of the table, already worded."""
     looked = record.last_looked_at
+    thesis_words, thesis_tone = _thesis_chip(record)
+    report_words, report_tone = _report_chip(record, now=now)
     return {
         "key": record.key,
         "name": record.name,
@@ -204,24 +250,24 @@ def _row(record: CompanyRecord, *, now: datetime, refresh_label: str) -> dict[st
         "listing": f"{record.ticker} · {record.exchange}",
         "population": record.population,
         "population_words": record.population_words,
+        "why_detail": _why_detail(record),
         "why": record.watch.why if record.watch is not None and record.watch.why else "",
-        "closed_on": f"{record.closed_on:%d %B %Y}" if record.closed_on else "",
-        "last_looked_at": f"{looked:%d %B %Y}" if looked is not None else "Never",
+        "last_looked_at": _short_day(looked, now=now) if looked is not None else "Never",
         "never_looked_at": looked is None,
         "is_overdue": record.is_overdue(now),
         "next_check": (
-            f"{record.next_check_at:%d %B %Y}" if record.next_check_at is not None else ""
+            _short_day(record.next_check_at, now=now) if record.next_check_at is not None else ""
         ),
         "cadence": CADENCE_WORDS.get(record.cadence, NO_FIGURE),
         "cadence_value": record.cadence,
         "entry_id": str(record.watch.id) if record.watch is not None else "",
         "thesis_state": record.thesis_state,
-        "thesis_words": record_service.THESIS_STATES[record.thesis_state],
-        "thesis_tone": THESIS_TONES[record.thesis_state].value,
+        "thesis_words": thesis_words,
+        "thesis_tone": thesis_tone,
         "open_findings": record.open_findings,
         "report_state": record.report_state,
-        "report_words": record_service.REPORT_STATES[record.report_state],
-        "report_tone": REPORT_TONES[record.report_state].value,
+        "report_words": report_words,
+        "report_tone": report_tone,
         "report_href": f"/reports/{record.report.id}" if record.report is not None else "",
         "run_state": record.run_state,
         "run_href": f"/runs/{record.run.id}" if record.run is not None else "",
@@ -416,6 +462,12 @@ async def company_page(
         else "Nothing to refresh: this company has no report yet."
     )
     estimate = refresh_service.estimate_refresh(settings)
+    book = await portfolio_service.default_book(session, user_id=user.id)
+    limits = (
+        await limit_service.limits_of(session, portfolio=book)
+        if book is not None
+        else limit_service.Limits()
+    )
 
     token = new_csrf_token(settings)
     page: Response = render(
@@ -426,7 +478,7 @@ async def company_page(
             "record": record,
             "header": _header(record),
             "believe": _believe(record, findings, company_id=company.id),
-            "hold": _hold(record),
+            "hold": _hold(record, ceiling=limits.single_position),
             "rows": await _record_rows(session, record, history=history),
             "can_ask": can_ask,
             "refresh_refusal": refresh_refusal,
@@ -540,12 +592,28 @@ def _believe(
     }
 
 
-def _hold(record: CompanyRecord) -> dict[str, Any]:
-    """§5.3: the position, or the sentence that says why there is none."""
+def _hold(record: CompanyRecord, *, ceiling: BookLimit | None = None) -> dict[str, Any]:
+    """§5.3: the position, or the sentence that says why there is none. The weight bar is
+    drawn against the operator's single-position ceiling where one is stated (ADR 0136)."""
     holding = record.holding
     if holding is not None:
         base = holding.security.quote_currency
+        weight = holding.weight.value if holding.weight else None
+        over = limit_service.is_over(weight, ceiling)
         return {
+            "ceiling_left": (
+                float(min(ceiling.fraction, Decimal(1))) if ceiling is not None else None
+            ),
+            "ceiling_words": (
+                (
+                    f"over {limit_service.ceiling_words(ceiling)}"
+                    if over
+                    else f"within {limit_service.ceiling_words(ceiling)}"
+                )
+                if ceiling is not None
+                else "no single-position ceiling set"
+            ),
+            "weight_over": over,
             "is_held": True,
             "security_id": str(holding.security.id),
             "quantity": shares(holding.quantity.value) if holding.quantity else NO_FIGURE,

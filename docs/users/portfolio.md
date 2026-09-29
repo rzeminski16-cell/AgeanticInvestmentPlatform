@@ -95,6 +95,24 @@ one, a currency with no rate on that date — the total refuses rather than sile
 the holding, and says which one defeated it. A net asset value that quietly dropped a
 position would be worse than none.
 
+**The page leads with your reasons, not your profit.** Under *The book* is one sentence: how
+many positions have a thesis that currently holds, and what the rest have instead — a premise
+that broke, a thesis under review, or nothing written down at all. The table sorts the same
+way, the positions with nothing written down first. Beside it, the **Risk** card reads the
+five largest, the largest sector, how many positions are past a ceiling you set, cash, and
+the latest shock you stated on the risk page with what it would do; beneath that, **Needs a
+decision** appears while a premise stands broken or a holding has no thesis, and leads to
+where that is settled.
+
+**Your limits, where you set them.** A ceiling on one position, on the five largest or on a
+sector is yours, stated on **Platform → Book**; nothing proposes one. Once stated, each weight
+bar carries its line, a holding past it reads *over ceiling* and the *Over ceiling* filter
+finds it. A ceiling blocks nothing.
+
+**One position** opens from its value: how it was built — each trade with the decision it
+carried out, where you said which — what it is worth, and what it does to the book against
+your ceilings.
+
 ## Prices and rates
 
 - **Prices** come from the licensed end-of-day feed. If the subscription lapses, the price
@@ -111,8 +129,8 @@ position would be worse than none.
 - **No tax computation.** Cost basis is a **pooled average**, which is a convention chosen
   for being defensible and stable, not for matching any tax authority's rules. It is not
   first-in-first-out and it is not a Section 104 calculation. Do not file with it.
-- **No risk or scenario analysis yet.** That is a separate tool, and it is waiting on this
-  one to have a book worth being about.
+- **No risk analysis on this page.** That is the [risk page](risk.md), reached from the Risk
+  card; this page shows its figures and links to the working.
 
 ---
 

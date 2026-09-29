@@ -83,6 +83,19 @@
 </span>
 {% endmacro %}
 
+{% macro said(tone, sentence) %}
+{#
+  One sentence of what the record says, with its family's mark beside it — the alert page's
+  *what the record says* (§12.3): nothing filed, the premises holding, the market's move.
+  The mark carries the tone and the sentence stays in ink, because text wears text tokens:
+  a sentence in the success green is a sentence some readers cannot read.
+#}
+<p class="flex items-start gap-2.5 type-body text-ink">
+  <span class="mt-1 inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-xs {{ _WASH[tone] }} {{ _INK[tone] }}">{{ _mark(tone) }}</span>
+  <span>{{ sentence }}</span>
+</p>
+{% endmacro %}
+
 {% macro grade(label) %}
 {#
   How strong the evidence under a figure is: `Typed` or `Documented` (ADR 0073).

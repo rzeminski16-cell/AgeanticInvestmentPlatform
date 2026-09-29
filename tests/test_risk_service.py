@@ -337,6 +337,28 @@ class TestAScenario:
         # (1 - 0.2)(1 - 0.1) - 1 = -0.28, on £250.
         assert outcome.pnl.value == Decimal("-70")
 
+    async def test_the_largest_holdings_are_read_as_the_book_stands(
+        self, db_session: AsyncSession, context: CalculationContext, book: dict[str, Any]
+    ) -> None:
+        """The drawn panel's *the largest three*: the set is read on the date, so one
+        statement reaches whichever holdings are largest then."""
+        await _holding_barc(db_session, book)
+        await _holding_msft(db_session, book)
+        await _state(db_session, book, "The largest down a fifth", _shock(ShockKind.LARGEST, "1"))
+
+        view = await _risk(db_session, context, book)
+
+        [outcome] = view.scenarios
+        held = [row for row in view.book.holdings if row.value is not None]
+        largest = max(held, key=lambda row: row.value.value if row.value else Decimal(0))
+        assert outcome.reached == (largest.security.ticker,)
+
+    async def test_the_largest_are_counted_in_whole_numbers(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        with pytest.raises(ValidationError, match="whole numbers"):
+            await _state(db_session, book, "Some of them", _shock(ShockKind.LARGEST, "three"))
+
     async def test_a_sector_nobody_has_named_reaches_nothing(
         self, db_session: AsyncSession, context: CalculationContext, book: dict[str, Any]
     ) -> None:
@@ -886,7 +908,9 @@ class TestThePages:
         assert "What Everything down a fifth does, position by position" in body
         assert 'data-position="BARC" data-loss="yes"' in body
         assert "-20.0%" in body
-        assert body.count("-50.00 GBP") == 2, "the one position's loss is the scenario's total"
+        # Counted in the scenarios' own sheet: the shock panel above shows the same result.
+        scenarios = body.split('id="scenarios"')[1].split('id="reading"')[0]
+        assert scenarios.count("-50.00 GBP") == 2, "the one position's loss is the scenario's total"
 
     async def test_the_weight_and_the_contribution_are_bars_beside_their_figures(
         self, api: Any, committed: Any
@@ -935,6 +959,35 @@ class TestThePages:
 
         assert response.status_code == 400
         assert "must be a number" in response.text
+
+    async def test_the_panel_states_a_fall_in_a_named_set(self, api: Any, committed: Any) -> None:
+        """§14's shock panel, as drawn: a percentage fall in a set the operator picks, stated
+        as a scenario named in those words, with its result beside it."""
+        page = await api.get(f"/risk?as_of={AS_OF.isoformat()}")
+        assert 'id="state-shock"' in page.text
+
+        stated = await api.post(
+            "/risk/shock",
+            data={"csrf_token": _csrf(page.text), "percent": "20", "set": "book:"},
+        )
+
+        assert stated.status_code == 303, stated.text
+        assert stated.headers["location"] == "/risk#shock"
+        body = (await api.get(f"/risk?as_of={AS_OF.isoformat()}")).text
+        assert "A 20% fall in everything held" in body
+        result = body.split("data-shock-result=")[1].split("Show the working")[0]
+        assert "-50.00 GBP" in result
+
+    async def test_the_panel_refuses_a_fall_that_is_not_one(self, api: Any, committed: Any) -> None:
+        page = await api.get(f"/risk?as_of={AS_OF.isoformat()}")
+
+        refused = await api.post(
+            "/risk/shock",
+            data={"csrf_token": _csrf(page.text), "percent": "120", "set": "book:"},
+        )
+
+        assert refused.status_code == 422
+        assert "Nothing was changed" in refused.text
 
     async def test_a_form_without_a_token_is_refused(self, api: Any, committed: Any) -> None:
         response = await api.post("/risk/read", data={"as_of": AS_OF.isoformat()})

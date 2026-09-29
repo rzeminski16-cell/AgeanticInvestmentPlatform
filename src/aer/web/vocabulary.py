@@ -408,6 +408,11 @@ SHOCK_KINDS: Final[dict[ShockKind, HumanState]] = {
     ),
     ShockKind.COUNTRY: HumanState("A listing country", Tone.MUTED, "Every holding listed in it."),
     ShockKind.HOLDING: HumanState("One holding", Tone.MUTED, "The one listing named, by ticker."),
+    ShockKind.LARGEST: HumanState(
+        "The largest holdings",
+        Tone.MUTED,
+        "How many of the largest, as the book stands on the date it is read.",
+    ),
 }
 
 

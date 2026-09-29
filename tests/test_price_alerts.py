@@ -37,6 +37,7 @@ from aer.core.enums import (
 )
 from aer.db.models import (
     Artefact,
+    AuditEvent,
     Calculation,
     Company,
     Finding,
@@ -47,7 +48,7 @@ from aer.db.models import (
     Thesis,
     User,
 )
-from aer.errors import ValidationError
+from aer.errors import ConflictError, ValidationError
 from aer.services import configuration, daily_pass, price_alerts, thesis_monitor
 from aer.services import theses as thesis_service
 from aer.services import watchlist as watchlist_service
@@ -600,6 +601,158 @@ class TestTheDailyPassCarriesIt:
         assert rows[0].job_id == outcome.job.id
 
 
+# -- The threshold, changed where its alerts are counted ----------------------------------------
+
+
+class TestChangingTheThreshold:
+    """§12.5's control. The row changes in place and the audit trail keeps what it was: what
+    raised an alert is in the alert's own record, so nothing reads a past threshold here."""
+
+    async def test_a_change_is_recorded_with_what_it_was(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"])
+
+        changed = await watchlist_service.change_price_rule(
+            db_session,
+            user=book["user"],
+            entry=entry,
+            threshold_pct=Decimal("12.5"),
+            window_days=10,
+        )
+
+        assert changed is True
+        assert entry.price_move_threshold_pct == Decimal("12.5")
+        assert entry.price_move_window_days == 10
+        event = await db_session.scalar(
+            select(AuditEvent).where(AuditEvent.event_type == "watchlist.price_rule_changed")
+        )
+        assert event is not None
+        assert event.payload["was"] == {
+            "price_move_threshold_pct": None,
+            "price_move_window_days": 7,
+        }
+        assert event.payload["now"] == {
+            "price_move_threshold_pct": "12.5",
+            "price_move_window_days": 10,
+        }
+
+    async def test_the_same_rule_again_records_nothing(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"], threshold=Decimal(10))
+
+        changed = await watchlist_service.change_price_rule(
+            db_session, user=book["user"], entry=entry, threshold_pct=Decimal("10.0"), window_days=7
+        )
+
+        assert changed is False
+        assert (
+            await db_session.scalar(
+                select(AuditEvent).where(AuditEvent.event_type == "watchlist.price_rule_changed")
+            )
+            is None
+        )
+
+    async def test_blank_hands_the_listing_back_to_the_accounts_default(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"], threshold=Decimal(10))
+
+        await watchlist_service.change_price_rule(
+            db_session, user=book["user"], entry=entry, threshold_pct=None, window_days=7
+        )
+
+        assert entry.price_move_threshold_pct is None
+
+    async def test_a_threshold_past_the_whole_price_is_refused(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"])
+
+        with pytest.raises(ValidationError, match="at most 100"):
+            await watchlist_service.change_price_rule(
+                db_session,
+                user=book["user"],
+                entry=entry,
+                threshold_pct=Decimal(101),
+                window_days=7,
+            )
+
+    async def test_a_listing_no_longer_followed_has_no_alert_to_change(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"])
+        await watchlist_service.stop_following(
+            db_session, user=book["user"], entry=entry, reason="Sold the idea."
+        )
+
+        with pytest.raises(ConflictError, match="no longer followed"):
+            await watchlist_service.change_price_rule(
+                db_session, user=book["user"], entry=entry, threshold_pct=Decimal(5), window_days=7
+            )
+
+    async def test_another_persons_listing_is_not_theirs_to_change(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        entry = await _watch(db_session, book["user"])
+        other = User(email="other@example.invalid", display_name="Other", role=UserRole.OWNER)
+        db_session.add(other)
+        await db_session.flush()
+
+        with pytest.raises(ConflictError):
+            await watchlist_service.change_price_rule(
+                db_session, user=other, entry=entry, threshold_pct=Decimal(5), window_days=7
+            )
+
+
+class TestTheChart:
+    """§12.2's fourteen sessions: each close against the one before, up or down from a
+    baseline. The geometry is layout; no figure is read from it."""
+
+    def test_each_column_is_a_session_against_the_one_before(self) -> None:
+        finding = Finding(
+            kind=FindingKind.PRICE_MOVE,
+            observed={
+                "move_pct": "-4.5%",
+                "start_close": "100",
+                "end_close": "95.5",
+                "threshold_pct": "4",
+                "series": [
+                    ["2026-06-24", "100"],
+                    ["2026-06-25", "110"],
+                    ["2026-06-26", "105"],
+                    ["2026-06-29", "95.5"],
+                ],
+            },
+        )
+
+        figures = price_alerts.figures_of(finding)
+
+        assert figures is not None
+        assert [(bar["on"], bar["rose"], bar["height"]) for bar in figures["series"]] == [
+            ("2026-06-25", True, 50),
+            ("2026-06-26", False, 25),
+            ("2026-06-29", False, 47),
+        ]
+        assert figures["move_size"] == "4.5%"
+
+    def test_a_single_close_draws_no_chart(self) -> None:
+        finding = Finding(
+            kind=FindingKind.PRICE_MOVE,
+            observed={
+                "start_close": "100",
+                "end_close": "90",
+                "series": [["2026-06-29", "90"]],
+            },
+        )
+
+        figures = price_alerts.figures_of(finding)
+
+        assert figures is not None
+        assert figures["series"] == []
+
+
 # -- The pages ---------------------------------------------------------------------------------
 
 
@@ -660,18 +813,30 @@ class TestThePages:
 
         assert response.status_code == 200, response.text
         body = response.text
-        assert "A PRICE MOVED" in body
+        assert "Monitor · Microsoft" in body
         assert "The price moved. There is no thesis behind this listing." in body
-        assert "-18.0%" in body
-        assert "500.00 USD" in body
+        # The size beside a mark and a word for the direction, never a minus sign alone.
+        move = body.split('data-field="move"')[1].split('data-field="closes-moved"')[0]
+        assert "18.0%" in move
+        assert "-18.0%" not in move
+        assert '<span class="sr-only">Down</span>' in move
+        assert "500.00 USD &rarr; 410.00 USD" in body
         assert 'id="closes"' in body
-        assert "Nothing has been filed since your last check" in body
-        assert "Too many dismissals mean the threshold is wrong, not the market." in body
-        assert "Alert past" in body
+        record = body.split('data-field="record-says"')[1].split("</section>")[0]
+        assert "Nothing has been filed since your last check." in record
+        assert "There is no thesis behind this listing." in record
+        assert "Too many and the threshold is wrong, not the market." in body
+        assert "Your account&#39;s default asks to be told about moves over" in body
+        assert "±10%" in body
+        assert "This listing has raised 1 alert in six months, none of them dismissed." in body
         assert 'href="/decisions/new?security=MSFT.NASDAQ"' in body
-        assert "Read, and doing nothing about it" in body
+        assert "Dismiss — say why" in body
+        # No company record behind the listing, so there is no company page to open.
+        assert 'id="open-company"' not in body
         # The premise gate never appears: a price is an outcome, not evidence.
         assert 'id="thesis-gate"' not in body
+        # One way to dismiss it, in the sheet the drawing puts beside the premises.
+        assert body.count('id="resolve-form"') == 1
 
     async def test_the_monitor_lists_it_under_the_listing_with_no_thesis_to_link(
         self, api: Any
@@ -710,7 +875,74 @@ class TestThePages:
         body = (await api.get(f"/monitor/findings/{scene['finding_id']}")).text
         assert "Dismissed by owner@example.invalid" in body
         assert 'id="reopen"' in body
-        assert "1 dismissed." in body
+        assert "1 alert in six months, 1 of them dismissed." in body
+        assert 'id="dismiss-sheet"' not in body
+
+    async def test_change_it_changes_the_listings_own_threshold_and_comes_back(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """§12.5: the threshold is changed where its alerts are counted, and the band then
+        says the alert was raised past the old one."""
+        here = f"/monitor/findings/{scene['finding_id']}"
+        page = (await api.get(here)).text
+        rule = page.split('data-price-rule="')[1].split('"')[0]
+
+        changed = await api.post(
+            f"/watchlist/{rule}/price-rule",
+            data={
+                "csrf_token": _csrf(page),
+                "price_move_threshold_pct": "15",
+                "price_move_window_days": "7",
+                "back": here,
+            },
+        )
+
+        assert changed.status_code == 303, changed.text
+        assert changed.headers["location"] == here
+        body = (await api.get(here)).text
+        assert "You asked to be told about moves over" in body
+        assert "It is now ±15%." in body
+        assert 'name="price_move_threshold_pct" value="15"' in body
+
+    async def test_change_it_returns_nowhere_but_the_alert_or_the_watchlist(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        page = (await api.get(f"/monitor/findings/{scene['finding_id']}")).text
+        rule = page.split('data-price-rule="')[1].split('"')[0]
+
+        changed = await api.post(
+            f"/watchlist/{rule}/price-rule",
+            data={
+                "csrf_token": _csrf(page),
+                "price_move_threshold_pct": "12",
+                "price_move_window_days": "7",
+                "back": "https://elsewhere.example/",
+            },
+        )
+
+        assert changed.status_code == 303
+        assert changed.headers["location"] == "/watchlist"
+
+    async def test_change_it_refuses_a_threshold_that_is_not_one_with_the_way_back(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        here = f"/monitor/findings/{scene['finding_id']}"
+        page = (await api.get(here)).text
+        rule = page.split('data-price-rule="')[1].split('"')[0]
+
+        refused = await api.post(
+            f"/watchlist/{rule}/price-rule",
+            data={
+                "csrf_token": _csrf(page),
+                "price_move_threshold_pct": "150",
+                "price_move_window_days": "7",
+                "back": here,
+            },
+        )
+
+        assert refused.status_code == 422
+        assert "at most 100" in refused.text
+        assert f'href="{here}"' in refused.text
 
     async def test_the_watchlist_carries_the_threshold(self, api: Any) -> None:
         listed = (await api.get("/watchlist")).text
@@ -753,3 +985,103 @@ class TestThePages:
         body = (await api.get("/settings")).text
 
         assert "Price move worth telling you about" in body
+
+    async def test_the_watchlist_row_changes_its_alert_in_place(self, api: Any) -> None:
+        listed = (await api.get("/watchlist")).text
+        rule = listed.split('data-price-rule="')[1].split('"')[0]
+
+        changed = await api.post(
+            f"/watchlist/{rule}/price-rule",
+            data={
+                "csrf_token": _csrf(listed),
+                "price_move_threshold_pct": "8",
+                "price_move_window_days": "5",
+            },
+        )
+
+        assert changed.status_code == 303
+        assert changed.headers["location"] == "/watchlist"
+        assert "Alert past 8% over 5 days" in (await api.get("/watchlist")).text
+
+
+@pytest.fixture
+async def held_scene(db_engine: Any, api_settings: Any) -> Any:
+    """A price move on a company the operator holds a thesis about: one premise read and
+    holding, one reviewed by hand."""
+    await delete_all(db_engine)
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
+        msft = Security(
+            ticker="MSFT",
+            exchange="NASDAQ",
+            provider_symbol="MSFT.US",
+            name="Microsoft",
+            quote_currency="USD",
+        )
+        session.add_all([user, msft])
+        await session.flush()
+        session.add(
+            PriceBar(
+                security_id=msft.id,
+                bar_date=AS_OF,
+                open=Decimal("400"),
+                high=Decimal("420"),
+                low=Decimal("399"),
+                close=Decimal("410"),
+            )
+        )
+        company = await _company_behind(session, msft)
+        thesis = await _thesis_with(
+            session,
+            user,
+            company,
+            [
+                ("Operating margin holds above 35%.", True),
+                ("Management allocates capital well.", False),
+            ],
+        )
+        read = min(thesis.premises, key=lambda row: row.position)
+        await _reading(
+            session, thesis=thesis, premise=read, status=PremiseStatus.UNCHANGED, value="0.42"
+        )
+        await _level(session, msft, "500")
+        job_id = await _job_id(session, user, api_settings)
+        await _watch(session, user, threshold=Decimal(10))
+        written = await price_alerts.check_watched_listings(
+            session, user=user, settings=api_settings, as_of=AS_OF, job_id=job_id
+        )
+        await session.commit()
+        yield {"finding_id": written[0].id, "company_id": company.id}
+    await delete_all(db_engine)
+
+
+@pytest.fixture
+async def held_api(api_settings: Any, db_engine: Any, fake_redis: Any, held_scene: Any) -> Any:
+    async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+        yield client
+
+
+class TestTheAlertBesideAThesis:
+    async def test_the_premises_stand_beside_the_move_with_the_three_acts(
+        self, held_api: Any, held_scene: dict[str, Any]
+    ) -> None:
+        body = (await held_api.get(f"/monitor/findings/{held_scene['finding_id']}")).text
+
+        assert "The price moved. Your thesis did not." in body
+        card = body.split('id="premises"')[1].split("</aside>")[0]
+        # Each premise in the thesis editor's words, beside what the monitor last read.
+        assert "Operating margin at least 0.35\N{MULTIPLICATION SIGN}" in card
+        assert "0.42\N{MULTIPLICATION SIGN}" in card
+        assert "Management allocates capital well." in card
+        assert "by hand · 31 March" in card
+        # The three acts the drawing puts under them.
+        assert f'href="/companies/{held_scene["company_id"]}"' in card
+        assert "Open Microsoft" in card
+        assert "Record a decision" in card
+        assert "Dismiss — say why" in card
+        # What the record said when the price moved, one sentence each.
+        assert "Of 2 premises, 1 holds and 1 is reviewed by hand." in body
+        # The listing's own threshold, in the operator's words.
+        assert "You asked to be told about moves over" in body
+        assert "on this company." in body

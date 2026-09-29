@@ -2,13 +2,17 @@
 {% import "_ui/index.html" as ui with context %}
 
 {#
-  Companies (page specification §4): everything the account knows about, why it is there,
-  and when it is next looked at. This is the watchlist in the specification's sense.
+  Companies (page specification §4, drawn as Companies): everything the account knows about,
+  why it is there, and when it is next looked at. This is the watchlist in the specification's
+  sense.
 
   Three populations, never merged: held, researched and not owned, closed and watched. The
   middle one is the record of ideas declined with reasons — the population nobody else keeps
   — and the default filter shows it. The sort is oldest-looked-at first, because the point
   of the page is what has been neglected, and a company never looked at sorts first of all.
+
+  One row a company, one control on it: *Open*. The priced refresh and the cadence are the
+  row's too (§4's actions), one press further in, so the table reads as the drawing does.
 
   Every state in the table was read on the way here, from the book, the report's columns
   and the open findings. Nothing on this page is a figure a report rests on.
@@ -17,14 +21,12 @@
 {% block title %}Companies &middot; Ageantic{% endblock %}
 
 {% block content %}
-  {% call ui.page_header("Companies", eyebrow="THE RECORD") %}
-    <p class="max-w-prose type-body text-ink-muted">
-      Everything this account knows about, why it is there, and when it is next looked at.
-      Oldest-looked-at first: the point of the page is what has been neglected.
-    </p>
+  {% call ui.page_header("Companies", identity=heading) %}
+    {% if total %}
+      <a href="/watchlist#following" id="add-to-watch"
+         class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Watch a company</a>
+    {% endif %}
   {% endcall %}
-
-  {{ ui.verdict("WHAT THE RECORD HOLDS", verdict.composed, tone=verdict.tone.value) }}
 
   {% if total %}
     {#
@@ -36,36 +38,36 @@
       {% for filter in filters %}
         <a
           href="/companies{% if filter.key != 'all' %}?show={{ filter.key }}{% endif %}"
-          class="inline-flex min-h-9 items-center gap-1 rounded-sm border px-3 type-label {% if filter.is_current %}border-verification bg-verification-wash text-verification-strong{% else %}border-control-boundary text-ink hover:bg-surface-selected{% endif %}"
+          class="inline-flex min-h-9 items-center gap-1.5 rounded-sm border px-3 type-label {% if filter.is_current %}border-verification bg-verification-wash text-verification-strong{% else %}border-control-boundary bg-surface text-ink hover:bg-surface-selected{% endif %}"
           data-filter="{{ filter.key }}"
           {% if filter.is_current %}aria-current="page"{% endif %}
-        >{{ filter.label }} <span class="type-data-sm text-ink-muted">{{ filter.count }}</span></a>
+        >{{ filter.label }} <span class="type-data-sm">{{ filter.count }}</span></a>
       {% endfor %}
     </nav>
 
-    {% call ui.sheet("", id="companies") %}
+    <section class="rounded-lg border border-line bg-surface px-5 py-2" id="companies" aria-label="Companies">
       {% if rows %}
         <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Companies">
-          <table class="w-full min-w-[60rem] border-collapse">
+          <table class="w-full min-w-[62rem] border-collapse">
             <caption class="sr-only">
               Every company in the record, why it is here, when it was last looked at, its
               cadence, and the state of its thesis and its report.
             </caption>
             <thead>
               <tr>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Company</th>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Why it is here</th>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Last looked at</th>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Cadence</th>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Thesis state</th>
-                <th scope="col" class="border-b border-line-strong py-2 pr-4 text-left type-label text-ink-muted">Report state</th>
-                <th scope="col" class="border-b border-line-strong py-2 text-left type-label text-ink-muted"><span class="sr-only">Actions</span></th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Company</th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Why it is here</th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Last looked at</th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Cadence</th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Thesis</th>
+                <th scope="col" class="border-b border-line py-2 pr-4 text-left type-eyebrow text-ink-muted">Report</th>
+                <th scope="col" class="border-b border-line py-2 text-left type-eyebrow text-ink-muted"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
               {% for row in rows %}
                 <tr
-                  class="align-top"
+                  class="align-middle"
                   data-company="{{ row.key }}"
                   data-population="{{ row.population }}"
                   data-thesis-state="{{ row.thesis_state }}"
@@ -73,59 +75,67 @@
                   {% if row.is_overdue %}data-overdue="yes"{% endif %}
                 >
                   <th scope="row" class="border-b border-line py-3 pr-4 text-left font-normal">
-                    <a href="{{ row.href }}" class="type-body-strong text-verification underline underline-offset-[3px] hover:text-verification-strong" data-field="name">{{ row.name }}</a>
-                    <span class="block type-data-sm text-ink-subtle">{{ row.listing }}</span>
+                    <a href="{{ row.href }}" class="type-body-strong text-ink hover:text-verification hover:underline" data-field="name">{{ row.name }}</a>
+                    <span class="block type-data-sm text-ink-muted">{{ row.listing }}</span>
                   </th>
-                  <td class="border-b border-line py-3 pr-4 type-body-sm text-ink" data-field="population">
-                    {{ row.population_words }}
-                    {% if row.closed_on %}<span class="block type-data-sm text-ink-muted">closed {{ row.closed_on }}</span>{% endif %}
-                    {% if row.why %}<span class="block max-w-xs type-body-sm text-ink-muted">{{ row.why }}</span>{% endif %}
+                  <td class="border-b border-line py-3 pr-4" data-field="population">
+                    <span class="inline-flex rounded-xs px-1.5 py-0.5 type-eyebrow {% if row.population == 'held' %}bg-success-wash text-success-ink{% else %}bg-muted-wash text-muted-ink{% endif %}">{{ row.population_words }}</span>
+                    {% if row.why_detail %}<span class="mt-1 block max-w-sm type-body-sm text-ink-muted" data-field="why-detail">{{ row.why_detail }}</span>{% endif %}
+                    {% if row.why %}<span class="block max-w-sm type-body-sm text-ink-muted">{{ row.why }}</span>{% endif %}
                   </td>
                   <td class="border-b border-line py-3 pr-4 type-data-sm {% if row.never_looked_at or row.is_overdue %}text-warning-ink{% else %}text-ink{% endif %}" data-field="last-looked-at">
                     {{ row.last_looked_at }}
-                    {% if row.is_overdue %}<span class="block type-label text-warning-ink">overdue</span>{% endif %}
+                    {% if row.is_overdue %}<span class="block type-caption text-warning-ink">overdue</span>{% endif %}
                   </td>
                   <td class="border-b border-line py-3 pr-4 type-data-sm text-ink" data-field="cadence">
                     {{ row.cadence }}
-                    {% if row.next_check %}<span class="block type-data-sm text-ink-muted">next {{ row.next_check }}</span>{% endif %}
+                    {% if row.next_check %}<span class="block type-caption text-ink-muted">next {{ row.next_check }}</span>{% endif %}
                   </td>
                   <td class="border-b border-line py-3 pr-4" data-field="thesis-state">
-                    {{ ui.status(row.thesis_tone, row.thesis_words) }}
-                    {% if row.open_findings %}<span class="block type-data-sm text-ink-muted">{{ row.open_findings }} open</span>{% endif %}
+                    <span class="inline-flex rounded-xs px-1.5 py-0.5 type-data-sm {% if row.thesis_tone == 'success' %}bg-success-wash text-success-ink{% elif row.thesis_tone == 'failure' %}bg-failure-wash text-failure-ink{% elif row.thesis_tone == 'warning' %}bg-warning-wash text-warning-ink{% else %}bg-muted-wash text-muted-ink{% endif %}">{{ row.thesis_words }}</span>
+                    {% if row.open_findings %}<span class="block type-caption text-ink-muted">{{ row.open_findings }} open</span>{% endif %}
                   </td>
                   <td class="border-b border-line py-3 pr-4" data-field="report-state">
-                    {% if row.report_href %}
-                      <a href="{{ row.report_href }}" class="inline-block">{{ ui.status(row.report_tone, row.report_words) }}</a>
-                    {% else %}
-                      {{ ui.status(row.report_tone, row.report_words) }}
-                    {% endif %}
+                    {% if row.report_href %}<a href="{{ row.report_href }}" class="inline-flex hover:underline">{% endif %}
+                    <span class="inline-flex rounded-xs px-1.5 py-0.5 type-data-sm {% if row.report_tone == 'success' %}bg-success-wash text-success-ink{% elif row.report_tone == 'warning' %}bg-warning-wash text-warning-ink{% else %}bg-muted-wash text-muted-ink{% endif %}">{{ row.report_words }}</span>
+                    {% if row.report_href %}</a>{% endif %}
                     {% if row.run_state %}
-                      <a href="{{ row.run_href }}" class="block type-data-sm text-verification underline underline-offset-[3px]">run {{ row.run_state }}</a>
+                      <a href="{{ row.run_href }}" class="block type-caption text-verification underline underline-offset-[3px]">run {{ row.run_state }}</a>
                     {% endif %}
                   </td>
                   <td class="border-b border-line py-3">
-                    <div class="flex flex-col gap-2">
-                      <a href="{{ row.href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">Open</a>
-                      {% if row.refresh_href %}
-                        <form method="post" action="{{ row.refresh_href }}" data-refresh="{{ row.key }}">
-                          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                          <button type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">{{ row.refresh_label }}</button>
-                        </form>
-                      {% endif %}
-                      {% if row.entry_id %}
-                        <form method="post" action="/companies/{{ row.entry_id }}/cadence" class="flex items-center gap-1" data-cadence="{{ row.key }}">
-                          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                          <label class="sr-only" for="cadence-{{ row.entry_id }}">Cadence</label>
-                          <select id="cadence-{{ row.entry_id }}" name="cadence" class="min-h-9 rounded-sm border border-control-boundary bg-surface px-2 type-body-sm text-ink">
-                            {% for cadence in cadences %}
-                              <option value="{{ cadence.value }}" {% if cadence.value == row.cadence_value %}selected{% endif %}>{{ cadence.label }}</option>
-                            {% endfor %}
-                          </select>
-                          <button type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">Change cadence</button>
-                        </form>
-                      {% else %}
-                        <a href="/watchlist#following" class="type-body-sm text-ink-muted underline underline-offset-[3px]">Follow to set a cadence</a>
-                      {% endif %}
+                    <div class="flex items-center justify-end gap-2">
+                      <a href="{{ row.href }}" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Open</a>
+                      {#
+                        The row's other two acts (§4): the priced refresh and the cadence. A
+                        disclosure, so the price is read before it is pressed and the table
+                        stays one line a company.
+                      #}
+                      <details class="relative" data-row-actions="{{ row.key }}">
+                        <summary class="inline-flex min-h-9 cursor-pointer items-center rounded-sm px-2 type-label text-verification underline underline-offset-[3px] marker:content-none" aria-label="More for {{ row.name }}">More</summary>
+                        <div class="absolute right-0 z-10 mt-1 flex w-64 flex-col gap-3 rounded-md border border-line bg-surface p-3 shadow-sm">
+                          {% if row.refresh_href %}
+                            <form method="post" action="{{ row.refresh_href }}" data-refresh="{{ row.key }}">
+                              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                              <button type="submit" class="inline-flex min-h-9 w-full items-center justify-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">{{ row.refresh_label }}</button>
+                            </form>
+                          {% endif %}
+                          {% if row.entry_id %}
+                            <form method="post" action="/companies/{{ row.entry_id }}/cadence" class="flex items-center gap-1" data-cadence="{{ row.key }}">
+                              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                              <label class="sr-only" for="cadence-{{ row.entry_id }}">Cadence</label>
+                              <select id="cadence-{{ row.entry_id }}" name="cadence" class="min-h-9 flex-1 rounded-sm border border-control-boundary bg-surface px-2 type-body-sm text-ink">
+                                {% for cadence in cadences %}
+                                  <option value="{{ cadence.value }}" {% if cadence.value == row.cadence_value %}selected{% endif %}>{{ cadence.label }}</option>
+                                {% endfor %}
+                              </select>
+                              <button type="submit" class="inline-flex min-h-9 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">Change cadence</button>
+                            </form>
+                          {% else %}
+                            <a href="/watchlist#following" class="type-body-sm text-ink-muted underline underline-offset-[3px]">Follow to set a cadence</a>
+                          {% endif %}
+                        </div>
+                      </details>
                     </div>
                   </td>
                 </tr>
@@ -136,13 +146,12 @@
       {% else %}
         {{ ui.empty("Nothing matches this filter", "Every company in the record is under another filter; \"All\" shows the lot.", action_label="Show all", action_href="/companies") }}
       {% endif %}
-    {% endcall %}
+    </section>
 
-    <p class="mt-4 type-body-sm text-ink-muted">
-      <a href="/watchlist#following" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong" id="add-to-watch">Add a company to watch</a>
-      &mdash; a name or a ticker; it enters the record with no report, and the daily pass
-      picks it up at its cadence.
-    </p>
+    <aside class="mt-5 max-w-3xl rounded-lg border border-line bg-surface-sunken px-4 py-3" id="second-population">
+      <h2 class="type-eyebrow text-ink-muted">Why the second population matters</h2>
+      <p class="mt-1.5 type-body-sm text-ink"><strong class="font-semibold">Researched, not owned</strong> is the record of ideas you declined and the reasons you gave. When one of them halves, the record can tell you that you passed, and why — and whether that reason still holds. Nothing else keeps this.</p>
+    </aside>
   {% else %}
     {#
       The empty state (§4): one card, with the request form as its action. A second door,

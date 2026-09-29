@@ -92,7 +92,22 @@ three bars measure it. The build, in order, each step pushed when both suites pa
   through the editor's own words and opens the report's workbook. The limit bands and *Record
   it anyway* wait for U5.*
 - **U5 — Hold.** The operator's limits and everything that draws them; portfolio, position,
-  risk, companies and the monitor alert to their drawings.
+  risk, companies and the monitor alert to their drawings. *Built 29 September: the limits are
+  stated on Platform under Book (revision 0093, ADR 0136) — a single position, the five largest
+  and any sector, each blank until stated, superseded rather than edited, withdrawn only with a
+  reason — and every page about the book reads them: the weight bars carry the ceiling's line,
+  a holding past one is flagged, counted and filterable, the position and company pages say
+  *over the 10% ceiling you set*, the decision page's what-if names each ceiling it would cross
+  and its button reads *Record it anyway*, and Today's fifth suggestion is earned by the five
+  largest near or past the operator's own ceiling. The portfolio leads with how many theses
+  hold and a card for the decisions it waits on; the position page is the drawn two columns,
+  its ledger naming the decision each trade carried out; the companies list is one row and one
+  control a company; the risk page's shock panel states a fall in a set in one press — the
+  largest holdings being a new target (revision 0094, ADR 0106 amended) — with the latest
+  shock's result beside it, which the portfolio card shows too; and the price alert is the
+  drawn page, with its premises in the thesis editor's words, the company one press away, and
+  *Change it* for the threshold that raised it, on the watchlist rows too. The refusal page's
+  way back says where it goes; it said "Back to the run" from every page.*
 - **U6 — Review and platform.** The review, the analytics page's honest empty state, and one
   Platform page for costs, monitoring, the book, data, backups and health.
 - **U7 — What every page owes.** No identifier, module path, environment variable or shell

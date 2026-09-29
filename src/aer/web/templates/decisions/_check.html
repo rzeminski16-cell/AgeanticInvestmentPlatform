@@ -44,9 +44,24 @@
               <span aria-hidden="true">&rarr;</span><span class="sr-only">, and after it</span>
               <span class="text-ink" data-when="after">{{ row.after }}</span>
             </dd>
+            {% if row.ceiling %}<dd class="col-span-2 -mt-1 type-caption text-ink-muted" data-field="ceiling">{{ row.ceiling }}</dd>{% endif %}
           </div>
         {% endfor %}
       </dl>
+      {#
+        A limit the operator stated, and the what-if would cross (ADR 0136, ADR 0137): said
+        in a warning band, never enforced. The record control's words change to *Record it
+        anyway*; nothing is disabled.
+      #}
+      {% if check.crossings %}
+        <div class="mt-3 rounded-sm border-l-[3px] border-warning-ink bg-decision-wash p-3" id="limit-crossed" role="status">
+          <p class="type-label text-warning-ink">Past a limit you set</p>
+          <ul class="mt-1 flex flex-col gap-1">
+            {% for sentence in check.crossings %}<li class="type-body-sm text-ink">{{ sentence }}</li>{% endfor %}
+          </ul>
+          <p class="mt-2 type-body-sm text-ink-muted">It blocks nothing. The button reads <em>Record it anyway</em> so that recording it is a choice you made knowing.</p>
+        </div>
+      {% endif %}
       {% if check.cash_short %}
         <p class="mt-3 rounded-sm border-l-[3px] border-warning-ink bg-decision-wash p-3 type-body-sm text-ink" id="cash-short">
           The cash on hand does not cover it. The figures assume the position is paid for from cash alone, so something else would have to be sold.
@@ -90,5 +105,12 @@
 
 {% if check %}
   <p class="mt-4 type-caption text-ink-muted" id="check-caveat">{{ check.caveat }}</p>
+{% endif %}
+{#
+  When htmx asks for this panel alone, the record button's words travel with it, swapped out
+  of band, so the button always says what the check beside it says.
+#}
+{% if swap_record_label %}
+  <span id="record-label" hx-swap-oob="true">{% if check and check.crossings %}Record it anyway{% else %}Record it{% endif %}</span>
 {% endif %}
 <p class="mt-2 type-caption text-ink-muted">The check never blocks. Your book is your own &mdash; it only makes sure you knew. <a href="/risk" class="text-verification underline underline-offset-[3px]">The same figures, in full, on the risk page</a>.</p>

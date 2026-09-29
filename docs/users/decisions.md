@@ -53,6 +53,11 @@ does not cover it, the check says so. **Nothing typed there is recorded** (ADR 0
 figures are worked out for the page and dropped, and the decision's size stays the sentence you
 write. The check never blocks; your book is your own.
 
+Where you have set a ceiling on **Platform → Book**, each figure after the trade stands beside
+it, and a position that would cross one is named: *BARC would be past the 10% ceiling you set*.
+The record button then reads **Record it anyway** — it still records, because the ceiling is
+yours to hold yourself to, and the decision's reason is where you say why.
+
 ## Carrying it out
 
 Record the trade on the **Portfolio** form as usual, and choose the decision under **Carries

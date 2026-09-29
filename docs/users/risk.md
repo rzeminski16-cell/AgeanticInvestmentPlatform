@@ -20,6 +20,14 @@ both.**
 Open **Risk** from the menu. The page shows the book as at its latest close, or any date
 you put in the address as `?as_of=`.
 
+The top of the page is the book's **concentration** and its **sectors**, each beside the
+ceiling you set on **Platform → Book**, or *no ceiling set*; the bar turns amber past a
+ceiling or within two points of one. Beside them, **What would it do?** states a shock in one
+line — a fall in per cent in everything held, the largest holdings, a sector the book is in,
+or one holding — and shows what the latest shock you stated does to the book, position by
+position. The platform proposes neither the fall nor the set. **The working** follows: the
+figures below, every band, each holding, every scenario and the reading.
+
 **What the book would have done** is *ex-ante*: the platform takes a year of daily returns
 for each holding, holds the book's weights fixed at what they are today, and asks how that
 book would have moved. It is not the book's history — the portfolio page's return is — and
@@ -86,8 +94,9 @@ been read since, and the page says the same beside the reading.
 
 ## What this tool does not do
 
-- It does not size a position, set a limit, rank holdings or produce a risk score (ADR
-  0080). Nothing on the page can, and the role's output has no field for it.
+- It does not size a position, propose a limit, rank holdings or produce a risk score (ADR
+  0080). Nothing on the page can, and the role's output has no field for it. The limits
+  drawn here are the ones you stated on Platform, and none of them blocks anything.
 - It does not choose scenarios for you.
 - It does not measure the book's history. That is the portfolio page's return.
 - It does not read prices as marks for anything but the book's value as at the date. A

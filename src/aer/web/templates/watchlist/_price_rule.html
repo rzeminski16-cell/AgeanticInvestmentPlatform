@@ -1,0 +1,26 @@
+{#
+  Change the move a followed listing alerts past, and the days it is measured over (page
+  specification §12.5). On the alert page's threshold band and on the watchlist's rows; `rule`
+  is `web.watchlist.pages.price_rule_form`'s. A disclosure rather than a second page, because
+  the number is changed where the alerts it raised are counted.
+#}
+<details class="group" data-price-rule="{{ rule.key }}">
+  <summary class="inline-flex min-h-11 cursor-pointer items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken marker:content-none">Change it</summary>
+  <form method="post" action="{{ rule.action }}" class="mt-3 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    {% if rule.back %}<input type="hidden" name="back" value="{{ rule.back }}" />{% endif %}
+    <div>
+      <label for="threshold-{{ rule.key }}" class="block type-label text-ink-muted">Alert past, % up or down</label>
+      <input id="threshold-{{ rule.key }}" name="price_move_threshold_pct" value="{{ rule.threshold }}" inputmode="decimal" size="6"
+             aria-describedby="threshold-{{ rule.key }}-hint"
+             class="mt-1 min-h-11 w-28 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+    </div>
+    <div>
+      <label for="window-{{ rule.key }}" class="block type-label text-ink-muted">Measured over, days</label>
+      <input id="window-{{ rule.key }}" name="price_move_window_days" value="{{ rule.window }}" inputmode="numeric" size="4" required
+             class="mt-1 min-h-11 w-20 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+    </div>
+    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Save the alert</button>
+    <p id="threshold-{{ rule.key }}-hint" class="basis-full type-body-sm text-ink-muted">Blank follows the account's default, {{ rule.default }}.</p>
+  </form>
+</details>

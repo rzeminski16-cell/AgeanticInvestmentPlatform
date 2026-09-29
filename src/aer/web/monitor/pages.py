@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any, Final
 
 import structlog
@@ -30,18 +31,24 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
-from aer.core.enums import Decision, FindingAction, FindingKind, GateKind
+from aer.core.dates import format_date
+from aer.core.enums import Decision, FindingAction, FindingKind, GateKind, PremiseStatus
 from aer.db.models import Finding, SourceDocument
 from aer.errors import AerError
 from aer.queue import enqueue_monitor
-from aer.services import price_alerts, shared_premises, thesis_monitor
+from aer.services import configuration, price_alerts, shared_premises, thesis_monitor
 from aer.services import theses as thesis_service
+from aer.services import watchlist as watchlist_service
 from aer.services.approvals import payload_hash_for
+from aer.services.theses import SUBJECT_COMPANY
+from aer.services.watchlist import DEFAULT_PRICE_WINDOW_DAYS
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.gates import CONSEQUENCES
 from aer.web.templating import render
+from aer.web.theses.pages import defeat_words, held_in_order, measured_figure, premise_state
+from aer.web.watchlist.pages import price_rule_form
 
 __all__ = ["FindingRow", "ObservedFigures", "ThesisGroup", "router"]
 
@@ -393,6 +400,15 @@ async def finding_page(
         return _problem(request, "No such finding.")
 
     row = _row(finding)
+    move = price_alerts.figures_of(finding)
+    raised, dismissed = (
+        await price_alerts.moves_in_last_six_months(
+            session, user_id=user.id, security_id=finding.security_id, now=datetime.now(UTC)
+        )
+        if finding.security_id is not None
+        else (0, 0)
+    )
+    security = finding.security
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -405,20 +421,33 @@ async def finding_page(
                 if finding.kind is FindingKind.PRICE_MOVE
                 else _observed_figures(finding.observed)
             ),
-            "move": price_alerts.figures_of(finding),
-            "moves_in_six_months": (
-                await price_alerts.moves_in_last_six_months(
-                    session,
-                    user_id=user.id,
-                    security_id=finding.security_id,
-                    now=datetime.now(UTC),
+            "move": move,
+            "since": (
+                format_date(date.fromisoformat(move["window_from"]), "%-d %B %Y")
+                if move and move.get("window_from")
+                else ""
+            ),
+            "record_says": _record_says(move) if move else [],
+            "premises_now": (
+                await _premises_now(session, finding=finding, user_id=user.id) if move else []
+            ),
+            "threshold": (
+                await _threshold_band(
+                    session, settings, finding=finding, move=move, user_id=user.id
                 )
-                if finding.security_id is not None
-                else (0, 0)
+                if move
+                else None
+            ),
+            "six_months": _six_months_words(raised, dismissed),
+            "company_name": (security.name or security.ticker) if security is not None else "",
+            "company_href": (
+                f"/companies/{security.company_id}"
+                if security is not None and security.company_id is not None
+                else ""
             ),
             "decision_href": (
-                f"/decisions/new?security={finding.security.listing}"
-                if finding.security is not None
+                f"/decisions/new?security={security.listing}"
+                if security is not None
                 else "/decisions/new"
             ),
             "sources": await _sources(session, finding),
@@ -541,6 +570,177 @@ def _elsewhere_row(row: shared_premises.Related) -> ElsewhereRow:
         shares=" and ".join(row.shares),
         href=f"/theses/{row.thesis.id}",
     )
+
+
+# -- A price move, as the drawing lays it out (§12) -------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class HeldPremise:
+    """One premise beside a price move (§12.4): its test, and what the monitor last read
+    against it — a value, or the word for why there is none."""
+
+    test: str
+    reading: str
+    tone: str
+
+
+@dataclass(frozen=True, slots=True)
+class PremiseGroup:
+    thesis: str
+    href: str
+    premises: tuple[HeldPremise, ...]
+
+
+# What each state the pass recorded says in a sentence, singular and plural.
+_STATE_CLAUSES: Final[dict[str, tuple[str, str]]] = {
+    "holds": ("holds", "hold"),
+    "weakened": ("is weakened", "are weakened"),
+    "unobservable": ("could not be measured", "could not be measured"),
+    "not yet read": ("is not read yet", "are not read yet"),
+    "reviewed by a person": ("is reviewed by hand", "are reviewed by hand"),
+}
+
+
+def _premises_said(premises: list[dict[str, Any]]) -> tuple[str, str]:
+    """The premises as the pass read them when the price moved, in one sentence (§12.3)."""
+    if not premises:
+        return vocabulary.Tone.MUTED.value, "There is no thesis behind this listing."
+    total = len(premises)
+    broken = [row for row in premises if row.get("state") == PremiseStatus.CONTRADICTED.value]
+    if broken:
+        # The sentence ends with its own full stop, so a quoted premise does not bring one.
+        named = "; ".join(f"“{str(row.get('statement', '')).rstrip('.')}”" for row in broken)
+        if total == 1:
+            return vocabulary.Tone.FAILURE.value, f"The one premise is contradicted: {named}."
+        verb = "is" if len(broken) == 1 else "are"
+        sentence = f"{len(broken)} of {total} premises {verb} contradicted: {named}."
+        return vocabulary.Tone.FAILURE.value, sentence
+    counted: dict[str, int] = {}
+    for row in premises:
+        state = str(row.get("state", ""))
+        counted[state] = counted.get(state, 0) + 1
+    if set(counted) == {"holds"}:
+        if total == 1:
+            return vocabulary.Tone.SUCCESS.value, "The one premise still holds."
+        return vocabulary.Tone.SUCCESS.value, f"All {total} premises still hold."
+    clauses = [
+        f"{count} {_STATE_CLAUSES.get(state, (state, state))[0 if count == 1 else 1]}"
+        for state, count in counted.items()
+    ]
+    listed = ", ".join(clauses[:-1]) + f" and {clauses[-1]}" if len(clauses) > 1 else clauses[0]
+    uneasy = {"weakened", "unobservable"} & set(counted)
+    tone = vocabulary.Tone.WARNING if uneasy else vocabulary.Tone.INFO
+    return tone.value, f"Of {total} premises, {listed}."
+
+
+def _record_says(move: dict[str, Any]) -> list[tuple[str, str]]:
+    """What the record said when the price moved (§12.3): filings, premises, the market.
+
+    Every clause is the pass's own record of that moment, so an old alert still says what
+    was true when it was raised; the premises as they stand now are beside it.
+    """
+    filed = int(move.get("filed_since") or 0)
+    if filed == 0:
+        filings = (vocabulary.Tone.SUCCESS.value, "Nothing has been filed since your last check.")
+    else:
+        noun = "document has" if filed == 1 else "documents have"
+        filings = (vocabulary.Tone.INFO.value, f"{filed} {noun} been filed since your last check.")
+    label = move.get("market_label") or "market"
+    if move.get("market_move_pct"):
+        market = (
+            vocabulary.Tone.INFO.value,
+            f"The {label} moved {move['market_move_pct']} over the same period.",
+        )
+    else:
+        market = (
+            vocabulary.Tone.MUTED.value,
+            f"The {label} could not be measured over the same period.",
+        )
+    return [filings, _premises_said(list(move.get("premises") or [])), market]
+
+
+async def _premises_now(
+    session: Any, *, finding: Finding, user_id: uuid.UUID
+) -> list[PremiseGroup]:
+    """Every premise held about the company, as the monitor last read it and in the thesis
+    editor's own words (§12.4) — read, never re-measured, because a price is not evidence
+    about a premise (ADR 0079)."""
+    security = finding.security
+    if security is None or security.company_id is None:
+        return []
+    groups: list[PremiseGroup] = []
+    for thesis in await thesis_service.theses_for(session, user_id=user_id):
+        if thesis.subject_kind != SUBJECT_COMPANY or thesis.subject_id != security.company_id:
+            continue
+        rows: list[HeldPremise] = []
+        for premise in held_in_order(thesis):
+            reading = await thesis_service.latest_reading(session, premise)
+            label, tone = premise_state(premise, reading)
+            if not premise.has_predicate:
+                when = format_date(premise.review_by, "%-d %B") if premise.review_by else ""
+                rows.append(
+                    HeldPremise(premise.statement, f"by hand · {when}" if when else label, tone)
+                )
+                continue
+            rows.append(
+                HeldPremise(defeat_words(premise), measured_figure(premise, reading) or label, tone)
+            )
+        groups.append(PremiseGroup(thesis.title, f"/theses/{thesis.id}", tuple(rows)))
+    return groups
+
+
+def _window_words(days: int) -> str:
+    return "in a week" if days == DEFAULT_PRICE_WINDOW_DAYS else f"over {days} days"
+
+
+async def _threshold_band(
+    session: Any, settings: Any, *, finding: Finding, move: dict[str, Any], user_id: uuid.UUID
+) -> dict[str, Any]:
+    """The band at the foot (§12.5): what raised this alert, how often it has, and — while
+    the company is followed — the control that changes it."""
+    security = finding.security
+    entry = (
+        await watchlist_service.followed_entry(
+            session, user_id=user_id, ticker=security.ticker, exchange=security.exchange
+        )
+        if security is not None
+        else None
+    )
+    default = (await configuration.effective_settings(session, settings)).price_move_threshold_pct
+    window = _window_words(int(move.get("window_days") or DEFAULT_PRICE_WINDOW_DAYS))
+    if entry is None:
+        before = "This alert was raised past a move of"
+        after = f" {window}. You no longer follow this company, so it raises no more."
+    elif entry.price_move_threshold_pct is None:
+        before = "Your account's default asks to be told about moves over"
+        after = f" {window}; this company has no threshold of its own."
+    else:
+        before = "You asked to be told about moves over"
+        after = f" {window} on this company."
+    if entry is not None:
+        now = entry.price_move_threshold_pct
+        if now is None:
+            now = default
+        if Decimal(str(move["threshold_pct"])) != now:
+            after += f" It is now ±{now.normalize():f}%."
+    return {
+        "before": before,
+        "figure": f"±{move['threshold_pct']}%",
+        "after": after,
+        "rule": (
+            price_rule_form(entry, default, back=f"/monitor/findings/{finding.id}")
+            if entry is not None
+            else None
+        ),
+    }
+
+
+def _six_months_words(raised: int, dismissed: int) -> str:
+    alerts = "1 alert" if raised == 1 else f"{raised} alerts"
+    if dismissed == 0:
+        return f"This listing has raised {alerts} in six months, none of them dismissed."
+    return f"This listing has raised {alerts} in six months, {dismissed} of them dismissed."
 
 
 async def _subject(session: Any, finding: Finding) -> str:

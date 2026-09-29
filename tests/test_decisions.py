@@ -911,7 +911,10 @@ class TestTheCheckBesideTheForm:
         assert "Show what it does" in check
         for word in ("anyway", "ceiling", "breach", "exceeds", "too large", "blocked"):
             assert word not in check.lower(), f"the check must not speak of {word}"
-        assert re.search(r'id="record" type="submit"[^>]*>Record it</button>', page.text)
+        assert re.search(
+            r'id="record" type="submit"[^>]*><span id="record-label">Record it</span></button>',
+            page.text,
+        )
 
     async def test_a_book_with_holdings_shows_its_figures(self, api: Any, committed: Any) -> None:
         """The empty-book path says why there is no figure; this is the other branch, and

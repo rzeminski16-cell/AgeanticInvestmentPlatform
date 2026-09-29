@@ -234,6 +234,21 @@ def measured_line(premise: Premise, reading: Finding | None) -> str:
     return f"Measured {measured}, read on {read_on}."
 
 
+def measured_figure(premise: Premise, reading: Finding | None) -> str:
+    """The value alone — *3.6%* — for a list that sets it against the test beside it, as the
+    alert page's premises do (§12.4); empty where the reading measured nothing."""
+    observed = (reading.observed if reading is not None else None) or {}
+    if not premise.has_predicate or "value" not in observed:
+        return ""
+    try:
+        value = Decimal(str(observed["value"]))
+    except ArithmeticError:
+        return ""
+    return _measured_value(
+        value, observed_unit=str(observed.get("unit") or ""), stated_unit=premise.unit or ""
+    )
+
+
 def measurement_words(premise: Premise, reading: Finding | None) -> str:
     """The same, as the clause a one-line summary carries — the company page's (§5.2)."""
     if not premise.has_predicate:

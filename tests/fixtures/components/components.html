@@ -53,6 +53,13 @@
     {{ ui.grade("Documented") }}
   </div>
 
+  {# ---- what the record says, one sentence per tone ---- #}
+  <div id="sayings" class="flex max-w-prose flex-col gap-2">
+    {{ ui.said("success", "Nothing has been filed since your last check.") }}
+    {{ ui.said("warning", "One of three premises is contradicted.") }}
+    {{ ui.said("info", "The S&P 500 moved -6.1% over the same period.") }}
+  </div>
+
   {# ---- callouts, one per tone ---- #}
   <div id="callouts" class="flex flex-col gap-4">
     {{ ui.callout("refusal", "No valuation was produced", "Two of the three methods need a confirmed peer set, and this run has none. Confirm the peer set and the comparables method becomes available. The rule exists so a multiple is never computed against companies nobody agreed were comparable.", "Confirm the peer set", "/gates/peers") }}

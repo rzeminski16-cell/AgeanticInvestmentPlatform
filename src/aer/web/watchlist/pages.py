@@ -17,6 +17,7 @@ in September says both.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -38,13 +39,17 @@ from aer.services.spend import spend_by_job
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.pages import problem_page
 from aer.web.templating import render
 
-__all__ = ["router"]
+__all__ = ["price_rule_form", "router"]
 
 router = APIRouter(include_in_schema=False)
 
 _log = structlog.get_logger("aer.web.watchlist")
+
+# The one page besides this one a changed price rule returns to: the alert it was changed on.
+_ALERT_PAGE: Final = re.compile(r"/monitor/findings/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 
 # What each state is called on the screen, and the tone it reads in. Not an enum in
 # `core/enums.py` — a state read off a run rather than stored — so the words live here.
@@ -180,6 +185,7 @@ def _row(
         "listing": entry.listing,
         "why": entry.why,
         "alert": _alert_words(entry, default_threshold),
+        "rule": None if entry.is_withdrawn else price_rule_form(entry, default_threshold),
         "followed_on": f"{entry.followed_at:%d %B %Y}",
         "state": state.state,
         "label": words.label,
@@ -217,9 +223,34 @@ def _alert_words(entry: WatchlistEntry, default_threshold: Decimal) -> str:
 
 
 def _pct(value: Decimal) -> str:
+    return f"{_typed(value)}%"
+
+
+def _typed(value: Decimal) -> str:
     # `normalize` alone prints 10 as 1E+1; the fixed-point format keeps it a number a
     # person would type.
-    return f"{value.normalize():f}%"
+    return f"{value.normalize():f}"
+
+
+def price_rule_form(
+    entry: WatchlistEntry, default_threshold: Decimal, *, back: str = ""
+) -> dict[str, str]:
+    """What the *Change it* form needs (`watchlist/_price_rule.html`), on this page's rows and
+    on the alert page's threshold band.
+
+    The listing's own threshold is filled in, because changing a number starts from the
+    number; a listing on the account's default is left blank, because blank is what keeps it
+    there, and the hint says what the default is.
+    """
+    threshold = entry.price_move_threshold_pct
+    return {
+        "key": str(entry.id),
+        "action": f"/watchlist/{entry.id}/price-rule",
+        "threshold": _typed(threshold) if threshold is not None else "",
+        "window": str(entry.price_move_window_days),
+        "default": _pct(default_threshold),
+        "back": back,
+    }
 
 
 def _threshold_of(text: str) -> Decimal | None:
@@ -315,6 +346,49 @@ async def stop_following(
         await session.rollback()
         return _problem(request, str(refused), status=refused.http_status)
     return RedirectResponse("/watchlist", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/watchlist/{entry_id}/price-rule", summary="Change a listing's price alert")
+async def change_price_rule(
+    entry_id: uuid.UUID,
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The alert page's *Change it* (§12.5), and the same control on this page's rows.
+
+    Back to the alert it was changed from, or to this page — and nowhere else, so the field
+    that carries the return cannot send the browser off the platform.
+    """
+    submitted = await _submitted(request)
+    back = submitted.get("back", "")
+    returning = back if _ALERT_PAGE.fullmatch(back) else "/watchlist"
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return problem_page(
+            request,
+            "This form's security token was missing or had expired. The alert was not changed.",
+            status=HTTP_403_FORBIDDEN,
+            back=returning,
+        )
+    entry = await watchlist_service.entry_of(session, entry_id, user_id=user.id)
+    if entry is None:
+        return problem_page(
+            request, "No such watchlist entry.", status=HTTP_404_NOT_FOUND, back=returning
+        )
+    try:
+        await watchlist_service.change_price_rule(
+            session,
+            user=user,
+            entry=entry,
+            threshold_pct=_threshold_of(submitted.get("price_move_threshold_pct", "")),
+            window_days=_window_of(submitted.get("price_move_window_days", "")),
+        )
+        await session.commit()
+    except AerError as refused:
+        await session.rollback()
+        return problem_page(request, str(refused), status=refused.http_status, back=returning)
+    return RedirectResponse(returning, status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/watchlist/{entry_id}/commission", summary="Commission research on a company")

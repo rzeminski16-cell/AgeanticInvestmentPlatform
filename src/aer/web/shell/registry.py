@@ -74,6 +74,8 @@ PLATFORM: Final = NavSection(
     items=(
         NavItem(key="settings", label="Settings", href="/settings"),
         NavItem(key="costs", label="Costs", href="/costs"),
+        # The operator's limits (ADR 0136): stated here, drawn on every page about the book.
+        NavItem(key="book", label="Book", href="/platform/book"),
         NavItem(key="health", label="Health", href="/healthz"),
         NavItem(key="api", label="API", href="/docs"),
     ),

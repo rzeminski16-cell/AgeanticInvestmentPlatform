@@ -41,9 +41,10 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.dates import format_date
 from aer.core.enums import DecisionAction
-from aer.db.models import Decision, Portfolio, Report, Security, Thesis, Transaction
+from aer.db.models import BookLimit, Decision, Portfolio, Report, Security, Thesis, Transaction
 from aer.errors import AerError
 from aer.services import decisions as decision_service
+from aer.services import limits as limit_service
 from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
 from aer.services import theses as thesis_service
@@ -321,6 +322,7 @@ async def new_decision_page(
             "named_security": named,
             "check": check,
             "what_if": request.query_params.get("what_if", "").strip(),
+            "swap_record_label": False,
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -362,6 +364,7 @@ async def decision_check(request: Request, session: DbSession, user: CurrentUser
             "check": check,
             "named_security": named,
             "what_if": request.query_params.get("what_if", "").strip(),
+            "swap_record_label": True,
         },
     )
     return fragment
@@ -685,6 +688,7 @@ async def _pre_trade(
         security = None
 
     as_of = await portfolio_service.latest_close(session, portfolio=book)
+    limits = await limit_service.limits_of(session, portfolio=book)
     context = new_context()
     try:
         check = await risk_service.check_before_recording(
@@ -704,6 +708,7 @@ async def _pre_trade(
             "scenarios": [],
             "after_rows": [],
             "after_problem": "",
+            "crossings": [],
             "ticker": "",
             "caveat": risk_service.NO_INTENDED_SIZE,
         }
@@ -756,31 +761,77 @@ async def _pre_trade(
         "ticker": security.ticker if security is not None else "",
         "figures": figures,
         "scenarios": [scenario_row(row, currency) for row in check.scenarios],
-        "after_rows": _after_rows(check.after, ticker=security.ticker if security else ""),
+        "after_rows": _after_rows(
+            check.after, ticker=security.ticker if security else "", limits=limits
+        ),
         "after_problem": check.after_problem,
         "cash_short": check.after is not None and check.after.cash_after.value < 0,
+        "crossings": _crossings(check.after, limits, ticker=security.ticker if security else ""),
         "caveat": risk_service.NO_INTENDED_SIZE,
     }
 
 
-def _after_rows(after: risk_service.BookAfter | None, *, ticker: str) -> list[dict[str, str]]:
-    """The drawn before-and-after rows (ADR 0137), each a fraction of the book in words."""
+def _crossings(
+    after: risk_service.BookAfter | None, limits: limit_service.Limits, *, ticker: str
+) -> list[str]:
+    """Each limit the what-if would take the book past, in words (§11.1, ADR 0136/0137).
+
+    Compared in code over the after-figures the check has already struck; the sentence names
+    the operator's own value and nothing new. It never blocks: the record control only says
+    *Record it anyway*.
+    """
     if after is None:
         return []
+    crossed: list[str] = []
+    if limit_service.is_over(after.weight_after.value, limits.single_position):
+        assert limits.single_position is not None
+        crossed.append(
+            f"{ticker} would be past {limit_service.ceiling_words(limits.single_position)}."
+        )
+    if limit_service.is_over(after.top_after.value, limits.five_largest):
+        assert limits.five_largest is not None
+        crossed.append(
+            f"The five largest would be past {limit_service.ceiling_words(limits.five_largest)}."
+        )
+    sector_limit = limits.for_sector(after.sector) if after.sector else None
+    if after.sector_after is not None and limit_service.is_over(
+        after.sector_after.value, sector_limit
+    ):
+        assert sector_limit is not None
+        crossed.append(f"{after.sector} would be past {limit_service.ceiling_words(sector_limit)}.")
+    return crossed
+
+
+def _after_rows(
+    after: risk_service.BookAfter | None,
+    *,
+    ticker: str,
+    limits: limit_service.Limits | None = None,
+) -> list[dict[str, str]]:
+    """The drawn before-and-after rows (ADR 0137), each a fraction of the book in words,
+    with the operator's own ceiling beside the row it caps where one is stated."""
+    if after is None:
+        return []
+    stated = limits or limit_service.Limits()
 
     def share(value: Decimal) -> str:
         return risk_service.percent(value).lstrip("+")
+
+    def ceiling(limit: BookLimit | None) -> str:
+        return f"ceiling {limit_service.limit_percent(limit)}" if limit is not None else ""
 
     rows = [
         {
             "label": f"Weight in {ticker}",
             "before": share(after.weight_before.value),
             "after": share(after.weight_after.value),
+            "ceiling": ceiling(stated.single_position),
         },
         {
             "label": "The five largest",
             "before": share(after.top_before.value) if after.top_before is not None else "—",
             "after": share(after.top_after.value),
+            "ceiling": ceiling(stated.five_largest),
         },
     ]
     if after.sector is not None and after.sector_before is not None:
@@ -789,6 +840,7 @@ def _after_rows(after: risk_service.BookAfter | None, *, ticker: str) -> list[di
                 "label": f"In {after.sector}",
                 "before": share(after.sector_before.value),
                 "after": share(after.sector_after.value) if after.sector_after else "—",
+                "ceiling": ceiling(stated.for_sector(after.sector)),
             }
         )
     rows.append(
@@ -796,6 +848,7 @@ def _after_rows(after: risk_service.BookAfter | None, *, ticker: str) -> list[di
             "label": "Cash",
             "before": share(after.cash_before.value),
             "after": share(after.cash_after.value),
+            "ceiling": "",
         }
     )
     return rows

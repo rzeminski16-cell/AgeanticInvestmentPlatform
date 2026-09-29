@@ -26,11 +26,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.changes import relative_change
 from aer.calc.units import CalculationError
+from aer.core.dates import format_date
 from aer.db.models import Portfolio, User
 from aer.errors import AerError
 from aer.services import calculations as calculation_service
 from aer.services import company_record as record_service
 from aer.services import daily_pass
+from aer.services import limits as limit_service
 from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
@@ -52,9 +54,12 @@ _log = structlog.get_logger("aer.web.portfolio.dashboard")
 
 # The sort orders the control offers (§2.2). Conviction is the default on a fresh session.
 SORTS: Final[tuple[str, ...]] = ("conviction", "weight", "value", "unrealised", "name")
-# The filter row (§2.2). *Over ceiling* is offered and can never match: no ceiling is
-# stored anywhere in the platform (ADR 0104), and the row says so rather than hiding it.
+# The filter row (§2.2). *Over ceiling* matches a holding past a ceiling the operator stated
+# on Platform (ADR 0136); with none stated it matches nothing, and the page says why.
 FILTERS: Final[tuple[str, ...]] = ("all", "in_doubt", "no_thesis", "overdue", "over_ceiling")
+
+# The flag a holding past one of the operator's own ceilings carries, first among its flags.
+OVER_CEILING: Final = "over ceiling"
 
 # Conviction risk, descending (§2.2): the lower the number, the higher up the page.
 CONVICTION: Final[dict[str, int]] = {
@@ -86,6 +91,8 @@ class Validity:
     checked: str
     checked_overdue: bool
     risk_flags: tuple[str, ...]
+    over_ceiling: bool = False
+    next_check: str = ""
 
     @property
     def thesis_words(self) -> str:
@@ -112,10 +119,24 @@ async def validity_for(
     user: User,
     view: portfolio_service.PortfolioView,
     exposure: performance_service.ExposureView,
+    limits: limit_service.Limits | None = None,
     now: datetime | None = None,
 ) -> dict[uuid.UUID, Validity]:
-    """One reading per held listing, keyed by security id."""
+    """One reading per held listing, keyed by security id.
+
+    A holding is *over ceiling* when its own weight is past the operator's single-position
+    ceiling, or its sector's share past that sector's (ADR 0136) — the comparison made in
+    code over the weights and shares the risk page prints.
+    """
     moment = now or datetime.now(UTC)
+    stated = limits or limit_service.Limits()
+    sector_share = {
+        member: (row.label, row.share.value)
+        for band in exposure.bands
+        if band.kind == "sector"
+        for row in band.slices
+        for member in row.members
+    }
     records = {
         record.company.id: record
         for record in await record_service.records_for(session, user=user, now=moment)
@@ -124,7 +145,7 @@ async def validity_for(
     last = await daily_pass.last_pass(session, user_id=user.id)
     finished = last.finished_at if last is not None else None
     pass_state = daily_pass.pass_state(finished, now=moment)
-    checked, overdue = _checked_words(finished, missed=pass_state.is_missed)
+    checked, next_check, overdue = _checked_words(finished, missed=pass_state.is_missed)
     concentrated, sector_of = _risk_cuts(exposure)
 
     readings: dict[uuid.UUID, Validity] = {}
@@ -133,6 +154,12 @@ async def validity_for(
             continue
         record = records.get(row.security.company_id) if row.security.company_id else None
         flags: list[str] = []
+        sector, share = sector_share.get(row.security.ticker, ("", None))
+        over = limit_service.is_over(
+            row.weight.value if row.weight is not None else None, stated.single_position
+        ) or limit_service.is_over(share, stated.for_sector(sector) if sector else None)
+        if over:
+            flags.append(OVER_CEILING)
         if row.security.ticker in concentrated:
             flags.append("concentration")
         if row.security.ticker in sector_of:
@@ -145,6 +172,8 @@ async def validity_for(
             checked=checked,
             checked_overdue=overdue,
             risk_flags=tuple(flags),
+            over_ceiling=over,
+            next_check=next_check,
         )
     return readings
 
@@ -159,13 +188,18 @@ def _thesis_state(record: CompanyRecord | None) -> str:
     return "holds"
 
 
-def _checked_words(finished: datetime | None, *, missed: bool) -> tuple[str, bool]:
-    """The last monitor pass and the next scheduled one, or *Never*."""
+def _checked_words(finished: datetime | None, *, missed: bool) -> tuple[str, str, bool]:
+    """The last monitor pass and the next scheduled one, or *Never* — the column's two
+    lines, as drawn: the day it was read, and when it is next."""
     if finished is None:
-        return "Never", True
+        return "Never", "", True
     due = finished + daily_pass.CADENCE
-    words = f"Read {finished:%d %b}; next {due:%d %b}"
-    return (f"{words} — overdue" if missed else words), missed
+    upcoming = f"Next {format_date(due, '%-d %b')}"
+    return (
+        format_date(finished, "%-d %b"),
+        f"{upcoming} — overdue" if missed else upcoming,
+        missed,
+    )
 
 
 def _risk_cuts(
@@ -175,8 +209,8 @@ def _risk_cuts(
 
     *Concentration* means among the five largest holdings the top-five figure counts;
     *sector {name}* names the largest sector cut for each member of it. Neither is a
-    breach — no ceiling exists to breach — so both are flags that something applies,
-    with the working on the risk page.
+    breach — a breach is *over ceiling*, against a limit the operator stated — so both are
+    flags that something applies, with the working on the risk page.
     """
     concentrated: frozenset[str] = frozenset()
     sector_of: dict[str, str] = {}
@@ -254,9 +288,7 @@ def filter_rows(
     if show == "overdue":
         return [row for row in rows if (r := reading_of(row)) is not None and r.checked_overdue]
     if show == "over_ceiling":
-        # No ceiling is stored, so nothing can be over it. An empty list, and the page says
-        # why rather than pretending the filter did its work.
-        return []
+        return [row for row in rows if (r := reading_of(row)) is not None and r.over_ceiling]
     return list(rows)
 
 
@@ -295,6 +327,9 @@ class SummaryRow:
     value: str
     note: str
     href: str
+    # The ink the figure is drawn in: warning past one of the operator's own ceilings,
+    # failure for the loss a stated shock would take. Empty is the ordinary ink.
+    tone: str = ""
 
 
 async def risk_summary(
@@ -306,22 +341,42 @@ async def risk_summary(
     as_of: date,
     money: Any,
     share: Any,
+    readings: dict[uuid.UUID, Validity] | None = None,
+    limits: limit_service.Limits | None = None,
 ) -> list[SummaryRow]:
     """The five rows, each read from what the risk page computes and linking to it.
 
     ``money`` and ``share`` are the page's own formatters, passed in so the summary renders
-    figures exactly as the table beside it does.
+    figures exactly as the table beside it does. The top-five row and the count of positions
+    over their ceiling read the operator's own limits (ADR 0136), and say so where none is set.
     """
+    stated = limits or limit_service.Limits()
     rows: list[SummaryRow] = []
     holdings = next((band for band in exposure.bands if band.kind == "holding"), None)
     covered = len(holdings.slices) if holdings is not None else 0
+    top = exposure.top_holdings
+    ceiling = stated.five_largest
+    top_over = False
+    if ceiling is None:
+        top_note = "Of the book. No top-five ceiling is set, so this is the figure alone."
+    else:
+        top_over = limit_service.is_over(top.value if top is not None else None, ceiling)
+        top_note = f"Of the book, against {limit_service.ceiling_words(ceiling)}" + (
+            " — over it." if top_over else "."
+        )
     rows.append(
         SummaryRow(
             key="concentration",
             label=f"Largest {min(covered, performance_service.CONCENTRATION_COUNT)} holdings",
-            value=share(exposure.top_holdings.value) if exposure.top_holdings else "—",
-            note="Of the book. No ceiling is stated, so this is the figure alone.",
+            value=(
+                share(top.value)
+                + (f" / {limit_service.limit_percent(ceiling)}" if ceiling is not None else "")
+                if top is not None
+                else "—"
+            ),
+            note=top_note,
             href="/risk#exposure",
+            tone=vocabulary.Tone.WARNING.value if top_over else "",
         )
     )
     sector = next((band for band in exposure.bands if band.kind == "sector"), None)
@@ -339,13 +394,24 @@ async def risk_summary(
             href="/risk#exposure",
         )
     )
+    past = sum(1 for reading in (readings or {}).values() if reading.over_ceiling)
+    has_position_ceiling = stated.single_position is not None or bool(stated.sectors)
     rows.append(
         SummaryRow(
             key="over_ceiling",
             label="Over their ceiling",
-            value="none",
-            note="No ceiling is stored anywhere in the platform, so none can be over it.",
-            href="/risk",
+            value=(
+                (f"{past} position{'s' if past != 1 else ''}" if past else "none")
+                if has_position_ceiling
+                else "none set"
+            ),
+            note=(
+                "Against the ceilings you set on Platform."
+                if has_position_ceiling
+                else "You have set no position or sector ceiling; nothing is proposed."
+            ),
+            href="/platform/book" if not has_position_ceiling else "/risk#exposure",
+            tone=vocabulary.Tone.WARNING.value if past else "",
         )
     )
     rows.append(await _shock_row(session, book=book, as_of=as_of, money=money, share=share))
@@ -369,9 +435,10 @@ async def risk_summary(
 async def _shock_row(
     session: AsyncSession, *, book: Portfolio, as_of: date, money: Any, share: Any
 ) -> SummaryRow:
-    """The first stated scenario and what it does to the book, from the risk page's own
-    computation (F12: one implementation, surfaced twice)."""
-    scenarios = await risk_service.scenarios_for(session, portfolio=book)
+    """The latest stated scenario and what it does to the book, from the risk page's own
+    computation (F12: one implementation, surfaced twice) — the same one the risk page's
+    shock panel shows, because the latest stated is the one the operator last meant."""
+    scenarios = (await risk_service.scenarios_for(session, portfolio=book))[-1:]
     if not scenarios:
         return SummaryRow(
             key="shock",
@@ -406,11 +473,14 @@ async def _shock_row(
             note=f"{scenarios[0].name}: reaches nothing the book holds.",
             href="/risk#scenarios",
         )
-    impact = share(outcome.impact.value) if outcome.impact is not None else ""
+    # The shock's own name above what it does, as drawn: the loss, then its share of the book.
+    impact = f" · {share(outcome.impact.value)} of the book" if outcome.impact is not None else ""
+    loss = outcome.pnl is not None and outcome.pnl.value < 0
     return SummaryRow(
         key="shock",
         label="Stated shock",
-        value=money(outcome.pnl.value, book.base_currency) if outcome.pnl else "—",
-        note=f"{outcome.scenario.name}: {impact} of the book." if impact else outcome.scenario.name,
+        value=f"{money(outcome.pnl.value, book.base_currency)}{impact}" if outcome.pnl else "—",
+        note=outcome.scenario.name,
         href="/risk#scenarios",
+        tone=vocabulary.Tone.FAILURE.value if loss else "",
     )

@@ -44,6 +44,7 @@ EXPECTED: Final[frozenset[str]] = frozenset(
         "provenance",
         "confirmation",
         "status",
+        "said",
         "grade",
         "callout",
         "button",
@@ -206,6 +207,7 @@ class TestEveryComponentRenders:
         [
             "verdicts",
             "statuses",
+            "sayings",
             "callouts",
             "buttons",
             "fields",

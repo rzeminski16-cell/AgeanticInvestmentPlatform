@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Platform, Book (page specification §19, ADR 0136): the limits the operator states on their
+  book. Each is blank until stated, and nothing here suggests one — no default, no example
+  value, no placeholder — because a suggested limit is the platform stating a policy. Beside
+  each limit in force is what it caps as the book stands, compared in code; the page prints the
+  recorded figure and the operator's own value, and nothing else.
+#}
+
+{% block title %}Your book's limits &middot; Ageantic{% endblock %}
+
+{% block content %}
+  {{ ui.page_header(
+    "Your book's limits",
+    eyebrow="Platform · Book",
+    identity="These drive the pre-trade check and the risk page. They are yours; nothing is proposed, and none of them blocks anything.",
+  ) }}
+
+  <div class="flex flex-col gap-6">
+    {% if not book %}
+      {{ ui.empty("No book yet", "A limit is a share of a book, and none is open. Record what you hold first.", action_label="Open the portfolio", action_href="/portfolio") }}
+    {% else %}
+      {% if problem %}
+        <div id="limit-problem" tabindex="-1">{{ ui.callout("failure", "Nothing was saved", problem) }}</div>
+      {% endif %}
+
+      {% call ui.sheet("Limits", subtitle="As the book stood at the close of " ~ as_of ~ ". A changed limit replaces the old one, which is kept below; a withdrawn one keeps your reason.", id="limits") %}
+        <ul class="flex flex-col divide-y divide-line" aria-label="Limits">
+          {% for row in rows %}
+            <li class="grid grid-cols-1 gap-3 py-4 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+                data-limit="{{ row.kind }}{% if row.sector %}:{{ row.sector }}{% endif %}"
+                data-set="{{ 'yes' if row.limit_id else 'no' }}">
+              <div class="min-w-0">
+                <p class="type-body text-ink">{{ row.label }}</p>
+                <p class="mt-0.5 type-body-sm {% if row.tone == 'warning' %}text-warning-ink{% else %}text-ink-muted{% endif %}" data-field="today">{{ row.today }}</p>
+              </div>
+              <p class="type-data text-ink sm:text-right" data-field="value">{{ row.value }}</p>
+              <div class="flex flex-wrap items-end gap-3 sm:col-span-2">
+                <form method="post" action="/platform/book/limits" class="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                  <input type="hidden" name="kind" value="{{ row.kind }}" />
+                  {% if row.sector %}<input type="hidden" name="sector" value="{{ row.sector }}" />{% endif %}
+                  <div>
+                    <label for="percent-{{ loop.index }}" class="block type-label text-ink-muted">{% if row.limit_id %}New ceiling{% else %}Ceiling{% endif %}, % of the book</label>
+                    <input id="percent-{{ loop.index }}" name="percent" inputmode="decimal" required size="6"
+                           class="mt-1 min-h-11 w-28 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+                  </div>
+                  <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">{% if row.limit_id %}Change it{% else %}Set it{% endif %}</button>
+                </form>
+                {% if row.limit_id %}
+                  <details class="group">
+                    <summary class="inline-flex min-h-11 cursor-pointer items-center px-2 type-label text-verification underline underline-offset-[3px] marker:content-none">Withdraw it</summary>
+                    <form method="post" action="/platform/book/limits/{{ row.limit_id }}/withdraw" class="mt-2 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                      <div>
+                        <label for="reason-{{ loop.index }}" class="block type-label text-ink-muted">Because</label>
+                        <input id="reason-{{ loop.index }}" name="reason" required
+                               class="mt-1 min-h-11 w-72 max-w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+                      </div>
+                      <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-sunken">Withdraw it</button>
+                    </form>
+                  </details>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endcall %}
+
+      {% call ui.sheet("A sector ceiling", subtitle="One sector's share of the book, cut the way the risk page cuts it: by each filer's own classification code.", id="add-sector") %}
+        {% if sectors %}
+          <form method="post" action="/platform/book/limits" class="flex flex-wrap items-end gap-3" id="sector-limit">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <input type="hidden" name="kind" value="sector" />
+            <div class="flex flex-col gap-1">
+              <label for="sector" class="type-label text-ink-muted">Sector</label>
+              <select id="sector" name="sector" required class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink">
+                {% for choice in sectors %}
+                  <option value="{{ choice.value }}" {% if typed.get('sector') == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label for="sector-percent" class="type-label text-ink-muted">Ceiling, % of the book</label>
+              <input id="sector-percent" name="percent" inputmode="decimal" required size="6"
+                     class="min-h-11 w-28 rounded-sm border border-control-boundary bg-surface px-3 type-data-sm text-ink" />
+            </div>
+            <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong">Set the sector ceiling</button>
+          </form>
+        {% else %}
+          <p class="type-body text-ink-muted">Nothing the book holds is classified by sector yet, so there is no sector to cap.</p>
+        {% endif %}
+      {% endcall %}
+
+      {% call ui.sheet("Your stated shock", subtitle="Used on the risk page and beside every pre-trade check. The shock and the set are yours; the platform proposes neither.", id="stated-shocks") %}
+        {% if scenarios %}
+          <ul class="flex flex-col gap-1">
+            {% for scenario in scenarios %}
+              <li class="type-body text-ink">{{ scenario.name }} <span class="type-body-sm text-ink-muted">· stated {{ scenario.stated }}</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="type-body text-ink-muted">None stated.</p>
+        {% endif %}
+        <p class="mt-3"><a href="/risk#scenarios" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong">State or withdraw one on the risk page</a></p>
+      {% endcall %}
+
+      {% if history %}
+        {% call ui.sheet("What you allowed yourself before", subtitle="Every limit replaced or withdrawn, with when. A review of a decision reads the limit in force when you made it.", id="limit-history") %}
+          <ul class="flex flex-col divide-y divide-line">
+            {% for row in history %}
+              <li class="flex flex-wrap items-baseline justify-between gap-2 py-2 first:pt-0" data-history>
+                <span class="type-body-sm text-ink">{{ row.what }} <span class="type-data-sm">{{ row.value }}</span></span>
+                <span class="type-body-sm text-ink-muted">stated {{ row.stated }}, {{ row.ended }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endcall %}
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

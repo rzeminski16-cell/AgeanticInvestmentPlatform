@@ -71,6 +71,15 @@ found things unchanged.
   premise*. "I saw this and chose to do nothing" is worth recording.
 - **Reopen** a resolved finding if you change your mind, with a reason.
 
+**A price move** is a finding of its own, and its page leads with the relationship rather than
+the event: *The price moved. Your thesis did not.* — or *…and so did a premise.* The move and
+fourteen sessions of closes sit beside what the record said when it happened (anything filed,
+the premises as last read, the market over the same days), and your premises as they stand now
+beside those, each test with what the monitor last measured. **Open** the company, **Record a
+decision**, or **Dismiss — say why**. The band at the foot says what threshold raised it and
+how many alerts it has raised in six months; **Change it** there sets that listing's own
+threshold. Too many dismissals mean the threshold is wrong, not the market.
+
 ## What this tool does not do
 
 - It does not test a premise against the share price (ADR 0079).

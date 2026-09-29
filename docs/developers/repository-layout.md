@@ -106,7 +106,10 @@ src/aer/            application package
     risk.py         the book's risk as at a date, ex-ante over today's weights; a scenario the
                     operator states; the analyst's reading, refused by the numeral check (ADR 0106)
     watchlist.py    what the operator follows and why; the queue that turns the next entry into
-                    an ordinary run as at a date, within a standing budget (ADR 0107)
+                    an ordinary run as at a date, within a standing budget (ADR 0107); a
+                    listing's price alert, changed in place with the old one audited
+    limits.py       the operator's own limits on the book — one position, the five largest, a
+                    sector — the only writer of them, compared in code, blocking nothing (ADR 0136)
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -158,14 +161,17 @@ src/aer/            application package
     risk/pages.py       the book's risk figures with their lineage, the scenarios the operator
                         stated, and the analyst's reading or its refusal
     watchlist/pages.py  the companies followed with why, the standing budget, and the queue
-                        commissioned from the row or drained in follow order
+                        commissioned from the row or drained in follow order; *Change it* for a
+                        listing's price alert, shared with the alert page
+    platform/pages.py   Platform → Book: the limits stated, what each means today, and the ones
+                        replaced or withdrawn (ADR 0136)
     tools/registry.py   INSTALLED_TOOLS: nine rows, nine working; a planned tool would be a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
-      _ui/          nineteen macros; a macro takes data and never classes
+      _ui/          twenty-three macros; a macro takes data and never classes
         index.html    the one import a page makes; re-exports every macro by name
-        semantics.html  status, grade, callout — each takes a Tone, never a colour
+        semantics.html  status, said, grade, callout — each takes a Tone, never a colour
         controls.html   button, field, disclosure; all work with scripting off
         page.html       page header, verdict (ADR 0087), sheet, figure
         records.html    definition list, record list, table

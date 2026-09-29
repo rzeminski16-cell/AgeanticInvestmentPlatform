@@ -169,6 +169,12 @@ operator's; the footer says when the book was valued, as drawn. The fifth sugges
 the operator's limits (ADR 0136, U5), and the reports held and current are stated on the Reports
 library.
 
+*Fifth suggestion built 29 September 2026 (U5).* *Look at your concentration* is earned when the
+five largest are within two points of the top-five ceiling the operator stated on Platform, or
+past it, and its line says which — *your five largest positions are 71.8% of the book, past the
+50% ceiling you set* — with the risk page's exposure as its action. With no ceiling stated it is
+never earned.
+
 ---
 
 ## 2. Portfolio
@@ -263,6 +269,20 @@ ceiling* in `warning` for a holding past it, the *over ceiling* filter and the *
 their ceiling* row count against it, and the top-five row states its limit beside its figure.
 Where none is stated, each says that none is set, and no default is ever drawn.
 
+
+*Built 29 September 2026, as drawn* (`portfolio/index.html`). The page is titled *The book*,
+with the sentence it exists to deliver under the title — how many theses still hold, then
+what the rest have instead (*two broke, one is under review, and one has nothing written down
+at all*) — and the value with the day's move on the right, cash and the count beneath it. The
+as-at lens, the typed-entries notice and the stale-prices band sit under the header; the
+table fits its seven columns in the working width, with the thesis and risk states as the
+drawing's chips and *Checked* as the day read and the next; the filter and the sort are one
+compact form. The risk card reads its rows label against figure, in the warning ink past a
+ceiling the operator set, with the stated shock beneath — the latest one stated, its name and
+what it does — and a *Needs a decision* card beneath that when a premise stands broken or a
+holding has no thesis, leading to the monitor or the thesis form. Return, exposure and the
+transaction form stay below, as the 24 September correction kept them.
+
 ---
 
 ## 3. Position detail
@@ -303,6 +323,15 @@ none exists.
 against the operator's single-position limit where one is stated, and says *over the {n}%
 ceiling you set* in `warning` when the holding is past it, linking to the decision that took it
 there where one is recorded.
+
+
+*Built 29 September 2026, as drawn* (`portfolio/position.html`). The name with what the
+position was built on (*built across two decisions and one thesis, since 14 March 2026*), and
+its value and unrealised figure on the right; the ledger on the left, its last column the
+decision each trade carried out where the operator said which (ADR 0104), and the theses
+beneath it; *What it is worth* and *What it does to the book* as two cards beside it, the
+second with the weight, the five largest and the sector each against the operator's ceiling,
+and past one the drawing's note with *Read that decision*.
 
 ---
 
@@ -353,6 +382,17 @@ watchlist's own follow form, reached by link, rather than a second form that wou
 it; the empty card's action is the request form, with the follow form as the sentence beneath.
 In the menu, Companies sits beside Watchlist under the same tool (02's §6): the one is the
 other's list, and the queue and the standing budget stay where they were.
+
+
+*Built 29 September 2026, as drawn* (`companies/index.html`). One row a company and one control
+on it, *Open*; the priced refresh and the cadence are the row's too, one press further in
+under *More*, so the table reads as the drawing does. *Why it is here* is the population's tag
+and the line that makes it that — the weight held, the pass and its reason, when it was
+added and never researched, or when it closed. Thesis and report states are the drawing's
+chips: *broke* where a premise stands contradicted, *no thesis* in the warning ink only on a
+holding, a stale report with its age in days. The line under the title counts the record and
+says why it is in this order; *Watch a company* is the header's control; the note on why the
+second population matters closes the page.
 
 ---
 
@@ -855,6 +895,22 @@ Deliberately narrow, because two holdings sharing *revenue growth* share almost 
 wider question is Ask's to answer when asked (§13). A price move carries no such sheet: a
 price is not a premise.
 
+
+*Built 29 September 2026, as drawn* (`monitor/finding.html`, the price shape). The move and
+what the record said when it happened are the left card: the size beside a mark and the word
+for its direction, never a minus sign alone; the two closes; and fourteen sessions drawn as
+each close against the one before, up or down from a baseline, so the column's place says the
+direction and its colour only repeats it. *What the record says* is three sentences, each
+with its family's mark — nothing filed, the premises as the pass read them, the market's move
+— from the pass's own record of that moment. *Your premises* are the right card, as they stand
+now and in the thesis editor's words, each test beside what the monitor last read against it;
+under them *Open* the company (the Company page now exists), *Record a decision*, and
+*Dismiss — say why*, whose reason form opens in place. The threshold band says what raised the
+alert, how many alerts the listing has raised in six months and how many were dismissed, and
+carries *Change it*: the listing's own threshold and window, changed in place with the old
+values kept in the audit trail. The same control now sits on each watchlist row, where this
+section's 23 September correction said it was.
+
 ---
 
 ## 13. Ask
@@ -920,6 +976,21 @@ correlation matrix.
 **Corrected 28 September 2026, against ADR 0136.** Each concentration and sector row states
 the operator's limit beside its figure where one is set, and *no limit set* where none is;
 a row past its limit says so in `warning`, with the word.
+
+
+*Built 29 September 2026, as drawn* (`risk/index.html`). Titled *What the book is exposed to*.
+Concentration and the sectors are the left cards, each figure with its bar beside the
+operator's ceiling or *no ceiling set*, the bar in the warning ink past or within two points
+of one. The shock panel is the right card: a fall in per cent and a set picked from the book,
+its largest holdings, a sector it holds or one holding — the largest N being a new target
+under ADR 0106 as amended — stated in one press as a scenario named in its own words, with the
+latest stated shock's result beneath: the loss, its share of the book, and what each position
+takes. *What this page will not do* says no value-at-risk and no correlation matrix; the
+drawing's *no beta-adjusted anything* is not printed, because ADR 0106 decided the page shows
+each holding's beta to the book and its contribution, and a sentence the page contradicts
+further down is a sentence nobody trusts. The working follows under its own heading: the
+movement, every band, each holding, every scenario with the three-shock form, and the
+analyst's reading.
 
 ---
 
@@ -1058,3 +1129,10 @@ anywhere it could be copied.
 **Corrected 28 September 2026, against ADR 0136.** *Book* holds the operator's limits — a single
 position, the five largest, and any sector — each blank until stated, each superseded rather
 than edited, with no default and no suggestion; and the stated shock, as the risk page keeps it.
+
+*Book built 29 September 2026* (`platform/book.html`, `/platform/book`). The two whole-book
+limits always, blank until stated, and each sector limit in force, with what each means as the
+book stands beside it; a sector limit is added from the sectors the book holds; the stated
+shocks are listed and stated on the risk page; the limits replaced or withdrawn are kept at the
+foot with when and why. The page is its own entry under Platform until U6 folds the Platform
+sections into one page.

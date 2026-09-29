@@ -526,10 +526,30 @@ def _positions(book: PortfolioView) -> list[_Position]:
     return out
 
 
-def _reaches(shock: RiskScenarioShock, position: _Position, *, base_currency: str) -> bool:
+def _largest(positions: list[_Position], count: int) -> frozenset[str]:
+    """The tickers of the ``count`` largest holdings by value in the book's currency — the
+    set *the largest three* names, read as the book stands on the date. Ties go to the
+    ticker, so the same book always yields the same set."""
+    held = sorted(
+        (position for position in positions if not position.is_cash),
+        key=lambda position: (-position.value.value, position.ticker),
+    )
+    return frozenset(position.ticker for position in held[:count])
+
+
+def _reaches(
+    shock: RiskScenarioShock,
+    position: _Position,
+    *,
+    base_currency: str,
+    positions: list[_Position],
+) -> bool:
     target = shock.target.strip()
     if shock.kind is ShockKind.BOOK:
         return not position.is_cash
+    if shock.kind is ShockKind.LARGEST:
+        count = int(target) if target.isdigit() else 0
+        return not position.is_cash and position.ticker in _largest(positions, count)
     if shock.kind is ShockKind.HOLDING:
         return not position.is_cash and position.ticker == target.upper()
     if shock.kind is ShockKind.SECTOR:
@@ -553,7 +573,8 @@ def _scenario_outcome(
     shocks: list[Quantity] = []
     reached: list[str] = []
     positions: list[_Position] = []
-    for position in _positions(book):
+    everything = _positions(book)
+    for position in everything:
         applying = [
             Quantity.of(
                 row.shock,
@@ -563,7 +584,9 @@ def _scenario_outcome(
                 ),
             )
             for row in scenario.shocks
-            if _reaches(row, position, base_currency=book.portfolio.base_currency)
+            if _reaches(
+                row, position, base_currency=book.portfolio.base_currency, positions=everything
+            )
         ]
         if not applying:
             continue
@@ -1002,6 +1025,14 @@ async def state_scenario(
             raise ValidationError(message, context={"field": "shock"})
         if shock.kind is not ShockKind.BOOK and not shock.target.strip():
             message = f"A shock to {shock.kind.value} needs a target to reach."
+            raise ValidationError(message, context={"field": "target"})
+        if shock.kind is ShockKind.LARGEST and not (
+            shock.target.strip().isdigit() and int(shock.target.strip()) >= 1
+        ):
+            message = (
+                "The largest holdings are counted in whole numbers from one; "
+                f"got {shock.target.strip()!r}."
+            )
             raise ValidationError(message, context={"field": "target"})
 
     scenario = RiskScenario(portfolio_id=portfolio.id, name=name.strip(), stated_by=actor.email)

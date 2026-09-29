@@ -87,6 +87,16 @@ No scenario is built in. ADR 0080's reason reaches code as well as the model: a 
 is a claim about what is worth worrying about, made for the operator by whoever wrote the
 default. The form is small, and the page says what a scenario is until one exists.
 
+**Amended 29 September 2026 (U5 of the interface build).** A shock may also reach *the
+largest N holdings*, read as the book stands on the date the scenario is applied: the
+approved page specification's shock panel names that set (§14, *a 20% fall in the largest
+three*). It is still a target the operator states and not a scenario built in — nothing
+proposes the count or the fall — and it is re-read on every date, so one statement reaches
+whichever holdings are largest then; ties go to the ticker, so a book always yields the same
+set. `shock_kind` gains `largest` (migration 0094), whose target is the count, in whole
+numbers from one. The panel states a one-shock scenario named in its own words; the form
+beside the scenarios table still takes up to three shocks of any kind.
+
 ### 4. The commentary's deterministic edge is the numeral check, and the refusal is recorded
 
 The `risk_analyst` role runs in the web process, per book, on its own work order

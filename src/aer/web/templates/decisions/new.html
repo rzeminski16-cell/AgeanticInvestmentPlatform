@@ -86,7 +86,7 @@
 
             <div>
               <button id="record" type="submit"
-                      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-5 type-label text-on-verification hover:bg-verification-strong">Record it</button>
+                      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-5 type-label text-on-verification hover:bg-verification-strong"><span id="record-label">{% if check and check.crossings %}Record it anyway{% else %}Record it{% endif %}</span></button>
             </div>
           </div>
         {% endcall %}

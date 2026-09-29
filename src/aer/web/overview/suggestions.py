@@ -1,7 +1,7 @@
 """Band 2 of Today — *worth doing* — where every card is earned by a condition in the record.
 
 Page specification §1.2: a suggestion with no condition is a defect, not a default, and if
-nothing qualifies the band is absent entirely. Four conditions are readable today:
+nothing qualifies the band is absent entirely. Five conditions:
 
 | Suggestion | The condition that earns it |
 |---|---|
@@ -9,11 +9,10 @@ nothing qualifies the band is absent entirely. Four conditions are readable toda
 | Research a watched company | followed, no current report, nothing commissioned in 30 days |
 | Write a thesis | a held position with no thesis |
 | Review closed decisions | a position closed more than 30 days ago with no review |
+| Look at your concentration | the five largest near or past the top-five ceiling you set |
 
-The fifth in the specification — *look at your concentration*, earned when the top-five
-weight is within two points of the operator's stated ceiling — cannot be earned, because no
-ceiling is stored anywhere in the platform (ADR 0104, §11's correction). It is not
-manufactured; the band shows four kinds rather than a fifth with an invented threshold.
+The fifth reads a limit the operator stated (ADR 0136) and nothing else: with no top-five
+ceiling stated there is nothing to be close to, and no threshold is invented to earn it.
 
 Each suggestion carries the moment its condition was met, so the page can show the four
 oldest and say how many more there are.
@@ -31,10 +30,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import JobStatus
 from aer.db.models import Company, Job, Portfolio, Report, User, WorkOrder
+from aer.render import display
 from aer.services import company_record as record_service
+from aer.services import limits as limit_service
+from aer.services import portfolio as portfolio_service
 from aer.services import post_trade
 from aer.services import refresh as refresh_service
 from aer.services import watchlist as watchlist_service
+from aer.services.calculations import new_context
+from aer.services.performance import exposure_as_at
 
 __all__ = ["SHOWN", "Suggestion", "suggestions_for"]
 
@@ -72,7 +76,46 @@ async def suggestions_for(
     records = await record_service.records_for(session, user=user, now=moment)
     collected.extend(await _held_without_a_thesis(session, user=user, records=records))
     collected.extend(await _closed_and_unreviewed(session, user=user, now=moment))
+    collected.extend(await _close_to_the_ceiling(session, user=user))
     return tuple(sorted(collected, key=lambda row: row.condition_met_at))
+
+
+async def _close_to_the_ceiling(session: AsyncSession, *, user: User) -> list[Suggestion]:
+    """The five largest within two points of the operator's own top-five ceiling, or past it.
+
+    Dated from when the ceiling was stated: the earliest the condition could have been met,
+    since nothing records the day the book first came within reach of it. The figure is the
+    risk page's own (ADR 0136 §4), struck in a ledger this page drops.
+    """
+    book = await portfolio_service.default_book(session, user_id=user.id)
+    if book is None:
+        return []
+    ceiling = (await limit_service.limits_of(session, portfolio=book)).five_largest
+    if ceiling is None:
+        return []
+    as_of = await portfolio_service.latest_close(session, portfolio=book)
+    ledger = new_context()
+    view = await portfolio_service.book_as_at(session, ledger, portfolio=book, as_of=as_of)
+    exposure = await exposure_as_at(session, ledger, portfolio=book, as_of=as_of, view=view)
+    top = exposure.top_holdings.value if exposure.top_holdings is not None else None
+    over = limit_service.is_over(top, ceiling)
+    if top is None or not (over or limit_service.is_near(top, ceiling)):
+        return []
+    share = display.percentage(top, in_table=True)
+    where = "past" if over else "within two points of"
+    return [
+        Suggestion(
+            kind="concentration",
+            title="Look at your concentration",
+            justification=(
+                f"Your five largest positions are {share} of the book, {where} "
+                f"{limit_service.ceiling_words(ceiling)}."
+            ),
+            condition_met_at=ceiling.stated_at,
+            action_href="/risk#exposure",
+            action_label="Open the risk page",
+        )
+    ]
 
 
 async def _refreshes_unread(session: AsyncSession, *, user: User) -> list[Suggestion]:

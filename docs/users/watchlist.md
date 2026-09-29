@@ -35,6 +35,10 @@ with its as-of date and links to its request, its run and its report:
 - **Researched** — a report exists for the latest commission, linked from the row.
 - **Stopped** — the last run died, so the entry is back in the queue.
 
+Each row also says what price move it alerts you to. **Change it** on the row sets the
+listing's own threshold and the days it is measured over; left blank, the threshold follows
+the account's default on Settings. The alert page carries the same control.
+
 ## The standing budget
 
 The queue may start research up to a pound figure a month, set by

@@ -40,6 +40,7 @@ from aer.db.models.judgement import (
     ReviewVerdict,
     Thesis,
 )
+from aer.db.models.limit import BookLimit
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.operator_slate import OperatorPeer, OperatorTheme
@@ -81,6 +82,7 @@ __all__ = [
     "AssumptionProposal",
     "Attestation",
     "AuditEvent",
+    "BookLimit",
     "Calculation",
     "CatalystResolution",
     "Citation",

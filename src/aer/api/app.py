@@ -56,6 +56,7 @@ from aer.web.decisions import pages as decision_pages
 from aer.web.monitor import pages as monitor_pages
 from aer.web.overview import pages as overview_pages
 from aer.web.overview import research_pages as overview_research_pages
+from aer.web.platform import pages as platform_pages
 from aer.web.portfolio import pages as portfolio_pages
 from aer.web.review import pages as review_pages
 from aer.web.risk import pages as risk_pages
@@ -208,6 +209,7 @@ def create_app(
         ask_pages.router,
         company_pages.router,
         tool_pages.router,
+        platform_pages.router,
     ):
         app.include_router(mounted)
     _register_local_media_types()
