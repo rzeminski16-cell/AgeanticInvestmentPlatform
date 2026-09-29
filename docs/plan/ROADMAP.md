@@ -3467,6 +3467,21 @@ found rather than as scope that was always there.
     words, a horizon and an exit plan. U6's page names the gap rather than drawing a greyed
     chart of it. **Open**: a confidence on the decision form, stated in words the operator
     chooses from and stored with the decision, is the prerequisite, and a change to F10.
+94. **A run's live stream held a database connection for as long as its console was open, 29
+    September 2026.** Found at U6's browser gate, as the suite's rotating ResourceWarning
+    failing `gate.UNMAPPED_CONCEPTS.rejected`. The stream polls with a session per tick so as
+    to hold nothing between polls, but the route's own session — the one its ownership check
+    read — is closed by FastAPI only after the response has been sent, and a live console's
+    response is still being sent when the page is closed or the server stops. So every open
+    console pinned one of the web process's fifteen connections, idle in a transaction, for
+    up to an hour; and every browser test that ended on a running console left that
+    connection for the garbage collector when its server stopped. `tests/e2e/conftest.py`
+    had traced the flake to shutdown, and the stream's own session was what shutdown kept
+    finding.
+
+    **Fixed 29 September 2026.** The route closes its session once ownership is checked, before
+    the stream starts. `tests/test_run_api.py` asserts the stream is handed over holding no
+    connection; it failed, one connection held, before the fix.
 
 ### Before this leaves one machine
 

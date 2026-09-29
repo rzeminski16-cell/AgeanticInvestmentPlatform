@@ -224,6 +224,11 @@ async def stream_run(
     query the same row a thousand times to answer a question that cannot change.
     """
     await _owned_job(session, job_id=job_id, user=user)
+    # The request's session is closed only once the response has been sent, and a stream is
+    # sent for as long as the run lasts. Left open, the check's connection would sit idle in
+    # a transaction for up to an hour per open console — what the stream's session per poll
+    # exists to prevent — and a server stopped mid-stream would strand it.
+    await session.close()
 
     return StreamingResponse(
         event_stream(state.session_factory, job_id=job_id),

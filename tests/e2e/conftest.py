@@ -217,6 +217,12 @@ def _finalise_abandoned_connections() -> None:
 
     The leak that matters in production — a browser navigating away mid-poll, on a server
     that keeps running — is fixed in :mod:`aer.api.sse` and never reaches this function.
+
+    **And the stream was what nearly every teardown stranded.** Its route's own session, the
+    one the ownership check read, was closed only once the response had been sent — for a
+    live console, never before the server stopped — so each test ending on a running console
+    left one behind (ROADMAP item 94). The route now closes it before streaming, and what is
+    left for this collection is a poll or a badge count caught mid-query.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ResourceWarning)

@@ -22,6 +22,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from decimal import Decimal
 from io import BytesIO
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
@@ -33,6 +34,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import aer.render.pdf as pdf_module
 from aer.api import sse as sse_module
+from aer.api.routes.runs import stream_run
 from aer.api.sse import event_stream
 from aer.config import Settings
 from aer.core.disagreement import (
@@ -957,6 +959,38 @@ class TestTheEventStream:
                 await consumer
 
         assert pool.checkedout() == settled, "the cancelled poll kept its connection"
+
+    async def test_the_stream_is_handed_over_holding_no_connection(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The ownership check's connection goes back before the first frame is sent.
+
+        FastAPI closes a request's session only after the response has been sent, and this
+        response is sent for as long as the run lasts. So the session the route was given
+        held its connection idle in a transaction for the life of every open console — and
+        when a server stopped mid-stream, that was the connection it stranded: the browser
+        suite's rotating ResourceWarning, which the test above chased through the poll.
+
+        Called directly rather than through HTTP, because an ASGI test client collects the
+        whole body before it returns, and this body does not end while the run is paused.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        pool = db_engine.sync_engine.pool
+        settled = pool.checkedout()
+
+        async with factory() as session:
+            response = await stream_run(
+                job_id,
+                SimpleNamespace(session_factory=factory),  # type: ignore[arg-type]
+                session,
+                committed["user"],
+            )
+            assert pool.checkedout() == settled, "the stream kept the request's connection"
+            await response.body_iterator.aclose()  # type: ignore[attr-defined]
 
     async def test_a_quiet_run_still_says_the_server_is_alive(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
