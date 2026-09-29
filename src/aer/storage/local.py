@@ -383,13 +383,16 @@ class LocalArtefactStore:
         )
         return ValidationError(message, context={"size_bytes": size, "max_bytes": self._max_bytes})
 
-    @staticmethod
-    def _missing(sha256: str) -> IntegrityError:
+    def _missing(self, sha256: str) -> IntegrityError:
+        # The folder is named because the likelier cause is the second — a store read from one
+        # folder after being restored into another — and the page a download refused on is the
+        # only place the operator would otherwise not learn which folder was read.
         message = (
-            "No artefact is stored at this content address. Either the store has been "
-            "pruned, or it is pointed at a different directory from the one that holds it."
+            f"No artefact is stored at this content address in {self._root}. Either the store "
+            "has been pruned, or it is pointed at a different directory from the one that "
+            "holds it."
         )
-        return IntegrityError(message, context={"sha256": sha256})
+        return IntegrityError(message, context={"sha256": sha256, "root": str(self._root)})
 
 
 def _digest_file(path: Path) -> str:

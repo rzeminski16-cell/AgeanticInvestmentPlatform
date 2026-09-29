@@ -30,7 +30,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import Column, func, select, union
+from sqlalchemy import Column, Select, func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider
@@ -53,6 +53,7 @@ __all__ = [
     "PurgeOutcome",
     "artefact_references",
     "collect_garbage",
+    "kept_artefacts",
     "licensed_providers",
     "purge_artefact",
     "purge_provider",
@@ -353,6 +354,16 @@ class IntegrityReport:
         return not self.corrupt and not self.missing
 
 
+def kept_artefacts() -> Select[tuple[str]]:
+    """The digests whose bytes the store is meant to hold: every artefact not purged by licence.
+
+    One statement for every question about whether the store is whole, so the sweep and
+    preflight's ``documents`` row cannot come to disagree about which absences are losses.
+    """
+    purged = select(ArtefactPurge.artefact_id)
+    return select(Artefact.sha256).where(Artefact.id.not_in(purged)).order_by(Artefact.sha256)
+
+
 async def verify_store(session: AsyncSession, store: ArtefactStore) -> IntegrityReport:
     """Re-read every artefact and check it still hashes to its name.
 
@@ -374,9 +385,7 @@ async def verify_store(session: AsyncSession, store: ArtefactStore) -> Integrity
     missing: list[str] = []
     checked = 0
 
-    purged = select(ArtefactPurge.artefact_id)
-    statement = select(Artefact.sha256).where(Artefact.id.not_in(purged)).order_by(Artefact.sha256)
-    keepable = list(await session.scalars(statement))
+    keepable = list(await session.scalars(kept_artefacts()))
     total = await session.scalar(select(func.count()).select_from(Artefact)) or 0
 
     for sha256 in keepable:

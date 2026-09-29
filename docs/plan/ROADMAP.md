@@ -3482,6 +3482,21 @@ found rather than as scope that was always there.
     **Fixed 29 September 2026.** The route closes its session once ownership is checked, before
     the stream starts. `tests/test_run_api.py` asserts the stream is handed over holding no
     connection; it failed, one connection held, before the fix.
+95. **A restored report's download said *Not available* on the operator's machine, 29
+    September 2026.** Stage 5 of the Windows bring-up. The same backup restored here, under the
+    code the operator ran (`df44c82`) and under this code, serves every download and preview of
+    all ten of its reports, 43 links, so the corpus and the route are sound and the refusal is
+    the machine's. Every link that can say *Not available* there reads a stored document, while
+    the reports list and the footnotes read only the database, which is why they worked. The
+    likeliest cause is a store read from a folder the restore did not write to —
+    `AER_ARTEFACT_ROOT` is `./var/artefacts`, relative to the folder each command starts in —
+    and nothing could say so: preflight never looked at the store, and the refusal did not
+    name the folder it read.
+
+    **Made visible 29 September 2026.** Preflight's new `documents` row names the folder and
+    says whether every document the database cites is in it, with the relative-path trap named
+    when it applies; the refusal names the folder too. **Open**: the sentence under the
+    operator's heading, to confirm the cause rather than infer it.
 
 ### Before this leaves one machine
 

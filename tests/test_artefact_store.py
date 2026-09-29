@@ -309,6 +309,17 @@ class TestIntegrity:
         with pytest.raises(IntegrityError, match="No artefact is stored"):
             await store.verify(PAYLOAD_SHA256)
 
+    async def test_a_missing_artefact_names_the_folder_it_was_looked_for_in(self, store):
+        """Task 85: a restored report whose download is refused should say where it looked.
+
+        The reports list and the footnotes read the database, so a store restored into one
+        folder and read from another passes everything until a file is asked for.
+        """
+        with pytest.raises(IntegrityError) as refused:
+            await store.read(PAYLOAD_SHA256)
+
+        assert str(store.root) in refused.value.message
+
     async def test_verification_reads_from_disk_every_time(self, store):
         # A cached integrity check is a check performed once and assumed forever.
         await store.put_bytes(PAYLOAD)

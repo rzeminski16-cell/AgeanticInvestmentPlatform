@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -22,7 +23,9 @@ from aer.core.enums import UserRole
 from aer.db.models import User
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, HEALTH_CHECK_KEY
 from aer.services import preflight as preflight_module
+from aer.services.artefacts import store_artefact
 from aer.services.preflight import Check, CheckStatus, Preflight, run_preflight
+from aer.storage.local import LocalArtefactStore
 from tests.db_cleanup import delete_all
 
 _RECORD = "Sep-06 10:41:03 j_complete=3 j_failed=0 j_retried=0 j_ongoing=0 queued=0"
@@ -53,6 +56,18 @@ async def _with_a_user(factory: Any) -> None:
         await session.commit()
 
 
+async def _with_documents(factory: Any, root: Path, *, count: int) -> list[str]:
+    """``count`` documents stored under ``root`` and recorded in the database."""
+    store = LocalArtefactStore(root, max_bytes=1_000_000)
+    digests = []
+    async with factory() as session:
+        for index in range(count):
+            record = await store_artefact(session, store, data=f"filing {index}".encode())
+            digests.append(record.sha256)
+        await session.commit()
+    return digests
+
+
 def _check(readout: Preflight, name: str) -> Check:
     return next(check for check in readout.checks if check.name == name)
 
@@ -79,6 +94,7 @@ class TestAReadyPlatform:
             "database",
             "schema",
             "user",
+            "documents",
             "run_cap",
             "monthly_room",
             "redis",
@@ -86,7 +102,7 @@ class TestAReadyPlatform:
             "price_feed",
             "wire_contract",
         ]
-        for name in ("provider_key", "database", "schema", "user", "redis", "worker"):
+        for name in ("provider_key", "database", "schema", "user", "documents", "redis", "worker"):
             assert _check(readout, name).status is CheckStatus.PASS, name
         assert _check(readout, "worker").detail.startswith("A worker is alive and idle")
         assert _check(readout, "user").detail.startswith("owner@example.invalid")
@@ -148,7 +164,7 @@ class TestWhatTheRunCannotSurvive:
         readout = await _preflight(settings, factory, fake_redis)
 
         assert _check(readout, "database").status is CheckStatus.FAIL
-        for name in ("schema", "user", "run_cap", "monthly_room"):
+        for name in ("schema", "user", "documents", "run_cap", "monthly_room"):
             skipped = _check(readout, name)
             assert skipped.status is CheckStatus.SKIP, name
             assert "database" in skipped.detail
@@ -176,6 +192,82 @@ class TestWhatTheRunCannotSurvive:
         detail = _check(readout, "database").detail
         assert len(detail) < 400
         assert "aer_local_dev" not in detail
+
+
+class TestTheDocumentStore:
+    """The row that would have said why a restored report would not download (task 85).
+
+    The reports list and every footnote read the database, so a store in the wrong folder
+    passed every other row and was first met as a download refused with *Not available*.
+    """
+
+    async def test_a_platform_with_nothing_stored_has_nothing_to_miss(
+        self, settings: Settings, factory: Any, fake_redis: Any
+    ) -> None:
+        readout = await _preflight(settings, factory, fake_redis)
+
+        documents = _check(readout, "documents")
+        assert documents.status is CheckStatus.PASS
+        assert str(settings.artefact_root.resolve()) in documents.detail
+
+    async def test_every_cited_document_in_place_passes_and_names_the_folder(
+        self, settings: Settings, factory: Any, fake_redis: Any
+    ) -> None:
+        await _with_documents(factory, settings.artefact_root, count=2)
+
+        readout = await _preflight(settings, factory, fake_redis)
+
+        documents = _check(readout, "documents")
+        assert documents.status is CheckStatus.PASS
+        assert documents.detail.startswith("All 2 documents")
+        assert str(settings.artefact_root.resolve()) in documents.detail
+
+    async def test_a_store_in_another_folder_fails_and_says_which_setting(
+        self, settings_env: pytest.MonkeyPatch, factory: Any, fake_redis: Any, tmp_path: Any
+    ) -> None:
+        """The database restored, the documents restored somewhere else: none are found."""
+        await _with_documents(factory, tmp_path / "restored-here", count=2)
+        settings_env.setenv("AER_ARTEFACT_ROOT", str(tmp_path / "read-from-here"))
+        settings_env.setenv("AER_ANTHROPIC_API_KEY", "sk-ant-not-a-real-key")
+
+        readout = await _preflight(load_settings(), factory, fake_redis)
+
+        documents = _check(readout, "documents")
+        assert documents.status is CheckStatus.FAIL
+        assert documents.detail.startswith("None of the 2 documents")
+        assert str(tmp_path / "read-from-here") in documents.detail
+        assert "AER_ARTEFACT_ROOT" in documents.detail
+        # An absolute root cannot be the relative-path trap, so the row does not suggest it.
+        assert "relative path" not in documents.detail
+        assert not readout.ok
+
+    async def test_a_relative_root_says_it_is_read_from_the_starting_folder(
+        self, settings_env: pytest.MonkeyPatch, factory: Any, fake_redis: Any, tmp_path: Any
+    ) -> None:
+        await _with_documents(factory, tmp_path / "restored-here", count=1)
+        settings_env.setenv("AER_ARTEFACT_ROOT", "./no-such-folder-for-preflight")
+        settings_env.setenv("AER_ANTHROPIC_API_KEY", "sk-ant-not-a-real-key")
+
+        readout = await _preflight(load_settings(), factory, fake_redis)
+
+        documents = _check(readout, "documents")
+        assert documents.status is CheckStatus.FAIL
+        assert "relative path" in documents.detail
+        assert "same one" in documents.detail
+
+    async def test_some_missing_fails_with_the_count_and_where_to_look(
+        self, settings: Settings, factory: Any, fake_redis: Any
+    ) -> None:
+        digests = await _with_documents(factory, settings.artefact_root, count=2)
+        store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+        store.path_for(digests[0]).unlink()
+
+        readout = await _preflight(settings, factory, fake_redis)
+
+        documents = _check(readout, "documents")
+        assert documents.status is CheckStatus.FAIL
+        assert documents.detail.startswith("1 of the 2 documents")
+        assert "aer verify-artefacts" in documents.detail
 
 
 class TestWhatTheRunSurvivesButShouldKnow:

@@ -170,7 +170,12 @@ uv run aer preflight
 ```
 
 - [ ] Every row of `preflight` reads ready. It checks the keys, the caps, the worker and every
-      dependency a paid run needs, and it costs nothing.
+      dependency a paid run needs, and it costs nothing. *(29 September 2026.)* Its
+      `documents` row names the folder the platform reads documents from, and should say every
+      one the database cites is there: 1,579 in the restored corpus. If it says none are, that
+      folder is not the one the restore wrote to, and every download would say *Not
+      available*. Start the server, the worker and the restore from the repository folder:
+      `./var/artefacts` is read from the folder each command is started in.
 - [ ] <http://127.0.0.1:8000/reports> lists the restored reports, and one opens with its
       footnotes resolving. Walk a figure in AZN's or M&T's. *(27 September 2026.)* In
       Microsoft's restored reports, 17 to 26 cited figures on the discount rate's chain stop

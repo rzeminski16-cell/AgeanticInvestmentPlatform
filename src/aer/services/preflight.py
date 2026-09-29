@@ -10,7 +10,9 @@ footing rather than an assumed one.
 
 **Three verdicts, and what each means for the run.** A ``FAIL`` is something the run
 cannot survive: no database, a schema behind the models, no worker listening, no model
-key, no user. A ``WARN`` is something the run survives and the operator should know: no
+key, no user, a document store without the documents the database cites (a source that
+cannot be re-read is a citation that cannot be re-checked, and a report whose files will
+not download). A ``WARN`` is something the run survives and the operator should know: no
 price feed (the comparables table stays empty, by design), a cap within a retry's worth of
 the last run's cost, a month with less room than a run. A ``SKIP`` is a check that could
 not be made because an earlier one failed, or one only a paid call can make — the wire
@@ -43,7 +45,9 @@ from aer.db.schema_check import schema_drift
 from aer.logging import redact_value
 from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, worker_health
 from aer.services.configuration import effective_settings
+from aer.services.retention import kept_artefacts
 from aer.services.spend import recent_runs
+from aer.storage.local import LocalArtefactStore
 from aer.workflow.engine import spend_this_month
 
 __all__ = ["Check", "CheckStatus", "Preflight", "run_preflight"]
@@ -52,6 +56,14 @@ _log = structlog.get_logger("aer.services.preflight")
 
 # A probe that hangs tells the operator nothing; a fast failure tells them what to start.
 _PROBE_TIMEOUT_SECONDS: Final = 5.0
+
+# Said beside a missing document only when it could be the cause: a relative root is read
+# from the folder each command starts in, so a server started from one folder and a restore run
+# from another use two different stores over one database.
+_RELATIVE_ROOT: Final = (
+    " AER_ARTEFACT_ROOT is a relative path, so each command reads it from the folder it was "
+    "started in: start the server, the worker and a restore from the same one."
+)
 
 # The headroom a cap should carry over the last run's cost before a run with the same
 # shape is likely to pause at it: one retried section on the dearest route, roughly.
@@ -113,13 +125,14 @@ async def run_preflight(
         async with session_factory() as session:
             checks.append(await _probe("schema", _schema_at_head(session)))
             checks.append(await _probe("user", _a_user_exists(session)))
+            checks.append(await _probe("documents", _documents_are_stored(session, settings)))
             resolved = await effective_settings(session, settings)
             checks.append(await _probe("run_cap", _cap_against_last_run(session, resolved)))
             checks.append(await _probe("monthly_room", _months_room(session, resolved, moment)))
     else:
         checks.extend(
             _skipped(name, "not checked: the database did not answer")
-            for name in ("schema", "user", "run_cap", "monthly_room")
+            for name in ("schema", "user", "documents", "run_cap", "monthly_room")
         )
 
     cache = await _probe("redis", _redis_answers(redis))
@@ -205,6 +218,48 @@ async def _a_user_exists(session: AsyncSession) -> Check:
             "uv run aer seed-user --email you@example.com",
         )
     return Check("user", CheckStatus.PASS, f"{user.email} can approve the gates.")
+
+
+async def _documents_are_stored(session: AsyncSession, settings: Settings) -> Check:
+    """Whether the folder documents are read from holds every one the database cites.
+
+    Presence only, in one pass: hashing them is ``aer verify-artefacts``'s work and would not
+    fit inside a probe's five seconds. What it catches is the database and the store
+    disagreeing about where the corpus lives — restored into one folder, read from another —
+    which no other row can see. The reports list and every footnote read the database, so
+    until this row, the first to find out was a download, as a page saying *Not available*.
+    """
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+    digests = list(await session.scalars(kept_artefacts()))
+    missing = await asyncio.to_thread(
+        lambda: sum(1 for digest in digests if not store.path_for(digest).is_file())
+    )
+    where = store.root
+    if not digests:
+        return Check(
+            "documents", CheckStatus.PASS, f"None stored yet; they will be kept in {where}."
+        )
+    if not missing:
+        return Check(
+            "documents",
+            CheckStatus.PASS,
+            f"All {len(digests):,} documents the database cites are in {where}.",
+        )
+    relative = "" if settings.artefact_root.is_absolute() else _RELATIVE_ROOT
+    if missing == len(digests):
+        return Check(
+            "documents",
+            CheckStatus.FAIL,
+            f"None of the {len(digests):,} documents the database cites is in {where}, so "
+            "every download and every re-read of a report's sources will fail. It is not the "
+            f"folder they were restored into: set AER_ARTEFACT_ROOT to that one.{relative}",
+        )
+    return Check(
+        "documents",
+        CheckStatus.FAIL,
+        f"{missing:,} of the {len(digests):,} documents the database cites are missing from "
+        f"{where}. `aer verify-artefacts` names them, and a backup restores them.{relative}",
+    )
 
 
 async def _redis_answers(redis: Any) -> Check:

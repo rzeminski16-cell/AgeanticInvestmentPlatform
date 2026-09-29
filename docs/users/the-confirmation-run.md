@@ -157,8 +157,10 @@ each one has cost a live run before.
 
 **What `just preflight` covers.** Its rows are these steps: `database`, `redis` and `schema`
 are 1.2 and 1.3; `user` is 1.4; `provider_key`, `run_cap`, `monthly_room` and `price_feed` are
-1.5; `worker` is 1.7. It does not run 1.1 or 1.6, which are yours. Read the steps the first
-time, and come back to a step when its row fails.
+1.5; `worker` is 1.7. `documents` is no step of its own: it says whether the document store
+holds every document the database cites, and names the folder it read. It does not run 1.1 or
+1.6, which are yours. Read the steps the first time, and come back to a step when its row
+fails.
 
 ### 1.1 Be running the code you think you are
 

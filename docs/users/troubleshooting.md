@@ -15,8 +15,9 @@ uv run arq aer.worker.WorkerSettings    # or: just worker
 ```
 
 Before commissioning a run, `just preflight` checks all of this — the services, the schema, a
-user, the model key, the caps against the last run and the month, and a live worker — in one
-readout at no cost, and exits 1 when the run could not survive what is missing.
+user, the document store, the model key, the caps against the last run and the month, and a
+live worker — in one readout at no cost, and exits 1 when the run could not survive what is
+missing.
 
 The console will sit at "queued" indefinitely with no worker attached. It is not broken and
 nothing is lost — start the worker and it picks the job up. It also says so: the worker
@@ -242,6 +243,17 @@ or a thin evidence pack.
 
 Either the peer set has not been confirmed at its gate, or the licensed feed is not
 configured. Comparables are computed only behind a human-confirmed peer set.
+
+## A report opens, but its download says *Not available*
+
+The sentence under the heading says why. *No artefact is stored at this content address in …*
+means the database knows the file and the folder named does not hold it: the reports list and
+every footnote read the database, so they work, and only a download or a re-read of a source
+finds out. Almost always the documents were restored into one folder and the server reads
+another. `just preflight`'s `documents` row names the folder it reads and says whether every
+document the database cites is there. `AER_ARTEFACT_ROOT` in `.env` is `./var/artefacts` unless
+you changed it, a path relative to the folder each command is started in, so start the server,
+the worker and a restore from the repository folder, or set it to a full path.
 
 ## PDF rendering fails
 
