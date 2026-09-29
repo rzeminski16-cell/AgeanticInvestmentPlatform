@@ -71,7 +71,7 @@ from aer.services.company_record import CompanyRecord
 from aer.services.spend import spend_by_job
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.pages import problem_page
 from aer.web.portfolio.pages import pounds, shares
 from aer.web.templating import render
@@ -136,7 +136,7 @@ async def companies_page(
     records = await record_service.records_for(session, user=user, now=now)
     shown = record_service.filtered(records, show, now=now)
     estimate = refresh_service.estimate_refresh(settings)
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "companies/index.html",
@@ -469,7 +469,7 @@ async def company_page(
         else limit_service.Limits()
     )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     page: Response = render(
         request,
         "companies/detail.html",

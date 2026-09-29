@@ -46,7 +46,7 @@ from aer.queue import enqueue_ask
 from aer.services import ask as ask_service
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.templating import render
 
 __all__ = ["QuestionRow", "router"]
@@ -207,7 +207,7 @@ async def ask_page(
     """One input over a company with a record, and every question asked so far."""
     companies = await ask_service.companies_with_a_record(session, user=user)
     rows = [_row(item) for item in await ask_service.questions_for(session, user=user)]
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "ask/index.html",
@@ -286,7 +286,7 @@ async def question_page(
     if question is None:
         return _problem(request, "No such question.")
     content: dict[str, Any] = question.content if isinstance(question.content, dict) else {}
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     page: Response = render(
         request,
         "ask/question.html",

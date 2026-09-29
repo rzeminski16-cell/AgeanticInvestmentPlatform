@@ -47,7 +47,7 @@ from aer.services.skill_authoring import import_diff, validate_skill_source
 from aer.services.skill_dry_run import DRY_RUN_WORKFLOW, dry_run_skill
 from aer.skills.frontmatter import SkillFileError
 from aer.skills.library import starter_library
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.templating import render
 
 __all__ = ["router"]
@@ -110,7 +110,7 @@ async def skills_library(
             }
         )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "skills/list.html",
@@ -138,7 +138,7 @@ async def examples_page(request: Request, settings: SettingsDep, user: CurrentUs
     look optional, which is the habit the diff exists to prevent (threat T20).
     """
     del user
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     page: Response = render(
         request,
         "skills/examples.html",
@@ -175,7 +175,7 @@ async def import_page(
     settings: SettingsDep,
     user: CurrentUser,  # noqa: ARG001 -- the auth dependency
 ) -> Response:
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "skills/import.html",
@@ -321,7 +321,7 @@ async def import_submit(
             "no longer describes the import it would make. Review the diff below."
         )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "skills/import.html",
@@ -424,7 +424,7 @@ def _editor(
     dry_run: dict[str, Any] | None = None,
     used_by: list[dict[str, Any]] | None = None,
 ) -> Response:
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "skills/edit.html",

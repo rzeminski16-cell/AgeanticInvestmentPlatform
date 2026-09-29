@@ -52,7 +52,7 @@ from aer.services.calculations import new_context
 from aer.services.decisions import ACTION_WORDS
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.risk.pages import scenario_row
 from aer.web.templating import render
 from aer.web.theses.pages import PremiseRow, premise_rows
@@ -302,7 +302,7 @@ async def new_decision_page(
     check = await _pre_trade(session, named, user_id=user.id, weight_after=weight)
     if check is not None and typed_problem:
         check["after_problem"] = typed_problem
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     chosen_action = request.query_params.get("action", "")
     response: Response = render(
         request,
@@ -424,7 +424,7 @@ async def decision_page(
         portfolio=await portfolio_service.default_book(session, user_id=user.id),
     )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "decisions/detail.html",

@@ -40,7 +40,7 @@ from aer.services import risk as risk_service
 from aer.services.calculations import new_context
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.forms import percent_to_fraction
 from aer.web.templating import render
 
@@ -83,7 +83,7 @@ async def risk_page(
     request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
     book = await portfolio_service.default_book(session, user_id=user.id)
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     if book is None:
         empty: Response = render(
             request,

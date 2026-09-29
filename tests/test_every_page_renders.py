@@ -38,6 +38,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.agents.post_trade_reviewer import ReviewDraft
+from aer.api.security import CSRF_COOKIE_NAME, CSRF_FIELD_NAME
 from aer.config import Settings
 from aer.core.enums import (
     DecisionAction,
@@ -518,6 +519,42 @@ class TestEveryPageSpeaksWords:
 
         assert not spoken, "These pages show code where a person reads words:\n" + "\n".join(
             f"  {route}: {found}" for route, found in sorted(spoken.items())
+        )
+
+
+class TestEveryPageKeepsTheFormsToken:
+    """ROADMAP item 96: no page replaces a form token its request already carries.
+
+    Pages that minted their own set a cookie every other open page's forms had not been
+    rendered against — the run console reloading itself as the run moved, a gate opened in a
+    second tab — and the next press on any of them was refused as a forgery.
+    """
+
+    async def test_no_page_replaces_a_usable_token(
+        self, api: Any, finished_run: dict[str, Any]
+    ) -> None:
+        await api.get("/", follow_redirects=True)
+        assert api.cookies.get(CSRF_COOKIE_NAME), "the first page set no form token"
+
+        replaced: dict[str, str] = {}
+        carried = re.compile(rf'name="{CSRF_FIELD_NAME}"\s+value="([^"]+)"')
+        for route in sorted(page_routes_for()):
+            url = _fill(route, finished_run)
+            if url is None or route in DOCUMENTS:  # pragma: no cover -- all fillable today
+                continue
+            # Against what this request carried, so one page that replaces the token is
+            # named alone rather than blamed on every page opened after it.
+            held = api.cookies.get(CSRF_COOKIE_NAME)
+            response = await api.get(url, follow_redirects=True)
+            issued = response.cookies.get(CSRF_COOKIE_NAME)
+            if issued is not None and issued != held:
+                replaced[route] = "set a new cookie"
+            elif any(token != held for token in carried.findall(response.text)):
+                replaced[route] = "rendered a form carrying a different token"
+
+        assert not replaced, (
+            "These pages replaced the form token the request carried, which refuses the next "
+            f"press on every other page already open: {replaced}"
         )
 
 

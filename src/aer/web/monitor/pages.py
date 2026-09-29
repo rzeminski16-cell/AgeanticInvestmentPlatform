@@ -44,7 +44,7 @@ from aer.services.theses import SUBJECT_COMPANY
 from aer.services.watchlist import DEFAULT_PRICE_WINDOW_DAYS
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.gates import CONSEQUENCES
 from aer.web.templating import render
 from aer.web.theses.pages import defeat_words, held_in_order, measured_figure, premise_state
@@ -325,7 +325,7 @@ async def monitor_page(
     passes = await thesis_monitor.recent_passes(session, user_id=user.id)
     titles = {thesis.id: thesis.title for thesis in theses}
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "monitor/index.html",
@@ -416,7 +416,7 @@ async def finding_page(
         else (0, 0)
     )
     security = finding.security
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "monitor/finding.html",

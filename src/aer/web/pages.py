@@ -134,7 +134,7 @@ from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
 from aer.web import figures, reader, stages, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.gates import CONSEQUENCES, GATE_PAGES, GATE_STEPS, frame_for, journey
 from aer.web.platform.health import daily_pass_words, worker_words
 from aer.web.templating import render
@@ -297,7 +297,7 @@ async def run_console(
         else []
     )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "runs/console.html",
@@ -1136,7 +1136,7 @@ async def plan_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.PLAN, live_hash=payload_hash_for(payload)
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1216,7 +1216,7 @@ async def financials_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.UNMAPPED_CONCEPTS, live_hash=payload_hash_for(payload)
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1290,7 +1290,7 @@ async def sector_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.SECTOR_SPECIALIST, live_hash=payload_hash_for(payload)
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1368,7 +1368,7 @@ async def peer_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.PEER_SET, live_hash=payload_hash_for(payload)
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1436,7 +1436,7 @@ async def theme_review(
     frame = await frame_for(
         session, job=job, gate=GateKind.THEME_SET, live_hash=payload_hash_for(payload)
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1515,7 +1515,7 @@ async def assumptions_review(
     # decision the rows have moved under is open again, so it is shown there too.
     settled = frame.get("decided") and not frame.get("stale_decision")
     check = None if settled else await terminal_check(session, job=job, rows=rows)
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -1640,7 +1640,7 @@ async def draft_review(
         cost_summary=frame["gate_cost"].summary,
         authored_output=await _step_output(session, job_id=job_id, step_key="verdict"),
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     response: Response = render(
         request,
@@ -3055,7 +3055,7 @@ async def settings_page(
     operator here when a run is queued with nothing to run it, rather than telling them
     which command to type (§2.11).
     """
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     context = await _settings_context(session, settings, token=token, user_id=user.id)
     context["saved"] = request.query_params.get("saved") == "1"
     context["worker"] = await worker_words(redis)
@@ -3094,7 +3094,7 @@ async def save_settings(
             actor=user,
         )
     except ValidationError as refused:
-        token = new_csrf_token(settings)
+        token = form_token(request, settings)
         context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
         context["worker"] = await worker_words(redis)
@@ -3139,7 +3139,7 @@ async def save_standing_settings(
             actor=user,
         )
     except ValidationError as refused:
-        token = new_csrf_token(settings)
+        token = form_token(request, settings)
         context = await _settings_context(session, settings, token=token, user_id=user.id)
         context["error"] = refused.message
         context["worker"] = await worker_words(redis)
@@ -3592,7 +3592,7 @@ async def report_detail(
         await refresh_service.mark_changes_read(session, job=own_run)
         await session.commit()
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     detail: Response = render(
         request,
         "reports/detail.html",

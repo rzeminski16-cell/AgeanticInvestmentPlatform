@@ -25,12 +25,7 @@ from aer.core.disagreement import (
     spoken_tier,
 )
 from aer.version import version
-from aer.web.csrf import (
-    CSRF_FIELD_NAME,
-    new_csrf_token,
-    set_csrf_cookie,
-    usable_csrf_token,
-)
+from aer.web.csrf import CSRF_FIELD_NAME, form_token, set_csrf_cookie
 from aer.web.figures import assumption_figure, concept_name, trimmed
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
 from aer.web.vocabulary import (
@@ -144,11 +139,7 @@ def render(
     # The request's own token first. A fragment rendered through this door — the badge
     # counts, a form's error list — would otherwise mint a new one and set it, replacing the
     # value every form already on the page is carrying. See `usable_csrf_token`.
-    token = (
-        supplied.get("csrf_token")
-        or usable_csrf_token(request, settings)
-        or new_csrf_token(settings)
-    )
+    token = supplied.get("csrf_token") or form_token(request, settings)
     merged: dict[str, Any] = {
         "shell": shell_for(
             request.url.path,

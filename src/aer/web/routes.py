@@ -69,7 +69,7 @@ from aer.services.assumption_gate import outstanding_for
 from aer.services.availability import check_availability, resolve_subject
 from aer.services.refresh import estimate_refresh
 from aer.web import figures, vocabulary
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
 from aer.web.gates import GATE_STEPS
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, THEMES
@@ -259,7 +259,7 @@ async def list_requests_page(
         session, user_id=user.id, archived=not archived
     )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "requests/list.html",
@@ -331,7 +331,7 @@ def _prefilled(request: Request) -> dict[str, str]:
 
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
 async def new_request_form(request: Request, session: DbSession, settings: SettingsDep) -> Response:
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         _NEW_PAGE.template,
@@ -683,7 +683,7 @@ async def edit_request_form(
         return _immutable(request, item=found, reason=reason, verb="edited")
 
     page = _edit_page(found)
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         page.template,
@@ -884,7 +884,7 @@ async def confirm_removal(
     if found is None:
         return _request_not_found(request, request_id)
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "requests/remove.html",
@@ -1072,7 +1072,7 @@ async def request_detail(
         else None
     )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     detail: Response = render(
         request,
         "requests/detail.html",
@@ -1223,7 +1223,7 @@ def _render_failure(
     """
     htmx = _is_htmx(request)
     template = "requests/_form_errors.html" if htmx else page.template
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         template,
@@ -1283,7 +1283,7 @@ async def assumptions_page(
             }
         )
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     page: Response = render(
         request,
         "assumptions/list.html",

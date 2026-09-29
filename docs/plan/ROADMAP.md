@@ -3497,6 +3497,21 @@ found rather than as scope that was always there.
     says whether every document the database cites is in it, with the relative-path trap named
     when it applies; the refusal names the folder too. **Open**: the sentence under the
     operator's heading, to confirm the cause rather than infer it.
+96. **Opening a page refused the forms on every other page already open, 29 September
+    2026.** Found at the final browser gate, as the journey harness's step-mode row: pressing
+    *Continue this run* on the console was refused as a form whose security token was missing
+    or had expired. Thirty-three pages minted a token of their own on every render and set it
+    as the cookie, so each replaced the one every other open page's forms carried — the
+    console reloading itself as its run moved, a gate opened in a second tab, the portfolio
+    beside a report — and the next press on any of them was refused as a forgery. The shared
+    renderer had adopted the request's own token since the badge counts first did this; the
+    pages that minted their own went round it.
+
+    **Fixed 29 September 2026.** Every page asks `form_token`, which adopts the request's
+    token while it has half its eight hours left and mints one otherwise, so no page is
+    rendered with a token about to lapse under its form. `tests/test_every_page_renders.py`
+    opens every page carrying a valid token and fails on any that replaces it; before the fix
+    it named the thirty-three.
 
 ### Before this leaves one machine
 

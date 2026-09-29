@@ -58,7 +58,7 @@ from aer.services.listings import add_listing
 from aer.storage.local import LocalArtefactStore
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.portfolio import dashboard
 from aer.web.templating import render
 
@@ -141,7 +141,7 @@ async def portfolio_page(
     only in a form is a view that cannot be returned to.
     """
     book = await portfolio_service.default_book(session, user_id=user.id)
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
 
     if book is None:
         response: Response = render(

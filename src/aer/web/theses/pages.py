@@ -53,7 +53,7 @@ from aer.services.thesis_monitor import (
     slug_of,
 )
 from aer.web import figures, vocabulary
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.templating import render
 
 __all__ = [
@@ -634,7 +634,7 @@ async def theses_page(
         }
         for thesis in rows
     ]
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "theses/index.html",
@@ -765,7 +765,7 @@ async def _editor_page(
         }
         for row in await decision_service.decisions_of_thesis(session, thesis)
     ]
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "theses/detail.html",

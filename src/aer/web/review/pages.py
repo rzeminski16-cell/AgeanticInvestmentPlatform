@@ -46,7 +46,7 @@ from aer.errors import AerError
 from aer.services import post_trade
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.portfolio.pages import pounds
 from aer.web.templating import render
 
@@ -440,7 +440,7 @@ async def review_page(
         for book in books
         for state in await post_trade.states_for(session, portfolio=book)
     ]
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "review/index.html",
@@ -615,7 +615,7 @@ async def proposal_page(
         review = await _review_of_episode(session, episode)
     recorded = len(await post_trade.reviews_for(session, user_id=user.id))
 
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "review/proposal.html",

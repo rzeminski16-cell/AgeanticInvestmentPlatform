@@ -39,7 +39,7 @@ from aer.services import watchlist as watchlist_service
 from aer.services.spend import spend_by_job
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
-from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, form_token, set_csrf_cookie
 from aer.web.pages import problem_page
 from aer.web.templating import render
 
@@ -105,7 +105,7 @@ async def watchlist_page(
             if job is not None
         ],
     )
-    token = new_csrf_token(settings)
+    token = form_token(request, settings)
     response: Response = render(
         request,
         "watchlist/index.html",

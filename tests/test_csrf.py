@@ -11,18 +11,23 @@ Every test here states the attack it prevents, because a test named
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
 
 import pytest
+from starlette.requests import Request
 
 from aer.api.security import (
+    CSRF_COOKIE_NAME,
     CSRF_TOKEN_MAX_AGE_SECONDS,
     issue_csrf_token,
     tokens_match,
     verify_csrf_token,
 )
+from aer.web.csrf import form_token
 
 KEY = b"a-test-signing-key-of-adequate-length"
 OTHER_KEY = b"a-different-signing-key-entirely-here"
+_SETTINGS = SimpleNamespace(signing_key=KEY)
 
 
 class TestIssuing:
@@ -131,3 +136,39 @@ class TestKeyRotation:
         # behaviour is a known trade rather than a surprise.
         token = issue_csrf_token(KEY)
         assert not verify_csrf_token(OTHER_KEY, token)
+
+
+def _request_carrying(token: str | None) -> Request:
+    headers = [] if token is None else [(b"cookie", f"{CSRF_COOKIE_NAME}={token}".encode())]
+    return Request({"type": "http", "headers": headers})
+
+
+class TestAdoptingTheRequestsToken:
+    """A page's forms carry the token the request brought, while it has life left.
+
+    ROADMAP item 96: pages that minted their own replaced the cookie every other open page's
+    forms had been rendered against, and the next press on any of them was refused.
+    """
+
+    def test_a_young_token_is_the_one_the_page_carries(self):
+        token = issue_csrf_token(KEY, issued_at=int(time.time()) - 60)
+        assert form_token(_request_carrying(token), _SETTINGS) == token  # type: ignore[arg-type]
+
+    def test_a_token_past_half_its_life_is_replaced(self):
+        # Its expiry runs from when it was minted, so a page rendered with it now could see
+        # the form it carries lapse while it is still being read.
+        aged = int(time.time()) - CSRF_TOKEN_MAX_AGE_SECONDS // 2 - 60
+        token = issue_csrf_token(KEY, issued_at=aged)
+        issued = form_token(_request_carrying(token), _SETTINGS)  # type: ignore[arg-type]
+        assert issued != token
+        assert verify_csrf_token(KEY, issued)
+
+    def test_a_token_this_server_did_not_sign_is_replaced(self):
+        forged = issue_csrf_token(OTHER_KEY)
+        issued = form_token(_request_carrying(forged), _SETTINGS)  # type: ignore[arg-type]
+        assert issued != forged
+        assert verify_csrf_token(KEY, issued)
+
+    def test_a_request_without_one_gets_a_new_one(self):
+        issued = form_token(_request_carrying(None), _SETTINGS)  # type: ignore[arg-type]
+        assert verify_csrf_token(KEY, issued)

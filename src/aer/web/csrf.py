@@ -32,12 +32,18 @@ from aer.config import Settings
 __all__ = [
     "CSRF_FIELD_NAME",
     "csrf_is_valid",
+    "form_token",
     "new_csrf_token",
     "set_csrf_cookie",
     "usable_csrf_token",
 ]
 
 _SAME_SITE: Final = "strict"
+
+# A token's expiry runs from when it was minted, not from the page that carries it, so a token
+# is reused only while half its life is left: four hours is longer than a page stays open to
+# be read, and the replacement happens once, not on every render.
+_ADOPTABLE_FOR_SECONDS: Final = CSRF_TOKEN_MAX_AGE_SECONDS // 2
 
 
 def new_csrf_token(settings: Settings) -> str:
@@ -85,12 +91,26 @@ def usable_csrf_token(request: Request, settings: Settings) -> str | None:
 
     So a render reuses what the request brought. ``None`` when there is no cookie, or when
     the one presented does not verify — a stale or tampered value is not a reason to keep
-    using it.
+    using it — or when it has less than half its life left, so that no page is rendered with
+    a token about to expire under the form on it.
     """
     presented = request.cookies.get(CSRF_COOKIE_NAME)
-    if not presented or not verify_csrf_token(settings.signing_key, presented):
+    if not presented or not verify_csrf_token(
+        settings.signing_key, presented, max_age_seconds=_ADOPTABLE_FOR_SECONDS
+    ):
         return None
     return presented
+
+
+def form_token(request: Request, settings: Settings) -> str:
+    """The token a page's forms carry: the request's own while it is usable, else a new one.
+
+    Every page that renders a form asks this rather than :func:`new_csrf_token`. A page that
+    minted its own replaced the cookie every other open page's forms had been rendered
+    against — the run console reloading itself as the run moved, a gate opened in a second
+    tab — and the next press on any of them was refused as a forgery (ROADMAP item 96).
+    """
+    return usable_csrf_token(request, settings) or new_csrf_token(settings)
 
 
 def csrf_is_valid(request: Request, submitted: str | None, settings: Settings) -> bool:
