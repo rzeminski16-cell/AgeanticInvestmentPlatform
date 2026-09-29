@@ -36,6 +36,12 @@
   scripting off the button keeps the price of the depth the page opened with.
 #}
 {% set chosen_mode = values.get("analysis_mode") or (panel.chosen if panel else "") %}
+{#
+  `hx-disinherit`: the buttons are disabled while the form's own POST is in flight, and only
+  then. htmx hands `hx-disabled-elt` down to every element inside the form, so without this
+  the register preview below disabled *Commission* for as long as it asked about the ticker —
+  and a press that landed in that moment was lost.
+#}
 <form
   method="post"
   action="{{ form_action }}"
@@ -43,6 +49,7 @@
   hx-target="#form-errors"
   hx-swap="innerHTML show:#form-errors:top"
   hx-disabled-elt="#submit, #commission"
+  hx-disinherit="hx-disabled-elt"
   class="mt-6"
   id="request-form"
   {% if panel %}data-branches="analysis_mode"{% endif %}

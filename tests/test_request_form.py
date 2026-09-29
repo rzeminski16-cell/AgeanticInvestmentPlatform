@@ -1133,6 +1133,18 @@ class TestTheSubjectIsNamedBeforeSubmit:
         assert "change from:#ticker" in asking
         assert "change from:#exchange" in asking
 
+    async def test_asking_the_register_never_disables_commission(self, web):
+        """The buttons are disabled for the form's own POST and nothing else. htmx hands
+        `hx-disabled-elt` to every element inside the form unless the form withholds it, and
+        the register preview asks on every change of the ticker — so a press on *Commission*
+        while it asked was lost, which the browser suite caught as a request never made."""
+        page = (await web.get(NEW)).text
+
+        start = page.index('id="request-form"')
+        form = page[page.rindex("<form", 0, start) : page.index(">", start)]
+        assert 'hx-disabled-elt="#submit, #commission"' in form
+        assert 'hx-disinherit="hx-disabled-elt"' in form
+
 
 RESOLVE = "/requests/resolve"
 _REFUSAL = "EDGAR lists no company under that ticker."
